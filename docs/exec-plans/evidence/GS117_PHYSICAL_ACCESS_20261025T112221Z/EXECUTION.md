@@ -2024,3 +2024,158 @@ current, request one approval for exactly five sequential physical C3
 on COM4 open accepted, COM10 never opened, automated APK exact-key observation,
 and stop on the first failure. No firmware, reset command, re-commissioning,
 credential, ownership, enrollment or database changes are in scope.
+
+### 2026-10-27 — bounded services and current Android readiness
+
+At source HEAD `cac55b92a00fe6fe807787ce9faa55ba42df5305`, mandatory context
+preflight passed and local/remote canonical HEAD matched. No GS-178 software
+suite was rerun. The existing bounded GS-179 TEST_ONLY ingress and signed-time
+processes were restarted from hash-matched protected operator scripts with the
+preserved fixture CA, Hub certificate, issuer registry, and time/authority
+signers. The listener remains bounded to its one-hour window; ingress autostart
+and persistent service configuration remain disabled.
+
+The active Wi-Fi profile was dynamically rechecked as Private
+`Airtel_Agrim`, IPv4 `192.168.1.10`. Existing scoped forwarding remained
+`192.168.1.10:443 -> 172.17.152.10:8444` and
+`192.168.1.10:8445 -> 172.17.152.10:8445`; Windows TCP probing of the 8445
+route passed. PostgreSQL durability/TLS, caregiver HTTPS, local backend, and
+endpoint certificate/DNS-SAN health passed. A fresh host-generated signed-time
+challenge was verified against the preserved RSA-3072 public key (nonce and
+generation bound, signature and current validity interval passed). This proves
+the service endpoint, not a request from the S3. During this observation window
+the ingress had zero authenticated Hub/event receipts; runtime status remained
+`listener_ready=YES`, PostgreSQL/time ready, `real_hub_authenticated=NO`,
+`hub_connected=NO`. The signed-time datagram counter is unattributed and is not
+counted as authenticated S3 communication. Prior S3 authority/CloudSync
+receipts are historical.
+
+The authorized ADB device was `ZA2237MRHN`, Motorola Edge 60 Fusion. The
+installed package is `in.gharsajag.caregiver.discoverytest`, versionCode 3,
+`0.4.0-connected-lite-staging`. A fresh installed base APK pull matched the
+preserved APK SHA-256 `0b240966255618ad3466e17e8dcca40d71efbe84b0096cb1063ba9f4855e2d76`.
+The certificate embedded in its APK v2 signer block had SHA-256
+`d336ae68479da03de932a44b16c8de730c86e3cf68aee52fe92261e74e596b85`, matching
+both preserved trusted signer digest files; its DER parsed successfully with
+Python `cryptography`. Google `apksigner` was unavailable, so evidence is the
+independent signer-certificate extraction/digest comparison plus exact APK-byte
+match to the trusted preserved installation, not a fresh `apksigner verify`
+execution.
+
+The initial ADB UI dump was empty while the app was not top-resumed and its
+WebView had not rendered. A normal explicit launch of the existing
+`MainActivity` followed by readiness polling exposed the accessibility tree;
+no APK reinstall, authentication bypass, or credential entry occurred. Current
+Settings reported origin `https://192.168.1.10/`, Home
+`gs177-test-product`, and `Backend API · CONNECTED`. Home showed caregiver API
+CONNECTED with monitoring UNKNOWN/source STALE. Reports showed `Latest recorded
+events` for the same Home. The real ADB observer automatically opened Event
+details and matched existing physical event key
+`{physical_device_id: c3-146393c5d158, logical_node_id: bedroom,
+origin_session_id: 112, event_sequence: 2}`. This is explicitly
+`HISTORICAL_READINESS_ONLY_NOT_TC001`; it is not a new controlled event. Private
+readiness screenshots/XML and the historical observer receipt are retained
+mode 0600 outside Git under
+`~/.local/state/ghar-sajag/gs117-tc001/android-observe-20261027T0230Z/`.
+An owner-only current Android installation receipt was created at
+`~/.config/ghar-sajag/gs117-tc001/android-install-receipt-20261027.json`
+(mode 0600). No TC-001 fixture or campaign approval was created.
+
+The existing console at `http://127.0.0.1:18791/` remains blocked at its
+environment gate with
+`owner_only_fixture_approval_and_identity_file_missing`; its latest run
+`TC001-20261027T024327-bdbb3321` injected nothing. The exact fixture was not
+fabricated because there is no current authenticated physical S3 ingress
+receipt or fresh S3 runtime proof. Home/API readiness and APK readiness do not
+establish Hub connectivity. The known NodeHealth uniqueness conflict remains
+separate (`UNKNOWN`/`STALE`) and unchanged; no enrollment or database state was
+modified.
+
+No COM4 or COM10 port was opened. No device reset, injection, flash,
+recommissioning, credential/ownership change, or database mutation occurred.
+The last successful physical S3 ingress/configuration evidence is historical;
+the product's encrypted Wi-Fi/GS40 session is RAM-only and bounded. If it has
+expired, the existing recovery procedure is the one-attempt protected
+`gs117-protected-bootstrap-current-network.py` through COM10 with a fresh
+challenge-bound encrypted configuration. Opening COM10 can trigger
+`USB_UART_CHIP_RESET`, reboot the S3 and lose its RAM-only Wi-Fi/GS40 session;
+the procedure does not flash firmware or overwrite NVS/partition/outbox/state.
+The previously recorded recovery approval covered one attempt and is consumed.
+This task explicitly prohibited COM10 access, so recovery was not attempted.
+
+Focused console/ADB regression `python3 code/tests/python/test_gs117_tc001_console.py`
+is 43/43 PASS for the current implementation. TC-001 remains
+`BLOCKED / NOT_RUN`; five-run physical authorization was neither present nor
+created. Do not request the five-injection campaign approval until a fresh
+authenticated S3 receipt and exact fixture are current. The next action is one
+explicit approval for the reset-aware COM10 encrypted-configuration recovery
+if required, followed by fresh S3 mTLS evidence and fixture validation; the
+five-injection approval remains a separate later gate. Sanitized current
+readiness evidence is retained mode 0600 at
+`~/.local/state/ghar-sajag/gs117-tc001/services-20261027T0230Z/readiness-observation-20261027T0255Z.json`.
+
+### 2026-10-27 — resumed non-disruptive readiness recheck (04:30Z)
+
+The interrupted documentation edits were preserved. Canonical context
+preflight passed; at recheck entry local and origin HEAD were both
+`cac55b92a00fe6fe807787ce9faa55ba42df5305`. The current Windows network was
+Private `Airtel_Agrim`, `192.168.1.10/24`; WSL was `172.17.152.10/20`. Existing
+443→8444 and 8445→8445 portproxy entries were present. The Windows 8445 TCP
+probe passed. A TLS probe without the existing CA and without a client
+certificate received the expected server certificate subject and then a TLS
+handshake-failure alert. This confirms the forwarded path reaches the listener;
+it is not an authenticated Hub session.
+
+At 04:30Z, the existing laptop health command passed PostgreSQL TLS/durability,
+caregiver HTTPS, local backend, and endpoint CA/DNS-SAN checks. It reported
+`PHONE_LAN_REACHABLE=NOT_VERIFIED`, Hub identity unauthenticated, freshness
+UNKNOWN, and persistent ingress NOT_CONFIGURED. The bounded TEST_ONLY ingress
+and signed-time operator were alive; ingress status at 04:30:07Z was listener,
+PostgreSQL and trusted-time ready, but `real_hub_authenticated=NO` and
+`hub_connected=NO`. No current physical receipt or ingress trace row was
+created. Windows UDP 4468 was bound. The separately saved host-generated
+RSA-3072/SHA-256 challenge at 04:22:20Z passed nonce and generation matching
+and was valid at that observation through 04:24:20Z; it is host-only evidence,
+not S3 traffic or a current proof beyond its validity window. The one-hour
+bounded processes expire around 05:19Z; no persistent startup was enabled.
+
+The private Android receipt is timestamped `2026-10-27T02:59:52Z` for ADB
+device `ZA2237MRHN`, Motorola Edge 60 Fusion, package
+`in.gharsajag.caregiver.discoverytest` version
+`0.4.0-connected-lite-staging` / versionCode 3. It recorded Settings Home
+`gs177-test-product`, origin `https://192.168.1.10/`, Backend API CONNECTED,
+Reports → Latest recorded events and observer match for historical key
+`{c3-146393c5d158, bedroom, session 112, sequence 2}`. The receipt explicitly
+has `tc001_fresh_event_observed=false`; this proves observer readiness only.
+Installed APK bytes match the preserved SHA-256
+`0b240966255618ad3466e17e8dcca40d71efbe84b0096cb1063ba9f4855e2d76`. The
+embedded APK v2 signer-certificate digest
+`d336ae68479da03de932a44b16c8de730c86e3cf68aee52fe92261e74e596b85` matches
+the preserved trust digest files and its DER parsed with Python `cryptography`.
+`apksigner verify` was not available or run; this is certificate-fingerprint
+corroboration and APK-byte identity, not completed APK signature verification.
+No rebuild or reinstall was performed.
+
+The loopback `/api/status` returned HTTP 200, but its process (PID 39775,
+started 2026-10-26 17:52Z) predates console source commit
+`f6321597578bda69aa43056cbee70c863d5e625a` and omits current readiness fields;
+its output is not treated as current-source readiness. Current-source guarded
+readiness remains covered by
+`python3 code/tests/python/test_gs117_tc001_console.py`: **43/43 PASS**, exit 0,
+on this source HEAD. Owner-only `fixture.json` and
+`five-run-campaign-approval.json` are both absent. The fixture remains BLOCKED:
+fresh C3/S3 running-image receipts and exact image provenance, current
+Hub/Home/epoch/enrollment binding and a fresh authenticated S3 ingress receipt
+are unavailable without hardware access. Historical firmware hashes and
+physical events were not substituted.
+
+No COM4 or COM10 was opened; no reset, injection, flash, commissioning,
+credential/ownership/enrollment change, or protected database mutation
+occurred. TC-001 remains **0/5 BLOCKED / NOT_RUN**. A new scoped owner approval
+is required before any reset-aware use of the existing
+`gs117-protected-bootstrap-current-network.py` through COM10; opening that port
+can reset the S3 and clear its RAM-only Wi-Fi/GS40 configuration. The prior
+one-attempt recovery approval is consumed. Any later five-run C3 campaign needs
+its own separate approval and must wait for a current fixture and authenticated
+S3 receipt. Sanitized evidence is retained mode 0600 outside Git at
+`~/.local/state/ghar-sajag/gs117-tc001/fixture-session-20261027T041925Z/readiness-observation-20261027T0430Z.json`.

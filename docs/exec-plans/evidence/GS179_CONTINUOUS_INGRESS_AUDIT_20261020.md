@@ -313,3 +313,83 @@ remote matched at delivery. Jira comment 11526 records the implementation and
 validation. Remaining GS-179 work is separately approved persistent/runtime
 configuration and the broader live staging/phone acceptance. No physical pass
 is claimed.
+
+### 2026-10-27 — bounded physical-ingress readiness recheck
+
+At canonical source `cac55b92a00fe6fe807787ce9faa55ba42df5305`, the existing
+GS-179 TEST_ONLY mTLS ingress and signed-time endpoint were restored from
+protected, hash-matched operator scripts for a bounded one-hour session. No
+autostart or persistent service was enabled. On verified Private
+`Airtel_Agrim` Wi-Fi at dynamically observed `192.168.1.10`, the already-owned
+Windows forwarding targets remained 443→8444 and 8445→8445; the live Windows
+8445 TCP probe passed. PostgreSQL durability/TLS and caregiver HTTPS health
+passed. A host-generated challenge received a valid nonce/generation-bound
+RSA-3072 signed-time proof with a current validity interval.
+
+These endpoint checks do not prove S3 traffic. The current listener reported
+listener/PostgreSQL/trusted-time readiness, but `real_hub_authenticated=NO`,
+`hub_connected=NO`, and zero Hub/event receipt rows were recorded since its
+start. Signed-time request counters lack authenticated source attribution.
+The last verified S3 mTLS/CloudSync events remain historical, so
+`REAL_S3_AUTHENTICATED=NOT_VERIFIED`, not PASS. The laptop caregiver and
+PostgreSQL components are ready; persistent ingress remains default-disabled.
+
+The physical Android device is ADB-authorized. Current installed APK bytes
+match the protected preservation SHA and its embedded signer-certificate
+fingerprint matches preserved trusted signer digests. In the existing app,
+Settings showed Home `gs177-test-product`, origin `https://192.168.1.10/` and
+`Backend API · CONNECTED`; Reports showed `Latest recorded events`. The
+production exact-key observer also matched a historical physical event through
+Event details; this validates observer readiness only and is not new event
+acceptance. `UNKNOWN`/`STALE` NodeHealth remains a separate known projection
+conflict; no enrollment or database state was changed.
+
+No physical serial port or board was accessed. No C3 event was injected. Since
+the earlier S3 configuration is RAM-only and its last authenticated evidence
+is outside the bounded session, current S3 config/runtime cannot be confirmed
+without the explicitly excluded reset-aware COM10 bootstrap. If required,
+reuse the existing protected
+`gs117-protected-bootstrap-current-network.py`: opening COM10 can cause
+`USB_UART_CHIP_RESET`, reboot S3 and clear RAM-only Wi-Fi/GS40 config; the
+existing procedure sends a fresh challenge-bound encrypted config and does not
+flash or overwrite NVS/partition/outbox/state. Its previously recorded
+one-attempt approval is consumed. TC-001 remains BLOCKED/NOT_RUN and needs
+fresh live S3 mTLS evidence plus the exact owner-only console fixture. The
+five-run physical approval was not created. Sanitized observation is stored
+mode 0600 outside Git at
+`~/.local/state/ghar-sajag/gs117-tc001/services-20261027T0230Z/readiness-observation-20261027T0255Z.json`.
+
+### 2026-10-27 — resumed bounded ingress recheck (04:30Z)
+
+Canonical source at recheck entry was `cac55b92a00fe6fe807787ce9faa55ba42df5305`;
+context preflight passed. Private Wi-Fi `Airtel_Agrim` remained Private at
+`192.168.1.10/24`, with WSL at `172.17.152.10/20` and existing 443→8444 and
+8445→8445 forwarding. Windows TCP 8445 passed. A no-client-certificate TLS
+probe reached the listener certificate subject and then failed the handshake;
+it verifies routing to the endpoint but no mTLS client identity.
+
+The current laptop health check passed PostgreSQL durability/TLS, caregiver
+HTTPS and endpoint CA/DNS-SAN checks. The one-hour TEST_ONLY listener reported
+listener/PostgreSQL/trusted-time ready, while authentication and Hub connection
+remained NO; no current CloudSync receipt or event trace row was produced.
+Persistent ingress is still NOT_CONFIGURED and autostart DISABLED. UDP 4468
+was bound; the host-generated nonce/generation-bound RSA-3072/SHA-256 proof
+passed at 04:22:20Z and was valid through 04:24:20Z. It is host-service
+evidence, not S3 authentication, and was expired by this later recheck.
+
+The 02:59:52Z Android receipt records the existing APK connected to
+`gs177-test-product`, Reports available and a historical EventKey observer
+match only. It records no fresh TC-001 event. Installed APK bytes match the
+preserved hash; the embedded v2 signer-certificate fingerprint matches
+preserved digest files, but `apksigner verify` was not run, so package signature
+verification remains incomplete. The current-source GS-117 console/ADB
+regression passed **43/43**; the loopback status endpoint itself responded
+HTTP 200 from an older process and is not evidence of current-source readiness.
+
+The owner-only TC-001 fixture and separate five-run approval remain absent. No
+physical port or board was accessed, and no injection or lifecycle mutation was
+performed. TC-001 remains BLOCKED/NOT_RUN; fresh running-image/fixture identity
+and authenticated S3 ingress evidence are still missing. Any reset-aware COM10
+recovery requires new explicit owner approval because opening COM10 may reboot
+S3 and clear its RAM-only configuration. Private sanitized evidence remains at
+`~/.local/state/ghar-sajag/gs117-tc001/fixture-session-20261027T041925Z/readiness-observation-20261027T0430Z.json`.

@@ -7996,3 +7996,68 @@ the five-run injection authorization until current ingress, signer and exact
 fixture evidence are ready. Detailed results, EventKeys and hashes are in the
 [GS-178 software evidence](../exec-plans/evidence/GS178_SOFTWARE_VERTICAL_20261018.md#current-source-five-run-bedroom-motion-simulation--2026-10-27)
 and the [GS-117 execution handoff](../exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md#2026-10-27--current-source-gs-178-and-non-disruptive-tc-001-readiness).
+
+### GS-117 / GS-179 non-disruptive readiness closeout — 2026-10-27
+
+Owning Jira is GS-117 (In Progress); GS-179 remains In Progress. This resumed
+closeout preserved and completed the interrupted additions to the existing
+[GS-117 execution handoff](../exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md)
+and [GS-179 ingress audit](../exec-plans/evidence/GS179_CONTINUOUS_INGRESS_AUDIT_20261020.md).
+At evidence-capture entry, canonical branch was
+`feature/r1-commercial-baseline`, local and remote HEAD both
+`cac55b92a00fe6fe807787ce9faa55ba42df5305`, and context preflight passed. The
+interrupted two-document diff was retained; all unrelated untracked/ignored
+files remain untouched. This closeout adds only those two evidence documents
+and this work-state handoff.
+
+At 04:30Z the existing host health check passed PostgreSQL TLS/durability,
+caregiver HTTPS, local backend and endpoint TLS identity. Windows/WSL private
+network identity and existing scoped forwarding were rechecked; TCP 8445
+forwarding reached the listener. Its no-client-certificate TLS probe did not
+authenticate. Bounded ingress status showed listener/backend/trusted-time ready
+but `real_hub_authenticated=NO`, `hub_connected=NO`, no current event receipt,
+persistent ingress NOT_CONFIGURED and autostart disabled. UDP 4468 host-generated
+RSA-3072/SHA-256 challenge proof passed nonce/generation and validity checks at
+04:22Z only; this is not S3 traffic and its validity window had elapsed by the
+later check.
+
+The actual installed Android observation remains the timestamped 02:59Z
+receipt: existing TEST_ONLY app, Home `gs177-test-product`, backend CONNECTED,
+Reports → Latest recorded events, and historical exact-key observer match for
+`{physical_device_id: c3-146393c5d158, logical_node_id: bedroom,
+origin_session_id: 112, event_sequence: 2}`. Home monitoring remains
+UNKNOWN/source STALE. No fresh TC-001 key was observed. Installed APK bytes
+matched the preserved SHA-256. Its embedded v2 signer-certificate fingerprint
+matched preserved trust digests; `apksigner verify` was unavailable, so
+signature verification is incomplete. The loopback console endpoint returned
+HTTP 200 from a process predating current console source; it is stale and not
+used for readiness. Current guarded code regression passed 43/43.
+
+Fixture status is **BLOCKED**: the owner-only `fixture.json` is absent, current
+C3/S3 running-image evidence and image hashes are unavailable without board
+access, no fresh authenticated S3 mTLS/CloudSync receipt establishes the
+current Hub/Home/epoch/enrollment binding, and historical image metadata is not
+substituted. The separate `five-run-campaign-approval.json` is absent. TC-001
+remains **0/5 BLOCKED / NOT_RUN**. No COM4/COM10 access, reset, injection,
+firmware operation, credential or lifecycle change, or protected database
+mutation occurred. The bounded service session expires around 05:19Z.
+
+Validation for this documentation/readiness closeout:
+`python3 code/tests/python/test_gs117_tc001_console.py` — **43/43 PASS**, exit
+0. GS-178 software acceptance was not rerun; no release-wide gate was run.
+Sanitized private readiness evidence (mode 0600) is at
+`~/.local/state/ghar-sajag/gs117-tc001/fixture-session-20261027T041925Z/readiness-observation-20261027T0430Z.json`.
+
+**Next physical prerequisite:** if fresh S3 readiness is still required, obtain
+new scoped owner approval for the existing one-attempt encrypted-configuration
+recovery through COM10, explicitly accepting its USB-UART reset risk and
+possible loss of RAM-only Wi-Fi/GS40 configuration. Do not create the fixture
+until the current installed-image receipts, identity/epoch/enrollment, current
+authenticated ingress and app evidence validate. The later five-injection
+campaign remains a separate approval and is not authorized by this closeout.
+After this handoff, GS-178 comment 11729 names the next software deliverable:
+deduplicate current scenario/test coverage into its proposed-case gap table and
+prioritize Wave S1. This is a next-task pointer only; GS-130/GS-178
+implementation did not begin here. GS-173 scope decisions gate conditional
+cases. Delivery commit and remote verification are recorded in the owning Jira
+closeout comment.
