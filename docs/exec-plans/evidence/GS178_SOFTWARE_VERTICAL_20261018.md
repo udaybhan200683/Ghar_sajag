@@ -691,3 +691,69 @@ source is the GS-178 S1 diff based on canonical
 `f7168825a4751330629bf285c3bad83c21a87b51`; its staged code subtree is
 `052d1c2c9e2a59c052a76660b281a30f9f5414e7`. The full commit and remote
 verification are recorded in the closeout Jira comment.
+
+## 2026-10-27 S2 addendum — Hub-link versus WAN outage recovery
+
+**Audit and gap:** GS-178 is the owner of this existing software vertical;
+GS-130's P0-UC-09 and proposed R1AUTO-027/028 describe Hub/link versus
+internet-only outage behavior; GS-116 requires the affected existing campaign
+and registration checks. The C3 NodeRuntime, authenticated Hub admission,
+durable Hub outbox, CloudSync, backend commit/read model and caregiver UI were
+already implemented and exercised in separate paths. The missing item was a
+joined caregiver-visible vertical for the two outage boundaries. This was
+classified `IMPLEMENTED_NOT_YET_VALIDATED`; no production behavior was found
+defective. The only code change is a bounded TEST_ONLY radio-response switch in
+the existing GS-178 host simulator, used by the existing vertical/browser test.
+
+The new `test_23_hub_link_and_wan_outage_recovery_exact_keys_and_caregiver_view`
+asserts:
+
+1. With the Node-to-Hub test link unavailable, the Node retains original
+   `bedroom:10:1`, receives no ACK, and Hub storage/backend/API have no event.
+2. After the existing source freshness window expires, caregiver API and the
+   shared browser render stale/unknown coverage with no fabricated event.
+3. Restoring the local link while WAN/CloudSync remains down lets the Hub
+   authenticate the retry, durably store it before ACK, and retire the Node's
+   retained event. A second event is likewise locally durable; the backend
+   still has zero commits. The Hub is restarted while WAN remains unavailable,
+   and both Hub outbox entries survive.
+4. On WAN recovery, CloudSync commits both events. The API returns the exact
+   physical/logical/session/sequence keys in correct chronology; PostgreSQL has
+   one event and one durable commit per key; the caregiver browser observes the
+   same ordered keys before and after page reload.
+
+Validation:
+
+| Command | Result |
+|---|---|
+| `make -C code gs178-host-build` | PASS; TEST_ONLY existing production Node/Hub host stack rebuilt, no target or hardware access. |
+| Focused `test_23_hub_link_and_wan_outage_recovery_exact_keys_and_caregiver_view` | PASS 1/1; two browser observations passed (stale/no event, 4 assertions; exact-key recovery before and after reload, 6 assertions). The browser helper's first full-suite run undercounted the latter by one in its report metadata; this was corrected and verified in the focused repeat. |
+| `GS178_REPORT_DIR=build/gs178_s2_20261027/full-suite make -C code gs178-software-e2e` | PASS 38/38 in 273.500 seconds: 15 security + 23 vertical tests. All generated reports have `HOST_SIM_PASS`, null first-failing stage, physical `NOT_RUN`, and Android `APK_NOT_VERIFIED`. |
+| `make -C code validation-framework-test feature-coverage-test` | Framework PASS 51/51. First mapping attempt failed because the traceability checker accepts one assertion anchor per feature row, not a semicolon list; corrected the row to the new test 23 anchor. Rerun `make -C code feature-coverage-test` PASS: 226 features / 285 modules / 27 physical cases and 22/22 traceability tests. |
+
+The report directory is ignored local evidence at
+`code/build/gs178_s2_20261027/full-suite/`. Its new scenario report is
+`P0-UC-09-HUB-WAN-CAREGIVER-RECOVERY.json`; the browser artifacts separately
+show the stale outage view (4 browser assertions) and restored exact-key
+timeline (6 browser assertions). The resulting API keys were
+`test-c3-bedroom/bedroom/session 10/sequence 2` and the same identity at
+sequence 1, in descending occurrence-time order. The test-source SHA-256 is
+`8160cd3bf6c0643b0934518c51958cfb6b37dc1ecc85d8e49649fa22300a91b7`, simulator
+source SHA-256 is
+`7a6552782daf7643fb80a8f923f9e6859e5a68f6aec805de87058190b00e5b02`, browser
+helper SHA-256 is
+`18f759f4b66a1e85db74dd96a874b61364d1f12667c062f6ea627fec42b095d2`, and the
+compiled host simulator SHA-256 is
+`a7f57c3450949d6f54181070f7b1e5b87da1d57e7848ecd0af5c4a91054ebafd`. The test run
+was performed on the S2 source diff based on `9e87c435db805f14be165286dc5cc9a5dd05a9ce`;
+the harness's `source_revision` therefore records that base SHA while the
+test-source SHA and built host simulator binary identify the modified inputs.
+Post-commit focused execution is required to produce an exact commit-bound
+repeat receipt.
+
+This is deterministic host simulation over the existing product stack. It is
+not physical RF/flash qualification, an actual Android APK observation, or
+proof of the production deployment/backend authorization path. P0-UC-09 and
+all 17 P0 use cases remain `PARTIAL`; GS-117 physical TC-001 remains
+`NOT_RUN`/OnHold. No hardware, ADB, COM port, production service, new runtime,
+test framework, or duplicate Jira case was used.

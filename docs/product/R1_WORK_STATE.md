@@ -1,10 +1,62 @@
-## GS-178 software use-case batch S1 — 2026-10-27 (closeout in progress)
+## GS-178 software use-case batch S2 — 2026-10-27 (validation passed; closeout in progress)
+
+Owning Jira GS-178; feature coverage GS-130; regression governance GS-116.
+S1 was completed and pushed at `9e87c435db805f14be165286dc5cc9a5dd05a9ce`.
+S2 resumes on the canonical `feature/r1-commercial-baseline` worktree at that
+same local/remote SHA; context preflight passed. Latest Jira decisions
+11748/11749/11750 require the existing software E2E campaign, incremental
+coverage, and no hardware prerequisite. The source, GS-178/130/116 scope,
+P0-UC-09 requirement, suite registration, previous case 02, board-stack
+outage cases and current evidence were audited before editing.
+
+At the audit boundary, S2 classification was `IMPLEMENTED_NOT_YET_VALIDATED`.
+The gap is now host-validated for this workflow. Existing NodeRuntime,
+authenticated HubRuntime admission, durable outbox/ACK, CloudSync, backend
+commit/read model and caregiver projection were reused. There was no production
+product defect and no production behavior change. The smallest addition is a
+bounded Hub-radio response control in the existing TEST_ONLY simulator, one
+vertical test 23, and two assertion branches in the already-used browser helper.
+It covers Node-to-Hub link loss and retained identity, stale/unknown caregiver
+state without fabricated activity, local durable ACK while WAN is unavailable,
+Hub restart, exact-once backend recovery, API chronology and exact browser keys
+before/after reload.
+
+Validation so far: `make -C code gs178-host-build` PASS; focused test 23 PASS
+1/1; existing one-command `gs178-software-e2e` PASS 38/38 (15 security + 23
+vertical, 273.500 seconds). The framework suite passed 51/51. The first
+feature-mapping run failed because its assertion-anchor field accepts a single
+source-resolving test, not a semicolon list; after pointing to test 23,
+`feature-coverage-test` passed (226 features, 285 modules, 27 physical cases,
+22/22 mapping tests). Generated reports under
+`code/build/gs178_s2_20261027/full-suite/` show `HOST_SIM_PASS`, null first
+failure, physical `NOT_RUN`, and Android `APK_NOT_VERIFIED`. Registration
+integrity checks now pass; final Git/Jira closeout remains. Browser means
+the shared TEST_ONLY caregiver UI; no installed APK or device was used.
+
+P0-UC-09 and all 17 P0 groups remain `PARTIAL`. Production deployment auth and
+backend path, physical RF/storage behavior and actual Android APK remain
+unverified. GS-117 remains OnHold; no hardware, ADB or COM access was used.
+The full-window observation history/calendar prompt requirement remains open;
+GS-104 learning remains on hold. The unrelated pre-existing CSS budget failure
+(29,576 bytes vs 18,432) reported during S1 remains open with GS-177; S2 did not
+modify CSS. No full release gate was run.
+
+Exact remaining actions: review the eight task files and validation evidence;
+commit and push normally; verify remote SHA;
+then repeat test 23 once on the commit for source-bound evidence and update the
+existing GS-178/GS-130/GS-116 Jira comments without changing GS-117 status.
+Unrelated untracked Android/PWA files, generated IDF state and physical
+evidence remain preserved.
+
+## GS-178 software use-case batch S1 — 2026-10-27 (completed/pushed)
 
 Owning ticket GS-178; coverage inventory GS-130; regression policy GS-116.
 The owner directed that the existing `make -C code gs178-software-e2e` campaign
 advance independently while GS-117 stays OnHold. Canonical branch is
-`feature/r1-commercial-baseline`, base commit
-`f7168825a4751330629bf285c3bad83c21a87b51`, remote matched at start, and
+`feature/r1-commercial-baseline`, based on commit
+`f7168825a4751330629bf285c3bad83c21a87b51`; the S1 closeout was committed as
+`9e87c435db805f14be165286dc5cc9a5dd05a9ce` and pushed with remote equality
+verified. The canonical worktree and
 context preflight passed. The tested code subtree is
 `052d1c2c9e2a59c052a76660b281a30f9f5414e7`. The existing GS-178 implementation and current
 Jira scope were audited before completing this batch. No hardware, serial port,
@@ -36,8 +88,8 @@ Final framework validation passed 51/51. The first traceability attempt exposed
 three incorrect source/stage ownership mappings; after mapping the C++ and
 Python regressions to their existing `cpp` and `python` stages,
 `feature-coverage-test` passed 226 features / 285 modules / 27 physical cases
-and its 22 registration tests. Documentation review, commit, push and Jira
-comments remain to be completed. R1 `product_status` and all
+and its 22 registration tests. Documentation, commit, push and Jira comments
+11752 through 11756 were verified. R1 `product_status` and all
 17 P0 use cases remain PARTIAL. Actual Android APK and physical qualification
 remain unverified/NOT_RUN. Full release gate was not run.
 
@@ -52,16 +104,13 @@ remain open, so do not invent that behavior. Actual APK observation requires
 separately scoped ADB authorization; physical HIL, `validation-fast` and release
 gates remain outside this batch.
 
-Local worktree changes are limited to the listed GS-178 source/tests/registry
-and this batch's evidence documents; unrelated pre-existing untracked PWA,
-Android, managed-component, sdkconfig and historical physical evidence remain
-untouched. Exact local/remote commit and tracked-clean result will be recorded
-after the scoped validated commit. Next action: inspect the exact staged paths,
-commit and push normally, verify origin, then comment on GS-178/GS-116 and notify
-GS-177 of the separate CSS budget failure. GS-117 remains OnHold because the preserved C3 raw JEDEC result was
-all ones; offline tool inspection suggests the prior helper omitted esptool's
-existing flash-attach step, but current capacity is still UNKNOWN and no
-hardware retry is authorized.
+At the S1 checkpoint, only its validated source/tests/traceability/evidence
+were committed. Unrelated untracked PWA, Android, managed-component, sdkconfig
+and historical physical evidence remained untouched. GS-177 was notified of
+the separate CSS budget failure. GS-117 remains OnHold because the preserved
+C3 raw JEDEC result was all ones; offline tool inspection suggests the prior
+helper omitted esptool's existing flash-attach step, but current capacity is
+still UNKNOWN and no hardware retry is authorized.
 
 ## GS-178 P0 software readiness and targeted regressions — 2026-10-19
 

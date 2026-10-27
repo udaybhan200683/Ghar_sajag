@@ -153,6 +153,28 @@ none }` restores the intended authentication gate. The corrected focused
 desktop/mobile phase-3A suite passed 8/8 in the preceding validation run. No
 browser output is classified as physical evidence.
 
+## 2026-10-27 S2 addendum — outage distinction vertical
+
+GS-130 P0-UC-09 remains `PARTIAL`, with the existing GS-178 Node-originated
+vertical now joining the separately tested outage boundaries to caregiver
+outcomes. New existing-suite case
+`test_23_hub_link_and_wan_outage_recovery_exact_keys_and_caregiver_view`
+reuses production NodeRuntime/HubRuntime/CloudSync/backend/API and shared
+caregiver UI code. It checks retained Node identity without Hub admission,
+stale/unknown presentation after source expiry, authenticated Hub admission and
+durable-before-ACK while WAN is down, Hub outbox survival across restart,
+backend exactly-once catch-up, chronological API projection, and exact EventKey
+visibility in the browser before and after reload.
+
+The validation command `GS178_REPORT_DIR=build/gs178_s2_20261027/full-suite
+make -C code gs178-software-e2e` passed 38/38 (15 security, 23 vertical;
+273.500s). Scenario status is `HOST_SIM_PASS`; actual Android is
+`APK_NOT_VERIFIED`; physical is `NOT_RUN`. No production code gap was found in
+this batch. Deployment authorization, production backend WAN recovery, actual
+APK observation, target radio/storage behavior and physical outage evidence
+remain outside this result. See the GS-178 execution evidence for command,
+stage-by-stage assertions and ignored local browser artifacts.
+
 ## Blockers kept open
 
 - The R1 product gate remains `PARTIAL`: see the JSON gaps above and GS-173

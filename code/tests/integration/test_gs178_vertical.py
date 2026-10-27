@@ -109,6 +109,140 @@ class NodeOriginVertical(unittest.TestCase):
         self.assertEqual(len(self.view()["recent_events"]),2)
         self.save_report("P0-I-J-K",events)
 
+    def test_23_hub_link_and_wan_outage_recovery_exact_keys_and_caregiver_view(self):
+        self.expected = ("Hub-link loss retains a Node event without Hub admission; restored local link "
+                         "durably ACKs during WAN outage; restart and WAN recovery preserve exactly "
+                         "two original EventKeys through API and caregiver browser")
+        self.stage = "CURRENT_NODE_COVERAGE"
+        self.covered_without_activity()
+        self.assertEqual(self.view()["recent_events"], [])
+
+        self.stage = "NODE_TO_HUB_LINK_LOSS"
+        self.assertEqual(self.stack.command("radio 0")["hub_radio_available"], False)
+        first = self.input(0, "motion", minute=12 * 60)
+        self.assertEqual(first["delivery"], "NODE_RETAINED_NO_HUB_RESPONSE", first)
+        self.assertEqual((first["ack"], first["pending"]), ("NONE", 1), first)
+        first_node_key = first["event_key"]
+        self.assertEqual(first_node_key,
+                         f"bedroom:{self.stack.node_session_id}:1")
+        self.assertEqual(self.sync()["stored"], 0)
+        self.assertEqual(self.stack.durable.db.execute(
+            "SELECT COUNT(*) FROM events").fetchone()[0], 0)
+        self.assertEqual(self.view()["recent_events"], [])
+
+        # Existing source-freshness semantics mark old authenticated contact
+        # stale; no event or activity is fabricated while the Node is unseen.
+        self.domain += 200_000
+        self.stack.domain_now = self.now + self.domain // 1000
+        stale = self.view()
+        self.assertEqual((stale["monitoring"], stale["source_freshness"]),
+                         ("UNKNOWN", "STALE"), stale)
+        self.assertEqual(stale["recent_events"], [])
+        reports = Path(os.environ.get("GS178_REPORT_DIR", "build/gs178_evidence"))
+        reports.mkdir(parents=True, exist_ok=True)
+        result = subprocess.run(["node", str(CAREGIVER_BROWSER)],
+            input=json.dumps({"base": self.stack.human_origin,
+                              "password": self.stack.password,
+                              "dom": str(reports / "caregiver_outage_dom.html"),
+                              "outageOnly": True}),
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            timeout=90, env={**os.environ, "NODE_EXTRA_CA_CERTS": str(self.stack.ca_path)})
+        self.assertEqual(result.returncode, 0, result.stdout)
+        outage_browser = json.loads(result.stdout.splitlines()[-1])
+        self.assertEqual(outage_browser["status"], "HOST_SIM_PASS")
+
+        self.stage = "LOCAL_DURABLE_ACK_WITH_WAN_UNAVAILABLE"
+        self.assertEqual(self.stack.command("radio 1")["hub_radio_available"], True)
+        self.stack.wan_up = False
+        retry_domain = self.domain + 10_000
+        self.domain = retry_domain
+        self.stack.domain_now = self.now + retry_domain // 1000
+        retried = self.stack.command(
+            f"retry 0 motion {self.now + 3} {self.stack.domain_now} "
+            f"{retry_domain} {12 * 60} 0")
+        first_canonical_key = (
+            f"p{len('test-c3-bedroom')}:test-c3-bedroom"
+            f"n{len('bedroom')}:bedroom"
+            f"s{self.stack.node_session_id}q1")
+        self.assertEqual((retried["ack"], retried["event_key"], retried["pending"]),
+                         ("DURABLE", first_canonical_key, 0), retried)
+        local_only = self.sync(connected=False)
+        self.assertEqual((local_only["completed"], local_only["stored"]), (0, 1), local_only)
+        self.assertEqual(self.stack.durable.db.execute(
+            "SELECT COUNT(*) FROM events").fetchone()[0], 0)
+        self.assertEqual(self.view()["recent_events"], [])
+
+        second = self.input(0, "motion", minute=12 * 60)
+        second_canonical_key = (
+            f"p{len('test-c3-bedroom')}:test-c3-bedroom"
+            f"n{len('bedroom')}:bedroom"
+            f"s{self.stack.node_session_id}q2")
+        self.assertEqual((second["ack"], second["event_key"], second["pending"]),
+                         ("DURABLE", second_canonical_key, 0), second)
+        local_only = self.sync(connected=False)
+        self.assertEqual((local_only["completed"], local_only["stored"]), (0, 2), local_only)
+        self.assertEqual(self.stack.durable.db.execute(
+            "SELECT COUNT(*) FROM events").fetchone()[0], 0)
+        self.assertEqual(self.view()["recent_events"], [])
+
+        self.stage = "HUB_DURABLE_RESTART_RECOVERY"
+        self.assertTrue(self.stack.command("restart")["restart"])
+        self.assertEqual(self.sync(connected=False)["stored"], 2)
+        self.assertEqual(self.stack.durable.db.execute(
+            "SELECT COUNT(*) FROM events").fetchone()[0], 0)
+
+        self.stage = "WAN_CLOUDSYNC_AND_CAREGIVER_RECOVERY"
+        self.stack.wan_up = True
+        self.assertTrue(self.stack.command("refresh")["authority"])
+        restored = self.sync()
+        self.assertEqual((restored["submitted"], restored["completed"], restored["stored"]),
+                         (2, 2, 2), restored)
+        self.assertEqual(self.stack.durable.db.execute(
+            "SELECT COUNT(*) FROM events").fetchone()[0], 2)
+        self.assertEqual(self.stack.durable.db.execute(
+            "SELECT COUNT(*) FROM durable_event_commits").fetchone()[0], 2)
+
+        events = self.view()["recent_events"]
+        expected_keys = [
+            {"physical_device_id": "test-c3-bedroom", "logical_node_id": "bedroom",
+             "origin_session_id": self.stack.node_session_id, "event_sequence": 2},
+            {"physical_device_id": "test-c3-bedroom", "logical_node_id": "bedroom",
+             "origin_session_id": self.stack.node_session_id, "event_sequence": 1},
+        ]
+        self.assertEqual([event["kind"] for event in events], ["MOTION", "MOTION"])
+        self.assertEqual([event["event_key"] for event in events], expected_keys)
+        self.assertGreater(events[0]["occurred_at"], events[1]["occurred_at"])
+        for expected_key in expected_keys:
+            rows = self.stack.durable.db.execute(
+                """SELECT COUNT(*) FROM events e JOIN durable_event_commits c ON c.event_id=e.event_id
+                   WHERE c.home_id=? AND c.physical_device_id=? AND c.logical_node_id=?
+                     AND c.origin_session_id=? AND c.event_sequence=?""",
+                (HOME, expected_key["physical_device_id"], expected_key["logical_node_id"],
+                 expected_key["origin_session_id"], expected_key["event_sequence"])).fetchone()[0]
+            self.assertEqual(rows, 1, expected_key)
+
+        self.stage = "CAREGIVER_BROWSER_EXACT_EVENT_KEYS"
+        result = subprocess.run(["node", str(CAREGIVER_BROWSER)],
+            input=json.dumps({"base": self.stack.human_origin,
+                              "password": self.stack.password,
+                              "dom": str(reports / "caregiver_recovered_dom.html"),
+                              "eventKeys": [event["event_key"] for event in events],
+                              "eventKeysOnly": True,
+                              "rooms": ["bedroom"]}),
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            timeout=90, env={**os.environ, "NODE_EXTRA_CA_CERTS": str(self.stack.ca_path)})
+        self.assertEqual(result.returncode, 0, result.stdout)
+        recovered_browser = json.loads(result.stdout.splitlines()[-1])
+        self.assertEqual(recovered_browser["status"], "HOST_SIM_PASS")
+        self.save_report("P0-UC-09-HUB-WAN-CAREGIVER-RECOVERY",
+                         {"expected": self.expected,
+                          "node_event_key_before_hub": first_node_key,
+                          "api_event_keys": [event["event_key"] for event in events],
+                          "outage_browser": outage_browser,
+                          "recovered_browser": recovered_browser,
+                          "backend_event_count": 2,
+                          "durable_commit_count": 2})
+
     def test_03_online_silent_offline_unknown_and_authenticated_recovery(self):
         self.stack.command("health 0 1000")
         self.stack.domain_now=self.now+1

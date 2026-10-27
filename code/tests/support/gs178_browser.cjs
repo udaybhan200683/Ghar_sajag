@@ -49,6 +49,16 @@ const os = require('os');
       console.log(JSON.stringify({status:'HOST_SIM_PASS',browser_assertions:8,requests,physical:'NOT_RUN'}));
       return;
     }
+    if(config.outageOnly){
+      const hero=page.locator('#homeTab .connected-home-hero');
+      await expect(hero).toHaveAttribute('data-source-freshness','STALE');
+      await expect(hero).toHaveAttribute('data-monitoring','UNKNOWN');
+      await expect(hero).toContainText('Monitoring source is stale');
+      await expect(page.locator('[data-event-key]')).toHaveCount(0);
+      fs.writeFileSync(config.dom,await page.content());
+      console.log(JSON.stringify({status:'HOST_SIM_PASS',browser_assertions:4,requests,physical:'NOT_RUN'}));
+      return;
+    }
     if(config.ruleKind){
       await expect(page.locator('.connected-product-event[data-hub-decision]')).toHaveCount(1);
       const ruleLabels={MORNING_ROUTINE_COMPLETED:'Morning routine completed',
@@ -71,6 +81,23 @@ const os = require('os');
       }
       fs.writeFileSync(config.dom,await page.content());
       console.log(JSON.stringify({status:'HOST_SIM_PASS',browser_assertions:assertions,requests,physical:'NOT_RUN'}));
+      return;
+    }
+    if(config.eventKeysOnly){
+      await expect(page.locator('[data-event-key]')).toHaveCount(config.eventKeys.length);
+      const renderedKeys=await page.locator('[data-event-key]').evaluateAll(nodes=>
+        nodes.map(node=>JSON.parse(node.getAttribute('data-event-key'))));
+      expect(renderedKeys).toEqual(config.eventKeys);
+      await expect(page.locator('#homeTab')).toContainText('Motion recorded');
+      for(const room of config.rooms||[])
+        await expect(page.locator('#homeTab')).toContainText(room);
+      await page.reload();
+      await expect(page.locator('[data-event-key]')).toHaveCount(config.eventKeys.length);
+      const reloadedKeys=await page.locator('[data-event-key]').evaluateAll(nodes=>
+        nodes.map(node=>JSON.parse(node.getAttribute('data-event-key'))));
+      expect(reloadedKeys).toEqual(config.eventKeys);
+      fs.writeFileSync(config.dom,await page.content());
+      console.log(JSON.stringify({status:'HOST_SIM_PASS',browser_assertions:5+(config.rooms||[]).length,requests,physical:'NOT_RUN'}));
       return;
     }
     const expectedEventCount=config.eventCount||2;

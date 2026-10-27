@@ -231,6 +231,7 @@ public:
   std::unique_ptr<HubRuntime> hub;
   std::vector<std::unique_ptr<Peer>> peers;
   CloudAuthorityBinding rule_binding;
+  bool hub_radio_available = true;
   bool booted = false;
   explicit Fixture(std::uint64_t initial_session = 10) {
     need(initial_session != 0 &&
@@ -535,7 +536,15 @@ int main(int argc, char **argv) {
       in >> op;
       if (op == "quit")
         break;
-      if (op == "input" || op == "retry" || op == "conflict") {
+      if (op == "radio") {
+        unsigned available;
+        in >> available;
+        need(in && available <= 1, "bounded Hub radio availability input");
+        fixture.hub_radio_available = available != 0;
+        std::cout << "{\"hub_radio_available\":"
+                  << (fixture.hub_radio_available ? "true" : "false")
+                  << "}" << std::endl;
+      } else if (op == "input" || op == "retry" || op == "conflict") {
         unsigned index, minute, drop;
         EpochSeconds at, received;
         Milliseconds domain;
@@ -576,6 +585,23 @@ int main(int argc, char **argv) {
         need(bool(msg), "Node pending transmission");
         if (op == "conflict")
           msg->event_type = EventKind::DoorOpen;
+        if (!fixture.hub_radio_available) {
+          const EventKey node_key(msg->node_id, msg->session_id,
+                                  msg->sequence_number);
+          p.runtime->transport_result(
+              {msg->node_id, msg->session_id, msg->sequence_number}, false,
+              domain);
+          need(p.recovery->save(p.runtime->recovery_snapshot()),
+               "Node persists retry after Hub radio link loss");
+          std::cout << "{\"delivery\":\"NODE_RETAINED_NO_HUB_RESPONSE\","
+                       "\"ack\":\"NONE\",\"changed\":false,\"event_key\":\""
+                    << node_key.str() << "\",\"pending\":"
+                    << p.runtime->pending()
+                    << ",\"signals\":[],\"last_activity_at\":"
+                    << fixture.hub->activity_state().last_activity_at.value_or(0)
+                    << "}" << std::endl;
+          continue;
+        }
         auto result = fixture.deliver(p, *msg, received, domain, minute,
                                       drop != 0, op == "conflict");
         std::cout << "{\"ack\":\""

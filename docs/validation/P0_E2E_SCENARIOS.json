@@ -190,7 +190,7 @@
       "scenario_ids": [
         "P0-GAP-001"
       ],
-      "gap": "Node/Hub host E2E covers outage distinctions; local durable CloudSync commits are tested, but deployment authentication and WAN recovery against a production backend remain open (GS-148)."
+      "gap": "The GS-178 TEST_ONLY Node-originated vertical now covers Node-to-Hub link loss, retained Node identity, local Hub durable ACK during WAN loss, restart, exact-once CloudSync, and caregiver-visible catch-up. Production deployment authentication/backend and physical outage qualification remain open (GS-148/GS-117)."
     },
     {
       "use_case_id": "P0-UC-10",
