@@ -1,10 +1,15 @@
-## GS-178 software use-case batch S2 — 2026-10-27 (validated; source committed, push pending)
+## GS-178 software use-case batch S2 — 2026-10-27 (validated and published)
 
 Owning Jira GS-178; feature coverage GS-130; regression governance GS-116.
 S1 was completed and pushed at `9e87c435db805f14be165286dc5cc9a5dd05a9ce`.
 S2 started on the canonical `feature/r1-commercial-baseline` worktree at that
-same local/remote SHA; its code/test/evidence batch is committed locally as
-`bfbae7796df55a0db098ab7c6e13232d2f558808`. Context preflight passed. Latest Jira decisions
+same local/remote SHA. Its code/test/evidence commit is
+`bfbae7796df55a0db098ab7c6e13232d2f558808`; its evidence/source-bound closeout
+commit is `392ec21b0965672ca981b6740e164078ef2f2ed2`. Both were pushed. At the
+closeout verification checkpoint, local and origin both equaled
+`392ec21b0965672ca981b6740e164078ef2f2ed2`; tracked files were clean and
+pre-existing untracked Android/PWA/IDF/physical evidence remained untouched.
+Context preflight passed. Latest Jira decisions
 11748/11749/11750 require the existing software E2E campaign, incremental
 coverage, and no hardware prerequisite. The source, GS-178/130/116 scope,
 P0-UC-09 requirement, suite registration, previous case 02, board-stack
@@ -45,9 +50,14 @@ GS-104 learning remains on hold. The unrelated pre-existing CSS budget failure
 (29,576 bytes vs 18,432) reported during S1 remains open with GS-177; S2 did not
 modify CSS. No full release gate was run.
 
-Exact remaining actions: push the validated local commits normally, verify
-remote SHA equality and tracked cleanliness, then add concise evidence comments
-to GS-178/GS-130/GS-116 without changing GS-117 status.
+The S2 batch is complete. GS-178 remains In Progress because all 17 P0 use
+cases and the R1 product gate remain PARTIAL. GS-117 remains OnHold with
+physical TC-001 0/5 NOT_RUN; S2 used no hardware, ADB or COM access. Next
+priority is the next audit-selected, implemented-but-not-yet-validated P0-A
+software case in the existing GS-178 command, reusing prior Node/Hub/security/
+caregiver regressions and avoiding the already covered outage and observation
+cases. Do not start physical qualification or held GS-104/conditional behavior
+without applicable approval.
 Unrelated untracked Android/PWA files, generated IDF state and physical
 evidence remain preserved.
 
