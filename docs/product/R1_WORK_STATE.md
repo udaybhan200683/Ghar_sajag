@@ -8311,3 +8311,37 @@ fixture BLOCKED/absent, five-run approval absent, and optical PIR NOT_RUN.
 Preserve the prior actual APK observation for session 118/sequence 16 as
 historical observer evidence only. Detailed results and exact next action are
 in the [GS-117 execution handoff](../exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md#2026-10-27-1321-utc--approved-current-image-readback-stopped-at-c3-capacity-guard).
+
+
+### 2026-10-27 14:11 UTC — revised readiness session stopped at invalid C3 JEDEC ID
+
+The owner approved one revised GS-117 readiness session: validate the C3 raw
+flash ID and actual capacity first; only on success continue with targeted C3
+image/partition evidence, targeted S3 readback, then one existing S3 encrypted
+configuration recovery to `192.168.1.6`. Context preflight passed at
+`5c6e180c517a99f829dc3fef3b7895705d71609c`; local and origin HEAD matched and
+tracked files were clean. Existing untracked user assets remain preserved.
+
+The private run is
+`~/.local/state/ghar-sajag/gs117-tc001/capacity-first-readback-20261027T141042Z/`.
+The preserved artifact/hash self-test and Windows Python 3.12 / esptool 5.4.0
+helper preflight passed without opening a port. One COM4 connection attempt
+verified the expected USB serial `14:63:93:C5:D1:58`, ESP32-C3 MAC
+`14:63:93:C5:D1:58`, and read-only security flags (Secure Boot off, encryption
+count zero, Secure Download off). The JEDEC read returned `0xffffff`
+(manufacturer `0xff`, device `0xffff`); esptool reported capacity `Unknown`
+and both official capacity decoders returned null. The raw ID/capacity guard
+failed closed. `flash_reads=[]`: no C3 partition table, OTA selector or app
+region was read.
+
+The explicit stop condition was applied. COM10 was not opened, S3 readback was
+not run, and the existing S3 recovery procedure was not invoked. No flash write,
+erase, NVS/outbox read, configuration change, injection or campaign action
+occurred. COM4 post-close runtime state was not probed. The S3 remains without a
+fresh authenticated receipt; the owner-only fixture remains blocked/absent;
+TC-001 remains 0/5 NOT_RUN and real optical PIR remains NOT_RUN.
+
+Next action: investigate the all-ones C3 JEDEC response using existing offline
+tool/provenance evidence and prepare a minimal diagnosis. Any further COM4
+access requires a new scoped owner approval. Do not proceed to S3 readback or
+recovery until C3 capacity is genuinely identified and validated.
