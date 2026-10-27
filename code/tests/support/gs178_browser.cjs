@@ -100,6 +100,23 @@ const os = require('os');
       console.log(JSON.stringify({status:'HOST_SIM_PASS',browser_assertions:5+(config.rooms||[]).length,requests,physical:'NOT_RUN'}));
       return;
     }
+    if(config.orderedEventsOnly){
+      const cards=page.locator('.connected-product-event[data-event-key]');
+      const readEvents=()=>cards.evaluateAll(nodes=>nodes.map(node=>({
+        event_key:JSON.parse(node.getAttribute('data-event-key')),
+        label:node.querySelector('.event-pill')?.textContent.trim(),
+        room:(node.querySelector('.event-detail p')?.textContent||'').split(' · ')[0],
+      })));
+      await expect(cards).toHaveCount(config.expectedEvents.length);
+      expect(await readEvents()).toEqual(config.expectedEvents);
+      await page.reload();
+      const reloaded=page.locator('.connected-product-event[data-event-key]');
+      await expect(reloaded).toHaveCount(config.expectedEvents.length);
+      expect(await readEvents()).toEqual(config.expectedEvents);
+      fs.writeFileSync(config.dom,await page.content());
+      console.log(JSON.stringify({status:'HOST_SIM_PASS',browser_assertions:4,requests,physical:'NOT_RUN'}));
+      return;
+    }
     const expectedEventCount=config.eventCount||2;
     await expect(page.locator('[data-event-key]')).toHaveCount(expectedEventCount);
     if(config.eventKeys){

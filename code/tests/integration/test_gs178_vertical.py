@@ -243,6 +243,90 @@ class NodeOriginVertical(unittest.TestCase):
                           "backend_event_count": 2,
                           "durable_commit_count": 2})
 
+    def test_24_multinode_room_identity_and_door_chronology_in_caregiver_view(self):
+        self.expected = ("Bedroom, bathroom, kitchen, and door Node inputs keep separate original "
+                         "EventKeys; door OPEN/CLOSE remain distinct and chronological through "
+                         "durable API projection and caregiver browser reload")
+        self.stage = "NODE_INPUTS_AND_ORIGINAL_EVENT_KEYS"
+        inputs = [(0, "motion"), (1, "motion"), (2, "motion"),
+                  (3, "door_open"), (3, "door_close")]
+        for node, kind in inputs:
+            result = self.input(node, kind, minute=12 * 60)
+            self.assertEqual((result["ack"], result["pending"]), ("DURABLE", 0), result)
+
+        self.stage = "AUTHENTICATED_CLOUDSYNC_AND_DURABLE_COMMITS"
+        synced = self.sync()
+        self.assertEqual((synced["submitted"], synced["completed"]), (5, 5), synced)
+        events = self.view()["recent_events"]
+        expected_events = [
+            {"key": {"physical_device_id": "test-c3-door", "logical_node_id": "door",
+                     "origin_session_id": self.stack.node_session_id, "event_sequence": 2},
+             "kind": "DOOR_CLOSED", "room": "door", "label": "Door closed"},
+            {"key": {"physical_device_id": "test-c3-door", "logical_node_id": "door",
+                     "origin_session_id": self.stack.node_session_id, "event_sequence": 1},
+             "kind": "DOOR_OPEN", "room": "door", "label": "Door opened"},
+            {"key": {"physical_device_id": "test-c3-kitchen", "logical_node_id": "kitchen",
+                     "origin_session_id": self.stack.node_session_id, "event_sequence": 1},
+             "kind": "MOTION", "room": "kitchen", "label": "Motion recorded"},
+            {"key": {"physical_device_id": "test-c3-bathroom", "logical_node_id": "bathroom",
+                     "origin_session_id": self.stack.node_session_id, "event_sequence": 1},
+             "kind": "MOTION", "room": "bathroom", "label": "Motion recorded"},
+            {"key": {"physical_device_id": "test-c3-bedroom", "logical_node_id": "bedroom",
+                     "origin_session_id": self.stack.node_session_id, "event_sequence": 1},
+             "kind": "MOTION", "room": "bedroom", "label": "Motion recorded"},
+        ]
+        self.assertEqual(len(events), len(expected_events), events)
+        actual_projection = [{"key": event["event_key"], "kind": event["kind"],
+                             "room": event["location"]}
+                            for event in events]
+        self.assertEqual(actual_projection, [
+            {"key": item["key"], "kind": item["kind"], "room": item["room"]}
+            for item in expected_events])
+        self.assertEqual([event["occurred_at"] for event in events],
+                         sorted((event["occurred_at"] for event in events), reverse=True))
+
+        self.stage = "ONE_DURABLE_ROW_PER_NODE_EVENT_KEY"
+        committed = [receipt for receipt in self.stack.receipts
+                     if receipt.get("path") == f"/v1/homes/{HOME}/events"
+                     and receipt.get("status") in (200, 201)
+                     and receipt.get("response", {}).get("status") == "COMMITTED"]
+        self.assertEqual(len(committed), 5, committed)
+        self.assertCountEqual([receipt["request"]["event_key"] for receipt in committed],
+                              [item["key"] for item in expected_events])
+        for item in expected_events:
+            key = item["key"]
+            rows = self.stack.durable.db.execute(
+                """SELECT COUNT(*) FROM events e JOIN durable_event_commits c ON c.event_id=e.event_id
+                   WHERE c.home_id=? AND c.physical_device_id=? AND c.logical_node_id=?
+                     AND c.origin_session_id=? AND c.event_sequence=?""",
+                (HOME, key["physical_device_id"], key["logical_node_id"],
+                 key["origin_session_id"], key["event_sequence"])).fetchone()[0]
+            self.assertEqual(rows, 1, key)
+
+        self.stage = "CAREGIVER_TIMELINE_AND_RELOAD"
+        reports = Path(os.environ.get("GS178_REPORT_DIR", "build/gs178_evidence"))
+        reports.mkdir(parents=True, exist_ok=True)
+        result = subprocess.run(["node", str(CAREGIVER_BROWSER)],
+            input=json.dumps({"base": self.stack.human_origin,
+                              "password": self.stack.password,
+                              "dom": str(reports / "caregiver_multinode_door_dom.html"),
+                              "orderedEventsOnly": True,
+                              "expectedEvents": [{"event_key": item["key"],
+                                                  "label": item["label"], "room": item["room"]}
+                                                 for item in expected_events]}),
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            timeout=90, env={**os.environ, "NODE_EXTRA_CA_CERTS": str(self.stack.ca_path)})
+        self.assertEqual(result.returncode, 0, result.stdout)
+        browser = json.loads(result.stdout.splitlines()[-1])
+        self.assertEqual(browser["status"], "HOST_SIM_PASS")
+        self.save_report("R1AUTO-009-MULTINODE-DOOR-CAREGIVER", {
+            "expected": self.expected,
+            "api_projection": actual_projection,
+            "committed_receipts": len(committed),
+            "durable_rows_per_event_key": 1,
+            "browser": browser,
+        })
+
     def test_03_online_silent_offline_unknown_and_authenticated_recovery(self):
         self.stack.command("health 0 1000")
         self.stack.domain_now=self.now+1
