@@ -1606,9 +1606,17 @@ void secure_owner_task(void*) {
         }
         if (classification == transport::FrameClass::NodeHealth) {
             const auto health = transport::decode_node_health(plain.bytes.data(), plain.size);
+            const auto health_now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
+            EpochSeconds health_received_at = 0;
+            TrustedHubTimeSnapshot health_time;
+            if (cloud_trust.trusted_hub_time(health_now_ms, health_time) &&
+                health_time.trusted && health_time.monotonic_ms == health_now_ms &&
+                health_time.boot_generation != 0 && health_time.utc_now > 0) {
+                health_received_at = health_time.utc_now;
+            }
             if (health && runtime.observe_authenticated_health(
                     *health.value, node->logical_id, node->last_session,
-                    static_cast<std::uint64_t>(esp_timer_get_time() / 1000))) {
+                    health_now_ms, health_received_at)) {
                 if (!health.value->c8_ack_wait_trace) {
                 ESP_LOGI(kTag, "Authenticated NodeHealth logical=%s session=%llu heap=%u min_heap=%u retained=%u sleep_entries=%u timer_wakes=%u gpio_wakes=%u other_wakes=%u last_wake=%s requested_ms=%u elapsed_ms=%u RSSI=%d",
                          node->logical_id.c_str(),

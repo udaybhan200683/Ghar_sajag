@@ -108,10 +108,13 @@ public:
     void revoke_node(const std::string& node_id);
     // The caller must first verify AEAD and physical-to-logical registry
     // mapping. Monotonic time tracks liveness without inventing epoch time.
+    // Optional caller-verified UTC refreshes present coverage, never activity
+    // or historical coverage. Zero preserves UNKNOWN when trusted UTC is absent.
     bool observe_authenticated_health(const NodeHealthSnapshot& health,
                                       const std::string& authenticated_node_id,
                                       std::uint64_t transport_session,
-                                      std::uint64_t now_monotonic_ms);
+                                      std::uint64_t now_monotonic_ms,
+                                      EpochSeconds trusted_contact_at = 0);
     // Called only after exact-node, current-session authentication by the
     // security owner. Rejoin and admitted control traffic can refresh the
     // same monotonic lease without inventing a NodeHealth packet.

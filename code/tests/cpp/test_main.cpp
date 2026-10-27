@@ -475,6 +475,38 @@ void test_bat_c5_health_and_lease() {
     check(!hub.observe_authenticated_contact("quiet-node", 8, 510002) &&
           !hub.node_online("quiet-node", 510002),
           "revoked Node cannot refresh Hub liveness");
+
+    gs::hub::HubRuntime quiet(4, 8);
+    quiet.authorize_node("quiet-node", 9, true);
+    gs::RoutineConfig window;
+    window.window_id = "health-only";
+    window.start_at = 100;
+    window.end_at = 110;
+    window.grace_end_at = 120;
+    quiet.start_window(window, gs::HomeMode::Home);
+    gs::NodeHealthSnapshot health;
+    health.node_id = "quiet-node";
+    health.session_id = 9;
+    health.health_sequence = 1;
+    health.free_heap = 40000;
+    check(!quiet.observe_authenticated_health(health, "quiet-node", 8, 1000, 100) &&
+          quiet.deadline(120, true).reason == "coverage_unknown",
+          "wrong-session health cannot establish routine coverage");
+    check(quiet.observe_authenticated_health(health, "quiet-node", 9, 1000) &&
+          quiet.deadline(120, true).reason == "coverage_unknown",
+          "health without trusted UTC cannot invent routine coverage");
+    ++health.health_sequence;
+    check(quiet.observe_authenticated_health(health, "quiet-node", 9, 2000, 101) &&
+          quiet.deadline(119, true).reason == "window_not_due" &&
+          quiet.deadline(120, true).reason == "no_qualifying_evidence",
+          "authenticated health with trusted UTC permits existing covered absence rule");
+    check(!quiet.routine_state().activity_seen && !quiet.routine_state().explicit_ok &&
+          quiet.journal().size() == 0,
+          "NodeHealth coverage never fabricates resident activity or a Node event");
+    check(quiet.deadline(1012, true).reason == "coverage_unknown" &&
+          !quiet.observe_authenticated_health(health, "quiet-node", 9, 3000, 1012) &&
+          quiet.deadline(1012, true).reason == "coverage_unknown",
+          "expired coverage cannot be renewed by replayed health sequence");
 }
 
 

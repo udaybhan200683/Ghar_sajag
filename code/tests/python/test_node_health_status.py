@@ -92,9 +92,29 @@ class NodeHealthStatusTest(unittest.TestCase):
             "UPDATE hub_ownership_registry SET identity_key_fingerprint=? WHERE hub_device_id=?",
             ("d" * 64, "hub-a"),
         )
-        self.assertEqual(self.store.latest("home-a", 1003), [])
+        unknown = self.store.latest("home-a", 1003)
+        self.assertEqual(len(unknown), 1)
+        self.assertEqual((unknown[0]["status"], unknown[0]["coverage"]), ("UNKNOWN", "UNKNOWN"))
+        self.assertIsNone(unknown[0]["hub_received_at"])
+        self.assertIsNone(unknown[0]["backend_received_at"])
         self.assertIsNone(self.store.latest_hub_contact("home-a"))
         self.assertIsNone(self.store.latest_hub_backend_contact("home-a"))
+
+    def test_never_seen_active_enrollment_is_unknown_until_authenticated_contact(self):
+        unknown = self.store.latest("home-a", 1000)
+        self.assertEqual(len(unknown), 1)
+        self.assertEqual((unknown[0]["physical_node_id"], unknown[0]["logical_node_id"],
+                          unknown[0]["status"], unknown[0]["coverage"]),
+                         ("c3-146393c5d158", "bathroom", "UNKNOWN", "UNKNOWN"))
+        self.assertIsNone(unknown[0]["node_contact_age_seconds"])
+        self.assertFalse(unknown[0]["source_fresh"])
+        self.assertEqual(self.store.latest("home-b", 1000), [])
+        self.store.ingest(self.context, "home-a", self.body, 1002)
+        self.assertEqual(self.store.latest("home-a", 1002)[0]["status"], "ONLINE")
+        self.owner.revoke_node(self.identity, AuthorizedHomeOperation(
+            "fixture", "home-a", "REVOKE_NODE", "fixture-revoke"),
+            "c3-146393c5d158", 1, 1003)
+        self.assertEqual(self.store.latest("home-a", 1003), [])
 
     def test_authenticated_ingest_flows_to_snapshot_with_distinct_times(self):
         clock = [1002]

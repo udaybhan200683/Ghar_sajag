@@ -515,7 +515,7 @@ int main(int argc, char **argv) {
     auto worker = std::make_unique<CloudSyncWorker>(
         fixture.hub->journal(), *fixture.hub, authority, transport);
     RoutineConfig routine;
-    routine.window_id = "gs178-morning";
+    routine.window_id = "gs178-morning-" + std::to_string(initial_session);
     routine.start_at = trusted.utc_now;
     routine.end_at = trusted.utc_now + 60;
     routine.grace_end_at = trusted.utc_now + 120;
@@ -622,8 +622,13 @@ int main(int argc, char **argv) {
              "health AEAD");
         auto decoded =
             transport::decode_node_health(opened.bytes.data(), opened.size);
+        TrustedHubTimeSnapshot health_time;
+        const bool health_time_ready = provider.trusted_hub_time(domain, health_time) &&
+            health_time.trusted && health_time.monotonic_ms == domain &&
+            health_time.boot_generation != 0 && health_time.utc_now > 0;
         need(decoded && fixture.hub->observe_authenticated_health(
-                            *decoded.value, p.logical, p.session, domain),
+                            *decoded.value, p.logical, p.session, domain,
+                            health_time_ready ? health_time.utc_now : 0),
              "authenticated health");
         std::cout << "{\"health\":true}" << std::endl;
       } else if (op == "profile") {
@@ -690,7 +695,9 @@ int main(int argc, char **argv) {
         in >> now >> trusted_clock;
         auto d = fixture.hub->deadline(now, trusted_clock != 0,
                                        &fixture.rule_binding);
-        std::cout << "{\"create\":" << (d.create ? "true" : "false") << "}"
+        std::cout << "{\"create\":" << (d.create ? "true" : "false")
+                  << ",\"reason\":\"" << d.reason
+                  << "\",\"decision_id\":\"" << d.stable_key << "\"}"
                   << std::endl;
       } else if (op == "timer") {
         EpochSeconds now;

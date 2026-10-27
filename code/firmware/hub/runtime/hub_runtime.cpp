@@ -103,7 +103,8 @@ void HubRuntime::revoke_node(const std::string& node_id) {
 
 bool HubRuntime::observe_authenticated_health(
     const NodeHealthSnapshot& health, const std::string& authenticated_node_id,
-    std::uint64_t transport_session, std::uint64_t now_monotonic_ms) {
+    std::uint64_t transport_session, std::uint64_t now_monotonic_ms,
+    EpochSeconds trusted_contact_at) {
     if (!valid_node_health(health) || health.node_id != authenticated_node_id ||
         health.session_id != transport_session || now_monotonic_ms == 0 ||
         !peers_.accepts_health(authenticated_node_id, transport_session)) return false;
@@ -112,7 +113,7 @@ bool HubRuntime::observe_authenticated_health(
         (health.health_sequence <= found->second.snapshot.health_sequence ||
          now_monotonic_ms < found->second.last_seen_monotonic_ms)) return false;
     if (!observe_authenticated_contact(authenticated_node_id, transport_session,
-                                       now_monotonic_ms, 0,
+                                       now_monotonic_ms, trusted_contact_at,
                                        CloudContactKind::NodeHealth)) return false;
     // The compact C8 ACK trace deliberately omits unrelated health counters.
     // It refreshes the authenticated contact lease but cannot overwrite the

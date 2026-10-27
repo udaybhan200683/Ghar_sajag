@@ -32,6 +32,23 @@ const os = require('os');
     await page.getByLabel('Email').fill('owner@gs178.dev');
     await page.getByLabel('Password',{exact:true}).fill(config.password);
     await page.getByRole('button',{name:'Log in',exact:true}).click();
+    if(config.coverageOnly){
+      const hero=page.locator('#homeTab .connected-home-hero');
+      await expect(hero).toHaveAttribute('data-source-freshness',config.sourceFreshness);
+      await expect(hero).toHaveAttribute('data-monitoring',config.monitoring);
+      await expect(hero).toContainText('Monitoring status is unknown');
+      await expect(page.locator('[data-event-key]')).toHaveCount(0);
+      await expect(page.locator('[data-hub-decision]')).toHaveCount(0);
+      await page.locator('[data-tab="devices"]').click();
+      await expect(page.locator('[data-node-id]')).toHaveCount(config.nodeCount);
+      await expect(page.locator('#homeTab')).toContainText('UNKNOWN');
+      await page.locator('[data-tab="reports"]').click();
+      await page.locator('[data-open-tab="incidents"]').click();
+      await expect(page.locator('[data-incident-id]')).toHaveCount(0);
+      fs.writeFileSync(config.dom,await page.content());
+      console.log(JSON.stringify({status:'HOST_SIM_PASS',browser_assertions:8,requests,physical:'NOT_RUN'}));
+      return;
+    }
     if(config.ruleKind){
       await expect(page.locator('.connected-product-event[data-hub-decision]')).toHaveCount(1);
       const ruleLabels={MORNING_ROUTINE_COMPLETED:'Morning routine completed',

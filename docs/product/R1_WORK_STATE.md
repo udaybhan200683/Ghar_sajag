@@ -1,3 +1,68 @@
+## GS-178 software use-case batch S1 — 2026-10-27 (closeout in progress)
+
+Owning ticket GS-178; coverage inventory GS-130; regression policy GS-116.
+The owner directed that the existing `make -C code gs178-software-e2e` campaign
+advance independently while GS-117 stays OnHold. Canonical branch is
+`feature/r1-commercial-baseline`, base commit
+`f7168825a4751330629bf285c3bad83c21a87b51`, remote matched at start, and
+context preflight passed. The tested code subtree is
+`052d1c2c9e2a59c052a76660b281a30f9f5414e7`. The existing GS-178 implementation and current
+Jira scope were audited before completing this batch. No hardware, serial port,
+Android device, APK, physical sensor or service recovery was accessed.
+
+The batch found and fixed two real coverage correctness gaps using existing
+runtime paths: authenticated NodeHealth contact had no trusted UTC forwarded to
+Hub coverage; and the caregiver NodeHealth projection omitted active enrolled
+Nodes with no observation, allowing incomplete monitoring to look covered.
+Contact freshness is not resident activity and cannot create an EventKey. The
+backend now returns `UNKNOWN` with null contact metadata for a never-observed
+active Node, joining only current authority. Four deterministic GS-178 vertical
+cases (tests 19–22) exercise missing-morning decision boundaries, never-seen
+and expired coverage, trusted-time and mode suppression, lost COMMITTED receipt,
+restart/retry, browser-visible outcomes and recovery. Full-window observation
+gap history/calendar prompts and GS-104 learning remain unimplemented/on hold;
+they are not inferred from these tests.
+
+Current validation: existing one-command suite 37/37 PASS; repeat of test 19
+1/1 PASS with a fresh Node session; C3/S3 production target builds PASS without
+flashing; ASan/UBSan target PASS (C++ 1,516 checks and GS40 1,320); Hub
+checkpoint/replay and P2D CloudSync contract PASS; board-stack 10 scenarios
+PASS; registry and focused result details are in the GS-178 execution record.
+`make -C code python-test` ran 623 tests: 621 PASS, one approved historical
+ESP32 reserve test skipped, and one existing PWA static CSS budget test failed
+(29,576 bytes vs 18,432). The changed files do not include that CSS; retain the
+failure for the existing caregiver-app owner rather than expanding this batch.
+Final framework validation passed 51/51. The first traceability attempt exposed
+three incorrect source/stage ownership mappings; after mapping the C++ and
+Python regressions to their existing `cpp` and `python` stages,
+`feature-coverage-test` passed 226 features / 285 modules / 27 physical cases
+and its 22 registration tests. Documentation review, commit, push and Jira
+comments remain to be completed. R1 `product_status` and all
+17 P0 use cases remain PARTIAL. Actual Android APK and physical qualification
+remain unverified/NOT_RUN. Full release gate was not run.
+
+Next software-test priority: extend the existing GS-178 vertical around the
+already registered R1AUTO-027/028 outage cases so one caregiver-visible test
+distinguishes a Node-to-Hub outage from a WAN-only outage, then verifies
+original EventKey retention, truthful stale/unknown state and exact-once
+catch-up. GS-178 case 02 and the board-stack suite cover related pieces; audit
+and reuse them rather than adding another runner. Full-window observation-gap
+and calendar/prompt behavior is a separate requirements gap: coverage formulas
+remain open, so do not invent that behavior. Actual APK observation requires
+separately scoped ADB authorization; physical HIL, `validation-fast` and release
+gates remain outside this batch.
+
+Local worktree changes are limited to the listed GS-178 source/tests/registry
+and this batch's evidence documents; unrelated pre-existing untracked PWA,
+Android, managed-component, sdkconfig and historical physical evidence remain
+untouched. Exact local/remote commit and tracked-clean result will be recorded
+after the scoped validated commit. Next action: inspect the exact staged paths,
+commit and push normally, verify origin, then comment on GS-178/GS-116 and notify
+GS-177 of the separate CSS budget failure. GS-117 remains OnHold because the preserved C3 raw JEDEC result was
+all ones; offline tool inspection suggests the prior helper omitted esptool's
+existing flash-attach step, but current capacity is still UNKNOWN and no
+hardware retry is authorized.
+
 ## GS-178 P0 software readiness and targeted regressions — 2026-10-19
 
 Current source checkpoint before this evidence closeout: canonical branch
@@ -8345,3 +8410,4 @@ Next action: investigate the all-ones C3 JEDEC response using existing offline
 tool/provenance evidence and prepare a minimal diagnosis. Any further COM4
 access requires a new scoped owner approval. Do not proceed to S3 readback or
 recovery until C3 capacity is genuinely identified and validated.
+## GS-178 P0 software readiness and targeted regressions — 2026-10-19

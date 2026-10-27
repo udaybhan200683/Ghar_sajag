@@ -2653,3 +2653,23 @@ Next action: investigate the all-ones C3 JEDEC response using existing offline
 tool/provenance evidence and prepare a minimal diagnosis. Any further COM4
 access requires a new scoped owner approval. Do not proceed to S3 readback or
 recovery until C3 capacity is genuinely identified and validated.
+
+### 2026-10-27 — offline interpretation of the C3 JEDEC capacity stop
+
+No device or serial port was accessed for this diagnosis. Inspection of the
+preserved private helper
+`~/.local/state/ghar-sajag/gs117-tc001/capacity-first-readback-20261027T141042Z/`
+and the installed Windows esptool 5.4.0 source shows that the helper issued
+`flash_id()` after `detect_chip()` but did not use the existing `attach_flash()`
+ROM-loader initialization. The official esptool `flash-id` command performs
+`attach_flash()` before the JEDEC read. This is a plausible explanation for an
+all-ones `0xffffff` response, not proof that the C3 flash is good or that its
+capacity is known. The preserved result still has `flash_reads=[]`; no
+partition, selector or application region was inspected. Capacity remains
+UNKNOWN and the existing stop condition remains active.
+
+No retry, COM4/COM10 access, S3 readback or recovery is authorized by this
+offline review. Any further hardware attempt requires a new explicit scoped
+owner approval for an audited, identity-checked, read-only initialized flash-ID
+procedure. Only a genuine recognized capacity can permit the separately scoped
+readback/recovery sequence to be considered. TC-001 remains 0/5 NOT_RUN.

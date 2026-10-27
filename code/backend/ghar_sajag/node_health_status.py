@@ -134,20 +134,38 @@ class NodeHealthStatusStore:
 
     def latest(self, home_id: str, at: int) -> list[dict]:
         rows = self.db.execute(
-            """SELECT h.* FROM node_health_latest h
-               JOIN hub_ownership_registry r ON r.hub_device_id=h.hub_device_id
+            """SELECT n.physical_node_id AS enrolled_physical_node_id,
+                      n.logical_node_id AS enrolled_logical_node_id,h.*
+               FROM node_enrollment_history n
+               JOIN hub_ownership_registry r ON r.hub_device_id=n.hub_device_id
+                 AND r.home_id=n.home_id AND r.state='ACTIVE'
+               LEFT JOIN node_health_latest h ON n.hub_device_id=h.hub_device_id
                  AND r.identity_key_fingerprint=h.ownership_fingerprint_sha256
-                 AND r.home_id=h.home_id AND r.installation_epoch=h.installation_epoch
-                 AND r.state='ACTIVE'
-               JOIN node_enrollment_history n ON n.hub_device_id=h.hub_device_id
+                 AND r.installation_epoch=h.installation_epoch
                  AND n.home_id=h.home_id AND n.physical_node_id=h.physical_node_id
                  AND n.logical_node_id=h.logical_node_id
-                 AND n.enrollment_generation=h.node_enrollment_generation AND n.state='ACTIVE'
-               WHERE h.home_id=? ORDER BY h.logical_node_id LIMIT 100""",
+                 AND n.enrollment_generation=h.node_enrollment_generation
+               WHERE n.home_id=? AND n.state='ACTIVE'
+               ORDER BY n.logical_node_id,n.physical_node_id LIMIT 100""",
             (home_id,),
         ).fetchall()
         result = []
         for row in rows:
+            if row["source_revision"] is None:
+                physical = row["enrolled_physical_node_id"]
+                policy = self.policy.for_device(physical)
+                result.append({
+                    "physical_node_id": physical,
+                    "logical_node_id": row["enrolled_logical_node_id"],
+                    "status": "UNKNOWN", "coverage": "UNKNOWN",
+                    "contact_kind": None, "profile_id": self._profile(physical),
+                    "heartbeat_seconds": None if policy is None else policy.heartbeat_seconds,
+                    "offline_seconds": None if policy is None else policy.offline_seconds,
+                    "hub_received_at": None, "hub_contact_at": None,
+                    "backend_received_at": None, "node_contact_age_seconds": None,
+                    "cloud_source_age_seconds": None, "source_fresh": False,
+                })
+                continue
             node_age = max(0, at - row["hub_received_at"])
             source_age = max(0, at - row["backend_received_at"])
             if at < row["backend_received_at"] or source_age > SOURCE_FRESH_SECONDS:

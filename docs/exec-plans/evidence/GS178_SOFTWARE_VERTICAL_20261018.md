@@ -528,3 +528,166 @@ no physical motion EventKey was generated. Thus the software milestone is
 PASS, while the physical campaign remains **BLOCKED / NOT_RUN**. Do not request
 the five-injection approval until the exact owner fixture, current signer and
 ingress readiness receipts exist.
+
+## 2026-10-27 — software use-case batch S1 audit (execution in progress)
+
+Owning Jira GS-178; coverage GS-130; validation GS-116. Owner comments
+11748/11750/11749 prioritize the existing one-command host campaign independently
+of GS-117 (OnHold). Canonical baseline f7168825a4751330629bf285c3bad83c21a87b51;
+preflight PASS; tracked clean, unrelated untracked assets preserved.
+
+Existing implementation: production Node input qualification/retention/AEAD,
+HubRuntime journal/coverage/deadline/rule checkpoint, CloudSync mTLS, durable
+backend, authenticated caregiver API and shared browser. Existing tests 01–18
+and security suite already cover event delivery, lost ACK/WAN/restart replay,
+night and door concerns, privacy, caregiver actions and authority isolation.
+Reused entry point: `make -C code gs178-software-e2e` (prior 33/33).
+
+Classification: IMPLEMENTED_NOT_YET_VALIDATED for the full missing-morning
+concern path and its never-seen/expired coverage, clock/mode suppression,
+receipt-loss/restart and caregiver browser outcomes. TEST_INFRA_ONLY changes
+extend existing integration tests, simulator observation and browser helper;
+no product algorithm/wire/storage change is planned. GS-D021/022/023 and P0
+requirements require missing observations not to imply inactivity. Current
+CoverageTracker explicitly describes present coverage only; full-window gap
+history, calendar/prompt orchestration and personalized learning remain
+PARTIAL/ON_HOLD rather than accepted by this batch.
+
+Affected test interfaces: deadline reason/identity reporting, existing NodeHealth
+software input, Hub decision mTLS receipt and caregiver UI. Regression plan:
+new cases, full existing GS-178 suite, relevant Hub checkpoint tests and
+lightweight framework/traceability registration checks. Target builds and
+hardware are not required for test-only changes. No release gate, alternate
+framework, physical/ADB endpoint migration, or held feature implementation.
+
+### Established gap before product edit
+
+OWNING_JIRA=GS-178 (coverage/liveness feature GS-40)
+BUG_CLASSIFICATION=R1_FIX
+REQUIREMENT_SOURCE=docs/product/P0_PRODUCT_REQUIREMENTS.md (coverage and inactivity)
+DECISION_IDS=GS-D021;GS-D022;GS-D023
+EXISTING_IMPLEMENTATION=HubRuntime authenticated health/contact and CoverageTracker
+EXISTING_TEST_EVIDENCE=baseline GS178 33/33; new S1 focused run 1/5 PASS, four failures
+VERIFIED_GAP=NodeHealth passes trusted_contact_at=0 to the existing contact API; backend can be COVERED while Hub deadline coverage remains UNKNOWN despite authenticated healthy Nodes
+USER_USE_CASE_IMPACT=healthy silent household cannot produce the existing eligible missing-morning concern
+MINIMUM_REQUIRED_CHANGE=carry optional caller-verified UTC through authenticated health to the existing coverage update; S3 uses the existing signed-time snapshot guard; preserve default zero/UNKNOWN
+AFFECTED_COMPONENTS=Hub runtime and S3 adapter; host simulator adapter; existing NodeHealth-to-caregiver contract
+SECURITY_AND_DURABILITY_IMPACT=no new trust/time source; identity/session/sequence validation still precedes coverage; health remains distinct from activity/EventKey; no persistent-format change
+REGRESSION_REQUIREMENTS=runtime unit/checkpoint, GS40/cloud contracts, board E2E, full GS178/API/browser, registration, applicable S3 build
+OUT_OF_SCOPE=historical interval coverage, new routine semantics, physical operations, held learning and release approval
+
+The separate partial-coverage test also expected four changed snapshots for three
+observed Nodes; actual three is correct and the test expectation is corrected.
+Initial failed reports/log are preserved in `code/build/gs178_s1_20261027/focused/`
+and `code/build/gs178_s1_focused.log`.
+
+Second S1 run reproduced an independent caregiver defect: three healthy Nodes
+made Home monitoring COVERED while the fourth active enrolled Node had never
+been observed. `NodeHealthStatusStore.latest()` joined from observations and
+omitted missing members of the current enrolled roster. Classification R1_FIX,
+owner GS-40/GS-178; P0 coverage/UNKNOWN requirement and GS-D021 apply. Minimum
+fix: query the authenticated active enrollment roster, left-join only matching
+current authority observations, and return UNKNOWN/null contact metadata for
+unobserved or invalidated records. Preserve cross-Home/epoch/key/generation
+fences. Regression: NodeHealth API/read model, full backend tests, shared UI and
+GS178 browser. No stored row or credential mutation. A prior fingerprint test
+will assert UNKNOWN with no reused contact metadata instead of hiding the
+still-enrolled device. The lost-receipt test also filtered only HTTP 200 and
+missed the valid initial HTTP 201 commit; accept both committed statuses while
+retaining exact identity/duplicate assertions. Failed reports remain preserved.
+
+### 2026-10-27 — S1 missing-observation and inactivity batch results
+
+Audit disposition: GS-178's Node → HubRuntime → CloudSync → authenticated
+backend → caregiver path, production-code host simulation, and Playwright
+observer already existed. GS-130/116 scenario inventories and gates were reused;
+no second runner, event pipeline, database path or UI observer was added. The
+verified gaps were limited to current authenticated contact time not reaching
+the existing Hub coverage API, and the caregiver NodeHealth read model omitting
+an active enrolled Node with no health row. Both are corrected without changing
+wire/storage format, health-to-activity semantics or authority rules. Contact
+can establish current observation coverage only; it never creates a motion
+EventKey or counts as resident activity.
+
+The existing `make -C code gs178-software-e2e` now executes 37 tests (15
+security and 22 vertical cases). Run:
+
+```sh
+GS178_REPORT_DIR=build/gs178_s1_20261027/full-suite make -C code gs178-software-e2e
+```
+
+Result: **37/37 PASS**, 409.934 seconds. The four added vertical cases are:
+
+| Case | Verified behavior | Result boundary |
+|---|---|---|
+| `test_19_covered_absence_boundary_receipt_loss_and_restart` | 119-before/120-grace boundary; a covered, silent morning creates one authenticated Hub missing-morning concern; 201 initial/200 duplicate receipt; WAN loss, lost receipt, Hub/backend reopen and same decision identity; caregiver browser sees the concern. | `HOST_SIM_PASS`; time-derived concern has no source Node EventKey by design. Browser report has 5 assertions. |
+| `test_20_never_seen_node_is_missing_observation_not_inactivity` | An active enrolled Node with no observation remains `UNKNOWN`; no concern or fabricated event; caregiver browser shows four Nodes with unknown health and no false activity. | `HOST_SIM_PASS`; browser report has 8 assertions. |
+| `test_21_expired_coverage_suppresses_absence_then_contact_recovers` | Expired health cannot satisfy the inactivity rule; a fresh authenticated Node contact restores coverage without inventing activity, an event or a concern. | `HOST_SIM_PASS`; API/software projection checked, no browser claim for this case. |
+| `test_22_untrusted_rule_time_and_modes_suppress_until_eligible` | Untrusted time and Away/Paused/Privacy suppress the decision; trusted time in Home permits exactly one decision. | `HOST_SIM_PASS`; no physical or APK claim. |
+
+The independent repeat of test 19 passed **1/1** using Node session `53001`
+and decision identity `missing-morning:gs178-morning-53001`. All 22 vertical
+case reports recorded `first_failed_stage=null`, physical status `NOT_RUN`,
+and actual Android `APK_NOT_VERIFIED`. Prior focused iterations exposed the
+missing trusted-UTC path and a backend roster omission; the initial assertions
+also incorrectly counted a valid HTTP 201 as absent and expected four updates
+for three observed Nodes. Those assertions were corrected to preserve, rather
+than weaken, the expected status and identity checks. The early failure logs
+remain in ignored `code/build/gs178_s1_20261027/` evidence. One manual repeat
+first failed to import because its invocation omitted `tests/integration` from
+`PYTHONPATH`; the corrected command passed and the normal one-command suite is
+the authoritative repeatable entry point.
+
+Additional validation on this source:
+
+| Command | Result |
+|---|---|
+| `IDF_PY_BUILD_JOBS=2 python3 code/scripts/build_validation_targets.py` | C3 BUILD PASS, 944,272 bytes; S3 BUILD PASS, 2,197,568 bytes. ESP-IDF production profiles; no flashing. The modified Hub adapter compiled in S3. |
+| `make -C code validation-sanitize` | PASS. ASan/UBSan C++ suite 1,516 checks; GS40 host suite 1,320 checks. |
+| `make -C code hub-runtime-checkpoint-host-test p2d-cloud-contract-host-test` | PASS. Runtime checkpoint/replay/crash boundaries; CloudSync receipt modes, bounded batching/retry and completion persistence cuts. |
+| `make -C code validation-board-e2e` | PASS, board-stack 10 scenarios; SOFTWARE PASS / physical NOT_RUN. |
+| `make -C code validation-framework-test feature-coverage-test` | PASS after traceability correction: framework 51/51; feature map 226 features / 285 modules / 27 physical cases; registration unit tests 22/22. This validates consistency only, not exhaustive semantic or physical acceptance. |
+| `make -C code python-test` | **FAIL**: 623 tests; 621 passed, one approved historical ESP32 NVS-reserve test skipped, one failure in existing `test_static_payload_and_collection_budgets`: CSS 29,576 bytes exceeds 18,432. This task did not modify caregiver CSS. Keep the failure visible and triage with existing GS-177 ownership. |
+
+The focused Python NodeHealth suite contains six passing tests, including the
+new never-seen → UNKNOWN → authenticated contact → revocation sequence. The
+main E2E and repeat exercise production NodeRuntime/HubRuntime, actual local
+TLS/mTLS and backend commit/read-model paths plus shared caregiver browser UI;
+they are `HOST_SIM_PASS`, not target or phone tests. The changed firmware
+adapter also compiled in both standard production target builds. No Android
+device, COM port, physical sensor, production service or physical event was
+used. The installed Android APK, caregiver login on a phone and physical
+TC-001/AM312 remain unverified/NOT_RUN; GS-117 remains OnHold. All 17 P0 use
+cases and R1 product status remain PARTIAL; full-window missing-observation
+history and calendar/prompt orchestration remain incomplete, and GS-104
+personalized learning remains on hold.
+
+Registration validation was not treated as a cosmetic check: the first
+`make -C code validation-framework-test feature-coverage-test` had framework
+51/51 PASS but the mapper failed because the added C++ and Python unit-test
+files were listed under GS-178 E2E without their existing `cpp`/`python`
+owners. The traceability row now maps all four existing stages (`cpp`,
+`checkpoint`, `python`, `gs178-node-caregiver-e2e`) and their exact registry
+commands/gates. The corrected feature-coverage check passed; no case was left
+unregistered to make the error disappear.
+
+Offline GS-117 note: the prior private C3 JEDEC result is `0xffffff`, so the
+actual capacity remains UNKNOWN and the capacity-first hardware guard remains
+failed. Reviewing the preserved helper and installed esptool 5.4.0 source
+offline showed the helper requested `flash_id()` before `run_stub()` but did
+not call the existing ROM-loader `attach_flash()` step. The official esptool
+`flash-id` CLI attaches/configures SPI flash before reading its JEDEC ID. This
+makes a helper-ordering/tool-initialization issue plausible; it does not prove
+the C3 flash is healthy or establish its capacity. No retry, port open, or
+hardware access is included in this GS-178 task; GS-117 stays OnHold pending a
+separate scoped approval and correctly initialized read-only procedure.
+
+Evidence directory: `code/build/gs178_s1_20261027/`; repeat report:
+`code/build/gs178_s1_20261027/repeat-53001/`; full-suite report:
+`code/build/gs178_s1_20261027/full-suite/`; paired build report:
+`code/build/validation_targets/gs116-llw2l7ga/report.json`. These are local
+ignored software test/build artifacts, not physical fixture receipts. Validation
+source is the GS-178 S1 diff based on canonical
+`f7168825a4751330629bf285c3bad83c21a87b51`; its staged code subtree is
+`052d1c2c9e2a59c052a76660b281a30f9f5414e7`. The full commit and remote
+verification are recorded in the closeout Jira comment.

@@ -1,5 +1,6 @@
 """GS178 software-only Node -> authenticated Hub -> mTLS/DB -> caregiver cases."""
 import json
+import hashlib
 import os
 from pathlib import Path
 import unittest
@@ -17,6 +18,9 @@ class NodeOriginVertical(unittest.TestCase):
     def setUp(self):
         self.stack = product_stack_for_test()
         self.addCleanup(self.stack.close)
+        self.stage = "NODE_HUB_BOOTSTRAP"
+        self.expected = "Existing production-path assertions in " + self._testMethodName
+        self.addCleanup(self.record_execution)
         campaign_id = os.environ.get("GS178_CAMPAIGN_RUN_ID")
         session_seed = os.environ.get("GS178_NODE_SESSION_ID")
         if campaign_id and (
@@ -28,6 +32,7 @@ class NodeOriginVertical(unittest.TestCase):
         self.cookie = self.stack.login()
         self.now = self.ready["utc"]
         self.domain = 1000
+        self.stage = "PRODUCT_ASSERTIONS"
 
     def input(self, node, kind, *, at=None, minute=7*60, drop=False):
         self.domain += 2000
@@ -108,13 +113,13 @@ class NodeOriginVertical(unittest.TestCase):
         self.stack.command("health 0 1000")
         self.stack.domain_now=self.now+1
         self.assertEqual(self.stack.command("sync 1000 1")["health_accepted"],1)
-        device=self.view("devices")["devices"][0]
+        device=next(d for d in self.view("devices")["devices"] if d["logical_node_id"]=="bedroom")
         self.assertEqual((device["status"],device["coverage"]),("ONLINE","COVERED"))
         self.stack.domain_now=self.now+912
         # No new Node packet: owner snapshot alone publishes lease expiry.
         expired=self.stack.command("sync 912000 1")
         self.assertEqual(expired["health_accepted"],1,expired)
-        device=self.view("devices")["devices"][0]
+        device=next(d for d in self.view("devices")["devices"] if d["logical_node_id"]=="bedroom")
         self.assertEqual((device["status"],device["coverage"]),("OFFLINE","UNKNOWN"))
         offline_view=self.view()
         self.assertEqual(offline_view["monitoring"],"UNKNOWN")
@@ -123,11 +128,13 @@ class NodeOriginVertical(unittest.TestCase):
         stale_view=self.view()
         self.assertEqual(stale_view["source_freshness"],"STALE")
         self.assertEqual(stale_view["monitoring"],"UNKNOWN")
-        self.assertEqual(self.view("devices")["devices"][0]["status"],"UNKNOWN")
+        self.assertEqual(next(d for d in self.view("devices")["devices"]
+                              if d["logical_node_id"]=="bedroom")["status"],"UNKNOWN")
         self.stack.domain_now=self.now+1104
         self.stack.command("health 0 1104000")
         self.assertEqual(self.stack.command("sync 1104000 1")["health_accepted"],1)
-        self.assertEqual(self.view("devices")["devices"][0]["status"],"ONLINE")
+        self.assertEqual(next(d for d in self.view("devices")["devices"]
+                              if d["logical_node_id"]=="bedroom")["status"],"ONLINE")
         self.assertEqual(self.stack.durable.db.execute("SELECT COUNT(*) FROM events").fetchone()[0],0)
         self.save_report("P0-G-H",self.view("devices"))
 
@@ -245,8 +252,12 @@ class NodeOriginVertical(unittest.TestCase):
         self.save_report("P0-C-HUB_RULE_SYNC",self.view())
 
     def test_11_checkin_does_not_resolve_unrelated_assistance(self):
+        for node in range(4):
+            self.stack.command(f"health {node} 1000")
         self.input(1,"help")
         self.input(2,"ok")
+        self.assertEqual(self.stack.command(f"deadline {self.now+120} 1")["reason"],
+                         "evidence_present")
         self.assertEqual(self.sync()["completed"],2)
         self.assertEqual(self.view()["recent_events"][0]["kind"],"OK_PRESSED")
         concern=self.view("incidents")["incidents"][0]
@@ -408,10 +419,167 @@ class NodeOriginVertical(unittest.TestCase):
         self.assertEqual(report["status"], "HOST_SIM_PASS")
         self.save_report("GS179-HUB-RULE-CAREGIVER-ROUTINES", report)
 
-    def save_report(self, case_id, outcome):
+    def covered_without_activity(self):
+        """Authenticated NodeHealth is coverage input, never resident activity."""
+        for node in range(4):
+            self.assertTrue(self.stack.command(f"health {node} 1000")["health"])
+        self.stack.domain_now = self.now + 1
+        self.assertEqual(self.stack.command("sync 1000 1")["health_accepted"], 4)
+        self.assertEqual(self.view()["monitoring"], "COVERED")
+        self.assertEqual(self.view()["recent_events"], [])
+
+    def deadline(self, elapsed, trusted=True):
+        self.domain = elapsed * 1000
+        self.stack.domain_now = self.now + elapsed
+        return self.stack.command(f"deadline {self.stack.domain_now} {int(trusted)}")
+
+    def assert_no_concern(self):
+        self.assertEqual(self.stack.durable.db.execute(
+            "SELECT COUNT(*) FROM hub_rule_decisions").fetchone()[0], 0)
+        self.assertEqual(self.view("incidents")["incidents"], [])
+
+    def observe_rule_browser(self, *, kind=None, monitoring=None):
+        reports = Path(os.environ.get("GS178_REPORT_DIR", "build/gs178_evidence"))
+        reports.mkdir(parents=True, exist_ok=True)
+        config = {"base": self.stack.human_origin, "password": self.stack.password,
+                  "dom": str(reports / (self._testMethodName + ".html")),
+                  "nodeEventCount": 0}
+        if kind:
+            config["ruleKind"] = kind
+        else:
+            config.update(coverageOnly=True, monitoring=monitoring,
+                          sourceFreshness="CURRENT", nodeCount=4)
+        result = subprocess.run(["node", str(CAREGIVER_BROWSER)], input=json.dumps(config),
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=90,
+            env={**os.environ, "NODE_EXTRA_CA_CERTS": str(self.stack.ca_path)})
+        self.assertEqual(result.returncode, 0, result.stdout)
+        report = json.loads(result.stdout.splitlines()[-1])
+        self.assertEqual(report["status"], "HOST_SIM_PASS")
+        return report
+
+    def test_19_covered_absence_boundary_receipt_loss_and_restart(self):
+        self.expected = ("Health-only covered window: no concern before grace; one missing-morning "
+                         "decision at grace; WAN/lost receipt/restarts preserve one concern and no fabricated Node event")
+        self.stage = "AUTHENTICATED_COVERAGE"
+        self.covered_without_activity()
+        self.stage = "DEADLINE_BOUNDARY"
+        self.assertEqual(self.deadline(119)["reason"], "window_not_due")
+        due = self.deadline(120)
+        self.assertTrue(due["create"], due)
+        self.assertEqual(due["reason"], "no_qualifying_evidence")
+        self.stage = "WAN_AND_HUB_RECOVERY"
+        self.stack.wan_up = False
+        self.assertEqual(self.sync()["rules_completed"], 0)
+        self.assert_no_concern()
+        self.stack.command("restart")
+        for node in range(4):
+            self.stack.command(f"health {node} 123000")
+        self.assertEqual(self.deadline(123)["reason"], "already_created")
+        self.stack.wan_up = True
+        self.assertTrue(self.stack.command("refresh")["authority"])
+        self.stack.drop_rule_receipt = True
+        self.stage = "DURABLE_COMMIT_LOST_RECEIPT"
+        self.assertEqual(self.sync()["rules_completed"], 0)
+        self.stack.command("restart")
+        self.assertEqual(self.sync()["rules_completed"], 1)
+        self.assertEqual(self.sync()["rules_completed"], 0)
+        rows = self.stack.durable.db.execute(
+            "SELECT decision_id,kind,source_event_id FROM hub_rule_decisions").fetchall()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual((rows[0][0], rows[0][1], rows[0][2]),
+                         (due["decision_id"], "MISSING_MORNING_ACTIVITY", None))
+        receipts = [r for r in self.stack.receipts
+                    if r.get("path", "").endswith("/hub-rule-decisions") and r["status"] in (200, 201)]
+        self.assertEqual(len(receipts), 2)
+        self.assertEqual({r["response"]["decision_id"] for r in receipts}, {due["decision_id"]})
+        self.assertEqual([r["response"]["duplicate"] for r in receipts], [False, True])
+        self.stage = "CAREGIVER_API_AND_REOPEN"
+        self.stack.restart_backend()
+        incidents = self.view("incidents")["incidents"]
+        self.assertEqual([(i["kind"], i["severity"], i["state"]) for i in incidents],
+                         [("MISSING_MORNING_ACTIVITY", "CONCERN", "OPEN")])
+        self.assertEqual(self.stack.durable.db.execute("SELECT COUNT(*) FROM events").fetchone()[0], 0)
+        timeline = self.view()["recent_events"]
+        self.assertEqual(len(timeline), 1)
+        self.assertEqual(timeline[0]["decision_id"], due["decision_id"])
+        self.assertIsNone(timeline[0].get("event_key"))
+        self.stage = "CAREGIVER_BROWSER"
+        self.save_report("R1AUTO-018-019-033-038", self.observe_rule_browser(kind="MISSING_MORNING_ACTIVITY"))
+
+    def test_20_never_seen_node_is_missing_observation_not_inactivity(self):
+        self.expected = "One never-seen required Node keeps monitoring UNKNOWN and creates no absence concern, including restart"
+        self.stage = "PARTIAL_NODE_COVERAGE"
+        for node in range(3):
+            self.stack.command(f"health {node} 1000")
+        self.stack.domain_now = self.now + 1
+        self.assertEqual(self.stack.command("sync 1000 1")["health_accepted"], 3)
+        self.stage = "UNKNOWN_SUPPRESSES_ABSENCE"
+        self.assertEqual(self.deadline(120)["reason"], "coverage_unknown")
+        self.stack.command("restart")
+        self.assertEqual(self.deadline(121)["reason"], "coverage_unknown")
+        self.sync()
+        self.assert_no_concern()
+        self.assertEqual(self.view()["monitoring"], "UNKNOWN")
+        self.stage = "CAREGIVER_UNKNOWN_BROWSER"
+        self.save_report("R1AUTO-012-018-NO-OBSERVATION", self.observe_rule_browser(monitoring="UNKNOWN"))
+
+    def test_21_expired_coverage_suppresses_absence_then_contact_recovers(self):
+        self.expected = "Expired Node coverage suppresses inactivity; authenticated contact restores coverage without inventing activity or a concern"
+        self.covered_without_activity()
+        self.stage = "EXPIRED_COVERAGE"
+        self.assertEqual(self.deadline(912)["reason"], "coverage_unknown")
+        self.assertEqual(self.sync()["health_accepted"], 4)
+        self.assertEqual(self.view()["monitoring"], "UNKNOWN")
+        self.assert_no_concern()
+        self.stage = "AUTHENTICATED_CONTACT_RECOVERY"
+        for node in range(4):
+            self.stack.command(f"health {node} {self.domain+1000}")
+        self.domain += 1000
+        self.assertEqual(self.sync()["health_accepted"], 4)
+        self.assertEqual(self.view()["monitoring"], "COVERED")
+        self.assertEqual(self.view()["recent_events"], [])
+        self.assert_no_concern()
+        # Present contact cannot establish whether the preceding window was
+        # observed. Full-window gap history remains a separate implementation gap.
+        self.save_report("R1AUTO-012-013-018-RECOVERY", self.view())
+
+    def test_22_untrusted_rule_time_and_modes_suppress_until_eligible(self):
+        self.expected = "Untrusted domain time and Away/Paused/Privacy suppress concern; trusted Home eligibility permits one decision"
+        self.covered_without_activity()
+        self.stage = "UNTRUSTED_RULE_TIME"
+        self.assertEqual(self.deadline(120, trusted=False)["reason"], "time_untrusted")
+        for mode in ("away", "paused", "privacy"):
+            with self.subTest(mode=mode):
+                self.stage = "MODE_SUPPRESSION_" + mode.upper()
+                self.stack.command("mode " + mode)
+                self.assertEqual(self.deadline(121)["reason"], "mode_suppressed")
+                self.sync()
+                self.assert_no_concern()
+        self.stage = "ELIGIBLE_HOME_RECOVERY"
+        self.stack.command("mode home")
+        due = self.deadline(130)
+        self.assertTrue(due["create"], due)
+        self.assertEqual(self.sync()["rules_completed"], 1)
+        self.assertEqual(len(self.view("incidents")["incidents"]), 1)
+        self.save_report("R1AUTO-018-019-021-022", self.view())
+
+    def record_execution(self):
+        result = self._outcome.result
+        failures = [message for test, message in result.failures + result.errors if test is self]
+        # Subtest failures carry the parent test in test_case.
+        failures += [message for test, message in result.failures + result.errors
+                     if getattr(test, "test_case", None) is self]
+        self.save_report(self._testMethodName,
+            {"expected": self.expected, "failure": "\n".join(failures) or None},
+            status="FAIL" if failures else "HOST_SIM_PASS",
+            first_failed_stage=self.stage if failures else None)
+
+    def save_report(self, case_id, outcome, *, status="HOST_SIM_PASS", first_failed_stage=None):
         path=Path(os.environ.get("GS178_REPORT_DIR", "build/gs178_evidence"))
         path.mkdir(parents=True,exist_ok=True)
-        payload={"scenario_id":case_id,"status":"HOST_SIM_PASS","physical_status":"NOT_RUN",
+        payload={"scenario_id":case_id,"status":status,"physical_status":"NOT_RUN",
+            "actual_android_status":"APK_NOT_VERIFIED", "first_failed_stage":first_failed_stage,
+            "test_source_sha256":hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
             "source_revision":subprocess_revision(),"trace":self.stack.trace,
             "backend_receipts":self.stack.receipts,"caregiver":outcome,
             "generated_at_utc":datetime.now(timezone.utc).isoformat()}

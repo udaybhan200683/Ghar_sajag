@@ -2540,6 +2540,7 @@
         "tools/hil/gs40_test_bootstrap.py",
         "tools/factory/pilot_test_issuer.py",
         "backend/ghar_sajag/sqlite_incidents.py",
+        "backend/ghar_sajag/node_health_status.py",
         "backend/ghar_sajag/caregiver_product.py",
         "backend/ghar_sajag/hub_rule_decisions.py",
         "backend/migrations/013_hub_rule_decisions.sql",
@@ -2552,7 +2553,10 @@
         "firmware/hub/target/esp32s3/gs40_test_only_bootstrap.cpp",
         "firmware/hub/target/esp32s3/gs40_test_only_bootstrap.hpp",
         "firmware/hub/target/esp32s3/gs40_test_only_runtime.cpp",
-        "firmware/hub/target/esp32s3/gs40_test_only_runtime.hpp"
+        "firmware/hub/target/esp32s3/gs40_test_only_runtime.hpp",
+        "firmware/hub/runtime/hub_runtime.cpp",
+        "firmware/hub/runtime/hub_runtime.hpp",
+        "firmware/hub/target/esp32/hub_runtime_adapter.cpp"
       ],
       "success": "Ran (\\d+) tests?",
       "required_success": [

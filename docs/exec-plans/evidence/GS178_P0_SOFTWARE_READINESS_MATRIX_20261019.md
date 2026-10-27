@@ -178,3 +178,28 @@ browser output is classified as physical evidence.
 
 This is a traceable software-readiness matrix, not a release approval. The
 executable registry remains authoritative for future status updates.
+
+## 2026-10-27 S1 addendum — observation gaps and inactivity
+
+The current `GS-178-HUB-RULE-02` traceability row now maps R1AUTO-018/019/021/022
+to existing production-code host paths and the new vertical tests 19–22.
+Scenarios 19 and 20 assert actual caregiver browser output; scenarios 21 and 22
+assert API/rule state. The full existing one-command campaign passes 37/37;
+scenario 19 repeated independently with a fresh Node session (1/1). The
+authenticated NodeHealth update can restore current observation coverage but
+never creates a Node EventKey or represents resident activity. Active enrolled
+Nodes without valid current observations now remain visible as `UNKNOWN` in the
+caregiver projection. See the dated execution report for exact fault/restart,
+duplicate receipt, browser assertion, sanitizer, target-build and registry
+results.
+
+Affected matrix rows remain **PARTIAL**: P0-UC-05/06 (deterministic routine and
+coverage behavior), P0-UC-08 (NodeHealth and current observation), P0-UC-11
+(caregiver concern presentation), and P0-UC-12 (timeline/concern projection).
+This batch does not implement full-window missing-observation history or
+calendar/prompt orchestration, and does not qualify the S3 runtime on hardware.
+All 17 P0 use cases remain PARTIAL; `product_status=PARTIAL`; browser evidence
+does not qualify the actual Android APK. TC-001 and real AM312 sensing remain
+NOT_RUN. The broad Python suite has one existing CSS budget failure (29,576
+bytes vs 18,432); this batch did not modify the stylesheet and records it under
+the existing caregiver-app ownership for triage.
