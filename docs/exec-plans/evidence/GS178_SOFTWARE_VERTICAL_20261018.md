@@ -718,9 +718,9 @@ asserts:
    still has zero commits. The Hub is restarted while WAN remains unavailable,
    and both Hub outbox entries survive.
 4. On WAN recovery, CloudSync commits both events. The API returns the exact
-   physical/logical/session/sequence keys in correct chronology; PostgreSQL has
-   one event and one durable commit per key; the caregiver browser observes the
-   same ordered keys before and after page reload.
+   physical/logical/session/sequence keys in correct chronology; the isolated
+   backend SQLite store has one event and one durable commit per key; the
+   caregiver browser observes the same ordered keys before and after reload.
 
 Validation:
 

@@ -9,6 +9,8 @@ commit is `392ec21b0965672ca981b6740e164078ef2f2ed2`. Both were pushed. At the
 closeout verification checkpoint, local and origin both equaled
 `392ec21b0965672ca981b6740e164078ef2f2ed2`; tracked files were clean and
 pre-existing untracked Android/PWA/IDF/physical evidence remained untouched.
+The S2 evidence now explicitly distinguishes the isolated SQLite vertical
+backend from separate GS-179 PostgreSQL coverage.
 Context preflight passed. Latest Jira decisions
 11748/11749/11750 require the existing software E2E campaign, incremental
 coverage, and no hardware prerequisite. The source, GS-178/130/116 scope,
