@@ -8279,3 +8279,35 @@ rerun for this documentation/network/Android verification checkpoint. Latest
 Jira comments before this closeout were GS-117 `11741` and GS-179 `11742`;
 dated evidence comments will record the delivery commit. Delivery SHA and
 remote comparison are available in the next Git/Jira closeout entry.
+
+### 2026-10-27 13:21 UTC — GS-117 stopped at C3 readback capacity guard
+
+At canonical HEAD 1fe7e3777dbe542c05b3fd134fe5f22f90ce3459 (remote matched),
+the owner authorized targeted C3/S3 current app/table readback followed by one
+existing S3 encrypted configuration recovery to .6. Context preflight passed;
+GS-117 moved from OnHold to In Progress. The C3 COM4 connection verified the
+approved USB serial, ESP32-C3/MAC and read-only security state. Preserved
+C3/S3 artifacts and metadata passed offline hash/provenance checks. The
+installed esptool 5.4.0 returned unknown flash capacity (detect_flash_size()
+== None); the guard stopped before any flash region read (flash_reads=[]). No
+current C3 image/table/capacity receipt exists. This is an unknown-capacity/tool
+identification result, not an observed firmware image mismatch.
+
+No COM10 access, S3 recovery invocation, configuration operation, injection,
+firmware write/erase, protected data read/mutation, or database/lifecycle change
+occurred. COM4 was opened once under the accepted reset-risk scope; app-run
+state after serial close is unverified and was not probed again. Private
+evidence: ~/.local/state/ghar-sajag/gs117-tc001/current-image-readback-20261027T131908Z/.
+The offline parser/artifact self-test passed; the actual C3 readback failed
+closed before partition-table, selector or app reads. No product code changed
+and no product regression suite was rerun.
+
+The owner's explicit stop-on-any-failed-guard instruction ends this hardware
+session. GS-117 is OnHold pending fresh scoped owner authorization for one
+corrected read-only C3 capture that records/validates raw flash ID and capacity;
+only after it passes may targeted S3 readback and one existing recovery
+invocation proceed under that new authorization. TC-001 remains 0/5 NOT_RUN,
+fixture BLOCKED/absent, five-run approval absent, and optical PIR NOT_RUN.
+Preserve the prior actual APK observation for session 118/sequence 16 as
+historical observer evidence only. Detailed results and exact next action are
+in the [GS-117 execution handoff](../exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md#2026-10-27-1321-utc--approved-current-image-readback-stopped-at-c3-capacity-guard).

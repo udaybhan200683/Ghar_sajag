@@ -2563,3 +2563,59 @@ revalidate the guarded fixture and request the separate five-injection
 authorization; do not create either owner-only file before its required
 authorization. GS-117 is now being placed OnHold while this new scoped
 authorization is pending; resume In Progress when authorized execution starts.
+
+### 2026-10-27 13:21 UTC — approved current-image readback stopped at C3 capacity guard
+
+The owner approved one bounded readiness session for targeted C3/S3 app-slot
+and partition-table evidence, followed by exactly one existing S3 encrypted
+configuration recovery to 192.168.1.6. GS-117 was moved to In Progress for
+this authorized session. The canonical branch was
+feature/r1-commercial-baseline at
+1fe7e3777dbe542c05b3fd134fe5f22f90ce3459; origin matched, context preflight
+passed, and tracked files were clean before this evidence update. Existing
+untracked user assets were preserved.
+
+The approved C3 COM4 operation opened the exact enumerated USB device
+14:63:93:C5:D1:58; esptool identified ESP32-C3 MAC 14:63:93:C5:D1:58.
+Read-only security metadata reported Secure Boot off, flash-encryption count
+zero and Secure Download off. The preserved C3 image artifact hash and its
+version/ELF metadata matched the private checkpoint manifest in an offline
+preflight. The targeted readback stopped before reading any flash region
+because esptool 5.4.0 returned no recognized flash capacity
+(detect_flash_size() == None). The private result records flash_reads=[]; no
+partition table, OTA selector or app bytes were read, and no current C3 image
+or capacity receipt was produced. This is an unknown-capacity/tool-
+identification result, not an observed image mismatch.
+
+The private run evidence is under
+~/.local/state/ghar-sajag/gs117-tc001/current-image-readback-20261027T131908Z/
+(c3-readback.json, c3-esptool.log, and the reviewed one-use helper). The
+offline helper self-test passed for the installed ESP-IDF 6.0.3 partition
+parser and preserved C3/S3 artifacts without opening a port. COM4 was opened
+once; the app-run state after closing the serial connection was not rechecked,
+to honor the stop condition. No retry or further device observation was made.
+
+COM10 was not opened. The S3 readback and approved recovery procedure were not
+invoked. No S3 reset/configuration change, firmware write, erase, NVS/outbox/
+credential read, motion injection, ownership/enrollment change, or protected
+database mutation occurred. The existing owner-only fixture and separate
+five-run approval remain absent. TC-001 remains 0/5 NOT_RUN; target test input
+and optical PIR remain NOT_RUN. The historical session-118 sequence-16 APK
+observation remains evidence of observer readiness only.
+
+The failed capacity guard triggers the owner's explicit stop rule. Do not
+reopen COM4, proceed to COM10, or invoke the S3 recovery under the prior
+session approval. The exact next step requires a fresh scoped owner approval
+for one corrected read-only C3 app/table/selector capture that records and
+validates the raw flash-ID/capacity result; only if that passes may the
+remaining S3 readback and one recovery be considered within that new
+authorization. Stop on any further mismatch. Then revalidate fresh physical
+mTLS and fixture gates before requesting the separate five-run campaign
+approval.
+
+No product source changed. python3 -m py_compile passed for the private
+one-use helper; its Windows Python 3.12 / esptool 5.4.0 offline self-test
+passed. The actual C3 hardware readback stage FAILED/BLOCKED at capacity
+detection before flash-region reads. No product regression suite was rerun
+because no product code changed. GS-117 is placed OnHold pending fresh
+authorization; GS-179 remains In Progress.
