@@ -393,3 +393,39 @@ and authenticated S3 ingress evidence are still missing. Any reset-aware COM10
 recovery requires new explicit owner approval because opening COM10 may reboot
 S3 and clear its RAM-only configuration. Private sanitized evidence remains at
 `~/.local/state/ghar-sajag/gs117-tc001/fixture-session-20261027T041925Z/readiness-observation-20261027T0430Z.json`.
+
+### 2026-10-27 — audit-first current readiness recheck (05:07Z)
+
+At canonical source `77b1927dc4043308078f0b3d2afa496aeead4555`, the current
+host health check passed PostgreSQL TLS/durability, caregiver HTTPS and local
+backend checks. Private Wi-Fi `Airtel_Agrim` was `192.168.1.10`; existing
+Windows forwarding and TCP 8445 reachability passed. UDP 4468 returned a
+fresh nonce/generation-bound RSA-3072/SHA-256 host proof at 05:01:54Z, valid
+through 05:03:54Z. This TEST_ONLY host proof expired by the later observation
+and is not S3 authentication.
+
+The bounded ingress listener and its backend/time dependencies were ready, but
+no current authenticated Hub event trace or physical CloudSync receipt was
+observed. Its status fields `real_hub_authenticated` and `hub_connected` are
+conservative constants, not live Hub measurements. Persistent ingress remains
+disabled. A stale idle loopback console was replaced with the existing current-
+source launcher; the guarded console reports backend readiness but fixture
+BLOCKED and Android NOT_VERIFIED. USB enumeration identified the expected C3
+COM4 and S3 COM10 without opening either port.
+
+The Android evidence remains the historical 02:59Z session112/sequence2
+observer match. Installed bytes match the preserved APK SHA and the embedded
+v2 certificate digest matches preserved trust digests; formal `apksigner
+verify` remains incomplete. No fresh TC-001 event was observed. The owner-only
+fixture and separate five-run authorization are absent. TC-001 is 0/5
+BLOCKED/NOT_RUN; real PIR is NOT_RUN.
+
+The previous one-hour RAM-only configuration/authority envelope expired. The
+existing protected recovery procedure has a current-session helper hash pin
+updated only in its mode-0600 session copy; its owner-only template is
+unchanged. Its no-approval guard stopped before network or serial access.
+Fresh scoped owner approval is required for the one-attempt COM10/COM4
+configuration recovery described in the GS-117 handoff. That recovery approval
+is separate from any five-run injection approval. Persistent GS-179 service
+configuration and broader live staging acceptance remain open; GS-179 stays
+In Progress.

@@ -2179,3 +2179,137 @@ one-attempt recovery approval is consumed. Any later five-run C3 campaign needs
 its own separate approval and must wait for a current fixture and authenticated
 S3 receipt. Sanitized evidence is retained mode 0600 outside Git at
 `~/.local/state/ghar-sajag/gs117-tc001/fixture-session-20261027T041925Z/readiness-observation-20261027T0430Z.json`.
+
+### 2026-10-27 — audit-first TC-001 current-source readiness (05:07 UTC)
+
+Resumed on canonical `feature/r1-commercial-baseline` at
+`77b1927dc4043308078f0b3d2afa496aeead4555`; remote matched at entry and
+`tools/context/ghar_sajag_context_preflight.sh` passed. The root `AGENTS.md`
+is the only repository AGENTS file. Current release/product/validation
+requirements, architecture/decisions, existing GS-117/GS-179 evidence and Jira
+history were reconciled before considering changes. Latest reviewed comments:
+GS-117 11735/11731/11727/11720; GS-179 11736/11724/11715; GS-178 11729/11726;
+GS-116 11730/11717; GS-130 11728; GS-121 11732; GS-148 11725/11716; GS-173
+11733.
+
+#### Existing implementation audit
+
+| Stage | Classification | Finding |
+|---|---|---|
+| C3 EventKey, retained Node event and existing HIL input | `IMPLEMENTED_AND_VALIDATED` | Existing NodeRuntime/TC-001 helper reused. No current injection was run. |
+| Authenticated C3→S3, durable-before-ACK and replay handling | `IMPLEMENTED_AND_VALIDATED` (historical evidence) | Existing HubRuntime/journal/typed class-0 ACK path reused; historical physical evidence is not fresh TC-001 acceptance. |
+| S3 CloudSync, mTLS ingress, PostgreSQL exactly-once and caregiver API | `IMPLEMENTED_AND_VALIDATED` (software/history); current runtime `CONFIGURATION_OR_RUNTIME_BLOCKER` | Existing GS-179 listener, DurableEventCommit and caregiver projection reused. No current S3 receipt exists in this readiness session. |
+| Installed Android exact-key event details/ADB observer | `IMPLEMENTED_AND_VALIDATED` (historical observer readiness) | Existing APK and helper reused; only historical session112/sequence2 was matched. |
+| Current fixture and authenticated S3 configuration | `CONFIGURATION_OR_RUNTIME_BLOCKER` / `PHYSICAL_APPROVAL_REQUIRED` | Fixture, current running-image receipts and fresh authenticated S3 ingress receipt are absent. |
+| AM312 optical sensing | `PHYSICAL_APPROVAL_REQUIRED` / `NOT_RUN` | `INJECT_MOTION` cannot qualify optical sensing. |
+
+No approved product capability was found missing or defective. No product
+source, test framework, firmware, backend, database or APK changes were made.
+Existing GS-178 results (33/33 and five HOST_SIM runs) remain software-only
+historical evidence and were not rerun.
+
+#### Current non-invasive readiness
+
+`code/tools/local/gs179-laptop-server.sh health` passed PostgreSQL TLS and
+durability, caregiver HTTPS and local backend health. Windows currently reports
+Private `Airtel_Agrim` at `192.168.1.10`; existing forwarding remains
+443→8444 and 8445→8445, and the Windows TCP 8445 probe passed. The bounded
+listener is active at `172.17.152.10:8445`; persistent Hub ingress remains
+NOT_CONFIGURED and autostart remains disabled.
+
+At 05:01:54Z the existing Windows UDP `192.168.1.10:4468` signed-time service
+returned a 456-byte RSA-3072/SHA-256 proof bound to a fresh nonce and
+generation, valid through 05:03:54Z. This was a host-generated GS-68 TEST_ONLY
+proof only (`s3_authenticated=false`, `physical_cloudsync_receipt=false`);
+its validity interval had expired by the 05:07Z observation. Signed-time
+request counters have no authenticated source attribution.
+
+The ingress status observed at 05:07:36Z showed listener/PostgreSQL/time
+dependencies ready. Its `real_hub_authenticated`/`hub_connected` values are
+fixed conservative values in `Gs179TestOnlyHubIngressRuntime.status()`, not
+live measurements. No current-session `real-hub-ingress-trace.jsonl` was
+created and the ingress operator log remained empty; no fresh authenticated
+physical CloudSync event receipt was observed. Listener readiness and TCP
+forwarding do not prove S3 authentication.
+
+The old loopback server was idle (`running=false`) and predated current console
+source. It was replaced with the existing `bash
+code/tools/local/gs117-tc001-launch.sh` launcher. Current-source `/api/status`
+reported PostgreSQL/HTTPS/local backend PASS and authenticated TEST_ONLY Home
+`gs177-test-product`; Home monitoring remains `UNKNOWN` / freshness `STALE`.
+The existing PowerShell `List` action confirmed these USB descriptors without
+opening either serial port:
+
+| Board | Port | USB serial |
+|---|---|---|
+| C3 `c3-146393c5d158` | COM4 | `14:63:93:C5:D1:58` |
+| S3 `hub-e072a1d38d34` | COM10 | `E0:72:A1:D3:8D:34` |
+
+Current console readiness is PARTIAL: listener active; fixture BLOCKED;
+Android NOT_VERIFIED because fixture is absent; campaign approval BLOCKED;
+`running=false`. Enumeration is not an installed-image receipt or serial
+observation.
+
+The actual Android receipt remains 02:59:52Z: package
+`in.gharsajag.caregiver.discoverytest` v0.4.0-connected-lite-staging,
+versionCode 3, Home `gs177-test-product`, backend CONNECTED, Reports visible,
+and historical session112/sequence2 exact-key match only. The preserved APK
+snapshot SHA-256 is
+`0b240966255618ad3466e17e8dcca40d71efbe84b0096cb1063ba9f4855e2d76`; embedded
+v2 signer-certificate digest
+`d336ae68479da03de932a44b16c8de730c86e3cf68aee52fe92261e74e596b85` matches
+the trusted digest. No existing WSL/Windows SDK or Downloads path contained
+ADB or `apksigner`; formal APK signature verification remains incomplete. No
+rebuild, reinstall or fresh event navigation was performed.
+
+#### Fixture and bounded recovery approval boundary
+
+Owner-only `fixture.json` and `five-run-campaign-approval.json` remain absent.
+Missing fixture evidence is: current C3/S3 running-image receipts and artifact
+hashes; fresh authenticated Hub/Home/epoch/enrollment and ingress receipt;
+and current Android installation/signer verification. Preserved S3 image
+SHA-256
+`c26b6241a40bf5e7bd14f68351c71ed4ac158b97fd7c4af78c8c7edb9c0a7e16`
+(`9bbc6d0-dirty`, ELF prefix `c77483102`) is historical recovery evidence,
+not current running-image attestation. Bootstrap metadata still says
+`PREPARED_NOT_INSTALLED` and is not substituted for device evidence.
+
+The previous one-hour RAM-only configuration/authority envelope has expired;
+the new bounded host endpoints have no current physical receipt. No
+non-invasive host operation renews that device configuration. The existing
+protected template
+`gs117-protected-bootstrap-current-network.py` matched its owner-only manifest.
+Its run-local copy had a stale serial-helper SHA pin (`55da2f8f…`) while the
+current helper is
+`1849695926cf95d8c84a3d8b8c04c1091a970a6d41eba9e13b354ab202816b6c`.
+History review confirmed `ports`, `collect`, `bootstrap_config` and `observe`
+were unchanged; the later commit added separate campaign/Android paths. Only
+the session-local pin was updated; the protected template and helper are
+unchanged. Updated script SHA-256 is
+`4ec5b057b942770bea2828801778ab05fc4d6ec5d845c816080c12a3f61d5dbb`, mode
+0600. Syntax/hash checks passed. With the owner-approval environment guard
+absent, the script returned its expected explicit-approval block before any
+network or serial operation. No recovery marker or approval file was created.
+
+One new scoped owner approval is needed before this recovery. The exact
+procedure opens COM10/S3 and COM4/C3 (DTR/RTS low does not prove reset safety),
+explicitly calls Espressif `HardReset` once on S3, and reads C3 `GET_STATE`
+only. COM10 reset clears RAM-only Wi-Fi/GS40 config; COM4 open may reboot C3.
+It reads the existing saved Airtel_Agrim passphrase into process memory and
+sends it only in a fresh challenge-bound encrypted TEST_ONLY config; it does
+not print or persist the passphrase, but Python memory zeroization is not
+guaranteed. Existing TEST_ONLY keys, Hub/Home/epoch and TLS material are
+reused. No flash, erase, partition/NVS/outbox/state mutation, commissioning,
+ownership/enrollment change, database mutation or motion injection occurs.
+Stop on network/identity/image mismatch, missing challenge, timeout or target
+rejection; maximum one attempt and no retry without new approval. This is
+recovery authorization only, not five-run injection or optical PIR approval.
+
+The unchanged GS-117 source/test files last passed
+`python3 code/tests/python/test_gs117_tc001_console.py` 43/43 at
+`f6321597578bda69aa43056cbee70c863d5e625a`; source comparison confirms they
+are unchanged through audit entry. No full release gate or unrelated suite was
+run. TC-001 remains **0/5 BLOCKED / NOT_RUN**; real optical PIR is NOT_RUN;
+fresh S3 authentication is NOT_VERIFIED; fixture is BLOCKED. Next step is the
+single scoped recovery approval, followed by a new readiness/fixture
+evaluation. Five-run approval remains separate.

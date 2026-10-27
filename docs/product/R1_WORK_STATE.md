@@ -8061,3 +8061,45 @@ prioritize Wave S1. This is a next-task pointer only; GS-130/GS-178
 implementation did not begin here. GS-173 scope decisions gate conditional
 cases. Delivery commit and remote verification are recorded in the owning Jira
 closeout comment.
+
+### GS-117 / GS-179 pause checkpoint — 2026-10-27 05:12Z
+
+The current audit-first TC-001 readiness recheck is documented in the existing
+[GS-117 execution handoff](../exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md)
+and [GS-179 ingress audit](../exec-plans/evidence/GS179_CONTINUOUS_INGRESS_AUDIT_20261020.md).
+The local and origin branch were both at
+`77b1927dc4043308078f0b3d2afa496aeead4555` before this checkpoint. The latest
+Jira history was reconciled before changes; GS-117 and GS-179 remain open.
+Only these three canonical evidence/work-state documents are intended for the
+checkpoint commit. Untracked and ignored user assets are preserved and
+unstaged.
+
+Existing C3 EventKey/retention, S3 authentication/durable-before-ACK,
+CloudSync, PostgreSQL deduplication/caregiver projection and Android exact-key
+observer were audited and reused; no approved product defect or missing code
+capability was established. The host health, Windows forwarding/TCP 8445 and
+bounded listener were ready. Host signed-time proof passed its nonce,
+generation and signature checks inside its validity window, then expired; it
+does not establish physical S3 authentication. No fresh authenticated S3
+receipt, current image attestation or fixture is available. The APK evidence is
+historical observer readiness only; APK bytes and embedded signer digest
+matched preserved values, but formal APK signature verification is incomplete.
+
+No board port was opened and no reset, flash, config recovery, injection,
+credential/lifecycle/database mutation or APK rebuild occurred. TC-001 remains
+0/5 BLOCKED/NOT_RUN; target injection, optical PIR and full Android acceptance
+are not established. The separate five-run approval remains absent. The
+current-source console is running and reports readiness BLOCKED. The existing
+GS-117 regression source is unchanged; no test suite was rerun for this
+documentation-only checkpoint. `git diff --check` is the applicable local
+validation.
+
+**Pause boundary / next exact action:** obtain one new, scoped owner approval
+for the existing one-attempt protected S3 configuration recovery via COM10
+(reset and RAM-only Wi-Fi/GS40 loss risk) and COM4 (serial-open reboot risk),
+then execute only that procedure and re-evaluate fresh image, identity,
+authenticated-ingress, Android and fixture gates. Do not create the fixture or
+five-run approval until those gates pass. The five sequential injections and
+real AM312 optical qualification require their own applicable approval/action.
+No approval is implied by this checkpoint. Once recovery is separately
+authorized, resume GS-117 In Progress and continue with the existing controller.
