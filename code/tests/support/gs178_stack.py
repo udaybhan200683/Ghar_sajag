@@ -328,8 +328,15 @@ class ProductStack:
         thread.start(); self.servers.append((server, thread))
         return f"https://localhost:{server.server_port}"
 
-    def start_node(self, *, transform=None, config_fields=None):
-        self.process = subprocess.Popen([str(CODE / "build/gs178_product_host"), str(self.root_path)],
+    def start_node(self, *, session_id=None, transform=None, config_fields=None):
+        if session_id is not None and (
+                type(session_id) is not int or not 1 <= session_id < (2**64 - 1)):
+            raise ValueError("TEST_ONLY_node_session_must_be_positive_with_restart_headroom")
+        self.node_session_id = 10 if session_id is None else session_id
+        command = [str(CODE / "build/gs178_product_host"), str(self.root_path)]
+        if session_id is not None:
+            command.append(str(session_id))
+        self.process = subprocess.Popen(command,
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
         challenge = self.read()
         fields = {1:b"GS178-isolated", 2:secrets.token_urlsafe(16).encode(),

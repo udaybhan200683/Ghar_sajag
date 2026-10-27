@@ -441,3 +441,90 @@ commands are in
 [`GS40_TEST_ONLY_S3_LINKER_BUILD_20261019.md`](GS40_TEST_ONLY_S3_LINKER_BUILD_20261019.md).
 GS-178 27/27 software E2E remains prior evidence and was not repeated because
 this correction was confined to the build-time asset basename.
+
+### Current-source five-run Bedroom Motion simulation — 2026-10-27
+
+This is a later software-only rerun from canonical parent
+`f6321597578bda69aa43056cbee70c863d5e625a`, after the latest GS-178 and GS-117
+Jira instructions were read. Context preflight passed. The full release gate,
+physical fixture and hardware acceptance were outside this run.
+
+The first five exploratory repetitions had all used the host simulator's fixed
+initial Node session `10`, so isolated databases still produced identical
+synthetic EventKeys. To make this campaign independently traceable without
+changing product behavior, the existing GS-178 host fixture now accepts an
+optional TEST_ONLY initial Node session. Default remains `10`; NodeRuntime,
+HubRuntime, security, persistence and CloudSync production sources are
+unchanged. The integration report records UTC generation time and campaign ID.
+The five campaign invocations assert the Bedroom EventKey matches that run's
+session and sequence before saving its result.
+
+Validation:
+
+- `make -C code gs178-software-e2e`: **PASS, 33/33** (11 security and 22
+  vertical integration tests; 227.076 seconds). This is the current-source
+  GS-178 software suite.
+- Five separately started `test_07_actual_shared_caregiver_browser_and_actions`
+  runs: **5/5 PASS**, each in its own temporary TEST_ONLY backend database and
+  TLS identities. Each passed all 17 existing Playwright caregiver assertions,
+  authenticated Node/Hub admission, production NodeRuntime input/retention/ACK,
+  Hub durable event handling, CloudSync, durable API `COMMITTED`, one durable
+  business row per EventKey, and shared caregiver UI visibility. The scenario
+  also sends one separate Call Family event to exercise the caregiver action
+  view; both scenario events had one durable row. These results are
+  `HOST_SIM_PASS`, not Android or physical acceptance.
+- GS-117 console/ADB regression suite: **43/43 PASS**. Its exact-key Android
+  observer positive and wrong-key negative tests pass; no serial adapter was
+  opened by the tests.
+
+| Campaign run | Bedroom EventKey (physical test identity, logical room, session, sequence) | Browser assertions | JSON report SHA-256 |
+|---|---|---:|---|
+| 01 | `test-c3-bedroom / bedroom / 42001 / 1` | 17 | `2002e262c70503eb594c20623404d0034b17b2a8e2b162f35b793307c74f5c7d` |
+| 02 | `test-c3-bedroom / bedroom / 42002 / 1` | 17 | `7734f0ec21b75f55764dd425f0643d533a4e48f9470dc456179225aab5f689c9` |
+| 03 | `test-c3-bedroom / bedroom / 42003 / 1` | 17 | `8cf0ff9945f12831c0e742e9b66d6048df18ea531768ff2a3e4313caa0ee0f97` |
+| 04 | `test-c3-bedroom / bedroom / 42004 / 1` | 17 | `3e7bf0619118b48be17651b2831f62033838926dad5c01715fb16a4b053ffe48` |
+| 05 | `test-c3-bedroom / bedroom / 42005 / 1` | 17 | `42e71393912d9ed1d525b8f619ac9320fea586799a7e66f2cd1a194b639a6ac9` |
+
+Individual JSON, DOM and test-log artifacts remain in the ignored local
+directory
+`code/build/gs178_tc001_acceptance_20261027/verified-repeatability-final/`
+with owner-only run directories. They are not fixture receipts and must not be
+used as physical evidence. The full current-suite reports are in its
+`full-suite/` subdirectory.
+
+### Physical TC-001 readiness observed without opening board serial ports
+
+ADB found the authorized Motorola Edge 60 Fusion (`ZA2237MRHN`). The installed
+package `in.gharsajag.caregiver.discoverytest`, version
+`0.4.0-connected-lite-staging` (versionCode 3), is installed and its MainActivity
+was foreground. A read-only `adb pull` of the installed base APK matched the
+preserved APK SHA-256 `0b240966255618ad3466e17e8dcca40d71efbe84b0096cb1063ba9f4855e2d76`.
+The preserved checkpoint records backend origin `https://192.168.1.10/` and Home
+`gs177-test-product`; this check did not freshly authenticate the caregiver
+session or verify the Home inside the app. A current read-only accessibility
+dump of the foreground activity exposed no Home, Connected or Reports label,
+so the authenticated app screen remains unverified. No local `apksigner`/Android SDK
+build-tools were present. Android's `dumpsys package` exposes only an internal
+signature token, not a certificate digest, so installed signer verification is
+`NOT_VERIFIED` and the console-required fresh signer receipt is still absent.
+
+The existing local backend health script passed PostgreSQL durability,
+caregiver HTTPS and DNS/IP TLS identity checks at current Windows Wi-Fi address
+`192.168.1.10`. It reported phone LAN reachability `NOT_VERIFIED`, Hub ingress
+autostart disabled, and Hub ingress `NOT_CONFIGURED`. A direct socket check
+found no current listener on port 8445; the saved ingress PID was no longer
+running. Prior authenticated S3 ingress traces contain real physical EventKey
+commits and authority-refresh HTTP 200 responses from 2026-10-26, but they are
+historical and do not prove a live S3 CloudSync session on 2026-10-27.
+
+The existing owner-only TC-001 `fixture.json` and
+`five-run-campaign-approval.json` are absent. The last owner APK note contains
+no exact EventKey/time. No Android signer receipt, current S3 mTLS receipt or
+fresh C3/S3 runtime observation was created. The known synthetic/physical
+NodeHealth freshness conflict was left untouched and is not a required event
+delivery gate. Neither COM4 nor COM10 was opened; no board was reset or
+stimulated, no credential/ownership/enrollment/database state was changed, and
+no physical motion EventKey was generated. Thus the software milestone is
+PASS, while the physical campaign remains **BLOCKED / NOT_RUN**. Do not request
+the five-injection approval until the exact owner fixture, current signer and
+ingress readiness receipts exist.

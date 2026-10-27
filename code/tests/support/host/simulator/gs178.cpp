@@ -16,6 +16,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <map>
 #include <openssl/sha.h>
 #include <sstream>
@@ -231,12 +232,16 @@ public:
   std::vector<std::unique_ptr<Peer>> peers;
   CloudAuthorityBinding rule_binding;
   bool booted = false;
-  Fixture() {
+  explicit Fixture(std::uint64_t initial_session = 10) {
+    need(initial_session != 0 &&
+             initial_session != std::numeric_limits<std::uint64_t>::max(),
+         "Node session seed must be positive and leave restart headroom");
     key.fill(7);
     for (const auto &name : {"bedroom", "bathroom", "kitchen", "door"}) {
       auto p = std::make_unique<Peer>();
       p->logical = name;
       p->physical = "test-c3-" + p->logical;
+      p->session = initial_session;
       p->binding.device_id = p->physical;
       p->binding.logical_id = p->logical;
       p->binding.home_id = "gs177-test-product";
@@ -250,7 +255,7 @@ public:
       p->recovery = std::make_unique<node::NodeRecoveryRepository>(
           crypto, *p->blob, key, p->binding.home_id, p->binding.hub_id,
           p->logical);
-      p->runtime = std::make_unique<node::NodeRuntime>(p->logical, 10);
+      p->runtime = std::make_unique<node::NodeRuntime>(p->logical, initial_session);
       need(p->recovery->save(p->runtime->recovery_snapshot()),
            "Node initial persistence");
       p->node_frame =
@@ -451,7 +456,16 @@ Bytes udp_time(const Gs40TestOnlyRuntimeConfig &c,
 
 int main(int argc, char **argv) {
   try {
-    need(argc == 2, "config root DER required");
+    need(argc == 2 || argc == 3,
+         "config root DER required; optional initial Node session is TEST_ONLY");
+    std::uint64_t initial_session = 10;
+    if (argc == 3) {
+      std::size_t parsed = 0;
+      initial_session = std::stoull(argv[2], &parsed, 10);
+      need(parsed == std::strlen(argv[2]) && initial_session != 0 &&
+               initial_session != std::numeric_limits<std::uint64_t>::max(),
+           "invalid TEST_ONLY initial Node session");
+    }
     Clock clock;
     S3AuthenticatedTimeRandomSource random;
     Gs40TestOnlyEnvelopeSession envelope(test::read_file(argv[1]));
@@ -470,7 +484,7 @@ int main(int argc, char **argv) {
          "authenticated config");
     need(!envelope.accept(Bytes(wire.begin() + 4, wire.end()), config),
          "config replay rejected");
-    Fixture fixture;
+    Fixture fixture(initial_session);
     Floor floor(fixture.flash.path / "time-floor");
     Rsa3072Sha256TimeProofVerifier verifier(config.time_public_key_der);
     AuthenticatedHubTimeProvider time(floor, verifier, random, clock,

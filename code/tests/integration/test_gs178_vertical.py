@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import unittest
 import subprocess
+from datetime import datetime, timezone
 
 from gs178_stack import ProductStack, HOME, product_stack_for_test
 from ghar_sajag.ownership_registry import AuthorizedHomeOperation
@@ -16,7 +17,14 @@ class NodeOriginVertical(unittest.TestCase):
     def setUp(self):
         self.stack = product_stack_for_test()
         self.addCleanup(self.stack.close)
-        self.ready = self.stack.start_node()
+        campaign_id = os.environ.get("GS178_CAMPAIGN_RUN_ID")
+        session_seed = os.environ.get("GS178_NODE_SESSION_ID")
+        if campaign_id and (
+                session_seed is None or not 1 <= len(campaign_id) <= 48 or
+                not all(ch.isalnum() or ch in "-_" for ch in campaign_id)):
+            raise ValueError("campaign_run_requires_safe_id_and_unique_node_session_seed")
+        self.ready = self.stack.start_node(
+            session_id=int(session_seed, 10) if session_seed is not None else None)
         self.cookie = self.stack.login()
         self.now = self.ready["utc"]
         self.domain = 1000
@@ -405,7 +413,12 @@ class NodeOriginVertical(unittest.TestCase):
         path.mkdir(parents=True,exist_ok=True)
         payload={"scenario_id":case_id,"status":"HOST_SIM_PASS","physical_status":"NOT_RUN",
             "source_revision":subprocess_revision(),"trace":self.stack.trace,
-            "backend_receipts":self.stack.receipts,"caregiver":outcome}
+            "backend_receipts":self.stack.receipts,"caregiver":outcome,
+            "generated_at_utc":datetime.now(timezone.utc).isoformat()}
+        campaign_id = os.environ.get("GS178_CAMPAIGN_RUN_ID")
+        if campaign_id:
+            payload["campaign_run_id"] = campaign_id
+            payload["node_session_id"] = self.stack.node_session_id
         (path/(case_id+".json")).write_text(json.dumps(payload,indent=2)+"\n")
 
     def test_07_actual_shared_caregiver_browser_and_actions(self):
@@ -452,6 +465,19 @@ class NodeOriginVertical(unittest.TestCase):
             self.assertEqual(provenance.get("event_key"), key)
             stored_keys.append(provenance["event_key"])
         self.assertCountEqual(stored_keys, receipt_keys)
+        campaign_id = os.environ.get("GS178_CAMPAIGN_RUN_ID")
+        if campaign_id:
+            self.assertRegex(campaign_id, r"^[A-Za-z0-9_-]{1,48}$")
+            bedroom_keys = [key for key in receipt_keys
+                            if key["physical_device_id"] == "test-c3-bedroom"]
+            self.assertEqual(len(bedroom_keys), 1, bedroom_keys)
+            self.assertEqual(
+                bedroom_keys[0], {
+                    "physical_device_id": "test-c3-bedroom",
+                    "logical_node_id": "bedroom",
+                    "origin_session_id": self.stack.node_session_id,
+                    "event_sequence": 1,
+                })
         timeline_keys = [event["event_key"] for event in self.view()["recent_events"]]
         self.assertCountEqual(timeline_keys, receipt_keys)
         reports=Path(os.environ.get("GS178_REPORT_DIR", "build/gs178_evidence"))

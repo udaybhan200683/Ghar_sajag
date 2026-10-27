@@ -7965,3 +7965,34 @@ changes. The campaign approval is not present in this execution and was not
 fabricated. Existing S3/CloudSync recovery events and owner APK observation
 remain historical, not TC-001. NodeHealth UNKNOWN/STALE is preserved and is not
 an event-delivery gate. Full evidence is in the existing GS117 EXECUTION.md.
+
+### 2026-10-27 GS-178 software acceptance and GS-117 physical preparation
+
+Starting canonical commit `f6321597578bda69aa43056cbee70c863d5e625a`; context
+preflight PASS. Current-source `make -C code gs178-software-e2e` passed 33/33.
+Five isolated Bedroom Motion software E2Es passed with unique synthetic Node
+sessions 42001–42005, exactly one durable row for each original EventKey and 17
+Playwright assertions per run. Physical status remains NOT_RUN; browser results
+are not Android observations. The existing GS-117 console/ADB suite passed
+43/43, including exact-key APK observer success/rejection paths. Test-only
+session seeding changed no product runtime.
+
+ADB currently sees the authorized Motorola Edge 60 Fusion and the existing
+Parivar Saathi TEST_ONLY package, version 0.4.0. The installed APK bytes match
+the protected preservation SHA; preserved metadata records its IP origin and
+`gs177-test-product` Home, but this check did not freshly verify app
+authentication/Home. The current accessibility dump exposed no Home,
+Connected or Reports label. It could not derive a signer certificate fingerprint.
+PostgreSQL, caregiver HTTPS and current endpoint TLS health pass. Physical mTLS
+ingress autostart is disabled, port 8445 is not listening, and the saved ingress
+process is stopped. Last physical S3 COMMITTED and authority-refresh evidence
+is from 2026-10-26 and is historical.
+
+Owner-only TC-001 `fixture.json`, current phone signer/install receipt and
+`five-run-campaign-approval.json` are absent. Neither COM4 nor COM10 was opened;
+no motion injection or physical/configuration mutation occurred. Thus software
+simulation is PASS and physical TC-001 remains BLOCKED / NOT_RUN. Do not request
+the five-run injection authorization until current ingress, signer and exact
+fixture evidence are ready. Detailed results, EventKeys and hashes are in the
+[GS-178 software evidence](../exec-plans/evidence/GS178_SOFTWARE_VERTICAL_20261018.md#current-source-five-run-bedroom-motion-simulation--2026-10-27)
+and the [GS-117 execution handoff](../exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md#2026-10-27--current-source-gs-178-and-non-disruptive-tc-001-readiness).

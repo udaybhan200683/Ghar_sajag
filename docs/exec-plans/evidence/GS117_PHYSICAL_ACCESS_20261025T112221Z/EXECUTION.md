@@ -1962,3 +1962,65 @@ authenticated rejoin recovery is required; it does not flash or recommission.
 The bounded listener, current phone session, COM enumeration and board runtime
 were not refreshed in this software-only pass. The exact delivery commit and
 remote verification are recorded in the follow-up GS-117 Jira comment.
+
+### 2026-10-27 — current-source GS-178 and non-disruptive TC-001 readiness
+
+At canonical starting HEAD `f6321597578bda69aa43056cbee70c863d5e625a`, context
+preflight passed and local/remote HEAD matched. Read latest GS-178 and GS-117
+Jira instructions and reused their existing host vertical, console, ADB
+observer and ingress. No physical recovery work was repeated.
+
+`make -C code gs178-software-e2e` passed **33/33** on current source. Five
+separately isolated Bedroom Motion software E2Es each passed the production
+NodeRuntime/HubRuntime/CloudSync/authenticated backend/caregiver browser path
+and 17 Playwright assertions. A small test-support-only initial-session option
+was added because the earlier repeated runs reused session 10 and therefore
+repeated the same synthetic key. The five new synthetic EventKeys now use
+sessions 42001–42005, sequence 1, with one durable database row per key; details
+and individual report hashes are in
+[`GS178_SOFTWARE_VERTICAL_20261018.md`](../GS178_SOFTWARE_VERTICAL_20261018.md#current-source-five-run-bedroom-motion-simulation--2026-10-27).
+The existing TC-001 console/ADB tests passed **43/43**, including exact APK
+EventKey positive and wrong-key rejection cases. These are all software/HOST_SIM
+results, not physical or Android event observations.
+
+Fresh non-disruptive Android evidence: the official existing Windows ADB
+reported authorized device `ZA2237MRHN`, Motorola Edge 60 Fusion. Package
+`in.gharsajag.caregiver.discoverytest`, versionCode 3,
+`0.4.0-connected-lite-staging`, was installed; its MainActivity was foreground.
+A read-only pull produced the same APK SHA-256 as the saved preservation record:
+`0b240966255618ad3466e17e8dcca40d71efbe84b0096cb1063ba9f4855e2d76`. The prior
+checkpoint associates these APK bytes with origin `https://192.168.1.10/` and
+Home `gs177-test-product`; this execution did not freshly authenticate or
+inspect the Home session in the APK. A read-only accessibility dump of the
+foreground activity exposed no Home, Connected or Reports label. No
+`apksigner`/SDK build-tools are installed, and Android's package dump does not
+provide a certificate digest.
+Thus signer fingerprint is **NOT_VERIFIED**, not a pass.
+
+The existing GS-179 health check passed PostgreSQL durability, caregiver HTTPS
+and current DNS/IP TLS checks at Windows Wi-Fi `192.168.1.10`. It reported
+phone LAN reachability `NOT_VERIFIED` and Hub ingress `NOT_CONFIGURED` with
+autostart disabled. Port 8445 had no listener and the saved ingress PID was not
+alive. A real authenticated S3 event/authority trace exists through 2026-10-26
+(last event receipt `2026-10-26T17:12:25Z`, physical C3 session 112 sequence
+2, COMMITTED; authority refresh at 17:47:33Z returned 200); it is historical,
+not current CloudSync proof.
+
+The owner-only console fixture
+`~/.config/ghar-sajag/gs117-tc001/fixture.json` and
+`five-run-campaign-approval.json` are absent. The available APK preservation
+record has no exact owner phone EventKey/time confirmation. I did not create
+fixture or signer receipts from historical records. Synthetic/physical
+NodeHealth conflict remains unchanged and is not an event-delivery gate.
+Neither COM4 nor COM10 was opened; no reset, injection, credential/ownership/
+enrollment/database change occurred. TC-001 remains **BLOCKED / NOT_RUN**.
+
+No five-injection approval is requested at this checkpoint because current
+physical campaign readiness is incomplete: the mTLS service is stopped, a
+fresh exact fixture/phone signer receipt is absent, and no current authenticated
+S3 session was observed. Once those existing components and receipts are
+current, request one approval for exactly five sequential physical C3
+`INJECT_MOTION` actions through the existing console, with possible C3 reboot
+on COM4 open accepted, COM10 never opened, automated APK exact-key observation,
+and stop on the first failure. No firmware, reset command, re-commissioning,
+credential, ownership, enrollment or database changes are in scope.
