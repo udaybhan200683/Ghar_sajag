@@ -8103,3 +8103,5 @@ five-run approval until those gates pass. The five sequential injections and
 real AM312 optical qualification require their own applicable approval/action.
 No approval is implied by this checkpoint. Once recovery is separately
 authorized, resume GS-117 In Progress and continue with the existing controller.
+Jira state at pause: GS-117 **OnHold** (comment 11737); GS-179 **In Progress**
+(comment 11738). The Git checkpoint is `ea481a753ef39b30c5d4571c98c6f186cf32bafb`.

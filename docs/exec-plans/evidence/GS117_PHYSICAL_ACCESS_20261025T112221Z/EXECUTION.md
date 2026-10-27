@@ -2313,3 +2313,7 @@ run. TC-001 remains **0/5 BLOCKED / NOT_RUN**; real optical PIR is NOT_RUN;
 fresh S3 authentication is NOT_VERIFIED; fixture is BLOCKED. Next step is the
 single scoped recovery approval, followed by a new readiness/fixture
 evaluation. Five-run approval remains separate.
+
+Jira pause state: GS-117 was moved to **OnHold** after comment 11737; GS-179
+remains **In Progress** after comment 11738. Resume GS-117 In Progress only
+when separately authorized recovery is ready to proceed.
