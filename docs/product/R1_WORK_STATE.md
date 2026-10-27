@@ -8207,3 +8207,73 @@ the existing observer for exact sequence 16. The prior one-attempt S3 recovery
 approval is consumed. Do not create the fixture or run injections until all
 current gates pass; request the five-run authorization separately at that
 point. See the dated updates in the GS-117 and GS-179 evidence documents.
+
+### 2026-10-27 12:16 UTC — laptop route restored; TC-001 stopped at new hardware approval boundary
+
+**Checkpoint:** canonical repository `/home/udaybhan/projects/Ghar_sajag_r1`,
+branch `feature/r1-commercial-baseline`, baseline HEAD and origin both
+`40f18f0e5a122773faf20c1e8f0365f9c582e657` before this documentation update;
+context preflight PASS. Tracked source was clean at entry. Existing untracked
+user evidence/build assets were preserved. A long-lived Codex CLI process was
+present but idle in epoll/futex wait; no concurrent tracked-file writer was
+observed.
+
+The owner confirmed a router DHCP reservation of `192.168.1.6` to laptop Wi-Fi
+MAC `C0:18:85:B9:4F:C3`; Windows DHCP is enabled and profile `Airtel_Agrim` is
+Private. WSL is `172.17.152.10`. Existing scoped Windows routes now forward
+`.6:443` to WSL `:8444` and `.6:8445` to WSL `:8445`; old `.10` routes are
+absent. The current TLS leaf validates the existing DNS name and `.6`; current
+PostgreSQL TLS/durability, caregiver HTTPS and backend readiness pass. The
+stable-address mechanism is the router's DHCP reservation; no extra network
+infrastructure is needed.
+
+The actual Motorola APK (`ZA2237MRHN`, package
+`in.gharsajag.caregiver.discoverytest`, version
+`0.4.0-connected-lite-staging`, versionCode 3) reports backend CONNECTED, Home
+`gs177-test-product`, origin `https://192.168.1.6/`, and Reports access. Existing
+ADB observer helpers located the exact historical physical key C3
+`c3-146393c5d158`, bedroom, session 118, sequence 16 in Event Details with
+Motion recorded, Bedroom and the matching timestamp. Evidence is preserved at
+`~/.local/state/ghar-sajag/gs117-tc001/android-session118-seq16-exact-20261027T120515Z/`.
+Backend exact-key correlation remains one durable record plus one caregiver
+projection. This is not a fresh TC-001 input. The signer digest is
+receipt-derived; formal APK signature verification remains incomplete.
+
+Existing bounded ingress/time services are active; backend and TCP 8445 route
+checks pass. The host-generated RSA-3072 signed-time challenge verified its
+nonce/generation/signature at 12:11:28Z for 120 seconds, then expired. At
+12:16:32Z the actual ingress runtime still reported no authenticated Hub and
+no Hub connection; monitoring freshness is UNKNOWN and persistent ingress is
+NOT_CONFIGURED. Thus fresh physical S3 authentication is NOT_VERIFIED. C3
+sequence 122 remains unmatched and is not counted. No credentials went to the
+old `.10` address.
+
+The current-source guarded loopback console GET `/api/status` returned HTTP
+200. PostgreSQL/HTTPS/backend/Home and descriptor-only COM4/COM10 checks pass;
+no serial ports were opened. The bounded listener is active but its status is
+not persistent S3 authentication. Fixture/campaign readiness is BLOCKED and
+the console's APK fixture gate remains NOT_VERIFIED, separate from the
+successful actual APK historical exact-key observation.
+
+The owner-only fixture and five-run approval remain absent. S3 current-image
+receipt is older than 24 hours and C3 image/partition attestation is incomplete.
+The existing least-data option is targeted read-only active-app-slot and
+partition-table readback; the broader script that reads NVS/outbox/state is not
+needed. Opening COM4/COM10 can reset the device; COM10 can lose RAM-only
+Wi-Fi/GS40 configuration. The previously approved one-shot recovery was
+consumed. **Next action:** obtain one new, bounded owner authorization for those
+targeted read-only image receipts and one existing-procedure encrypted S3
+endpoint recovery to `.6`; stop on identity/provenance/configuration mismatch
+or any failure. After safe verification, re-evaluate the fixture, then request
+the independent five-injection campaign approval. No physical ports were
+opened and no reset, config update, injection, flash/erase, credential,
+ownership/enrollment or protected data operation occurred in this checkpoint.
+
+GS-117 remains **In Progress**, TC-001 **0/5 NOT_RUN**, target test input
+**NOT_RUN**, and real optical PIR **NOT_RUN**. GS-179 remains **In Progress**.
+No product source changed. The existing console/ADB regression result of
+43/43 PASS remains historical evidence at its verified source; no test was
+rerun for this documentation/network/Android verification checkpoint. Latest
+Jira comments before this closeout were GS-117 `11741` and GS-179 `11742`;
+dated evidence comments will record the delivery commit. Delivery SHA and
+remote comparison are available in the next Git/Jira closeout entry.

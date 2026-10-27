@@ -502,3 +502,44 @@ GS-179 remains **In Progress**. Current state is
 `GS179_FRESH_REAL_S3_AUTHENTICATION=NOT_VERIFIED`. Do not repoint the proxy to
 `.6` while the app and Hub still use `.10`; first restore the approved endpoint
 or obtain an approved coordinated endpoint change.
+
+### 2026-10-27 12:16 UTC — router-reserved `.6` endpoint restored; physical Hub still unauthenticated
+
+The owner confirmed the router reserves `192.168.1.6` for laptop Wi-Fi MAC
+`C0:18:85:B9:4F:C3`; Windows DHCP remains enabled. The existing GS-179 recovery
+has removed the stale `.10` routes and now forwards only `.6:443` to WSL
+`172.17.152.10:8444` and `.6:8445` to `172.17.152.10:8445`. The Wi-Fi profile
+is Private, the current TLS identity covers `desktop-3qqu64b.local` and `.6`,
+and existing PostgreSQL TLS/durability, caregiver HTTPS, local backend and
+endpoint TLS checks pass. No credentials were sent to `.10`.
+
+The actual installed Android app reports Backend API CONNECTED, Home
+`gs177-test-product`, origin `https://192.168.1.6/`, and accessible Reports.
+Its Event Details screen was observed through the existing ADB helper for
+historical physical session 118 / sequence 16, with the exact original EventKey
+and Bedroom/Motion/time fields. This is not a new TC-001 input. The observation
+is preserved at
+`~/.local/state/ghar-sajag/gs117-tc001/android-session118-seq16-exact-20261027T120515Z/`.
+
+The existing bounded TCP 8445 ingress and UDP 4468 signed-time processes are
+active at this checkpoint. Host forwarding and listener readiness pass. The
+12:11:28Z RSA-3072 challenge verifies nonce/generation/signature binding but is
+host-generated and expired after its 120-second validity window. Current
+ingress status at 12:16:32Z remains `real_hub_authenticated=NO`,
+`hub_connected=NO`, monitoring freshness `UNKNOWN`; persistent ingress is
+`NOT_CONFIGURED`. Therefore no fresh authenticated physical S3 receipt is
+established. Last-known encrypted S3 configuration still targets `.10`; its
+update to `.6` requires another explicitly scoped COM10 operation because the
+prior one-attempt recovery authorization was consumed. COM10 reset can lose
+RAM-only Wi-Fi/GS40 state.
+
+Current-image fixture evidence remains incomplete. The S3 image receipt has
+aged past 24 hours; C3 has no complete current installed-image/partition-table
+receipt. Use targeted read-only app-slot and partition-table readback through
+the existing esptool procedure, avoiding NVS/outbox/state. Opening COM4/COM10
+may reset the boards, so this evidence collection and one encrypted S3 endpoint
+recovery attempt require fresh scoped owner approval. The fixture and separate
+five-run approval remain absent. No port was opened or board operation run in
+this checkpoint. GS-179 stays **In Progress**; bounded readiness and actual
+phone connectivity do not close fresh physical S3 authentication or persistent
+staging acceptance.

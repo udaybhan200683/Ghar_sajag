@@ -2488,3 +2488,77 @@ and re-evaluate every fixture gate. Request the separate five-run authorization
 only after those gates pass. No product source or tests changed; the previously
 recorded current-source console regression remains 43/43 PASS at its source
 commit.
+
+### 2026-10-27 12:16 UTC — router-reserved endpoint and actual APK event observation
+
+The owner confirmed the Wi-Fi router reserves `192.168.1.6` to the laptop Wi-Fi
+MAC `C0:18:85:B9:4F:C3`. Windows DHCP remains enabled and the trusted
+`Airtel_Agrim` profile is Private. Current Windows Wi-Fi is `.6/24`; WSL is
+`172.17.152.10`. The existing GS-179 scoped routes now bind `.6:443` to WSL
+`:8444` and `.6:8445` to WSL `:8445`; no route points at old `.10`. The active
+TLS certificate checks the existing `desktop-3qqu64b.local` identity and the
+current `.6` address. Backend health passes PostgreSQL TLS/durability,
+caregiver HTTPS and local service checks. The laptop IP stability is provided
+by the router reservation; no Windows static address or additional service was
+configured.
+
+The installed Motorola Edge 60 Fusion (`ZA2237MRHN`) is using the existing
+Parivar Saathi package `in.gharsajag.caregiver.discoverytest`, version
+`0.4.0-connected-lite-staging` / versionCode 3, with backend API `CONNECTED`,
+Home `gs177-test-product`, origin `https://192.168.1.6/`, and Reports available.
+Using existing observer helpers with normal UI scrolling, Event Details showed
+the exact historical physical EventKey
+`c3-146393c5d158 / bedroom / session 118 / sequence 16`: “Motion recorded”,
+Bedroom, timestamp `2026-10-27T05:45:19Z` (shown in the app as 27/10/2026,
+11:15:19 am local). The backend exact-key query showed one durable MOTION row
+and one caregiver projection for the same Home/Hub/epoch/enrollment. Private
+ADB evidence is under
+`~/.local/state/ghar-sajag/gs117-tc001/android-session118-seq16-exact-20261027T120515Z/`.
+This proves observation of an existing physical event in the actual APK. It is
+not a new campaign input, per-run ACK evidence, or a real-PIR acceptance result.
+The app signer value remains receipt-derived; formal `apksigner verify` was
+not performed.
+
+The bounded GS-179 ingress and signed-time services are currently active. At
+12:16:32Z the live ingress status showed listener/PostgreSQL/trusted-time ready,
+but `real_hub_authenticated=NO`, `hub_connected=NO`, monitoring freshness
+`UNKNOWN`, and persistent ingress `NOT_CONFIGURED`. TCP forwarding to the
+listener is reachable. The RSA-3072 proof at 12:11:28Z verified its
+nonce/generation binding and signature and was host-generated TEST_ONLY proof
+valid for 120 seconds; it expired before this checkpoint and is not a physical
+S3 receipt. No new authenticated physical S3 receipt is available. No
+credentials were sent to `.10`.
+
+The existing current-source loopback console at `127.0.0.1:18791` returned
+HTTP 200 from its guarded `/api/status` GET. PostgreSQL, HTTPS, local backend,
+Home and descriptor-only COM4/COM10 identity checks passed; no serial port was
+opened. The runtime reports `running=false`, the bounded ingress listener
+active, and its own ingress gate PASS, while persistent service configuration
+is NOT_CONFIGURED. The owner fixture/campaign remain BLOCKED and the console's
+APK fixture gate is NOT_VERIFIED; these console gate states do not invalidate
+the separate actual-APK exact-key evidence above.
+
+Sequence 122 remains unmatched: the preserved C3 trace has three NodeMessage
+sends without a captured application ACK, and the exact backend query has no
+durable event or caregiver projection. It remains excluded from delivered-event
+counts. The owner-only fixture and five-run approval files remain absent. The
+S3 full-image receipt is older than the fixture's 24-hour window; the C3
+running-image/partition-table receipt is incomplete. The fixture requires
+matching current image digests, exact target/USB/serial/source identity, active
+slot, partition-table digest and memory evidence for both boards. The
+least-data existing method is to read only each active app slot and partition
+table using the protected esptool tooling, avoiding the broader readback that
+includes NVS/outbox/state. ROM access/opening COM4 or COM10 can reset a board;
+COM10 reset can clear its RAM-only Wi-Fi/GS40 configuration. A new scoped
+owner approval is required both for those current-image reads and for one use
+of the existing encrypted S3 configuration recovery procedure with the
+confirmed `.6` endpoint. The previous single recovery attempt was consumed.
+
+No serial port, reset, configuration write, injection, APK rebuild, firmware
+write, protected data mutation, or enrollment/ownership change occurred in
+this checkpoint. TC-001 remains **0/5 NOT_RUN**, `TARGET_TEST_INPUT_PASS` and
+`REAL_SENSOR_PASS` remain **NOT_RUN**, and GS-117/GS-179 remain **In Progress**.
+After the scoped current-image/readiness operation is authorized and passes,
+revalidate the guarded fixture and request the separate five-injection
+authorization; do not create either owner-only file before its required
+authorization.
