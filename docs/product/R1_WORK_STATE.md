@@ -8168,3 +8168,42 @@ Documentation closeout covers this work-state entry and the existing GS-117
 and GS-179 evidence documents. Base HEAD and origin before delivery were both
 `ae44b6584ad9eb69b61ca87a2c6affa7ffd5029e`; validated evidence commit and
 final remote equality are recorded in the follow-up Jira closeout comments.
+
+### 2026-10-27 11:11 UTC — GS-117 resumed product verification checkpoint
+
+Canonical branch and source remain `feature/r1-commercial-baseline` at
+`c7eceedd44a37cf1ed049b4b7fba008d89ddcc3b` before this handoff. Context
+preflight passes. No product source changed. The phone is now ADB-visible and
+the installed package/path readiness check passes, but the existing exact-key
+observer for C3 session 118 sequence 16 stops because the APK displays “Sign in
+required / No current authorized session was restored.” Do not call this an
+Android event observation; no credentials were sent. The exact EventKey is
+present once in the durable backend and caregiver API. Sequence 122 remains
+unmatched and has three C3 sends without a captured application ACK; the saved
+S3 boot trace shows trusted-time/authority refresh failure and CloudSync fenced.
+First failing delivery boundary is not proven beyond the missing C3 ACK and
+absence of an S3/backend receipt.
+
+The host's local PostgreSQL, caregiver HTTPS and backend are ready, but bounded
+TCP 8445 / UDP 4468 services have expired. Windows Wi-Fi is `192.168.1.6`; the
+phone and last verified encrypted Hub configuration target `192.168.1.10`, whose
+current neighbor is not the laptop. The old portproxy remains on `.10`; no
+forwarding/network change was made and no credentials were sent to the current
+`.10` host. The saved S3
+installed-image receipt is 26.5 hours old; no current C3 installed-image
+receipt exists. The owner-only fixture and five-run approval remain absent.
+Current S3 authentication, exact-key Android observation and fixture are
+BLOCKED/NOT_VERIFIED; TC-001 remains 0/5 NOT_RUN and optical PIR remains
+NOT_RUN. Existing console/ADB regression remains 43/43 PASS at its previously
+verified source commit; no tests were rerun because no code changed.
+
+The minimum product-readiness sequence is: restore the owner-approved `.10`
+endpoint (or approve one coordinated new endpoint), restore only the existing
+bounded services, confirm fresh physical S3 authentication, obtain newly scoped
+current C3/S3 image and partition receipts using targeted read-only app-slot
+readback (COM4/COM10 opening can reset devices; S3 RAM-only configuration can
+be lost), establish an authenticated app session over verified TLS, then repeat
+the existing observer for exact sequence 16. The prior one-attempt S3 recovery
+approval is consumed. Do not create the fixture or run injections until all
+current gates pass; request the five-run authorization separately at that
+point. See the dated updates in the GS-117 and GS-179 evidence documents.

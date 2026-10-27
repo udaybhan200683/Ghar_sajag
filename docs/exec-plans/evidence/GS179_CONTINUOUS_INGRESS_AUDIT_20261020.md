@@ -478,3 +478,27 @@ receipts and a fresh exact-key APK observation are still missing; no fixture
 was created and the five-run campaign approval remains absent. Private
 mode-0600 source trace and sanitized backend correlation are under
 `~/.local/state/ghar-sajag/gs117-tc001/recovery-services-20261027T053803Z/`.
+
+### 2026-10-27 11:11 UTC — current endpoint and listener recheck
+
+PostgreSQL TLS/durability, caregiver HTTPS and the local backend still pass.
+The external TLS health probe to the phone-facing endpoint times out. Windows
+Wi-Fi is now `192.168.1.6`, while the Android app and last verified encrypted
+Hub configuration target `192.168.1.10`; existing portproxy mappings still
+bind `.10` to WSL `172.17.152.10`. The `.10` neighbor is a different MAC from
+the laptop Wi-Fi adapter, so the old endpoint is not currently owned by this
+host. No credentials
+were sent to it and no network configuration was changed.
+
+The bounded physical mTLS ingress on TCP 8445 and signed-time service on UDP
+4468 are no longer listening. Historical authenticated S3 authority-refresh
+receipts and CloudSync commits through 06:37Z remain valid for that bounded
+session only; they do not establish current S3 authentication. Persistent
+ingress remains `NOT_CONFIGURED` and autostart remains disabled. A fresh S3
+receipt requires the owner-approved lab endpoint and bounded services to be
+restored; the prior one-attempt Hub recovery approval is consumed.
+
+GS-179 remains **In Progress**. Current state is
+`GS179_FRESH_REAL_S3_AUTHENTICATION=NOT_VERIFIED`. Do not repoint the proxy to
+`.6` while the app and Hub still use `.10`; first restore the approved endpoint
+or obtain an approved coordinated endpoint change.

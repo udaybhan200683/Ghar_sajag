@@ -2415,3 +2415,76 @@ NOT_RUN. Do not execute another serial operation or recovery under the consumed
 one-attempt approval. After the app is unlocked and missing full-current-image
 receipts are obtained through a separately approved safe procedure, re-evaluate
 the fixture; only then request the independent bounded five-run authorization.
+
+### 2026-10-27 11:11 UTC — resumed exact-key and readiness recheck
+
+The canonical source remains `c7eceedd44a37cf1ed049b4b7fba008d89ddcc3b`.
+The owner reconnected and authorized the Motorola phone. Current `AndroidReady`
+passed for serial `ZA2237MRHN`, package
+`in.gharsajag.caregiver.discoverytest`, version
+`0.4.0-connected-lite-staging` / versionCode 3, and the installed package path.
+The returned signer is still receipt-derived; no formal `apksigner verify` tool
+was present in the checked Linux/Windows SDK paths.
+
+The existing Android observer was run for the original physical EventKey
+`c3-146393c5d158 / bedroom / session 118 / sequence 16`. It stopped at
+`TC001_ANDROID_SETTINGS_NAVIGATION_NOT_FOUND`. A read-only screen capture and
+accessibility dump showed the installed app in its sign-in screen with “No
+current authorized session was restored.” No credentials were submitted. The
+phone is ADB-ready, but no exact EventKey was observed in the APK. Private
+Android evidence is under
+`~/.local/state/ghar-sajag/gs117-tc001/android-session118-seq16-result-20261027T110634Z/`
+and `android-ui-diagnostic-20261027T110708Z/`.
+
+The existing read-only backend observer reconfirmed sequence 16 as one durable
+`MOTION` row and one caregiver projection in `Bedroom`, committed by
+`hub-e072a1d38d34` at ownership epoch 1 / enrollment generation 1. Its
+freshness is `STALE` and Home monitoring is `UNKNOWN`; this is backend evidence,
+not Android evidence or TC-001 campaign acceptance. Sequence 122 remains
+unmatched: the preserved C3 trace has `PIR -> NodeRuntime` and three
+`NodeMessage sent` attempts, with no application ACK; the exact backend query
+returns zero durable rows/projections and the bounded ingress trace has no
+sequence-122 receipt. The saved S3 boot observation reports failed
+time/authority refresh and fenced CloudSync publication. These traces do not
+prove whether the ESP-NOW packet reached the Hub. The exact-key query is saved
+privately at
+`~/.local/state/ghar-sajag/gs117-tc001/backend-session118-exact-keys-20261027T111134Z.json`.
+
+The phone app and last verified encrypted Hub configuration target
+`https://192.168.1.10/`, but Windows Wi-Fi is now `192.168.1.6`; the existing
+Windows portproxy rows still listen on `.10` and target WSL
+`172.17.152.10`. The current `.10` neighbor is not the laptop Wi-Fi adapter.
+Do not send caregiver credentials to that address, claim its TLS identity, or
+rebind the address while another device owns it. PostgreSQL TLS/durability,
+caregiver HTTPS and the local backend remain ready; bounded TCP 8445 ingress
+and UDP 4468 signed-time listeners are absent. No current S3 authentication is
+verified.
+
+The fixture remains absent, as does the separate campaign approval. The S3
+installed-image receipt was observed at `2026-10-26T08:36:03Z` and is now older
+than the fixture's 24-hour limit. Its complete app hash matches the preserved
+binary, while the later S3 boot supplied only version `9bbc6d0-dirty` and ELF
+SHA prefix `c77483102`. The C3 artifact and image-info exist, but there is no
+current installed-image receipt or full running-image digest. The fixture
+requires both boards' local image/artifact hash match, current installed-image
+receipt, target/USB/serial/source identity, active slot, partition-table hash,
+and capacity evidence (including S3 PSRAM). Neither a version string nor an ELF
+prefix can replace those fields. The existing S3 full-flash readback script
+also reads NVS, outbox and state; it is broader than needed. The least-data
+attestation is a targeted read-only readback of each active app slot and the
+partition-table region using the existing esptool package. Opening COM4/COM10
+can reboot a board; COM10 reset can clear RAM-only Wi-Fi/GS40 configuration.
+The previous one-attempt recovery approval is consumed, so this readback and
+any necessary encrypted S3 reconfiguration require a new explicitly scoped
+owner approval. No serial operation was performed in this recheck.
+
+Disposition remains GS-117 **In Progress**, physical TC-001 **0/5
+BLOCKED/NOT_RUN**, `TARGET_TEST_INPUT_PASS=NOT_RUN`, `REAL_SENSOR_PASS=NOT_RUN`,
+and actual Android EventKey observation **NOT_VERIFIED**. GS-179 remains In
+Progress. Restore a stable owner-approved route for the existing `.10` endpoint
+first; then restore bounded services and verify fresh S3 authentication,
+obtain the scoped current-image evidence, restore an authenticated app session,
+and re-evaluate every fixture gate. Request the separate five-run authorization
+only after those gates pass. No product source or tests changed; the previously
+recorded current-source console regression remains 43/43 PASS at its source
+commit.
