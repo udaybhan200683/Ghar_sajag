@@ -2561,4 +2561,5 @@ this checkpoint. TC-001 remains **0/5 NOT_RUN**, `TARGET_TEST_INPUT_PASS` and
 After the scoped current-image/readiness operation is authorized and passes,
 revalidate the guarded fixture and request the separate five-injection
 authorization; do not create either owner-only file before its required
-authorization.
+authorization. GS-117 is now being placed OnHold while this new scoped
+authorization is pending; resume In Progress when authorized execution starts.

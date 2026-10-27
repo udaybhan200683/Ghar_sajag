@@ -8269,8 +8269,10 @@ the independent five-injection campaign approval. No physical ports were
 opened and no reset, config update, injection, flash/erase, credential,
 ownership/enrollment or protected data operation occurred in this checkpoint.
 
-GS-117 remains **In Progress**, TC-001 **0/5 NOT_RUN**, target test input
-**NOT_RUN**, and real optical PIR **NOT_RUN**. GS-179 remains **In Progress**.
+GS-117 is **OnHold** pending the new scoped physical approval, with TC-001
+**0/5 NOT_RUN**, target test input **NOT_RUN**, and real optical PIR
+**NOT_RUN**. Resume In Progress when authorized execution begins. GS-179 remains
+**In Progress**.
 No product source changed. The existing console/ADB regression result of
 43/43 PASS remains historical evidence at its verified source; no test was
 rerun for this documentation/network/Android verification checkpoint. Latest
