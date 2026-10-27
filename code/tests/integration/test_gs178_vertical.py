@@ -245,8 +245,9 @@ class NodeOriginVertical(unittest.TestCase):
 
     def test_24_multinode_room_identity_and_door_chronology_in_caregiver_view(self):
         self.expected = ("Bedroom, bathroom, kitchen, and door Node inputs keep separate original "
-                         "EventKeys; door OPEN/CLOSE remain distinct and chronological through "
-                         "durable API projection and caregiver browser reload")
+                         "EventKeys; an unregistered physical/logical Node pairing is rejected "
+                         "without polluting caregiver history; door OPEN/CLOSE remain distinct "
+                         "and chronological through durable API projection and browser reload")
         self.stage = "NODE_INPUTS_AND_ORIGINAL_EVENT_KEYS"
         inputs = [(0, "motion"), (1, "motion"), (2, "motion"),
                   (3, "door_open"), (3, "door_close")]
@@ -303,6 +304,40 @@ class NodeOriginVertical(unittest.TestCase):
                  key["origin_session_id"], key["event_sequence"])).fetchone()[0]
             self.assertEqual(rows, 1, key)
 
+        self.stage = "UNENROLLED_PHYSICAL_LOGICAL_NODE_PAIR_REJECTED"
+        bedroom_receipt = next(receipt for receipt in committed
+            if receipt["request"]["event_key"]["physical_device_id"] == "test-c3-bedroom"
+            and receipt["request"]["event_key"]["logical_node_id"] == "bedroom")
+        original_request = bedroom_receipt["request"]
+        wrong_pair_request = {
+            **original_request,
+            "event_key": {**original_request["event_key"],
+                          "logical_node_id": "bathroom"},
+        }
+        denied_status, denied_bytes = self.stack.hub_request(
+            f"/v1/homes/{HOME}/events", wrong_pair_request)
+        denied = json.loads(denied_bytes)
+        self.assertEqual((denied_status, denied.get("error")),
+                         (403, "hub_not_authorized"), denied)
+        self.assertEqual(self.stack.durable.db.execute(
+            "SELECT COUNT(*) FROM events").fetchone()[0], 5)
+        self.assertEqual(self.stack.durable.db.execute(
+            "SELECT COUNT(*) FROM durable_event_commits").fetchone()[0], 5)
+
+        self.stage = "EXACT_EVENT_REPLAY_AND_CAREGIVER_NO_POLLUTION"
+        replay_status, replay_bytes = self.stack.hub_request(
+            f"/v1/homes/{HOME}/events", original_request)
+        replay = json.loads(replay_bytes)
+        self.assertEqual((replay_status, replay.get("status"), replay.get("duplicate")),
+                         (200, "COMMITTED", True), replay)
+        self.assertEqual(self.stack.durable.db.execute(
+            "SELECT COUNT(*) FROM events").fetchone()[0], 5)
+        after_guard = self.view()["recent_events"]
+        self.assertEqual([event["event_key"] for event in after_guard],
+                         [item["key"] for item in expected_events])
+        self.assertEqual([event["location"] for event in after_guard],
+                         [item["room"] for item in expected_events])
+
         self.stage = "CAREGIVER_TIMELINE_AND_RELOAD"
         reports = Path(os.environ.get("GS178_REPORT_DIR", "build/gs178_evidence"))
         reports.mkdir(parents=True, exist_ok=True)
@@ -319,11 +354,15 @@ class NodeOriginVertical(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout)
         browser = json.loads(result.stdout.splitlines()[-1])
         self.assertEqual(browser["status"], "HOST_SIM_PASS")
-        self.save_report("R1AUTO-009-MULTINODE-DOOR-CAREGIVER", {
+        self.save_report("R1AUTO-010-WRONG-NODE-ROOM-PAIRING", {
             "expected": self.expected,
             "api_projection": actual_projection,
             "committed_receipts": len(committed),
             "durable_rows_per_event_key": 1,
+            "wrong_physical_logical_pair_rejected": denied,
+            "exact_event_replay": replay,
+            "durable_event_rows_after_rejection_and_replay": 5,
+            "caregiver_events_after_guard": [event["event_key"] for event in after_guard],
             "browser": browser,
         })
 
