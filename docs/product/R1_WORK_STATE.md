@@ -1,3 +1,58 @@
+## GS-178 software use-case batch S3 — 2026-10-27 (validated; closeout in progress)
+
+Owning Jira GS-178; coverage inventory GS-130; regression policy GS-116. This
+batch resumed at canonical HEAD `b2aab27a049927718c21198bb5787adbf7c587b3`
+after S2. Context preflight passed. No competing writer was present; tracked
+files were clean at start and pre-existing untracked Android/PWA/IDF/physical
+evidence remains preserved.
+
+The audit mapped the next implemented-but-not-yet-joined slice to proposed
+R1AUTO-009: separate first-sequence EventKeys from bedroom, bathroom, kitchen,
+and door Nodes; preserve door OPEN/CLOSE meaning and order through the
+caregiver timeline. Existing NodeRuntime, authenticated Hub admission,
+CloudSync, durable API/read model, and caregiver browser were reused. S2's
+`test_23` covers outage recovery; existing tests cover API door semantics and
+the left-open rule. The missing assertion was the four-Node exact-key/room
+projection plus door labels after caregiver reload. Classification:
+`IMPLEMENTED_NOT_YET_VALIDATED`; no production defect or production code
+change was made.
+
+Added `test_24_multinode_room_identity_and_door_chronology_in_caregiver_view`
+to the existing `gs178-node-caregiver-e2e` stage and extended its current
+browser observer. The new trace case is
+`GS178-DOOR-MULTINODE-01`. Focused test passed 1/1 in 23.683s; the existing
+one-command `GS178_REPORT_DIR=build/gs178_s3_20261027/full-suite make -C code
+gs178-software-e2e` passed **39/39** (15 security + 24 vertical, 473.805s).
+The registered framework passed 51/51. Feature mapping passed 226 features,
+285 modules, 27 physical cases and 22/22 mapping tests. `git diff --check`
+passed.
+
+The exact test report records five distinct Node EventKeys (three Nodes at
+sequence 1; door sequence 1 and 2), five authenticated `COMMITTED` receipts,
+one durable row for each key, and browser verification of all keys/labels/room
+identities after reload (4 assertions). Observed newest-first keys were
+`test-c3-door/door/session-10/sequence-2` (`DOOR_CLOSED`),
+`test-c3-door/door/session-10/sequence-1` (`DOOR_OPEN`), then
+`test-c3-kitchen/kitchen/session-10/sequence-1`,
+`test-c3-bathroom/bathroom/session-10/sequence-1`, and
+`test-c3-bedroom/bedroom/session-10/sequence-1` (`MOTION`). It is
+`HOST_SIM_PASS`; its backend is
+isolated SQLite, not PostgreSQL or a production deployment. Actual Android is
+`APK_NOT_VERIFIED`, and physical qualification is `NOT_RUN`. No hardware,
+ADB or COM was used.
+
+The code/test commit is `a98c1830aa4309805e2d244fd88595d00fc45f0c`.
+The focused test passed again on that exact commit (1/1 in 21.788s); its report
+records the same five receipts/rows, browser 4/4, null first failure,
+`HOST_SIM_PASS`, physical `NOT_RUN`, and `APK_NOT_VERIFIED`. The full 39/39 suite
+ran on the identical code tree before commit. Its reports remain under
+`code/build/gs178_s3_20261027/`. Remaining closeout: commit the evidence updates,
+push both commits, verify remote equality and post the concise Jira updates.
+GS-178 stays In Progress; all 17 P0 groups remain PARTIAL. GS-117 stays OnHold with
+TC-001 0/5 NOT_RUN. Next audit target: proposed R1AUTO-010 invalid-input and
+wrong Node/room enrollment rejection, reusing existing ownership and admission
+guards rather than adding a new input path. Continue without physical access.
+
 ## GS-178 software use-case batch S2 — 2026-10-27 (validated and published)
 
 Owning Jira GS-178; feature coverage GS-130; regression governance GS-116.
@@ -55,10 +110,9 @@ modify CSS. No full release gate was run.
 The S2 batch is complete. GS-178 remains In Progress because all 17 P0 use
 cases and the R1 product gate remain PARTIAL. GS-117 remains OnHold with
 physical TC-001 0/5 NOT_RUN; S2 used no hardware, ADB or COM access. Next
-priority is the next audit-selected, implemented-but-not-yet-validated P0-A
-software case in the existing GS-178 command, reusing prior Node/Hub/security/
-caregiver regressions and avoiding the already covered outage and observation
-cases. Do not start physical qualification or held GS-104/conditional behavior
+priority at S2 closeout was the next audit-selected, implemented-but-not-yet-
+validated P0-A software case. S3 below records that follow-up and its result.
+Do not start physical qualification or held GS-104/conditional behavior
 without applicable approval.
 Unrelated untracked Android/PWA files, generated IDF state and physical
 evidence remain preserved.

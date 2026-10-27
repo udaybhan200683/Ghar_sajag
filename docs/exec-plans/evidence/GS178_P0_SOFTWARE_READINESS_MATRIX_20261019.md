@@ -22,7 +22,7 @@ gate while mandatory functionality remains partial.
 |---|---|---|---|
 | P0-UC-01 Household creation, caregiver roles and authorization | `backend/ghar_sajag/{identity,homes,foundation}.py`; `tools/sim/pwa/connected_lite.mjs`; local caregiver API | P0-E2E-001/009/014; GS-178 `test_04`, `test_07`; cross-Home access denied in the isolated host E2E | **PARTIAL** — the local actor/session adapter is not production OIDC; invitations and production role lifecycle are not qualified. |
 | P0-UC-02 Device onboarding, pairing, identity and lifecycle | `firmware/hub/commissioning/registry/`; `firmware/hub/event_processing/ingest/`; `frontend/src/features/onboarding/`; GS-109 interfaces | Existing ownership lifecycle and commissioning host checks; P0-P2D-010/012/013 registry cases | **PARTIAL** — secure owner commissioning has software/fixture evidence, but caregiver onboarding/claim is absent from the current PWA product flow and physical enrollment is not run here. |
-| P0-UC-03 PIR, door and room activity | C3 `firmware/node/sensing/sensing.cpp`, `firmware/node/runtime/node_runtime.cpp`; Hub `firmware/hub/runtime/hub_runtime.cpp`, `firmware/common/shared/src/rules.cpp`; caregiver activity projection | P0-E2E-002/004/017; GS-178 `test_01`, `test_15`, `test_16`; simulated PIR and distinct OPEN/CLOSE/clear chronology | **PARTIAL** — host input exercises production event processing; real PIR/Reed sensing, room mapping and target trigger-to-caregiver are not qualified. |
+| P0-UC-03 PIR, door and room activity | C3 `firmware/node/sensing/sensing.cpp`, `firmware/node/runtime/node_runtime.cpp`; Hub `firmware/hub/runtime/hub_runtime.cpp`, `firmware/common/shared/src/rules.cpp`; caregiver activity projection | P0-E2E-002/004/017; GS-178 `test_01`, `test_15`, `test_16`, `test_24`; simulated Node inputs preserve distinct per-Node EventKeys and door OPEN/CLOSE caregiver chronology | **PARTIAL** — host fixture verifies Node-to-room mapping and caregiver projection; real PIR/Reed sensing, installed room mapping and target trigger-to-caregiver remain unqualified. |
 | P0-UC-04 Event identity, durable journal, delivery and ACK | C3 `firmware/node/storage/node_store.cpp`; Hub `firmware/hub/runtime/`, `firmware/hub/storage/`, `firmware/hub/cloud_sync/`; backend event ingest/commit | P0-E2E-002/003; GS-178 `test_02`, `test_09`; checkpoint recovery tests; Node EventKey stays distinct from Hub decision ID | **PARTIAL** — same-key retry, replay, durable host ACK and COMMITTED path are tested; production credentials/deployment and real target storage remain open. The separate legacy migration stage still fails; see blockers. |
 | P0-UC-05 Routine learning and baseline behavior | Deterministic Hub rules: `firmware/hub/routines/routine_service.cpp`, `firmware/common/shared/src/rules.cpp`, `firmware/hub/runtime/`; backend Hub-rule read model | GS-178 `test_06`, `test_10`, `test_13`–`test_16`; morning, night, coverage/clock suppression, door clear and caregiver projection exercised in host software | **PARTIAL** — deterministic rules work in the validated software path. Personalized baselines/longitudinal learning remain on GS-104 R01–R09 approval hold; do not infer a learned baseline. S3 scheduler remains unqualified on hardware. |
 | P0-UC-06 Activity coverage, inactivity thresholds and configuration | Hub `firmware/hub/event_processing/coverage/`, `firmware/hub/runtime/time/`, shared rule scheduler; GS-40 test-only local-time adapter | P0-E2E-005/011–016; GS-178 `test_03`, `test_06`, `test_08`, `test_10`; GS-40 bootstrap 47 checks includes trusted-UTC to `Asia/Kolkata` boundary tests | **PARTIAL** — software requires trusted time and covered observations; the scenario backend accepts concern events and does not prove all secure target timers/coverage signals generated them. |
@@ -31,12 +31,12 @@ gate while mandatory functionality remains partial.
 | P0-UC-09 Hub outage versus Internet-only outage | Node retained events, Hub `firmware/hub/cloud_sync/`, backend source freshness and caregiver status | P0-GAP-001; GS-178 `test_02`, `test_03` exercise WAN loss, restart, replay, stale/UNKNOWN and recovery | **PARTIAL** — host durability and recovery path pass; target/local-storage operation and production deployment authentication/recovery remain open. |
 | P0-UC-10 Buffering, retry, deduplication and rejoin | C3 `firmware/node/storage/node_store.cpp`, `firmware/node/runtime/node_runtime.cpp`; Hub dedupe/outbox; backend idempotency | P0-E2E-003; GS-178 `test_02`, `test_09`, checkpoint replay; exact retry and conflicting same-key payload behavior | **PARTIAL** — production-code host stack proves Node same-key retry; app-route dedupe and target persistence are separate boundaries. |
 | P0-UC-11 Caregiver alerts, notifications and alert recovery | `backend/ghar_sajag/incidents.py`, `notifications.py`; PWA incident/action UI | P0-E2E-005/006/008/017; GS-178 `test_01`, `test_07`, `test_11`, `test_12`, `test_16` | **PARTIAL** — concern creation, claim/acknowledge/resolve and history are exercised; external provider delivery and actual caregiver receipt are not implemented/proven. No call completion is claimed. |
-| P0-UC-12 Activity history, chronology, status and dashboard | `backend/ghar_sajag/ingest.py`, `sqlite_events.py`, `queries.py`; caregiver Home/Reports | P0-E2E-007/008/017; GS-178 `test_01`, `test_02`, `test_07`, `test_15`; delayed event chronology asserted | **PARTIAL** — the local API/browser projection displays source event and Hub decisions separately; the connected local lab's service models do not establish production long-term/restart-durable history. |
+| P0-UC-12 Activity history, chronology, status and dashboard | `backend/ghar_sajag/ingest.py`, `sqlite_events.py`, `queries.py`; caregiver Home/Reports | P0-E2E-007/008/017; GS-178 `test_01`, `test_02`, `test_07`, `test_15`, `test_24`; delayed chronology and multi-Node door/activity order asserted | **PARTIAL** — the local API/browser projection displays source event and Hub decisions separately; the connected local lab's service models do not establish production long-term/restart-durable history. |
 | P0-UC-13 Caregiver settings and household policy persistence | `backend/ghar_sajag/fleet.py`; PWA routine/settings modules | P0-E2E-015/016 and existing API validation/version checks | **PARTIAL** — input validation/version behavior is covered; durable production configuration, accepted-configuration acknowledgement and complete settings workflow remain open. |
 | P0-UC-14 Battery/device health and sleep policy | C3 `firmware/node/power/power.cpp`, `firmware/node/runtime/node_runtime.cpp`; BAT-C8 power path | Existing battery/power host suites and preserved GS-114 BAT-C8 image-scoped evidence | **PARTIAL** — software policy/previous image-scoped behavior are not a current-image power qualification; calibrated battery telemetry, current/RF measurements and caregiver battery projection are unqualified. |
 | P0-UC-15 Security, authorization, replay and invalid identities | `firmware/common/security/`, Hub ingest/ownership, backend `identity.py`; GS-168 isolated registry | GS-178 security tests (10), `test_04`, `test_05`, `test_09`, `test_13`, `test_14`; wrong Home, revoked/replaced authority, replay and conflict denied | **PARTIAL** — isolated TEST_ONLY trust and host authentication pass; production OIDC→Hub identity issuance/registry and live deployed security remain open. |
 | P0-UC-16 FOTA/control and recovery | C3 `firmware/node/lifecycle/fota/`; Hub target FOTA sender; current host FOTA suites | Existing registered host FOTA/state/artifact checks (see GS-116 reports) | **PARTIAL** — source/host protocol checks are not signed current-image target installation, rollback, bootloader or caregiver FOTA status qualification. |
-| P0-UC-17 Multiple devices/households, isolation and bounded operation | Hub `firmware/hub/event_processing/ingest/`; `tests/cpp/multinode_host_validation.cpp`; backend household authorization | P0-E2E-014; GS-178 `test_04`, `test_14`; two-Home denial and old-authority fencing | **PARTIAL** — isolated host authorization is covered; independently enrolled multiple target Nodes, production load and physical room attribution remain open. |
+| P0-UC-17 Multiple devices/households, isolation and bounded operation | Hub `firmware/hub/event_processing/ingest/`; `tests/cpp/multinode_host_validation.cpp`; backend household authorization | P0-E2E-014; GS-178 `test_04`, `test_14`, `test_24`; four TEST_ONLY Node identities retain separate EventKeys and room projection | **PARTIAL** — host identities are isolated; independently enrolled target Nodes, production load, physical room attribution and multi-home live deployment remain open. |
 
 ## Current-source changes and focused results
 
@@ -175,6 +175,39 @@ APK observation, target radio/storage behavior and physical outage evidence
 remain outside this result. Focused test 23 then passed 1/1 on source commit
 `bfbae7796df55a0db098ab7c6e13232d2f558808`. See the GS-178 execution evidence
 for command, stage-by-stage assertions and ignored local browser artifacts.
+
+## 2026-10-27 S3 addendum — multi-Node identity and door chronology
+
+The audit found proposed R1AUTO-009's remaining joined software slice in the
+existing Node-origin vertical: per-Node sequence identity and correct room/type
+projection were not checked together through caregiver reload. Existing
+NodeRuntime, Hub admission, CloudSync, durable SQLite API and browser components
+were reused; no production defect or behavior change was found.
+
+New test `test_24_multinode_room_identity_and_door_chronology_in_caregiver_view`
+inputs bedroom, bathroom and kitchen motion plus main-door OPEN and CLOSE at the
+TEST_ONLY Node input boundary. Three different Nodes begin at the same session
+sequence 1; the door Node emits its own sequence 1 then 2. The test verifies five
+authenticated COMMITTED receipts, one durable event row per exact EventKey,
+distinct event types and room identities, and newest-first chronology. The
+existing Chromium helper verifies exact keys, labels and room identities in
+the shared caregiver UI both before and after reload (4 browser assertions).
+Observed keys, newest first: `test-c3-door/door/session 10/sequence 2` CLOSE,
+`test-c3-door/door/session 10/sequence 1` OPEN, then `test-c3-kitchen/kitchen`,
+`test-c3-bathroom/bathroom`, and `test-c3-bedroom/bedroom` at session 10,
+sequence 1 each.
+
+Focused test passed 1/1 in 23.683s before commit; it passed again 1/1 in
+21.788s on exact code commit `a98c1830aa4309805e2d244fd88595d00fc45f0c`.
+The existing `gs178-software-e2e` command passed 39/39 (15 security and 24
+vertical tests, 473.805s) on the identical code tree before commit. Generated
+evidence is under `code/build/gs178_s3_20261027/`; the new case report is
+`R1AUTO-009-MULTINODE-DOOR-CAREGIVER.json`. Traceability passed 226 features,
+285 modules, 27 physical cases and 22/22 mapping tests; framework tests passed
+51/51. This is `HOST_SIM_PASS` on an isolated SQLite fixture. It does not prove
+production PostgreSQL/deployment, physical Reed/PIR, actual Android APK or
+target room installation. Physical is `NOT_RUN`; Android is `APK_NOT_VERIFIED`.
+P0-UC-03, P0-UC-12, P0-UC-17 and the overall R1 product remain `PARTIAL`.
 
 ## Blockers kept open
 
