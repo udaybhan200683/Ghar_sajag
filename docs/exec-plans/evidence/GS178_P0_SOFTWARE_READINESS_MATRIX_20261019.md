@@ -34,7 +34,7 @@ gate while mandatory functionality remains partial.
 | P0-UC-12 Activity history, chronology, status and dashboard | `backend/ghar_sajag/ingest.py`, `sqlite_events.py`, `queries.py`; caregiver Home/Reports | P0-E2E-007/008/017; GS-178 `test_01`, `test_02`, `test_07`, `test_15`, `test_24`; delayed chronology and multi-Node door/activity order asserted | **PARTIAL** — the local API/browser projection displays source event and Hub decisions separately; the connected local lab's service models do not establish production long-term/restart-durable history. |
 | P0-UC-13 Caregiver settings and household policy persistence | `backend/ghar_sajag/fleet.py`; PWA routine/settings modules | P0-E2E-015/016 and existing API validation/version checks | **PARTIAL** — input validation/version behavior is covered; durable production configuration, accepted-configuration acknowledgement and complete settings workflow remain open. |
 | P0-UC-14 Battery/device health and sleep policy | C3 `firmware/node/power/power.cpp`, `firmware/node/runtime/node_runtime.cpp`; BAT-C8 power path | Existing battery/power host suites and preserved GS-114 BAT-C8 image-scoped evidence | **PARTIAL** — software policy/previous image-scoped behavior are not a current-image power qualification; calibrated battery telemetry, current/RF measurements and caregiver battery projection are unqualified. |
-| P0-UC-15 Security, authorization, replay and invalid identities | `firmware/common/security/`, Hub ingest/ownership, backend `identity.py`; GS-168 isolated registry | GS-178 security tests (15), `test_04`, `test_05`, `test_09`, `test_13`, `test_14`; wrong Home, revoked/replaced authority, replay and conflict denied | **PARTIAL** — isolated TEST_ONLY trust and host authentication pass; production OIDC→Hub identity issuance/registry and live deployed security remain open. |
+| P0-UC-15 Security, authorization, replay and invalid identities | `firmware/common/security/`, Hub ingest/ownership, backend `identity.py`; GS-168 isolated registry | GS-178 security tests (15), `test_04`, `test_05`, `test_09`, `test_13`, `test_14`, `test_24`; wrong Home, revoked/replaced authority, unregistered physical/logical Node pairing, replay and conflict denied | **PARTIAL** — isolated TEST_ONLY trust and host authentication pass; production OIDC→Hub identity issuance/registry and live deployed security remain open. |
 | P0-UC-16 FOTA/control and recovery | C3 `firmware/node/lifecycle/fota/`; Hub target FOTA sender; current host FOTA suites | Existing registered host FOTA/state/artifact checks (see GS-116 reports) | **PARTIAL** — source/host protocol checks are not signed current-image target installation, rollback, bootloader or caregiver FOTA status qualification. |
 | P0-UC-17 Multiple devices/households, isolation and bounded operation | Hub `firmware/hub/event_processing/ingest/`; `tests/cpp/multinode_host_validation.cpp`; backend household authorization | P0-E2E-014; GS-178 `test_04`, `test_14`, `test_24`; four TEST_ONLY Node identities retain separate EventKeys and room projection | **PARTIAL** — host identities are isolated; independently enrolled target Nodes, production load, physical room attribution and multi-home live deployment remain open. |
 
@@ -208,6 +208,37 @@ evidence is under `code/build/gs178_s3_20261027/`; the new case report is
 production PostgreSQL/deployment, physical Reed/PIR, actual Android APK or
 target room installation. Physical is `NOT_RUN`; Android is `APK_NOT_VERIFIED`.
 P0-UC-03, P0-UC-12, P0-UC-17 and the overall R1 product remain `PARTIAL`.
+
+## 2026-10-27 S4 addendum — wrong Node/room enrollment pairing
+
+The next audited slice, proposed R1AUTO-010, was the negative counterpart to
+the multi-Node room projection: prove that an authenticated Hub cannot commit a
+new event under a physical/logical Node pair that is not actively enrolled, and
+that rejection does not create a caregiver-visible room event. The existing
+`HubOwnershipRegistry.authorize_cloud_event` production guard matches the exact
+physical ID, logical Node ID and active enrollment generation. Existing
+security tests covered wrong Home, stale generation and conflicting same-key
+content, but not a new wrong physical/logical pair joined to caregiver state.
+Classification: `IMPLEMENTED_NOT_YET_VALIDATED`; no production behavior change.
+
+Extended the existing `test_24_multinode_room_identity_and_door_chronology_in_caregiver_view`;
+no new test runner or Node/Hub path was added. Five correct TEST_ONLY Node
+events (bedroom, bathroom, kitchen, door OPEN and door CLOSE) first committed
+through NodeRuntime, authenticated Hub admission, CloudSync and durable SQLite.
+A TLS-authenticated CloudSync request with physical `test-c3-bedroom` paired
+with logical `bathroom` was rejected as `403 hub_not_authorized`. Durable event
+and commit counts stayed at five. Replaying the exact original bedroom EventKey
+returned `COMMITTED, duplicate=true`; API chronology and the caregiver browser
+still exposed exactly the five correctly enrolled room identities after reload.
+The report is `R1AUTO-010-WRONG-NODE-ROOM-PAIRING.json`.
+
+Focused test passed 1/1 before commit (20.793s); the full existing
+`make -C code gs178-software-e2e` passed 39/39 (15 security + 24 vertical,
+582.279s) on the same code tree. Focused test passed again 1/1 on exact code
+commit `ee772be986ce401b130803b8a92f35e8bb5fcaf6` (15.790s). This is
+`HOST_SIM_PASS` on isolated SQLite and Chromium; it is not PostgreSQL
+deployment, actual Android APK or physical Node qualification. Android is
+`APK_NOT_VERIFIED`; physical is `NOT_RUN`.
 
 ## Blockers kept open
 

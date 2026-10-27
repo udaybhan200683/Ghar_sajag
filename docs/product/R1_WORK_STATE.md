@@ -1,3 +1,58 @@
+## GS-178 software use-case batch S4 — 2026-10-27
+
+Owning Jira GS-178; feature inventory GS-130; regression policy GS-116. Resume
+checkpoint before this batch was `7e85b27b55556af23138c29cc46ed093c70568d3`
+with local/origin equal and context preflight PASS. The worktree had preserved
+untracked Android/PWA/IDF/physical evidence; only the intended GS-178 test and
+this batch's documentation were changed.
+
+Audit of GS-178/GS-130/GS-116 scope and the canonical identity rules found that
+the existing production `HubOwnershipRegistry.authorize_cloud_event` guard
+binds a CloudSync EventKey's physical ID, logical Node ID and active enrollment
+generation. Existing security tests reject wrong Home, stale enrollment and
+changed same-key content, but the existing multi-Node caregiver vertical did
+not verify rejection of a new unregistered physical/logical pair while proving
+the caregiver projection remains unpolluted. Classification:
+`IMPLEMENTED_NOT_YET_VALIDATED`. No production defect or source behavior change
+was found; the existing NodeRuntime, authenticated Hub, CloudSync, durable API,
+caregiver API and browser were reused.
+
+Extended `test_24_multinode_room_identity_and_door_chronology_in_caregiver_view`
+with the R1AUTO-010 negative and recovery checks. After five properly enrolled
+TEST_ONLY events were durably committed, a TLS-authenticated request pairing
+physical `test-c3-bedroom` with logical `bathroom` returned
+`403 hub_not_authorized`. Durable event and commit counts remained five. The
+exact original bedroom EventKey then retried as `COMMITTED, duplicate=true`;
+the caregiver API retained the five correct keys/rooms and Chromium verified
+the exact chronology/labels before and after reload. Evidence is in
+`code/build/gs178_s4_20261027/` under
+`R1AUTO-010-WRONG-NODE-ROOM-PAIRING.json`.
+
+Validation: focused test 1/1 before commit (20.793s); full existing
+`GS178_REPORT_DIR=build/gs178_s4_20261027/full-suite make -C code
+gs178-software-e2e` 39/39 PASS (15 security + 24 vertical, 582.279s); focused
+test 1/1 on code commit `ee772be986ce401b130803b8a92f35e8bb5fcaf6` (15.790s). All results are
+`HOST_SIM_PASS` on isolated SQLite/Chromium. Actual Android remains
+`APK_NOT_VERIFIED`; physical qualification is `NOT_RUN`. No hardware, ADB or
+COM was used. Five-run TC-001 remains 0/5 NOT_RUN and GS-117 OnHold.
+The ephemeral GS-178 fixture is loopback-only and shuts down with the test, so
+the installed Android APK cannot observe these specific EventKeys; browser
+assertions are not APK evidence.
+
+Code/test commit: `ee772be986ce401b130803b8a92f35e8bb5fcaf6`. After the
+traceability row update, `make -C code validation-framework-test
+feature-coverage-test` passed: framework 51/51; traceability 226 features,
+285 modules, 27 physical cases and 22/22 mapping tests. Trace consistency does
+not prove exhaustive semantic or physical coverage. The documentation
+closeout/push and Jira comments follow this code-bound validation.
+
+GS-178, GS-130 and GS-116 stay In Progress; all 17 P0 groups remain PARTIAL.
+GS-130 catalogue comment 11728 makes R1AUTO-011 the next priority:
+durable-before-ACK and immutable EventKey through Node, Hub, ingress,
+PostgreSQL and caregiver. Audit existing GS-178 event/retry cases and GS-179
+PostgreSQL coverage before adding any test; reuse existing paths and report
+separately if the only missing evidence is the joined PostgreSQL projection.
+
 ## GS-178 software use-case batch S3 — 2026-10-27 (validated and published)
 
 Owning Jira GS-178; coverage inventory GS-130; regression policy GS-116. This
@@ -51,9 +106,10 @@ evidence/traceability updates were committed and pushed normally. At the
 publication checkpoint, local and origin matched at `a0a28fd4cba886068c6c620f5235737ae3bb9a6f`.
 The final GS-178/GS-130/GS-116 Jira comments record the resulting source and
 remote SHAs. GS-178 stays In Progress; all 17 P0 groups remain PARTIAL. GS-117 stays OnHold with
-TC-001 0/5 NOT_RUN. Next audit target: proposed R1AUTO-010 invalid-input and
-wrong Node/room enrollment rejection, reusing existing ownership and admission
-guards rather than adding a new input path. Continue without physical access.
+TC-001 0/5 NOT_RUN. The S3 checkpoint's next audit target was proposed
+R1AUTO-010 invalid-input and wrong Node/room enrollment rejection. S4 above
+completes that software check by reusing existing ownership and admission
+guards; no new input path was added. Continue without physical access.
 
 ## GS-178 software use-case batch S2 — 2026-10-27 (validated and published)
 
