@@ -8105,3 +8105,66 @@ No approval is implied by this checkpoint. Once recovery is separately
 authorized, resume GS-117 In Progress and continue with the existing controller.
 Jira state at pause: GS-117 **OnHold** (comment 11737); GS-179 **In Progress**
 (comment 11738). The Git checkpoint is `ea481a753ef39b30c5d4571c98c6f186cf32bafb`.
+
+### GS-117 one-attempt S3 recovery and readiness checkpoint — 2026-10-27 05:57Z
+
+Resumed from canonical `feature/r1-commercial-baseline` at local/origin
+`ae44b6584ad9eb69b61ca87a2c6affa7ffd5029e`; context preflight PASS. The old
+Codex process was parked with no repository file handles, no competing writer
+was found, and all pre-existing untracked/ignored assets remain preserved.
+Latest GS-117/179 Jira comments and the GS-116/130/121/148/173 acceptance
+history were reconciled before the recovery closeout. The existing C3
+EventKey/retention, authenticated S3/durable event pipeline, CloudSync,
+PostgreSQL/caregiver projection and Android observer were reused. No code
+defect was established and no product code or test framework was changed.
+
+Owner approval authorized one invocation of the existing protected S3 recovery
+procedure only; its one-attempt marker is consumed. S3 reset/configuration
+recovery succeeded once, and the approved C3 action was `GET_STATE` only. No
+injection, flash, erase, storage/database mutation, credential or ownership
+change occurred. Fresh physical S3 mTLS authority refreshes continued through
+05:57:02Z. Sixteen distinct physical C3 EventKeys were accepted by CloudSync
+and the backend as COMMITTED; the read-only backend/API evidence shows one
+durable record and one caregiver projection per EventKey, with correct Home,
+Hub, epoch, enrollment and Bedroom. Eighteen repeated event submissions were
+idempotent `duplicate=true` receipts. Monitoring remains UNKNOWN/STALE from the
+known GS-148 ownership/NodeHealth projection conflict. A later observed C3
+sequence 122 lacks an exact backend record and is not counted as delivered.
+
+Current non-invasive checks: PostgreSQL TLS/durability, caregiver HTTPS/local
+backend, Windows Private `Airtel_Agrim` address `192.168.1.10`, TCP 8445
+forwarding, and UDP 4468 binding passed. The host RSA-3072 signed-time proof
+passed nonce/generation/signature validation at 05:38:38Z and expired at
+05:40:38Z; the service remained bound and the physical Hub continued
+authority-refresh HTTP 200. The one-hour ingress/time processes remain
+bounded; persistent ingress/autostart remains disabled. Current-source console
+regression `python3 code/tests/python/test_gs117_tc001_console.py` passed
+43/43. Current loopback readiness reports backend/Home and USB descriptor
+readiness, but fixture/campaign/Android observation are BLOCKED or
+NOT_VERIFIED.
+
+Android read-only `AndroidReady` passed for authorized device
+`ZA2237MRHN`, installed package/version and package path. Its signer value is
+receipt-derived, not formal signature verification. Exact-key Android
+observation did not pass: the app did not foreground and device state showed
+the lockscreen. No unlock bypass or APK rebuild occurred. `apksigner verify`
+remains unperformed. Owner-only `fixture.json` and campaign approval remain
+absent because full current C3/S3 running-image/partition receipts and fresh
+APK UI observation are missing; historical image metadata was not substituted.
+
+**Disposition:** GS-117 is **In Progress**, not Done. Physical five-run TC-001
+is **0/5 BLOCKED/NOT_RUN**, `TARGET_TEST_INPUT_PASS=NOT_RUN`, optical PIR
+`REAL_SENSOR_PASS=NOT_RUN`, actual Android exact-key observation
+NOT_VERIFIED, and full acceptance BLOCKED. GS-179 remains **In Progress**:
+fresh bounded real S3 authentication is now observed, but persistent ingress
+and broader staging/phone acceptance remain open. Do not execute another
+physical operation under the consumed recovery approval. Next, obtain fresh
+full-current-image receipts through an independently approved safe method and
+unlock the authorized phone so Codex can capture current UI evidence. Only when
+all exact fixture gates pass request the separate one-use five-run campaign
+approval; do not begin it under recovery approval.
+
+Documentation closeout covers this work-state entry and the existing GS-117
+and GS-179 evidence documents. Base HEAD and origin before delivery were both
+`ae44b6584ad9eb69b61ca87a2c6affa7ffd5029e`; validated evidence commit and
+final remote equality are recorded in the follow-up Jira closeout comments.

@@ -429,3 +429,52 @@ configuration recovery described in the GS-117 handoff. That recovery approval
 is separate from any five-run injection approval. Persistent GS-179 service
 configuration and broader live staging acceptance remain open; GS-179 stays
 In Progress.
+
+### 2026-10-27 — bounded physical recovery ingress, fresh mTLS receipt and backend projection (05:57Z)
+
+Following the separately scoped owner approval for one S3 recovery, the
+existing protected recovery procedure was executed once. The S3 returned to
+the exact TEST_ONLY Hub `hub-e072a1d38d34`, Home `gs177-test-product`, epoch 1,
+enrollment 1 and accepted the existing encrypted configuration. The procedure
+observed current app version `9bbc6d0-dirty` and ELF SHA prefix `c77483102`,
+not a full current-image digest. The consumed attempt was not repeated.
+
+Existing bounded GS-179 mTLS ingress and signed-time services were restored
+from hash-matched operator scripts for a one-hour session. On Private
+`Airtel_Agrim` Wi-Fi at `192.168.1.10`, current Windows-to-WSL TCP 8445
+forwarding succeeded; UDP 4468 was bound. Current PostgreSQL TLS/durability,
+caregiver HTTPS and local backend health passed. A host RSA-3072/SHA-256
+signed-time proof matched its fresh nonce and generation and was valid from
+05:38:38Z to 05:40:38Z; it had expired at this 05:57Z observation. This is
+host-generated TEST_ONLY proof, not physical Hub authentication.
+
+Unlike the earlier readiness checkpoint, the current listener trace now
+contains repeated physical Hub mTLS authority-refresh responses (latest HTTP
+200 at 05:57:02Z) and physical CloudSync event receipts. Sixteen unique C3
+EventKeys from `c3-146393c5d158`, Bedroom, session 118 sequences 1–16 received
+HTTP 201 `COMMITTED`, `duplicate=false`; repeated retries received 18 HTTP 200
+`COMMITTED`, `duplicate=true`. The saved read-only PostgreSQL/caregiver API
+correlation reports exactly one durable record and one caregiver projection
+for each of these keys with the correct Hub, Home, epoch and enrollment. These
+are physical Node-originated/replayed events, not controlled TC-001 stimuli;
+they do not establish a five-run campaign, per-run C3 durable ACK evidence, or
+actual phone display. A later Node-observed sequence 122 was not present in
+the exact-key backend query and is not counted as delivered.
+
+`gs179-laptop-server.sh health` continues to report persistent Hub ingress
+`NOT_CONFIGURED` and autostart disabled. The loopback GS-117 console's
+`hub_ingress.status=PASS` only describes the active bounded listener, while
+its `running=false` and current fixture/campaign/Android gates are
+BLOCKED/NOT_VERIFIED. Preserve those distinctions: the live mTLS trace proves
+current S3 authentication for this bounded session, but it does not enable a
+persistent staging service or close GS-179. GS-179 remains **In Progress**.
+
+The existing Android `AndroidReady` check passed installed device/package/path
+identity. The exact-key event observer remained NOT_VERIFIED because the
+approved phone was locked and did not foreground the app. The signer digest
+was echoed from its owner-only install receipt and formal APK signature
+verification remains incomplete. Full current C3/S3 image and partition
+receipts and a fresh exact-key APK observation are still missing; no fixture
+was created and the five-run campaign approval remains absent. Private
+mode-0600 source trace and sanitized backend correlation are under
+`~/.local/state/ghar-sajag/gs117-tc001/recovery-services-20261027T053803Z/`.

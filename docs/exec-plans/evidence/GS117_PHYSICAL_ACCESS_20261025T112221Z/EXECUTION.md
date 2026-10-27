@@ -2317,3 +2317,101 @@ evaluation. Five-run approval remains separate.
 Jira pause state: GS-117 was moved to **OnHold** after comment 11737; GS-179
 remains **In Progress** after comment 11738. Resume GS-117 In Progress only
 when separately authorized recovery is ready to proceed.
+
+### 2026-10-27 — owner-authorized one-attempt S3 recovery and live ingress verification (05:57Z)
+
+Owner approval in this Codex task authorized exactly one invocation of the
+existing protected `gs117-protected-bootstrap-current-network.py` procedure:
+S3 `hub-e072a1d38d34` on COM10 reset plus existing encrypted TEST_ONLY
+configuration, and C3 `c3-146393c5d158` on COM4 `GET_STATE` observation only.
+The approved run-local script SHA-256 was
+`4ec5b057b942770bea2828801778ab05fc4d6ec5d845c816080c12a3f61d5dbb`; its
+pinned serial helper SHA-256 was
+`1849695926cf95d8c84a3d8b8c04c1091a970a6d41eba9e13b354ab202816b6c`. The
+one-attempt marker was consumed at 05:39:03Z. The recovery completed once;
+there was no retry. COM10 reset and loss of RAM-only Wi-Fi/GS40 state were
+within the stated approval. COM4 was used only for `GET_STATE`; no injection
+was issued. No firmware write, erase, partition/NVS/outbox mutation,
+recommissioning, credential or enrollment change, or database mutation took
+place.
+
+The fresh S3 boot reported OTA offset `0x420000`, application version
+`9bbc6d0-dirty`, ELF SHA-256 prefix `c77483102`, `post_reset_boot_verified=true`,
+Hub `hub-e072a1d38d34`, Home `gs177-test-product`, `enrolled=1`, and
+`storage_epoch=1`. GS40 encrypted configuration was accepted and
+`HIL_FIXTURE_READY` was observed. The observed ELF prefix is not a complete
+running-image hash or current installed-image receipt. C3 `GET_STATE` reported
+the expected TEST_ONLY identity/profile/session; it did not provide the full
+current C3 image and partition receipts required by the campaign fixture.
+
+#### Fresh physical ingress and backend correlation
+
+The existing hash-verified bounded ingress and signed-time procedures were
+started with their existing one-hour limits; no persistent service or
+autostart was enabled. At the recheck, Windows still reported Private
+`Airtel_Agrim` / `192.168.1.10`; TCP 8445 forwarding succeeded and UDP 4468
+was bound. `gs179-laptop-server.sh health` passed PostgreSQL TLS/durability,
+caregiver HTTPS and local backend checks. The host-generated signed-time proof
+was cryptographically verified against the existing RSA-3072 trust key and
+matched its nonce/generation at 05:38:38Z, with validity through 05:40:38Z; it
+was expired at this 05:57Z closeout. The bound host service remained available.
+
+The private physical ingress trace contains 32 authenticated
+`/v1/test/authority/refresh` HTTP 200 receipts, latest at 05:57:02Z. It also
+contains 16 distinct physical C3 EventKeys (Node `bedroom`, session 118,
+sequences 1–16), each initially acknowledged by ingress as HTTP 201
+`COMMITTED`, `duplicate=false`. Repeated physical retries returned 18 HTTP 200
+`COMMITTED`, `duplicate=true` receipts. The saved read-only backend/API
+correlation reports exactly one durable event and one caregiver projection per
+key, correct physical Hub/Home/epoch/enrollment, and bedroom location. Sequence
+14 is `MOTION_SUMMARY`; the other 15 are `MOTION`, which explains the audit
+summary's `all_motion_bedroom=false` check without indicating a missing
+delivery. Monitoring remains `UNKNOWN` / `STALE` because of the previously
+documented GS-148 synthetic/physical Bedroom NodeHealth projection conflict;
+no health/enrollment/history row was changed.
+
+The C3 observer also logged a later NodeRuntime PIR/transmit sequence 122, but
+the contemporaneous exact-key backend lookup had no matching durable event.
+That observation is not counted as delivered or accepted. The observed
+session-118 traffic was not produced by the five-run controlled campaign, and
+does not establish the required per-run Node durable ACK/retirement evidence
+or optical PIR qualification.
+
+#### Current-source console and Android gates
+
+The focused current-source regression
+`python3 code/tests/python/test_gs117_tc001_console.py` passed **43/43**, exit
+0. The current loopback `/api/status` returned `running=false`, backend and
+authenticated TEST_ONLY Home ready, exact USB descriptors visible without
+opening the ports, listener active, fixture BLOCKED, campaign approval
+BLOCKED, and Android event observation NOT_VERIFIED. The listener readiness
+field describes a bound listener; physical authentication is established by
+the separate mTLS trace above. Persistent `HUB_INGRESS_READY` remains
+NOT_CONFIGURED by design.
+
+The existing read-only `AndroidReady` helper passed: authorized Motorola Edge
+60 Fusion `ZA2237MRHN`, installed package
+`in.gharsajag.caregiver.discoverytest` version
+`0.4.0-connected-lite-staging` / versionCode 3 and installed package path
+verified. The returned signer digest is read from the owner-only installation
+receipt; it is not a fresh cryptographic package-signature verification. The
+earlier APK pull matched the preserved SHA-256; this readiness check did not
+repull or hash the installed APK. Formal `apksigner verify` remains
+unperformed. The exact-key Android observer was attempted twice for
+the current C3 sequence 122 and both attempts stopped with
+`TC001_APPROVED_ANDROID_APP_NOT_FOREGROUNDED`; read-only device state showed a
+locked lockscreen. No unlock bypass was attempted; observer retries stopped
+after the two identical foreground failures. Thus app installation readiness
+passes, while fresh Home/Reports/Event Details observation remains NOT_VERIFIED.
+
+The owner-only `fixture.json` and independent
+`five-run-campaign-approval.json` are both absent. Fixture creation remains
+BLOCKED on complete current C3/S3 running-image and partition receipts, a
+fresh current phone UI observation, and validated exact identity/trust fields;
+historical image hashes and receipt signer values were not promoted. No five
+injections were run and no approval was created. TC-001 remains **0/5
+BLOCKED/NOT_RUN**; `TARGET_TEST_INPUT_PASS` and `REAL_SENSOR_PASS` are both
+NOT_RUN. Do not execute another serial operation or recovery under the consumed
+one-attempt approval. After the app is unlocked and missing full-current-image
+receipts are obtained through a separately approved safe procedure, re-evaluate
+the fixture; only then request the independent bounded five-run authorization.
