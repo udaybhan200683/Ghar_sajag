@@ -1,9 +1,10 @@
-## GS-178 software use-case batch S2 — 2026-10-27 (validation passed; closeout in progress)
+## GS-178 software use-case batch S2 — 2026-10-27 (validated; source committed, push pending)
 
 Owning Jira GS-178; feature coverage GS-130; regression governance GS-116.
 S1 was completed and pushed at `9e87c435db805f14be165286dc5cc9a5dd05a9ce`.
-S2 resumes on the canonical `feature/r1-commercial-baseline` worktree at that
-same local/remote SHA; context preflight passed. Latest Jira decisions
+S2 started on the canonical `feature/r1-commercial-baseline` worktree at that
+same local/remote SHA; its code/test/evidence batch is committed locally as
+`bfbae7796df55a0db098ab7c6e13232d2f558808`. Context preflight passed. Latest Jira decisions
 11748/11749/11750 require the existing software E2E campaign, incremental
 coverage, and no hardware prerequisite. The source, GS-178/130/116 scope,
 P0-UC-09 requirement, suite registration, previous case 02, board-stack
@@ -30,7 +31,10 @@ source-resolving test, not a semicolon list; after pointing to test 23,
 22/22 mapping tests). Generated reports under
 `code/build/gs178_s2_20261027/full-suite/` show `HOST_SIM_PASS`, null first
 failure, physical `NOT_RUN`, and Android `APK_NOT_VERIFIED`. Registration
-integrity checks now pass; final Git/Jira closeout remains. Browser means
+integrity checks now pass. After commit
+`bfbae7796df55a0db098ab7c6e13232d2f558808`, test 23 passed again 1/1 in
+24.047 seconds; its separate report records that exact source SHA, null first
+failure, `HOST_SIM_PASS`, physical `NOT_RUN`, and `APK_NOT_VERIFIED`. Browser means
 the shared TEST_ONLY caregiver UI; no installed APK or device was used.
 
 P0-UC-09 and all 17 P0 groups remain `PARTIAL`. Production deployment auth and
@@ -41,10 +45,9 @@ GS-104 learning remains on hold. The unrelated pre-existing CSS budget failure
 (29,576 bytes vs 18,432) reported during S1 remains open with GS-177; S2 did not
 modify CSS. No full release gate was run.
 
-Exact remaining actions: review the eight task files and validation evidence;
-commit and push normally; verify remote SHA;
-then repeat test 23 once on the commit for source-bound evidence and update the
-existing GS-178/GS-130/GS-116 Jira comments without changing GS-117 status.
+Exact remaining actions: push the validated local commits normally, verify
+remote SHA equality and tracked cleanliness, then add concise evidence comments
+to GS-178/GS-130/GS-116 without changing GS-117 status.
 Unrelated untracked Android/PWA files, generated IDF state and physical
 evidence remain preserved.
 

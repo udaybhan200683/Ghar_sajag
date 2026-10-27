@@ -172,8 +172,9 @@ make -C code gs178-software-e2e` passed 38/38 (15 security, 23 vertical;
 `APK_NOT_VERIFIED`; physical is `NOT_RUN`. No production code gap was found in
 this batch. Deployment authorization, production backend WAN recovery, actual
 APK observation, target radio/storage behavior and physical outage evidence
-remain outside this result. See the GS-178 execution evidence for command,
-stage-by-stage assertions and ignored local browser artifacts.
+remain outside this result. Focused test 23 then passed 1/1 on source commit
+`bfbae7796df55a0db098ab7c6e13232d2f558808`. See the GS-178 execution evidence
+for command, stage-by-stage assertions and ignored local browser artifacts.
 
 ## Blockers kept open
 

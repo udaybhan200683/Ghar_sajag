@@ -730,6 +730,7 @@ Validation:
 | Focused `test_23_hub_link_and_wan_outage_recovery_exact_keys_and_caregiver_view` | PASS 1/1; two browser observations passed (stale/no event, 4 assertions; exact-key recovery before and after reload, 6 assertions). The browser helper's first full-suite run undercounted the latter by one in its report metadata; this was corrected and verified in the focused repeat. |
 | `GS178_REPORT_DIR=build/gs178_s2_20261027/full-suite make -C code gs178-software-e2e` | PASS 38/38 in 273.500 seconds: 15 security + 23 vertical tests. All generated reports have `HOST_SIM_PASS`, null first-failing stage, physical `NOT_RUN`, and Android `APK_NOT_VERIFIED`. |
 | `make -C code validation-framework-test feature-coverage-test` | Framework PASS 51/51. First mapping attempt failed because the traceability checker accepts one assertion anchor per feature row, not a semicolon list; corrected the row to the new test 23 anchor. Rerun `make -C code feature-coverage-test` PASS: 226 features / 285 modules / 27 physical cases and 22/22 traceability tests. |
+| Post-commit focused test 23 on `bfbae7796df55a0db098ab7c6e13232d2f558808` | PASS 1/1 in 24.047 seconds; `source_revision` equals the full commit SHA; outage/recovery browser assertions 4/6; `HOST_SIM_PASS`, physical `NOT_RUN`, Android `APK_NOT_VERIFIED`. |
 
 The report directory is ignored local evidence at
 `code/build/gs178_s2_20261027/full-suite/`. Its new scenario report is
@@ -748,8 +749,11 @@ compiled host simulator SHA-256 is
 was performed on the S2 source diff based on `9e87c435db805f14be165286dc5cc9a5dd05a9ce`;
 the harness's `source_revision` therefore records that base SHA while the
 test-source SHA and built host simulator binary identify the modified inputs.
-Post-commit focused execution is required to produce an exact commit-bound
-repeat receipt.
+The commit-bound focused report is preserved at
+`code/build/gs178_s2_20261027/commit-bfbae77/P0-UC-09-HUB-WAN-CAREGIVER-RECOVERY.json`;
+it records exact source SHA `bfbae7796df55a0db098ab7c6e13232d2f558808`, API keys
+for session 10 sequences 1 and 2, two durable backend events/commits, 4/6
+browser assertions, and no first failed stage.
 
 This is deterministic host simulation over the existing product stack. It is
 not physical RF/flash qualification, an actual Android APK observation, or
