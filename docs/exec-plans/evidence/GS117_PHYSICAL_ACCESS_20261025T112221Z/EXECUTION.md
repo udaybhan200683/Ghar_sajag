@@ -2837,3 +2837,33 @@ current installed-image provenance incomplete, fresh physical S3 mTLS receipt
 unverified, owner-only fixture absent, and no scoped Morning Routine Run
 authorization. GS-117 TC-001 and optical PIR remain NOT_RUN. No COM/USB, ADB,
 credential, reset, flash or physical input was used.
+
+### 2026-10-28 — committed DEV integration and clean paired target build
+
+The integrated implementation is committed as
+`732b848df157859cffaf813332d8ab1e0058ad7a`. The clean existing C3/S3 builder
+passed from this source and wrote
+`code/build/validation_targets/gs116-ktfj60_m/report.json`: C3 image 944,272
+bytes, SHA-256
+`6d65ce180a926b7e0388032ac65f9a40b8de6813a79396aa62b8e4c4d4d7c522`; S3
+image 2,201,168 bytes, SHA-256
+`9544d3afa20dc2b376ffa5af8e65c518776eb84456560372318448b04766f99c`.
+Both fit their configured app slots. The production S3 cache confirms
+`GS40_TEST_ONLY_CLOUDSYNC`, `GS_HIL_BUILD`, `GS_HIL_CONTROL`, and
+`GS_HIL_COMMISSIONING` OFF and an empty TEST_ONLY root. Qualification is
+`TARGET_COMPILED_ONLY`; no board operation or image installation occurred.
+
+The read-only local service check reports PostgreSQL TLS/durability and
+caregiver HTTPS on WSL port 8444 PASS, but Windows LAN HTTPS at
+`192.168.1.6:443` times out. Existing `.6` forwarding entries point to the
+current WSL address, but Windows listener/firewall inspection and repair
+require UAC. The existing proxy helper stopped at its administrator guard
+before changing route state. No 8445 ingress or 4468 signed-time service is
+listening. The current owner-only fixture and TC-001 approval files are absent.
+
+Focused software results: GS-117 controller 50/50, GS-116 gate tests 55/55,
+caregiver JavaScript 11/11 and board-stack E2E 10/10 PASS (software only).
+Isolated TLS PostgreSQL repository/security tests passed 21/21 and runtime
+composition 5/5 using a disposable schema. These do not establish physical
+S3 configuration application or a Morning Routine decision. GS-117 remains
+OnHold; TC-001, real optical PIR and Android routine outcome remain NOT_RUN.

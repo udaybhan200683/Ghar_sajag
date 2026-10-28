@@ -1,11 +1,13 @@
 ## Latest active checkpoint — GS-117/GS-179 TEST_ONLY Morning Routine integration — 2026-10-28
 
 Resumed from canonical commit `a92bd8214df67ae68ac5e902bf2b2f49367223ec` on
-`feature/r1-commercial-baseline`; local and origin matched at resume. Context
-preflight passed on resume and again during closeout (`2026-10-28.001`). This checkpoint continues the existing
-dirty worktree and preserves unrelated untracked Android, IDF and hardware
-evidence. No hardware, COM/USB, ADB, credential, or protected household-data
-operation was performed.
+`feature/r1-commercial-baseline`; local and origin matched at resume. The
+validated implementation is committed as
+`732b848df157859cffaf813332d8ab1e0058ad7a`; the documentation checkpoint is
+being finalized against that source. Context preflight passed on resume and
+again during closeout (`2026-10-28.001`). Unrelated untracked Android, IDF and
+hardware evidence is preserved. No hardware, COM/USB, ADB, credential, or
+protected household-data operation was performed.
 
 The approved DEV direction reuses the existing isolated GS-40/GS-179 TEST_ONLY
 profile. Production issuer, credential lifecycle/provisioning, commercial
@@ -29,7 +31,7 @@ GS-116). It distinguishes implementation state from effective DEV state and
 production readiness; production release remains NO-GO for unresolved mandatory
 gates and pending scope.
 
-Validation on this working tree:
+Validation on implementation commit `732b848df157859cffaf813332d8ab1e0058ad7a`:
 
 - Hub checkpoint host suite: PASS, including schema-v6 timezone restore,
   same-version conflict rejection and higher-version advancement.
@@ -42,10 +44,15 @@ Validation on this working tree:
 - GS-116 component-gate tests: 55/55 PASS, including the register status
   vocabulary and release-stage registration.
 - CloudSync security, Hub checkpoint and P2D HTTPS host suites: PASS.
-- Paired C3/S3 production-profile target build: PASS. C3 image 944,272 bytes;
-  S3 image 2,201,168 bytes. Cache guard verified TEST_ONLY CloudSync, HIL
-  controls, commissioning and external TEST_ONLY root are disabled/absent.
-  Build-only evidence; no image was installed.
+- Fresh paired C3/S3 production-profile build: PASS using the existing builder
+  at `code/build/validation_targets/gs116-ktfj60_m/report.json`. C3 image
+  944,272 bytes, SHA-256
+  `6d65ce180a926b7e0388032ac65f9a40b8de6813a79396aa62b8e4c4d4d7c522`; S3
+  image 2,201,168 bytes, SHA-256
+  `9544d3afa20dc2b376ffa5af8e65c518776eb84456560372318448b04766f99c`.
+  Cache guard verified TEST_ONLY CloudSync, HIL controls, commissioning and
+  external TEST_ONLY root are disabled/absent. Report source head is 732b848.
+  `TARGET_COMPILED_ONLY`; no image was installed.
 - Isolated TEST_ONLY S3 target build: PASS after fixing an ESP-IDF 6.0.3
   dependency declaration in the existing TEST_ONLY composition. Reused the
   existing cached/pinned Espressif cJSON 1.7.19~2 package, declared only for
@@ -66,6 +73,17 @@ Validation on this working tree:
 - GS-117 focused console/ADB regression: 50/50 PASS after adding checks that
   readiness uses the authenticated existing Settings route and Morning Run
   remains physically blocked despite software policy acknowledgement.
+- Read-only `code/tools/local/gs179-laptop-server.sh health`: local PostgreSQL
+  TLS/durability and caregiver HTTPS on WSL port 8444 PASS; LAN HTTPS at
+  `192.168.1.6:443` FAIL/timeout. Windows proxy audit found the existing owned
+  `.6:443 -> 172.17.152.10:8444` and `.6:8445 -> 172.17.152.10:8445` mappings,
+  but listener/firewall inspection is blocked without Windows administrator
+  access. The existing `proxy-start` guard stopped with
+  `administrator_token_required_for_scoped_portproxy_and_firewall_rule`
+  before making changes. No Windows route was altered.
+- WSL physical ingress TCP 8445 and signed-time UDP 4468 are not listening.
+  Metadata-only checks confirm the owner-only TC-001 fixture and five-run
+  approval files are absent; their contents were not read.
 - `python3 code/validation/dev_to_production_gate.py` reports the expected
   release NO-GO with open mandatory/deferred gates; this is not a DEV test
   failure. Full release gate and unrelated GS-178 39-case suite were not rerun.
@@ -80,13 +98,14 @@ and separate Run authorization are absent. Bedroom is the only established
 physical Node room. GS-117 remains OnHold; TC-001 and optical PIR remain
 NOT_RUN. No board or APK result is inferred from target compilation or tests.
 
-Next action: validate the release-owned register and resulting working tree,
-then commit/push only the
-validated task files and post concise observed results to GS-116/117/148/173/
-179 as applicable. A first real Bedroom-only Run still requires the existing
-JEDEC/current-image guards, fresh authenticated S3 receipt, complete owner-only
-fixture and separate scoped hardware Run authorization. Do not operate hardware
-under the current development-only direction.
+Next action: commit/push this evidence and register update, then post concise
+observed results to GS-116/117/148/173/179 without changing ticket statuses.
+Restoring phone-facing HTTPS requires owner-provided Windows UAC elevation for
+the existing scoped route helper. A first real Bedroom-only Run additionally
+requires active bounded 8445/4468 services, current C3 JEDEC/image and S3
+image/configuration evidence, an owner-only fixture, fresh physical S3 mTLS,
+and separate scoped hardware Run authorization. No hardware action is
+authorized by this development checkpoint.
 
 ## Prior checkpoint — GS-117 Morning Routine config repository and console gate — 2026-10-28
 

@@ -10,10 +10,10 @@ activation or hardware operations. It implements the release-stage reference
 in [R1_RELEASE_CONTRACT.md](R1_RELEASE_CONTRACT.md) and reuses the existing
 GS-116 `release-gate-final` registry and GS-130 traceability/physical catalogues.
 
-**Verified source checkpoint:** `a92bd8214df67ae68ac5e902bf2b2f49367223ec`
-(the current working-tree changes are still being validated). DTP-010 is
-qualified narrowly for production profile isolation based on a clean paired
-C3/S3 target build; this does not qualify production identity, signing, or release. Current
+**Verified implementation source:** `732b848df157859cffaf813332d8ab1e0058ad7a`.
+DTP-010 is qualified narrowly for production profile isolation based on a
+clean paired C3/S3 target build from that source; this does not qualify
+production identity, signing, or release. Current
 TEST_ONLY configuration is isolated to the existing GS-40/GS-179 profile and
 Home `gs177-test-product`. Production identity issuance, routes, deployment and
 irreversible hardware security remain inactive. A compile-time option or
@@ -34,8 +34,13 @@ source default is not evidence of the effective built or deployed value.
 | DTP-009 | Installed Android business outcome | PARTIAL | MANDATORY_R1 | Historical HOST_SIM-to-APK only | NOT_VERIFIED | Yes |
 | DTP-010 | TEST_ONLY build isolation | IMPLEMENTED_DISABLED | MANDATORY_R1 | Production target cache/root guard PASS; TEST_ONLY profile remains opt-in and isolated | QUALIFIED (profile isolation only) | Yes |
 
-The JSON record gives exact source paths/configuration, current state, TEST_ONLY
-data boundary, production replacement/activation, dependencies, security and
+The clean paired target report is
+`code/build/validation_targets/gs116-ktfj60_m/report.json`; it records C3
+944,272 bytes (`6d65ce18…`) and S3 2,201,168 bytes (`9544d3af…`) with the
+TEST_ONLY/HIL profile disabled and no TEST_ONLY root. The isolated S3
+TEST_ONLY profile also compiled with an external public root; no image was
+installed. These are build/profile checks only. The JSON record gives exact
+source paths/configuration, current state, TEST_ONLY data boundary, production replacement/activation, dependencies, security and
 rollback implications, tests, acceptance, evidence, reviewer, approval and
 last verified source commit for each gate. No entry claims physical, production
 or release PASS from a host test or design decision.

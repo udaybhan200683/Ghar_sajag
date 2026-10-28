@@ -603,3 +603,23 @@ successful HOST_SIM-to-APK observation remains separate from physical Hub
 ingress. No fresh authenticated S3 receipt, actual S3 policy application,
 Morning Routine decision or APK routine result is claimed. Persistent
 physical ingress remains unconfigured/unverified; GS-179 remains In Progress.
+
+### 2026-10-28 — current laptop service and forwarding recheck
+
+The existing read-only `gs179-laptop-server.sh health` reports PostgreSQL
+TLS/durability and caregiver HTTPS on WSL port 8444 PASS. The phone-facing LAN
+endpoint `192.168.1.6:443` times out. The Windows proxy audit sees the existing
+owned mappings `.6:443 -> 172.17.152.10:8444` and `.6:8445 ->
+172.17.152.10:8445`, but Windows listener/firewall inspection requires an
+administrator token. The existing `proxy-start` command stopped at
+`administrator_token_required_for_scoped_portproxy_and_firewall_rule` before
+changing routes or firewall state. UAC elevation is therefore required to
+revalidate/restore the owned routes.
+
+There is currently no WSL TCP 8445 physical ingress listener or UDP 4468
+signed-time listener. Persistent ingress remains NOT_CONFIGURED, S3 identity
+unauthenticated and monitoring freshness UNKNOWN. The owner-only fixture and
+five-run approval are absent. Local backend health and old `.6` forwarding
+rows do not establish current Android reachability or any fresh physical S3
+receipt; no credentials were sent to `.10`, and no hardware or Android action
+was performed.

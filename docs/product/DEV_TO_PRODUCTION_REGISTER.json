@@ -2,7 +2,7 @@
   "schema_version": 1,
   "register_owner": "GS-173",
   "validation_owner": "GS-116",
-  "source_commit": "a92bd8214df67ae68ac5e902bf2b2f49367223ec",
+  "source_commit": "732b848df157859cffaf813332d8ab1e0058ad7a",
   "verified_date": "2026-10-28",
   "items": [
     {
@@ -51,7 +51,7 @@
       "gate_status": "BLOCKED",
       "accountable_reviewer": "GS-173 owner/security; GS-116 validation",
       "owner_security_approval": "Architecture direction approved; issuer/custody/provisioning approvals pending",
-      "last_verified_commit": "a92bd8214df67ae68ac5e902bf2b2f49367223ec",
+      "last_verified_commit": "732b848df157859cffaf813332d8ab1e0058ad7a",
       "dev_state_detail": "Isolated TEST_ONLY profile; physical current receipt unverified"
     },
     {
@@ -93,7 +93,7 @@
       "gate_status": "BLOCKED",
       "accountable_reviewer": "GS-173 owner/security; GS-179 backend; GS-116 validation",
       "owner_security_approval": "Architecture direction approved; production middleware deployment not activated",
-      "last_verified_commit": "a92bd8214df67ae68ac5e902bf2b2f49367223ec",
+      "last_verified_commit": "732b848df157859cffaf813332d8ab1e0058ad7a",
       "dev_state_detail": "Local TEST_ONLY service; fresh physical S3 receipt unverified"
     },
     {
@@ -139,7 +139,7 @@
       "gate_status": "BLOCKED",
       "accountable_reviewer": "GS-173 owner/security; GS-76 identity; GS-179 backend",
       "owner_security_approval": "Architecture boundary approved; issuer, deployment and production Home membership remain pending",
-      "last_verified_commit": "a92bd8214df67ae68ac5e902bf2b2f49367223ec",
+      "last_verified_commit": "732b848df157859cffaf813332d8ab1e0058ad7a",
       "dev_state_detail": "TEST_ONLY caregiver session and Settings; production issuer unverified"
     },
     {
@@ -185,7 +185,7 @@
       "gate_status": "BLOCKED",
       "accountable_reviewer": "GS-148 Hub/backend; GS-179 integration; GS-117 physical acceptance",
       "owner_security_approval": "TEST_ONLY software integration authorized; production identity activation and physical operations not authorized by this entry",
-      "last_verified_commit": "a92bd8214df67ae68ac5e902bf2b2f49367223ec",
+      "last_verified_commit": "732b848df157859cffaf813332d8ab1e0058ad7a",
       "dev_state_detail": "Software integration present; policy has not been applied on actual S3"
     },
     {
@@ -232,7 +232,7 @@
       "gate_status": "BLOCKED",
       "accountable_reviewer": "GS-173 owner/security; GS-68 security; GS-165 factory",
       "owner_security_approval": "No production provisioning or irreversible hardware security activation authorized",
-      "last_verified_commit": "a92bd8214df67ae68ac5e902bf2b2f49367223ec",
+      "last_verified_commit": "732b848df157859cffaf813332d8ab1e0058ad7a",
       "dev_state_detail": "TEST_ONLY profile available; commercial signing/provisioning unverified"
     },
     {
@@ -275,7 +275,7 @@
       "gate_status": "NOT_RUN",
       "accountable_reviewer": "GS-173 owner; GS-177 hosting; GS-179 backend",
       "owner_security_approval": "Development services authorized; production deployment requires separate release approval",
-      "last_verified_commit": "a92bd8214df67ae68ac5e902bf2b2f49367223ec",
+      "last_verified_commit": "732b848df157859cffaf813332d8ab1e0058ad7a",
       "dev_state_detail": "Local development profile and isolated PostgreSQL tests"
     },
     {
@@ -319,7 +319,7 @@
       "gate_status": "NOT_RUN",
       "accountable_reviewer": "GS-173 owner; GS-74/75 notifications; GS-157 calls",
       "owner_security_approval": "No real outbound recipient or production notification provider authorized in this development task",
-      "last_verified_commit": "a92bd8214df67ae68ac5e902bf2b2f49367223ec",
+      "last_verified_commit": "732b848df157859cffaf813332d8ab1e0058ad7a",
       "dev_state_detail": "Caregiver projection testable; external delivery unverified"
     },
     {
@@ -365,7 +365,7 @@
       "gate_status": "BLOCKED",
       "accountable_reviewer": "GS-117 physical owner; GS-116/130 evidence; GS-173 release",
       "owner_security_approval": "No current COM/USB, reset, injection or physical campaign authorization in this task",
-      "last_verified_commit": "a92bd8214df67ae68ac5e902bf2b2f49367223ec",
+      "last_verified_commit": "732b848df157859cffaf813332d8ab1e0058ad7a",
       "dev_state_detail": "C3 JEDEC is 0xffffff/capacity unknown; current image and fresh S3 auth unverified"
     },
     {
@@ -407,7 +407,7 @@
       "gate_status": "NOT_RUN",
       "accountable_reviewer": "GS-117/177 Android owner; GS-173 release",
       "owner_security_approval": "Android observation only under existing authorization; no physical event generation authorized",
-      "last_verified_commit": "a92bd8214df67ae68ac5e902bf2b2f49367223ec",
+      "last_verified_commit": "732b848df157859cffaf813332d8ab1e0058ad7a",
       "dev_state_detail": "Historical HOST_SIM-to-APK PASS; physical S3 Morning Routine decision unverified"
     },
     {
@@ -444,12 +444,12 @@
         "GS-116 component-gate tests and release-register consistency check"
       ],
       "acceptance": "A fresh paired production C3/S3 build passes the target guards with GS40_TEST_ONLY_CLOUDSYNC, GS_HIL_BUILD, GS_HIL_CONTROL and GS_HIL_COMMISSIONING OFF and no TEST_ONLY root. The separately selected TEST_ONLY S3 profile compiles its existing runtime only with an external public TEST_ONLY root; no image is installed.",
-      "evidence": "Paired build report from source a92bd821: C3 919e2a25... (944272 bytes), S3 b1604946... (2201168 bytes); production cache verified disabled options and empty TEST_ONLY root. TEST_ONLY target build is being validated in this working tree.",
+      "evidence": "Clean paired current-source report code/build/validation_targets/gs116-ktfj60_m/report.json (source_head=732b848df157859cffaf813332d8ab1e0058ad7a, fingerprint=700667a0): C3 944272 bytes SHA-256 6d65ce180a926b7e0388032ac65f9a40b8de6813a79396aa62b8e4c4d4d7c522; S3 2201168 bytes SHA-256 9544d3afa20dc2b376ffa5af8e65c518776eb84456560372318448b04766f99c. Production cache confirms TEST_ONLY CloudSync, HIL controls, commissioning OFF and empty TEST_ONLY root. The isolated TEST_ONLY S3 build also compiled from this source content with an external TEST_ONLY public root (2,271,744 bytes, SHA-256 f1890698945acf502d43645faf5be7f0207cdc977f47d7bdfa644f636cb7e949); neither image was installed. Physical status NOT_RUN.",
       "release_blocking": true,
       "gate_status": "PASS",
       "accountable_reviewer": "GS-173 release owner; GS-116 validation",
       "owner_security_approval": "Build-profile enforcement authorized; production security activation remains separately controlled",
-      "last_verified_commit": "a92bd8214df67ae68ac5e902bf2b2f49367223ec",
+      "last_verified_commit": "732b848df157859cffaf813332d8ab1e0058ad7a",
       "dev_state_detail": "Production profile verified to disable TEST_ONLY paths; selected TEST_ONLY compile remains isolated and is not deployed."
     }
   ]
