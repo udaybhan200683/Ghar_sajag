@@ -12,7 +12,10 @@ from __future__ import annotations
 import unittest
 import copy
 import json
+import sqlite3
+import tempfile
 from io import BytesIO
+from pathlib import Path
 
 from ghar_sajag import GharSajagService
 from ghar_sajag.identity import AuthorizationError
@@ -20,6 +23,12 @@ from ghar_sajag.ingest import EventValidationError
 from ghar_sajag.incidents import IncidentConflict
 from ghar_sajag.model import CloudEvent, Device, HomeMode, IncidentState, Resident
 from ghar_sajag.http_api import JsonApi
+from ghar_sajag.configuration_repository import (
+    ConfigurationConflict, ConfigurationDenied, PostgresConfigurationRepository,
+)
+from ghar_sajag.cloud_client_identity import TimeReadiness, VerifiedHubContext
+from ghar_sajag.diagnostic_authorization import ActorSession
+from ghar_sajag.database import initialize_sqlite
 
 
 class BackendTest(unittest.TestCase):
@@ -239,6 +248,144 @@ class BackendTest(unittest.TestCase):
         second = self.service.notifications.build_daily_summary("home-1", "2026-09-07", 1, 502, True, True, True)
         self.assertEqual(first.content["observation"], "observation_incomplete")
         self.assertIs(first, second)
+
+
+class ConfigurationRepositoryTest(unittest.TestCase):
+    """Migration-backed repository contract tests; no production auth route is installed."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.db = sqlite3.connect(Path(self.temp.name) / "config.db", isolation_level=None)
+        self.db.row_factory = sqlite3.Row
+        initialize_sqlite(self.db)
+        self.db.execute(
+            "INSERT INTO households(home_id,display_name,timezone,created_at,updated_at) "
+            "VALUES('home-1','Home','Asia/Kolkata',1,1)")
+        self.fingerprint = "a" * 64
+        self.db.execute(
+            """INSERT INTO hub_ownership_registry
+               (hub_device_id,identity_key_fingerprint,state,home_id,installation_epoch,created_at,updated_at)
+               VALUES('hub-1',?,'ACTIVE','home-1',7,1,1)""", (self.fingerprint,))
+        self.actor = ActorSession("owner-1", "session-1", "issuer-ref", 1000)
+        self.hub = VerifiedHubContext(
+            "hub-1", "home-1", 7, "b" * 64, self.fingerprint, True, TimeReadiness.TRUSTED)
+        self.policy = {
+            "morning": {"enabled": True, "start_minute": 420,
+                        "end_minute": 600, "grace_minutes": 30},
+            "activity_rules": {
+                "quiet_hours_enabled": True, "quiet_start_minute": 60,
+                "quiet_end_minute": 300, "door_open_timeout_seconds": 300,
+                "daytime_inactivity_enabled": True, "daytime_start_minute": 480,
+                "daytime_end_minute": 1260, "daytime_inactivity_seconds": 10800,
+                "morning_steps": [
+                    {"location": "bedroom", "enabled": True, "required": False},
+                    {"location": "bathroom", "enabled": True, "required": True},
+                ],
+            },
+        }
+        self.repo = PostgresConfigurationRepository(
+            self.db, authorize_caregiver_settings=lambda actor, home, at: True,
+            authorize_hub_configuration=lambda context, home, at: True,
+        )
+
+    def tearDown(self):
+        self.db.close()
+
+    def test_desired_and_applied_are_distinct_and_ack_is_idempotent(self):
+        desired = self.repo.publish_desired(
+            actor=self.actor, home_id="home-1",
+            config={**self.policy, "schema": 1, "home_id": "home-1", "version": 0},
+            expected_version=0, at=10)
+        self.assertEqual((desired.desired_version, desired.desired_status), (1, "DESIRED"))
+        self.assertIsNone(desired.applied_version)
+        state = self.repo.get_for_hub(context=self.hub, home_id="home-1", at=11)
+        self.assertEqual(state.desired_config, self.policy)
+        self.assertIsNone(state.applied_config)
+
+        applied = self.repo.record_applied(context=self.hub, home_id="home-1", version=1, at=12)
+        self.assertEqual((applied.desired_version, applied.applied_version), (1, 1))
+        self.assertEqual(applied.desired_config, applied.applied_config)
+        duplicate = self.repo.record_applied(context=self.hub, home_id="home-1", version=1, at=13)
+        self.assertEqual(duplicate.applied_version, 1)
+
+    def test_new_desired_version_preserves_last_applied_and_rejects_stale_ack(self):
+        first = self.repo.publish_desired(
+            actor=self.actor, home_id="home-1", config=self.policy, expected_version=0, at=10)
+        self.repo.record_applied(context=self.hub, home_id="home-1", version=first.desired_version, at=11)
+        revised_policy = copy.deepcopy(self.policy)
+        revised_policy["activity_rules"]["morning_sequence_strict_order"] = True
+        second = self.repo.publish_desired(
+            actor=self.actor, home_id="home-1", config=revised_policy, expected_version=1, at=12)
+        self.assertEqual(second.desired_version, 2)
+        self.assertEqual(second.desired_status, "DESIRED")
+        self.assertEqual(second.applied_version, 1)
+        self.assertEqual(second.applied_config, self.policy)
+        with self.assertRaisesRegex(ConfigurationConflict, "stale_or_unknown"):
+            self.repo.record_applied(context=self.hub, home_id="home-1", version=1, at=13)
+        with self.assertRaisesRegex(ConfigurationConflict, "stale_desired"):
+            self.repo.publish_desired(
+                actor=self.actor, home_id="home-1", config=self.policy, expected_version=1, at=14)
+        self.assertEqual(self.repo.get_for_hub(context=self.hub, home_id="home-1", at=15).desired_version, 2)
+
+    def test_missing_or_denied_authority_and_invalid_policy_fail_without_writes(self):
+        no_auth = PostgresConfigurationRepository(self.db)
+        with self.assertRaisesRegex(ConfigurationDenied, "authority_unavailable"):
+            no_auth.publish_desired(actor=self.actor, home_id="home-1", config=self.policy,
+                                    expected_version=0, at=10)
+        with self.assertRaisesRegex(ConfigurationDenied, "authority_unavailable"):
+            no_auth.get_for_hub(context=self.hub, home_id="home-1", at=10)
+        denied = PostgresConfigurationRepository(
+            self.db, authorize_caregiver_settings=lambda actor, home, at: False,
+            authorize_hub_configuration=lambda context, home, at: False,
+        )
+        with self.assertRaisesRegex(ConfigurationDenied, "membership_required"):
+            denied.publish_desired(actor=self.actor, home_id="home-1", config=self.policy,
+                                   expected_version=0, at=10)
+        with self.assertRaisesRegex(ConfigurationDenied, "authority_required"):
+            denied.get_for_hub(context=self.hub, home_id="home-1", at=10)
+        invalid = copy.deepcopy(self.policy)
+        invalid["activity_rules"]["morning_steps"][1]["required"] = False
+        with self.assertRaisesRegex(ValueError, "required_step"):
+            self.repo.publish_desired(actor=self.actor, home_id="home-1", config=invalid,
+                                      expected_version=0, at=10)
+        mismatched_home = {**self.policy, "home_id": "other-home"}
+        with self.assertRaisesRegex(ValueError, "configuration_home_mismatch"):
+            self.repo.publish_desired(actor=self.actor, home_id="home-1", config=mismatched_home,
+                                      expected_version=0, at=10)
+        mismatched_version = {**self.policy, "version": 1}
+        with self.assertRaisesRegex(ConfigurationConflict, "request_configuration_version"):
+            self.repo.publish_desired(actor=self.actor, home_id="home-1", config=mismatched_version,
+                                      expected_version=0, at=10)
+        self.assertEqual(self.db.execute("SELECT COUNT(*) FROM configurations").fetchone()[0], 0)
+
+    def test_hub_home_epoch_and_fingerprint_are_rechecked_against_current_registry(self):
+        wrong_home = VerifiedHubContext(
+            "hub-1", "other-home", 7, "b" * 64, self.fingerprint, True, TimeReadiness.TRUSTED)
+        with self.assertRaisesRegex(ConfigurationDenied, "verified_current_hub_context"):
+            self.repo.get_for_hub(context=wrong_home, home_id="home-1", at=10)
+        wrong_certificate = VerifiedHubContext(
+            "hub-1", "home-1", 7, "not-a-certificate-fingerprint", self.fingerprint,
+            True, TimeReadiness.TRUSTED)
+        with self.assertRaisesRegex(ConfigurationDenied, "verified_current_hub_context"):
+            self.repo.get_for_hub(context=wrong_certificate, home_id="home-1", at=10)
+        stale_epoch = VerifiedHubContext(
+            "hub-1", "home-1", 6, "b" * 64, self.fingerprint, True, TimeReadiness.TRUSTED)
+        with self.assertRaisesRegex(ConfigurationDenied, "ownership_changed"):
+            self.repo.get_for_hub(context=stale_epoch, home_id="home-1", at=10)
+        self.db.execute("UPDATE hub_ownership_registry SET state='REVOKED' WHERE hub_device_id='hub-1'")
+        with self.assertRaisesRegex(ConfigurationDenied, "ownership_changed"):
+            self.repo.get_for_hub(context=self.hub, home_id="home-1", at=10)
+
+    def test_unknown_schema_or_corrupt_persisted_policy_fails_closed(self):
+        self.repo.publish_desired(actor=self.actor, home_id="home-1", config=self.policy,
+                                  expected_version=0, at=10)
+        self.db.execute("UPDATE configurations SET schema_version=2 WHERE home_id='home-1'")
+        with self.assertRaisesRegex(ConfigurationConflict, "unsupported_household_configuration_schema"):
+            self.repo.get_for_hub(context=self.hub, home_id="home-1", at=11)
+        self.db.execute("UPDATE configurations SET schema_version=1,config_json='{}' WHERE home_id='home-1'")
+        with self.assertRaisesRegex(ConfigurationConflict, "stored_household_configuration_invalid"):
+            self.repo.get_for_hub(context=self.hub, home_id="home-1", at=12)
 
 
 if __name__ == "__main__":

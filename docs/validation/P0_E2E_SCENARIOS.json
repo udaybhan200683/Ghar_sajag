@@ -266,7 +266,7 @@
         "P0-E2E-015",
         "P0-E2E-016"
       ],
-      "gap": "API validation/versioning is exercised in its reference in-memory store; durable configuration/application acknowledgement and settings UI workflow remain open."
+      "gap": "A versioned desired/applied repository now has migration-backed SQLite contract tests behind fail-closed authorization callbacks. Live PostgreSQL execution, production caregiver/Hub authorities and route, authenticated S3 fetch/persistent apply acknowledgement, and authorized Settings workflow remain open."
     },
     {
       "use_case_id": "P0-UC-14",

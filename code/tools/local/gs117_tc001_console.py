@@ -36,8 +36,11 @@ FIXTURE = Path.home() / ".config/ghar-sajag/gs117-tc001/fixture.json"
 OBSERVE_APPROVAL = Path.home() / ".config/ghar-sajag/gs117-tc001/read-only-observe-approval.json"
 CAMPAIGN_APPROVAL = Path.home() / ".config/ghar-sajag/gs117-tc001/five-run-campaign-approval.json"
 ORIGIN = "http://127.0.0.1:18791"
-STATUSES = ("PASS", "FAIL", "BLOCKED", "PARTIAL", "NOT_VERIFIED")
+STATUSES = ("NOT_STARTED", "RUNNING", "PASS", "FAIL", "BLOCKED", "PARTIAL", "NOT_VERIFIED", "NOT_IMPLEMENTED")
 CAMPAIGN_RUNS = 5
+MORNING_STAGES = ("applied_household_policy", "enrolled_room_nodes", "trusted_hub_configuration",
+                  "hardware_authorization", "fresh_physical_ingress", "hub_rule_decision",
+                  "postgres_decision", "caregiver_api", "android_apk")
 STAGES = ("environment", "c3_identity", "s3_identity", "c3_injection",
           "node_event_key", "s3_admission", "hub_cloudsync", "backend_commit",
           "postgres_exactly_once", "caregiver_api", "android_apk")
@@ -418,7 +421,9 @@ class Controller:
         self.csrf = secrets.token_urlsafe(32)
         self.lock = threading.Lock()
         self.current: dict | None = None
+        self.morning_current: dict | None = None
         self._readiness_at = 0.0
+        self._readiness_observed_at: str | None = None
         self._readiness: dict = {}
 
     def readiness(self, force: bool = False) -> dict:
@@ -487,6 +492,7 @@ class Controller:
                                "android_apk": android_status,
                                "hub_ingress": ingress_status}
             self._readiness_at = time.monotonic()
+            self._readiness_observed_at = utc()
         return self._readiness
 
     def save(self, report: dict) -> None:
@@ -499,6 +505,146 @@ class Controller:
             os.fsync(stream.fileno())
         os.chmod(temp, 0o600)
         os.replace(temp, target)
+
+    @staticmethod
+    def recent_morning_reports() -> list[dict]:
+        reports = []
+        for path in sorted(STATE.glob("MORNING-ROUTINE-*.json"), reverse=True)[:10]:
+            try:
+                info = path.lstat()
+                if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or
+                        info.st_mode & 0o077):
+                    continue
+                report = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(report, dict) and report.get("scenario_id") == "MORNING_ROUTINE":
+                    reports.append(report)
+            except (OSError, json.JSONDecodeError):
+                continue
+        return reports
+
+    @staticmethod
+    def morning_policy_status(readiness: dict | None = None) -> dict:
+        """Describe known gates without touching USB, Android, or production auth."""
+        readiness = readiness if isinstance(readiness, dict) else {}
+        return {
+            "scenario": "MORNING_ROUTINE",
+            "status": "BLOCKED",
+            "applied_policy": {
+                "status": "BLOCKED",
+                "reason": "trusted caregiver-to-PostgreSQL config read and authenticated S3 applied-config receipt are not connected",
+                "desired_version": None,
+                "applied_version": None,
+                "desired_config": None,
+                "applied_config": None,
+            },
+            "room_fixtures": {
+                "status": "BLOCKED",
+                "known_established_location": "bedroom",
+                "enrollment_verified": False,
+                "reason": "only a Bedroom Node fixture is established; active per-room enrollment cannot be derived without the trusted applied policy",
+            },
+            "hardware_authorization": {
+                "status": "BLOCKED",
+                "reason": "no separate Morning Routine physical-run authorization is available; the TC-001 approval is not reusable",
+            },
+            "physical_ingress": {
+                "status": "BLOCKED",
+                "listener_status": (readiness.get("hub_ingress", {}).get("status")
+                                     if isinstance(readiness.get("hub_ingress"), dict) else "NOT_VERIFIED"),
+                "reason": "a fresh authenticated physical S3 receipt is not established",
+            },
+        }
+
+    def start_morning_routine(self, interval_seconds: object = 10) -> dict | None:
+        """Persist a fail-closed attempt; no external or physical action is initiated."""
+        if type(interval_seconds) is not int or not 1 <= interval_seconds <= 600:
+            raise ValueError("test_stimulus_interval_must_be_1_to_600_seconds")
+        if not self.lock.acquire(blocking=False):
+            return None
+        try:
+            readiness = self._readiness if isinstance(self._readiness, dict) else {}
+            policy_status = self.morning_policy_status(readiness)
+            now = datetime.now(timezone.utc)
+            run_id = "MORNING-ROUTINE-" + now.strftime("%Y%m%dT%H%M%S") + "Z-" + secrets.token_hex(4)
+            stages = {}
+            reasons = {
+                "applied_household_policy": policy_status["applied_policy"]["reason"],
+                "enrolled_room_nodes": policy_status["room_fixtures"]["reason"],
+                "trusted_hub_configuration": "production Hub identity, issuer, Home/epoch authority, and middleware choices remain pending GS-109/GS-148 approval",
+                "hardware_authorization": policy_status["hardware_authorization"]["reason"],
+                "fresh_physical_ingress": policy_status["physical_ingress"]["reason"],
+            }
+            first = next(name for name in MORNING_STAGES if name in reasons)
+            for name in MORNING_STAGES:
+                status = "BLOCKED" if name in reasons else "NOT_STARTED"
+                stages[name] = {"status": status,
+                                "reason": reasons.get(name, "not reached because physical readiness failed closed"),
+                                "at": now.isoformat()}
+            report = {
+                "run_id": run_id,
+                "scenario_id": "MORNING_ROUTINE",
+                "created_at": now.isoformat(),
+                "git_head": self._git_head(),
+                "readiness_observed_at": self._readiness_observed_at,
+                "execution_profile": "REAL_DEVICE_REQUIRED",
+                "test_stimulus_interval_seconds": interval_seconds,
+                "git_tracked_dirty": self._tracked_dirty(),
+                "applied_policy": policy_status["applied_policy"],
+                "room_fixtures": policy_status["room_fixtures"],
+                "readiness_snapshot": {
+                    "postgres": (readiness.get("backend", {}).get("POSTGRES_READY", "NOT_VERIFIED")
+                                 if isinstance(readiness.get("backend"), dict) else "NOT_VERIFIED"),
+                    "caregiver_https": (readiness.get("backend", {}).get("CAREGIVER_HTTPS_READY", "NOT_VERIFIED")
+                                        if isinstance(readiness.get("backend"), dict) else "NOT_VERIFIED"),
+                    "physical_boards": ({"status": readiness.get("physical_boards", {}).get("status", "NOT_VERIFIED"),
+                                         "c3": readiness.get("physical_boards", {}).get("c3", "NOT_VERIFIED"),
+                                         "s3": readiness.get("physical_boards", {}).get("s3", "NOT_VERIFIED")}
+                                        if isinstance(readiness.get("physical_boards"), dict) else
+                                        {"status": "NOT_VERIFIED", "c3": "NOT_VERIFIED", "s3": "NOT_VERIFIED"}),
+                    "owner_fixture": ({"status": readiness.get("fixture", {}).get("status", "NOT_VERIFIED"),
+                                       "reason": readiness.get("fixture", {}).get("reason", "not reported")}
+                                      if isinstance(readiness.get("fixture"), dict) else
+                                      {"status": "NOT_VERIFIED", "reason": "not reported"}),
+                    "android_apk": ({"status": readiness.get("android_apk", {}).get("status", "NOT_VERIFIED"),
+                                     "reason": readiness.get("android_apk", {}).get("reason", "not reported")}
+                                    if isinstance(readiness.get("android_apk"), dict) else
+                                    {"status": "NOT_VERIFIED", "reason": "not reported"}),
+                },
+                "hardware_authorization": policy_status["hardware_authorization"],
+                "physical_ingress": policy_status["physical_ingress"],
+                "physical_operations": [],
+                "event_keys": [],
+                "hub_rule_decision": None,
+                "first_failing_stage": first,
+                "overall": "BLOCKED",
+                "acceptance": "NOT_RUN",
+                "stages": stages,
+            }
+            self.save(report)
+            self.morning_current = report
+            return report
+        finally:
+            self.lock.release()
+
+    @staticmethod
+    def _git_head() -> str | None:
+        try:
+            return subprocess.check_output(
+                ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
+                text=True, timeout=2, stderr=subprocess.DEVNULL,
+            ).strip()
+        except (OSError, subprocess.SubprocessError):
+            return None
+
+    @staticmethod
+    def _tracked_dirty() -> bool | None:
+        try:
+            return bool(subprocess.check_output(
+                ["git", "-C", str(ROOT), "status", "--porcelain", "--untracked-files=no"],
+                text=True, timeout=2, stderr=subprocess.DEVNULL,
+            ).strip())
+        except (OSError, subprocess.SubprocessError):
+            return None
 
     def mark(self, report: dict, name: str, status: str, reason: str) -> None:
         stage(report, name, status, reason)
@@ -1018,7 +1164,15 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(200, {"csrf": CONTROLLER.csrf, "current": CONTROLLER.current,
                              "previous": [json.loads(path.read_text()) for path in recent],
                              "running": CONTROLLER.lock.locked(),
+                             "morning_routine": CONTROLLER.morning_current,
+                             "morning_history": CONTROLLER.recent_morning_reports(),
+                             "morning_readiness": CONTROLLER.morning_policy_status(readiness),
                              **readiness})
+        elif self.path == "/api/scenarios/morning-routine":
+            readiness = CONTROLLER.readiness()
+            self.reply(200, {"scenario_id": "MORNING_ROUTINE",
+                             "readiness": CONTROLLER.morning_policy_status(readiness),
+                             "current": CONTROLLER.morning_current})
         else:
             self.reply(404, {"error": "unknown_route"})
 
@@ -1035,6 +1189,13 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/run" and request == {}:
             report = CONTROLLER.start()
             self.reply(202 if report else 409, report or {"error": "test_already_running"})
+        elif (self.path == "/api/scenarios/morning-routine/run" and
+              isinstance(request, dict) and set(request) <= {"interval_seconds"}):
+            try:
+                report = CONTROLLER.start_morning_routine(request.get("interval_seconds", 10))
+            except ValueError as error:
+                self.reply(400, {"error": str(error)}); return
+            self.reply(200 if report else 409, report or {"error": "another_scenario_is_running"})
         else:
             self.reply(404, {"error": "unknown_action"})
 
@@ -1044,14 +1205,18 @@ HTML = """<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewp
 <h1>TC-001 — Bedroom Motion</h1><p>Five consecutive physical C3 HIL injections → physical S3 → GS-179 → actual Parivar Saathi APK. Event provenance: <code>C3_HIL_INJECTED</code>. The campaign stops at the first non-PASS result.</p>
 <section><h2>Readiness</h2><pre id="readiness">Loading…</pre><p id="power-mode">C3 power/HIL mode: NOT_VERIFIED</p><p id="reset-risk">COM4 serial-open risk: may reboot C3; COM10 is metadata-only and will not be opened.</p><button id="run" disabled>Run Test — five-event campaign</button><p id="blocked"></p></section>
 <section><h2>Current campaign</h2><div id="current">No campaign yet.</div></section>
+<section id="morning-routine"><h2>Morning Routine — real-device workflow</h2><p>This scenario uses the household's applied Hub policy and enrolled room Nodes. It does not change household policy. Physical Run stays blocked until the trusted configuration, room fixtures, current S3 ingress, and separate hardware authorization are verified.</p><label for="stimulus-interval">Test stimulus interval (seconds)</label> <input id="stimulus-interval" type="number" min="1" max="600" value="10"><dl><dt>Applied policy version</dt><dd id="morning-version">Unavailable</dd><dt>Included rooms</dt><dd id="morning-included">Unavailable</dd><dt>Required rooms</dt><dd id="morning-required">Unavailable</dd><dt>Optional rooms</dt><dd id="morning-optional">Unavailable</dd></dl><p id="morning-policy">Loading applied household policy…</p><p id="morning-blocked"></p><button id="morning-run">Run Morning Routine</button><div id="morning-current">No Morning Routine attempt yet.</div><h3>Previous attempts</h3><div id="morning-history"></div></section>
 <section><h2>Previous evidence</h2><div id="previous"></div></section>
 <script>let csrf='',current=null;const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const esc=s=>escape(s);const stageList=x=>'<ol>'+Object.entries(x.stages||{}).map(([k,v])=>{const value=typeof v==='string'?{status:v,reason:''}:v||{};return '<li>'+esc(k)+': <b>'+esc(value.status||'NOT_VERIFIED')+'</b> — '+esc(value.reason||'')+' <small>'+esc(value.at||'')+'</small></li>'}).join('')+'</ol>';
 function oneRun(x){if(!x)return '<p>No individual run started.</p>';let key=x.event_key?JSON.stringify(x.event_key):'not observed';let image=x.apk_evidence&&x.apk_evidence.screenshot_file&&/^TC001-[A-Za-z0-9_-]+-android\\.png$/.test(x.apk_evidence.screenshot_file)?'<p><img alt="Private Android APK event evidence" src="/evidence/'+esc(x.apk_evidence.screenshot_file)+'"></p>':'';return '<p><b>'+esc(x.run_id)+'</b> — '+esc(x.overall)+' — APK '+esc(x.apk_observation||'NOT_VERIFIED')+'</p><p>EventKey: <code>'+esc(key)+'</code></p><p>Duplicate durable rows: '+esc(x.duplicate_count??'NOT_VERIFIED')+'</p>'+stageList(x)+image}
 function campaign(x){if(!x)return 'No campaign yet.';let active=x.active_run;return '<p><b>'+esc(x.run_id)+'</b> — '+esc(x.overall)+' — '+esc(x.passed_runs||0)+'/'+esc(x.planned_runs||5)+' PASS; '+esc(x.completed_runs||0)+' completed.</p>'+stageList(x)+(active?'<h3>Active or latest individual run</h3>'+oneRun(active):'')+(x.not_run||[]).map(n=>'<p>'+esc(n.run_number)+': '+esc(n.status)+' — '+esc(n.reason)+'</p>').join('')}
 async function refresh(){let r=await fetch('/api/status',{cache:'no-store'}),d=await r.json();csrf=d.csrf;current=d.current;const readiness={backend:d.backend,caregiver_home:d.caregiver_home,physical_boards:d.physical_boards,fixture:d.fixture,campaign_approval:d.campaign_approval,hub_ingress:d.hub_ingress,android_apk:d.android_apk};document.getElementById('readiness').textContent=JSON.stringify(readiness,null,2);document.getElementById('power-mode').textContent='C3 power/HIL mode: '+(current&&current.active_run&&current.active_run.c3_power_mode||'HIL_AWAKE_TEST_ONLY profile receipt only; runtime checked before injection');const ready=d.backend&&d.backend.POSTGRES_READY==='PASS'&&d.backend.CAREGIVER_HTTPS_READY==='PASS'&&d.caregiver_home&&d.caregiver_home.caregiver_home_ready===true&&d.physical_boards&&d.physical_boards.c3==='PASS'&&d.physical_boards.s3==='PASS'&&d.fixture&&d.fixture.status==='PASS'&&d.campaign_approval&&d.campaign_approval.status==='PASS'&&d.hub_ingress&&d.hub_ingress.status==='PASS'&&d.android_apk&&d.android_apk.status==='PASS';document.getElementById('run').disabled=!!d.running||!ready;document.getElementById('blocked').textContent=ready?'All software, fixture and device-readiness gates pass. Owner approval will be consumed once before the first COM4 operation.':(d.campaign_approval&&d.campaign_approval.reason)||'Readiness gates are not all PASS.';document.getElementById('current').innerHTML=campaign(current);document.getElementById('previous').innerHTML=d.previous.map(x=>'<details><summary>'+esc(x.run_id)+' — '+esc(x.overall)+'</summary>'+oneRun(x)+(x.runs||[]).map(id=>'<p>Run: '+esc(id)+'</p>').join('')+'</details>').join('')||'No saved runs yet.';}
-async function post(path,payload){let r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(payload)});if(!r.ok)alert((await r.json()).error||'Request failed');await refresh()}
-document.getElementById('run').onclick=()=>post('/api/run',{});refresh();setInterval(refresh,2000);
+function morningStages(x){if(!x)return 'No Morning Routine attempt yet.';return '<p><b>'+esc(x.run_id)+'</b> — '+esc(x.overall)+'; acceptance '+esc(x.acceptance)+'</p><p>First blocked stage: <code>'+esc(x.first_failing_stage)+'</code></p><ol>'+Object.entries(x.stages||{}).map(([k,v])=>'<li>'+esc(k)+': <b>'+esc(v.status)+'</b> — '+esc(v.reason)+'</li>').join('')+'</ol><p>Physical operations: '+esc(JSON.stringify(x.physical_operations||[]))+'; EventKeys: '+esc(JSON.stringify(x.event_keys||[]))+'</p>'}
+function roomNames(steps,filter){if(!Array.isArray(steps))return 'Unavailable';return steps.filter(s=>s&&s.enabled===true&&(filter==='all'||s.required===(filter==='required'))).map(s=>s.location).join(', ')||'None'}
+async function refresh(){let r=await fetch('/api/status',{cache:'no-store'}),d=await r.json();csrf=d.csrf;current=d.current;const readiness={backend:d.backend,caregiver_home:d.caregiver_home,physical_boards:d.physical_boards,fixture:d.fixture,campaign_approval:d.campaign_approval,hub_ingress:d.hub_ingress,android_apk:d.android_apk};document.getElementById('readiness').textContent=JSON.stringify(readiness,null,2);document.getElementById('power-mode').textContent='C3 power/HIL mode: '+(current&&current.active_run&&current.active_run.c3_power_mode||'HIL_AWAKE_TEST_ONLY profile receipt only; runtime checked before injection');const ready=d.backend&&d.backend.POSTGRES_READY==='PASS'&&d.backend.CAREGIVER_HTTPS_READY==='PASS'&&d.caregiver_home&&d.caregiver_home.caregiver_home_ready===true&&d.physical_boards&&d.physical_boards.c3==='PASS'&&d.physical_boards.s3==='PASS'&&d.fixture&&d.fixture.status==='PASS'&&d.campaign_approval&&d.campaign_approval.status==='PASS'&&d.hub_ingress&&d.hub_ingress.status==='PASS'&&d.android_apk&&d.android_apk.status==='PASS';document.getElementById('run').disabled=!!d.running||!ready;document.getElementById('blocked').textContent=ready?'All software, fixture and device-readiness gates pass. Owner approval will be consumed once before the first COM4 operation.':(d.campaign_approval&&d.campaign_approval.reason)||'Readiness gates are not all PASS.';document.getElementById('current').innerHTML=campaign(current);document.getElementById('previous').innerHTML=d.previous.map(x=>'<details><summary>'+esc(x.run_id)+' — '+esc(x.overall)+'</summary>'+oneRun(x)+(x.runs||[]).map(id=>'<p>Run: '+esc(id)+'</p>').join('')+'</details>').join('')||'No saved runs yet.';const mr=d.morning_readiness||{},policy=mr.applied_policy||{},steps=policy.applied_config&&policy.applied_config.activity_rules&&policy.applied_config.activity_rules.morning_steps;document.getElementById('morning-version').textContent=policy.applied_version==null?'Unavailable':String(policy.applied_version);document.getElementById('morning-included').textContent=roomNames(steps,'all');document.getElementById('morning-required').textContent=roomNames(steps,'required');document.getElementById('morning-optional').textContent=roomNames(steps,'optional');document.getElementById('morning-policy').textContent='Applied household configuration: '+(policy.status||'BLOCKED')+' — '+(policy.reason||'unavailable');document.getElementById('morning-blocked').textContent=(mr.room_fixtures&&mr.room_fixtures.reason||'Room fixture status unavailable')+'; '+(mr.hardware_authorization&&mr.hardware_authorization.reason||'hardware authorization unavailable')+'; '+(mr.physical_ingress&&mr.physical_ingress.reason||'physical ingress unavailable');document.getElementById('morning-run').disabled=!!d.running;document.getElementById('morning-current').innerHTML=morningStages(d.morning_routine);document.getElementById('morning-history').innerHTML=(d.morning_history||[]).map(x=>'<details><summary>'+esc(x.run_id)+' — '+esc(x.overall)+'</summary>'+morningStages(x)+'</details>').join('')||'No saved attempts.';}
+async function post(path,payload){let r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(payload)});let data=await r.json();if(!r.ok)alert(data.error||'Request failed');if(path==='/api/scenarios/morning-routine/run'&&r.ok){document.getElementById('morning-current').innerHTML=morningStages(data)}await refresh()}
+document.getElementById('run').onclick=()=>post('/api/run',{});document.getElementById('morning-run').onclick=()=>post('/api/scenarios/morning-routine/run',{interval_seconds:Number(document.getElementById('stimulus-interval').value)});refresh();setInterval(refresh,2000);
 </script></html>"""
 
 

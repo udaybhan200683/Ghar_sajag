@@ -25,6 +25,65 @@ import gs117_tc001_serial_windows as tc_serial
 
 
 class TC001Test(unittest.TestCase):
+    def test_morning_routine_run_persists_blocked_state_without_physical_operations(self):
+        with tempfile.TemporaryDirectory() as directory:
+            controller = tc.Controller()
+            with patch.object(tc, "STATE", Path(directory)), \
+                    patch.object(tc, "powershell", side_effect=AssertionError("physical operation attempted")):
+                controller._readiness = {"hub_ingress": {"status": "PASS"}}
+                report = controller.start_morning_routine(10)
+                self.assertEqual(report["overall"], "BLOCKED")
+                self.assertEqual(report["acceptance"], "NOT_RUN")
+                self.assertEqual(report["scenario_id"], "MORNING_ROUTINE")
+                self.assertEqual(report["test_stimulus_interval_seconds"], 10)
+                self.assertEqual(report["first_failing_stage"], "applied_household_policy")
+                self.assertEqual(report["stages"]["applied_household_policy"]["status"], "BLOCKED")
+                self.assertEqual(report["stages"]["android_apk"]["status"], "NOT_STARTED")
+                self.assertEqual(report["physical_operations"], [])
+                self.assertEqual(report["event_keys"], [])
+                self.assertEqual(report["physical_ingress"]["listener_status"], "PASS")
+                self.assertEqual(len(list(Path(directory).glob("MORNING-ROUTINE-*.json"))), 1)
+
+    def test_morning_routine_interval_is_bounded_and_controller_remains_idle(self):
+        controller = tc.Controller()
+        for interval in (0, 601, True, "10"):
+            with self.subTest(interval=interval):
+                with self.assertRaisesRegex(ValueError, "test_stimulus_interval"):
+                    controller.start_morning_routine(interval)
+        self.assertIsNone(controller.morning_current)
+
+    def test_morning_routine_ui_is_added_alongside_fixed_tc001_campaign(self):
+        self.assertIn("Run Test — five-event campaign", tc.HTML)
+        self.assertIn("Run Morning Routine", tc.HTML)
+        self.assertIn("Applied policy version", tc.HTML)
+        self.assertIn("Included rooms", tc.HTML)
+        self.assertIn("Required rooms", tc.HTML)
+        self.assertIn("Optional rooms", tc.HTML)
+        self.assertIn('id="stimulus-interval"', tc.HTML)
+
+    def test_morning_routine_web_route_uses_existing_origin_and_csrf_guards(self):
+        server = ThreadingHTTPServer(("127.0.0.1", 0), tc.Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        url = f"http://127.0.0.1:{server.server_address[1]}/api/scenarios/morning-routine/run"
+        report = {"scenario_id": "MORNING_ROUTINE", "overall": "BLOCKED",
+                  "first_failing_stage": "applied_household_policy"}
+        try:
+            with patch.object(tc.CONTROLLER, "start_morning_routine", return_value=report) as run:
+                request = urllib.request.Request(
+                    url, data=b'{"interval_seconds":15}', method="POST",
+                    headers={"Host": "127.0.0.1:18791", "Origin": tc.ORIGIN,
+                             "X-CSRF-Token": tc.CONTROLLER.csrf,
+                             "Content-Type": "application/json"})
+                with urllib.request.urlopen(request, timeout=3) as response:
+                    self.assertEqual(response.status, 200)
+                    self.assertEqual(json.load(response), report)
+                run.assert_called_once_with(15)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+
     def test_console_loads_shared_identity_rules_without_pythonpath(self):
         environment = os.environ.copy()
         environment.pop("PYTHONPATH", None)

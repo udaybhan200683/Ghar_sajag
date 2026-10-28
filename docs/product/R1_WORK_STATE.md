@@ -1,3 +1,62 @@
+## Current active checkpoint — GS-117 Morning Routine config repository and console gate — 2026-10-28
+
+Resumed from canonical commit `5687854d700b4e97bd5f975c6b820c13dd3d365b` on
+`feature/r1-commercial-baseline`; local and origin matched and context preflight
+passed. Pre-existing unrelated untracked Android/IDF/physical evidence was
+preserved. No hardware, ADB, protected database, credential or enrollment
+operation was performed.
+
+Added `PostgresConfigurationRepository` over the existing versioned
+`configurations` and `audit_log` schema. Desired publish requires a live
+`ActorSession` and an injected current Home-settings authorization callback;
+Hub read/apply requires a `VerifiedHubContext`, an injected trusted-Hub
+authorization callback, and an in-transaction recheck of active Hub/Home/epoch
+and ownership fingerprint. Config validation reuses `FleetService` policy
+validation. Expected-version conflicts, stale acknowledgements, wrong/revoked
+ownership and missing/denied authorization fail closed. Desired and latest
+applied policy remain distinct. This class installs no API route and does not
+provide the pending credential issuer, caregiver/Home membership authority,
+trusted mTLS middleware, Hub fetch/apply transport, or S3 restart persistence.
+Contract tests use the existing migrations under SQLite; live PostgreSQL
+execution is NOT_RUN.
+
+Extended the existing GS-117 loopback console with a Morning Routine panel,
+read-only applied-version/room fields, bounded TEST_ONLY stimulus interval
+(default 10 seconds), one Run action, persisted report history and explicit
+stage states/first blocker. The fixed TC-001 Bedroom five-event campaign stays
+in place. While auth/config/physical gates are unavailable, Run saves a
+`BLOCKED` report with no event keys and no physical operations; the API route
+does not invoke USB/ADB or claim physical success. The current report's first
+blocked stage is `applied_household_policy`. Only Bedroom is an established
+room fixture; no other room is mapped to it. No actual Hub policy was fetched
+or applied and no scenario event/Android business decision was observed.
+
+Added the decision-ready GS-68/GS-109/GS-148 RSA-3072 DS/mTLS and GS-76
+caregiver-session approval delta to the existing GS-109/GS-148 package. The
+four requested dispositions are Hub identity/issuer lifecycle, caregiver
+issuer/revocable session and Home-settings authority, Home/epoch source and
+manifest-vs-online binding, and trusted TLS middleware/deployment boundary.
+All remain pending owner/security approval; no identity mechanism was selected
+or activated. GS-117 remains OnHold at TC-001 0/5; GS-109/148/178/179 remain
+In Progress; physical PIR and all real Morning Routine execution remain
+NOT_RUN/BLOCKED.
+
+Focused validation on this working tree: backend tests 20/20 PASS (including
+five repository contract cases), GS-117 console tests 47/47 PASS, and
+`make -C code feature-coverage-test` PASS (226 features, 286 source modules,
+27 physical cases, mapping tests 22/22). JSON parse, Python compile, inline
+console JavaScript syntax and `git diff --check` passed. Full Python/backend,
+Hub/contract aggregates, live PostgreSQL, C3/S3 builds, browser, Android and
+physical campaign were not run. Historical validation-hub migration/P0 and
+validation-contract P0 failures remain unchanged and are not reclassified.
+
+Next action: obtain the four owner/security dispositions and the exact config
+fetch/apply contract before connecting production auth or transport; then
+continue with the approved Settings → PostgreSQL → authenticated S3 persistence
+path. Keep Morning Routine Run blocked until a current trusted applied policy,
+separate enrolled input per required room, fresh physical S3 receipt, current
+fixture and scoped hardware authorization exist.
+
 ## GS-178 software use-case batch S4 — 2026-10-27
 
 Owning Jira GS-178; feature inventory GS-130; regression policy GS-116. Resume

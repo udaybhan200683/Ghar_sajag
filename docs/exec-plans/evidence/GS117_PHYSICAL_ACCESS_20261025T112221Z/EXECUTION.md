@@ -2673,3 +2673,41 @@ offline review. Any further hardware attempt requires a new explicit scoped
 owner approval for an audited, identity-checked, read-only initialized flash-ID
 procedure. Only a genuine recognized capacity can permit the separately scoped
 readback/recovery sequence to be considered. TC-001 remains 0/5 NOT_RUN.
+
+### 2026-10-28 — configuration repository and fail-closed Morning Routine console
+
+At canonical `5687854d700b4e97bd5f975c6b820c13dd3d365b`, implemented a reusable
+versioned desired/applied household configuration repository against the
+existing `configurations` table. It has no HTTP route. Caregiver publish
+requires a current `ActorSession` plus an injected current Home-settings
+authorizer. Hub read/apply requires `VerifiedHubContext`, an injected trusted
+Hub authorizer, and a transaction-scoped check that the existing ownership
+registry still maps the Hub, key fingerprint, Home and installation epoch.
+The repository rejects stale expected versions and stale Hub acknowledgements,
+validates through the existing household policy validator, records an audit
+entry, preserves the last applied version while a newer desired version waits
+for acknowledgement, and accepts an exact apply acknowledgement idempotently.
+Contract tests exercised the migrations on SQLite. No live PostgreSQL instance
+was used; the PG adapter's TLS/durable runtime is not verified by these tests.
+
+Extended the existing loopback TC-001 console with an additive Morning Routine
+panel and route. It displays desired/applied version and included/required/
+optional room fields when a trusted source is available, retains the separate
+10-second-default TEST_ONLY stimulus cadence, exposes a Run action, and saves
+stage-by-stage reports with first blocker and private report history. The
+existing fixed Bedroom five-event TC-001 campaign is unchanged. Current Run
+fails closed at `applied_household_policy`: production caregiver/Hub authority
+and config delivery are unavailable; there is only an established Bedroom
+Node fixture; no separate Morning Routine hardware authorization or fresh
+physical S3 receipt exists. A blocked attempt saves no EventKeys, performs no
+USB/ADB action and remains `acceptance=NOT_RUN`.
+
+Focused results: backend test file 20/20 PASS; GS-117 controller/ADB test file
+47/47 PASS; feature coverage consistency 226 features, 286 modules, 27
+physical cases, mapping regressions 22/22 PASS. Python compile, JSON parsing,
+inline JavaScript syntax and `git diff --check` pass. No live PostgreSQL,
+Hub/S3, browser, Android, COM or firmware build was run. The four owner/security
+decisions are summarized in the existing GS-109/GS-148 decision package. No
+production endpoint, identity provider, credential, Home authority or device
+configuration was activated. TC-001 remains 0/5 NOT_RUN; actual S3 rule
+application, Morning Routine decision and Android completion remain NOT_RUN.

@@ -1611,9 +1611,12 @@
       ],
       "inputs": [
         "backend/ghar_sajag/cloud_client_identity.py",
+        "backend/ghar_sajag/configuration_repository.py",
         "backend/ghar_sajag/node_health_status.py",
         "backend/ghar_sajag/http_api.py",
         "backend/ghar_sajag/durable_api.py",
+        "backend/migrations/001_p0_core.sql",
+        "backend/migrations/009_hub_ownership_registry.sql",
         "backend/ghar_sajag/queries.py",
         "backend/migrations/012_node_health_latest.sql",
         "tests/python/test_node_health_status.py",
