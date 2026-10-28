@@ -8587,3 +8587,52 @@ tool/provenance evidence and prepare a minimal diagnosis. Any further COM4
 access requires a new scoped owner approval. Do not proceed to S3 readback or
 recovery until C3 capacity is genuinely identified and validated.
 ## GS-178 P0 software readiness and targeted regressions — 2026-10-19
+
+### 2026-10-28 — GS-178 HOST_SIM event observed in the installed Android APK
+
+At starting canonical commit `b34736da3d44885d0bad95e3b8a6784ef4e36d3e`,
+`feature/r1-commercial-baseline` matched `origin`; context preflight passed.
+Tracked files were clean before this evidence update. Existing unrelated
+untracked assets/evidence were preserved. No production or test source changed.
+
+Reused the existing GS-178 `ProductStack`/C++ Node host, GS-179 TEST_ONLY mTLS
+listener, GS-148 durable PostgreSQL API and the installed caregiver APK. One
+synthetic Node-boundary Bedroom Motion input received Node ACK `DURABLE` and
+original EventKey
+`p15:test-c3-bedroomn7:bedrooms2026102801q1` (Hub `test-hub-product`, Home
+`gs177-test-product`, session 2026102801, sequence 1). The first backend
+response was HTTP 201 COMMITTED and deliberately lost after commit. An exact
+CloudSync replay returned HTTP 200, the existing API duplicate status. The
+backend held exactly one durable row and one business event. The authenticated
+external caregiver API at `https://192.168.1.6/` returned the same exact key
+once, with `MOTION`, bedroom, and occurrence time `2026-10-28T03:16:55Z`.
+
+The authorized Motorola phone's actual installed
+`in.gharsajag.caregiver.discoverytest` APK (0.4.0-connected-lite-staging,
+versionCode 3) was connected to the backend/Home. Existing ADB automation
+foregrounded the app, refreshed Reports, opened Event Details, and matched the
+exact key. The screen showed `Motion recorded`, bedroom, phone-local time
+`28/10/2026, 8:46:55 am`, backend receive time `8:46:59 am`, and Home
+`gs177-test-product`; the app showed 139 durable records. Installed APK bytes
+SHA-256 `0b240966255618ad3466e17e8dcca40d71efbe84b0096cb1063ba9f4855e2d76`
+match the preserved copy. Preserved install signer digest matches the
+embedded-certificate digest, but formal `apksigner verify` was unavailable.
+Private evidence and screenshot/accessibility hashes are recorded in
+[`GS-178 software vertical evidence`](../exec-plans/evidence/GS178_SOFTWARE_VERTICAL_20261018.md#2026-10-28--persistent-postgresql-software-path-to-the-installed-apk)
+and `~/.local/state/ghar-sajag/gs178-android-check-20261028/`.
+
+This is one `HOST_SIM_PASS` software event with actual Android observation. It
+does not prove physical C3/S3 input or fresh physical S3 authentication. The
+most recent GS-178 Jira comment 11767 requests separate real-board USB-trigger
+acceptance; no hardware authorization was used here. The actual `.6` API
+passed independently; a browser run against that service was NOT_RUN. The
+existing 39/39 GS-178 suite remains prior HOST_SIM/browser evidence and was not
+rerun because this checkpoint changed no source. No full release gate or
+firmware build was run.
+
+GS-117 remains OnHold at 0/5 physical TC-001; current physical fixture and
+five-run approval remain blocked/absent, and real AM312 optical qualification
+remains NOT_RUN. GS-179 remains In Progress: its health check still reports
+physical Hub authentication NO, monitoring freshness UNKNOWN and persistent
+ingress NOT_CONFIGURED. GS-178 remains In Progress; its separate real-target
+USB→C3→S3 acceptance and remaining scenario/use-case coverage are outstanding.

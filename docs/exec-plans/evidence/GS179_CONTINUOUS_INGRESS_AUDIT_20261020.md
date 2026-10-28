@@ -543,3 +543,42 @@ five-run approval remain absent. No port was opened or board operation run in
 this checkpoint. GS-179 stays **In Progress**; bounded readiness and actual
 phone connectivity do not close fresh physical S3 authentication or persistent
 staging acceptance.
+
+### 2026-10-28 — installed APK verified against a fresh persistent software event
+
+`gs179-laptop-server.sh health` passed PostgreSQL TLS/durability, caregiver
+HTTPS, local backend and TLS identity for current laptop address
+`192.168.1.6`. The persistent WSGI caregiver service remained connected to the
+existing PostgreSQL database. Health still reports physical Hub identity
+unauthenticated, monitoring freshness UNKNOWN, and persistent Hub ingress
+NOT_CONFIGURED; those fields were not promoted from simulator state.
+
+For the GS-178 software test, the existing Node HOST_SIM pipeline and existing
+TEST_ONLY GS-179 mTLS listener committed one motion under EventKey
+`test-c3-bedroom/bedroom/session 2026102801/sequence 1`. The first CloudSync
+receipt was lost after the durable HTTP 201 commit. Retrying the same key
+returned HTTP 200 (the existing API's duplicate status), completed the Hub
+outbox entry, and left exactly one PostgreSQL durable commit/business event.
+The running caregiver API at `https://192.168.1.6/` then returned exactly one
+authenticated `AUTHENTICATED_GS148_TEST_ONLY` projection for that same key.
+
+The actual installed Parivar Saathi APK was foregrounded and refreshed via the
+existing ADB observer. Its Settings view reported Backend API CONNECTED,
+Home `gs177-test-product`, and origin `https://192.168.1.6/`; Reports/Event
+Details displayed the exact key, `Motion recorded`, Bedroom and the original
+phone-local timestamp `28/10/2026, 8:46:55 am`, with backend receipt at
+`8:46:59 am`. Screenshot/accessibility evidence and the current installed APK
+hash are preserved in
+`~/.local/state/ghar-sajag/gs178-android-check-20261028/` (screenshot SHA-256
+`e495cdf3ce11ee7df536feb0f25b2ccf61e4af36ff9a5c716e52dec9c5785940`).
+Installed package/version and APK bytes match preserved identity evidence;
+formal `apksigner verify` remains unavailable, and the signer digest is
+receipt-backed corroboration only.
+
+This closes the actual-APK observation gap for a fresh HOST_SIM software event.
+It is not fresh physical S3 authentication: the simulated Hub used the
+loopback TEST_ONLY GS-179 listener against the same persistent PostgreSQL
+database; it did not use the S3 radio, physical mTLS connection or physical
+Hub endpoint. The separate `.6` caregiver API check passed; a browser run
+against `.6` was not performed. Physical ingress, current-image fixture and
+GS-117 0/5 TC-001 status remain unchanged. GS-179 remains **In Progress**.

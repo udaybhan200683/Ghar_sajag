@@ -761,3 +761,96 @@ proof of the production deployment/backend authorization path. P0-UC-09 and
 all 17 P0 use cases remain `PARTIAL`; GS-117 physical TC-001 remains
 `NOT_RUN`/OnHold. No hardware, ADB, COM port, production service, new runtime,
 test framework, or duplicate Jira case was used.
+
+### 2026-10-28 — persistent PostgreSQL software path to the installed APK
+
+This run closes the prior `APK_NOT_VERIFIED` gap for the requested software
+vertical. It reuses `ProductStack` from `code/tests/support/gs178_stack.py`, the
+existing C++ `gs178_product_host`, the existing GS-179
+`TestOnlyMtlsListener`, the existing persistent GS-148 PostgreSQL API, and the
+installed Parivar Saathi APK. No source, runtime, event pipeline, framework,
+credential or enrollment was changed, and no database event was inserted
+directly. A single Node-boundary `motion` input created the business event.
+The pre-existing host executable was not rebuilt for this checkpoint; its
+SHA-256 was
+`a7f57c3450949d6f54181070f7b1e5b87da1d57e7848ecd0af5c4a91054ebafd`.
+
+The local backend health command passed PostgreSQL TLS `verify-full` and
+durability (`fsync`, `synchronous_commit`, `full_page_writes`), caregiver HTTPS,
+local backend and current `.6` endpoint TLS validation. The WSGI caregiver API
+and the simulated Hub listener used the same existing PostgreSQL DSN. The
+simulator used the seeded TEST_ONLY `test-hub-product` enrollment and the
+existing `gs177-test-product` Home; it did not claim a Hub or enroll a Node.
+The CloudSync request reached a bounded, loopback TEST_ONLY mTLS listener
+running the existing GS-179 authenticated Hub/API code. This is a software
+Hub/listener path, not physical S3 authentication.
+
+One `input 0 motion ...` at the Node host input produced Node ACK `DURABLE` and
+the original EventKey:
+
+```text
+physical_device_id=test-c3-bedroom
+logical_node_id=bedroom
+origin_session_id=2026102801
+event_sequence=1
+canonical=p15:test-c3-bedroomn7:bedrooms2026102801q1
+```
+
+The Hub submitted this key through authenticated TEST_ONLY CloudSync. The
+backend returned HTTP 201 `COMMITTED` for the first commit; its receipt was
+deliberately dropped after commit, so that CloudSync attempt completed 0. The
+Hub retried the same queued EventKey. The backend returned HTTP 200 (the
+existing API selects that status for `duplicate=true`), and the retry
+completed 1. PostgreSQL then contained exactly one `durable_event_commits` row
+and one joined business event for this key (`MOTION`, `bedroom`). No second
+Node input was issued.
+
+The actual laptop HTTPS API at `https://192.168.1.6/` passed trusted-CA TLS,
+caregiver login and Home binding. Its authenticated
+`AUTHENTICATED_GS148_TEST_ONLY` overview returned HTTP 200 and exactly one entry
+for the same EventKey, kind `MOTION`, room `bedroom`, Home epoch 1. Occurrence
+time is `2026-10-28T03:16:55Z` (`28/10/2026, 8:46:55 am` on the phone); backend
+receive time is `03:16:59Z` (`8:46:59 am`). PostgreSQL and API exact-key counts
+were both 1.
+
+The authorized Motorola Edge 60 Fusion (`ZA2237MRHN`) ran the existing ADB
+observer against the installed package
+`in.gharsajag.caregiver.discoverytest`, version
+`0.4.0-connected-lite-staging` / versionCode 3. The currently installed base
+APK was pulled read-only and hashed at
+`0b240966255618ad3466e17e8dcca40d71efbe84b0096cb1063ba9f4855e2d76`, matching
+the previously preserved install bytes. The embedded signer digest continues
+to match the owner-only install receipt (`d336ae68479da03de932a44b16c8de730c86e3cf68aee52fe92261e74e596b85`);
+formal `apksigner verify` was unavailable, so this is byte/package identity
+plus receipt-backed signer corroboration, not a new formal signature-verifier
+result.
+
+After foregrounding the APK and forcing its normal visibility refresh, the
+Reports/Event Details accessibility tree and screenshot showed the exact key,
+`Motion recorded`, `bedroom`, `28/10/2026, 8:46:55 am`, and backend receive time
+`8:46:59 am`. The app showed `CONNECTED`, Home `gs177-test-product`, origin
+`https://192.168.1.6/`, and the durable history increased from 138 to 139
+records. The same key remained present after the observer's refresh. Private
+evidence (mode 0600) is in
+`~/.local/state/ghar-sajag/gs178-android-check-20261028/`:
+
+| Evidence | Result |
+|---|---|
+| `fresh-node-hub-postgres-event.json` | Node ACK `DURABLE`; first CloudSync response lost after HTTP 201 commit; exact-key retry HTTP 200; one PostgreSQL commit and business event. |
+| `external-backend-api.json` | Trusted HTTPS to `.6`, authenticated caregiver API, same Home and exact-key count 1. |
+| `android-fresh-event-verification.json` | Existing ADB observer PASS; actual installed APK, connected backend, Home, exact EventKey and post-refresh verification. |
+| `fresh-event-android.png` / `fresh-event-android.xml` | Screenshot SHA-256 `e495cdf3ce11ee7df536feb0f25b2ccf61e4af36ff9a5c716e52dec9c5785940`; hierarchy SHA-256 `20bd1494bb63f88c65f99e9ae295096f2574a2824987e0da691449956296f265`. |
+
+The observer's first invocation stopped at its Settings navigation guard while
+the app was changing screens; the app was subsequently confirmed in Settings
+and the existing observer passed. This was an observer starting-state issue,
+not a failed event-processing stage. A separate browser run against the actual
+`.6` service was not performed in this checkpoint. Prior 39/39 GS-178 browser
+tests remain HOST_SIM evidence and are not substituted for this Android result.
+
+Classification: `HOST_SIM_PASS` through the real installed APK for this one
+TEST_ONLY software event; actual Android observation is verified. This does
+not satisfy the separate real-board web-to-USB→C3→S3 acceptance recorded in
+GS-178 Jira comment 11767. No C3/S3, sensor, COM port or physical ingress was
+accessed. Physical TC-001 and AM312 remain NOT_RUN; GS-178 remains In Progress,
+all 17 P0 groups and the complete product remain PARTIAL.
