@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+from types import SimpleNamespace
 import unittest
 import urllib.error
 import urllib.request
@@ -111,6 +112,53 @@ class TC001Test(unittest.TestCase):
                                                           decision_id=decision_id + "x")])
         self.assertEqual(tc_backend.project_morning_decision([row], wrong_api, decision_id)
                          ["caregiver_decision_count"], 0)
+
+    def test_backend_morning_decision_query_uses_read_only_event_and_hub_authority_join(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            ca = root / "test-ca.pem"
+            ca.write_text("test-only-placeholder", encoding="ascii")
+            login = root / ".local/state/ghar-sajag/gs179-laptop/caregiver-login.json"
+            login.parent.mkdir(parents=True)
+            login.write_text(json.dumps({"profile": "GS179_TEST_ONLY",
+                                         "home_id": "gs177-test-product",
+                                         "email": "test@example.invalid",
+                                         "password": "unused-without-row"}), encoding="utf-8")
+            login.chmod(0o600)
+            executed = []
+
+            class Database:
+                def __enter__(self):
+                    return self
+                def __exit__(self, *_args):
+                    return False
+                def execute(self, query, params):
+                    executed.append((query, params))
+                    return SimpleNamespace(fetchall=lambda: [])
+
+            request = {
+                "action": "morning_decision", "home_id": "gs177-test-product",
+                "physical_device_id": "test-c3-bedroom", "logical_node_id": "bedroom",
+                "hub_id": "test-hub-a", "installation_epoch": 3,
+                "origin_session_id": 82, "event_sequence": 9,
+                "decision_id": "morning-complete:p15:test-c3-bedroomn7:bedrooms82q9",
+            }
+            env = {"GS179_LOCAL_SERVER_DSN": "postgresql://unused",
+                   "PUBLIC_ORIGIN": "https://laptop.local", "GS179_ANDROID_CA": str(ca)}
+            fake_psycopg = SimpleNamespace(connect=lambda *_args, **_kwargs: Database())
+            with (patch.dict(os.environ, env),
+                  patch.dict(sys.modules, {"psycopg": fake_psycopg}),
+                  patch.object(tc_backend.Path, "home", return_value=root)):
+                result = tc_backend.run(request)
+
+        self.assertEqual(result, {"decision_count": 0, "caregiver_decision_count": 0})
+        self.assertEqual(len(executed), 1)
+        query, params = executed[0]
+        self.assertIn("SELECT d.decision_id", query)
+        self.assertIn("JOIN durable_event_commits", query)
+        self.assertIn("c.ownership_epoch=d.installation_epoch", query)
+        self.assertNotRegex(query, r"(?i)\b(insert|update|delete)\b")
+        self.assertEqual(params[-4:], ("test-c3-bedroom", "bedroom", 82, 9))
 
     def test_morning_routine_run_persists_blocked_state_without_physical_operations(self):
         with tempfile.TemporaryDirectory() as directory:
