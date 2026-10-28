@@ -35,11 +35,12 @@ STATE = Path.home() / ".local/state/ghar-sajag/gs117-tc001"
 FIXTURE = Path.home() / ".config/ghar-sajag/gs117-tc001/fixture.json"
 OBSERVE_APPROVAL = Path.home() / ".config/ghar-sajag/gs117-tc001/read-only-observe-approval.json"
 CAMPAIGN_APPROVAL = Path.home() / ".config/ghar-sajag/gs117-tc001/five-run-campaign-approval.json"
+MORNING_APPROVAL = Path.home() / ".config/ghar-sajag/gs117-tc001/morning-routine-one-run-approval.json"
 ORIGIN = "http://127.0.0.1:18791"
 STATUSES = ("NOT_STARTED", "RUNNING", "PASS", "FAIL", "BLOCKED", "PARTIAL", "NOT_VERIFIED", "NOT_IMPLEMENTED")
 CAMPAIGN_RUNS = 5
 MORNING_STAGES = ("applied_household_policy", "enrolled_room_nodes", "trusted_hub_configuration",
-                  "hardware_authorization", "fresh_physical_ingress", "hub_rule_decision",
+                  "fresh_physical_ingress", "hardware_authorization", "hub_rule_decision",
                   "postgres_decision", "caregiver_api", "android_apk")
 STAGES = ("environment", "c3_identity", "s3_identity", "c3_injection",
           "node_event_key", "s3_admission", "hub_cloudsync", "backend_commit",
@@ -283,6 +284,55 @@ def campaign_approval(path: Path, fixture: dict) -> dict:
     return approval
 
 
+def morning_run_approval(path: Path, fixture: dict, policy_version: int) -> dict:
+    """Validate one Bedroom-only injected run, separately from TC-001 campaign consent."""
+    if type(policy_version) is not int or policy_version <= 0:
+        raise ValueError("morning_routine_applied_configuration_version_required")
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        raise ValueError("morning_routine_one_run_owner_approval_missing") from None
+    if (not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) != 0o600 or
+            info.st_uid != os.geteuid()):
+        raise ValueError("morning_routine_approval_must_be_owner_only_regular_file")
+    try:
+        approval = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        raise ValueError("morning_routine_approval_invalid") from None
+    expected = {
+        "schema_version": 1, "test_id": "MORNING_ROUTINE",
+        "profile": "GS179_TEST_ONLY", "operation": "C3_INJECT_MOTION_ONE_BEDROOM_RUN",
+        "run_count": 1, "home_id": fixture["home_id"],
+        "hub_id": fixture["hub_id"], "installation_epoch": fixture["installation_epoch"],
+        "physical_device_id": fixture["physical_device_id"], "logical_node_id": "bedroom",
+        "desired_config_version": policy_version,
+        "c3": {"port": fixture["c3"]["port"],
+               "serial_number": fixture["c3"]["serial_number"]},
+        "s3": {"port": fixture["s3"]["port"],
+               "serial_number": fixture["s3"]["serial_number"],
+               "uart_open_authorized": False},
+        "c3_serial_open_reset_risk_accepted": True,
+        "stop_on_first_failure": True,
+        "firmware_write_authorized": False, "commissioning_authorized": False,
+        "ownership_or_enrollment_mutation_authorized": False,
+        "database_mutation_authorized": False,
+    }
+    if not isinstance(approval, dict) or set(approval) != set(expected) | {
+            "approval_ref", "approved_at"} or any(
+                approval.get(key) != value for key, value in expected.items()):
+        raise ValueError("morning_routine_approval_scope_or_fixture_mismatch")
+    if not isinstance(approval.get("approval_ref"), str) or not approval["approval_ref"].strip():
+        raise ValueError("morning_routine_approval_reference_missing")
+    try:
+        approved_at = datetime.fromisoformat(approval["approved_at"])
+        age = (datetime.now(timezone.utc) - approved_at).total_seconds()
+    except (KeyError, TypeError, ValueError):
+        raise ValueError("morning_routine_approval_timestamp_invalid") from None
+    if approved_at.tzinfo is None or not 0 <= age <= 86400:
+        raise ValueError("morning_routine_approval_expired_or_future")
+    return approval
+
+
 def powershell(action: str, fixture: dict | None = None) -> object:
     script = subprocess.check_output(["wslpath", "-w", str(SERIAL)], text=True, timeout=5).strip()
     payload = {"action": action}
@@ -294,11 +344,12 @@ def powershell(action: str, fixture: dict | None = None) -> object:
                         for name in ("c3", "s3")})
     elif action == "AndroidReady":
         payload["phone"] = fixture
-    elif action == "AndroidVerify":
+    elif action in {"AndroidVerify", "AndroidVerifyDecision"}:
         payload.update({"phone": fixture["phone_receipt"],
                         "home_id": fixture["home_id"],
                         "backend_origin": fixture["phone_receipt"]["backend_origin"],
-                        "event_key": fixture["event_key"]})
+                        "event_key": fixture.get("event_key"),
+                        "decision_id": fixture.get("decision_id")})
     if action == "Observe":
         payload.update({"query_s3_status": True, "s3_boot_reset": False,
                         "observation_seconds": 10})
@@ -308,7 +359,7 @@ def powershell(action: str, fixture: dict | None = None) -> object:
     command = ["/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
                "-NoProfile", "-NonInteractive", "-Command",
                'py -3 "' + script + '" "' + encoded + '"']
-    timeout = 90 if action == "AndroidVerify" else 50
+    timeout = 90 if action in {"AndroidVerify", "AndroidVerifyDecision"} else 50
     result = subprocess.run(command, capture_output=True, text=True, timeout=timeout, check=True)
     value = json.loads(result.stdout.strip() or "[]")
     if isinstance(value, dict) and value.get("error"):
@@ -422,6 +473,7 @@ class Controller:
         self.lock = threading.Lock()
         self.current: dict | None = None
         self.morning_current: dict | None = None
+        self._morning_active_report: dict | None = None
         self._readiness_at = 0.0
         self._readiness_observed_at: str | None = None
         self._readiness: dict = {}
@@ -464,16 +516,48 @@ class Controller:
                 hardware["status"] = "BLOCKED"
                 hardware["reason"] = str(error) if isinstance(error, ValueError) else type(error).__name__
             fixture_status = {"status": "BLOCKED", "reason": "not_checked"}
+            enrollment_status = {"status": "BLOCKED", "reason": "fixture_not_available"}
+            morning_approval_status = {"status": "BLOCKED", "reason": "fixture_not_available"}
             approval_status = {"status": "BLOCKED", "reason": "fixture_not_available"}
             android_status = {"status": "NOT_VERIFIED", "reason": "fixture_not_available"}
             try:
                 fixture = exact_fixture()
                 fixture_status = {"status": "PASS", "reason": "exact owner-only fixture and current receipts verified"}
                 try:
+                    enrollment = backend({
+                        "action": "baseline", "home_id": fixture["home_id"],
+                        "physical_device_id": fixture["physical_device_id"],
+                        "logical_node_id": "bedroom", "hub_id": fixture["hub_id"],
+                        "installation_epoch": fixture["installation_epoch"],
+                    })
+                    enrollment_status = {
+                        "status": "PASS" if enrollment.get("authority_ready") is True else "BLOCKED",
+                        "reason": ("current Hub/Home/epoch and Bedroom Node enrollment verified"
+                                   if enrollment.get("authority_ready") is True else
+                                   "current Hub/Home/epoch or Bedroom Node enrollment is not active"),
+                        "enrollment_generation": enrollment.get("enrollment_generation"),
+                    }
+                except (ValueError, OSError, subprocess.SubprocessError, KeyError, TypeError) as error:
+                    enrollment_status = {
+                        "status": "BLOCKED",
+                        "reason": str(error) if isinstance(error, ValueError) else type(error).__name__,
+                    }
+                try:
                     campaign_approval(CAMPAIGN_APPROVAL, fixture)
                     approval_status = {"status": "PASS", "reason": "one-use five-run approval present; not consumed"}
                 except (ValueError, OSError) as error:
                     approval_status = {"status": "BLOCKED", "reason": str(error) if isinstance(error, ValueError) else type(error).__name__}
+                try:
+                    config = home.get("configuration", {}) if isinstance(home, dict) else {}
+                    version = config.get("applied_version") if isinstance(config, dict) else None
+                    morning_run_approval(MORNING_APPROVAL, fixture, version)
+                    morning_approval_status = {
+                        "status": "PASS", "reason": "one-use Bedroom approval is current and fixture/config-bound"}
+                except (ValueError, OSError, TypeError) as error:
+                    morning_approval_status = {
+                        "status": "BLOCKED",
+                        "reason": str(error) if isinstance(error, ValueError) else type(error).__name__,
+                    }
                 try:
                     android_status = powershell("AndroidReady", fixture["phone_receipt"])
                     android_status["reason"] = "approved phone and installed APK package/version verified; no event injected"
@@ -488,7 +572,9 @@ class Controller:
             self._readiness = {"backend": observed, "caregiver_home": home,
                                "physical_boards": hardware,
                                "fixture": fixture_status,
+                               "physical_enrollment": enrollment_status,
                                "campaign_approval": approval_status,
+                               "morning_run_approval": morning_approval_status,
                                "android_apk": android_status,
                                "hub_ingress": ingress_status}
             self._readiness_at = time.monotonic()
@@ -562,24 +648,50 @@ class Controller:
         activity_rules = (display_config.get("activity_rules", {})
                           if isinstance(display_config, dict) else {})
         steps = activity_rules.get("morning_steps", []) if isinstance(activity_rules, dict) else []
+        enabled_steps = [step for step in steps
+                         if isinstance(step, dict) and step.get("enabled") is True]
         enabled_locations = [step.get("location") for step in steps
                              if isinstance(step, dict) and step.get("enabled") is True and
                              isinstance(step.get("location"), str)]
         unavailable_locations = [location for location in enabled_locations
                                  if location.casefold() != "bedroom"]
+        physical = readiness.get("physical_boards", {})
+        fixture = readiness.get("fixture", {})
+        enrollment = readiness.get("physical_enrollment", {})
+        morning_window = display_config.get("morning", {}) if isinstance(display_config, dict) else {}
+        bedroom_only_policy = (
+            isinstance(morning_window, dict) and morning_window.get("enabled") is True and
+            len(enabled_steps) == 1 and enabled_steps[0].get("location") == "bedroom" and
+            enabled_steps[0].get("required") is True
+        )
+        room_ready = (config_ready and bedroom_only_policy and not unavailable_locations and
+                      enabled_locations == ["bedroom"] and
+                      isinstance(physical, dict) and physical.get("c3") == "PASS" and
+                      isinstance(fixture, dict) and fixture.get("status") == "PASS" and
+                      isinstance(enrollment, dict) and enrollment.get("status") == "PASS")
         if not config_ready:
             fixture_reason = "room enrollment cannot be resolved until an exact policy is confirmed applied"
         elif unavailable_locations:
             fixture_reason = ("no established enrolled physical Node is available for: " +
                               ", ".join(unavailable_locations) +
                               "; the Bedroom Node cannot represent another room")
+        elif not bedroom_only_policy:
+            fixture_reason = (
+                "this first physical Run requires an applied policy with Morning Routine enabled "
+                "and Bedroom as its sole enabled required location"
+            )
+        elif room_ready:
+            fixture_reason = "Bedroom resolves to the current enrolled C3 under the owner-only fixture"
         else:
             fixture_reason = (
-                "Bedroom is the only established room fixture, but current C3 image, JEDEC, "
-                "enrollment and S3 authentication evidence is not qualified"
+                "Bedroom is the only established room fixture, but current C3/S3 fixture, "
+                "image, JEDEC, enrollment or authenticated ingress evidence is not qualified"
             )
         ingress = readiness.get("hub_ingress", {})
         listener = (ingress.get("status") if isinstance(ingress, dict) else "NOT_VERIFIED")
+        ingress_ready = (config_ready and isinstance(fixture, dict) and
+                         fixture.get("status") == "PASS" and listener == "PASS" and
+                         isinstance(physical, dict) and physical.get("s3") == "PASS")
         return {
             "scenario": "MORNING_ROUTINE",
             "status": "BLOCKED",
@@ -596,60 +708,93 @@ class Controller:
                 "display_config": display_config,
             },
             "room_fixtures": {
-                "status": "BLOCKED",
+                "status": "PASS" if room_ready else "BLOCKED",
+                "scenario_policy_ready": bedroom_only_policy,
                 "known_established_location": "bedroom",
                 "configured_enabled_locations": enabled_locations,
                 "unavailable_locations": unavailable_locations,
-                "enrollment_verified": False,
+                "enrollment_verified": isinstance(enrollment, dict) and enrollment.get("status") == "PASS",
                 "reason": fixture_reason,
             },
             "hardware_authorization": {
-                "status": "BLOCKED",
-                "reason": "no separate Morning Routine physical-run authorization is available; TC-001 campaign approval is not reusable",
+                "status": ("PASS" if readiness.get("morning_run_approval", {}).get("status") == "PASS"
+                           else "BLOCKED"),
+                "reason": readiness.get("morning_run_approval", {}).get(
+                    "reason", "no separate Morning Routine physical-run authorization is available; TC-001 campaign approval is not reusable"),
             },
             "physical_ingress": {
-                "status": "BLOCKED",
+                "status": "PASS" if ingress_ready else "BLOCKED",
                 "listener_status": listener,
-                "reason": "no fresh authenticated physical S3 receipt is established; listener status alone is not an S3 receipt",
+                "reason": ("current fixture receipt and 8445 listener are present"
+                           if ingress_ready else
+                           "no fresh authenticated physical S3 receipt is established; listener status alone is not an S3 receipt"),
             },
         }
 
     def start_morning_routine(self, interval_seconds: object = 10) -> dict | None:
-        """Persist a fail-closed attempt; no external or physical action is initiated."""
+        """Run one Bedroom-only target scenario after every live guard and one-use approval pass."""
         if type(interval_seconds) is not int or not 1 <= interval_seconds <= 600:
             raise ValueError("test_stimulus_interval_must_be_1_to_600_seconds")
         if not self.lock.acquire(blocking=False):
             return None
+        started = False
         try:
-            readiness = self._readiness if isinstance(self._readiness, dict) else {}
+            readiness = self.readiness(force=True)
             policy_status = self.morning_policy_status(readiness)
+            fixture = None
+            fixture_error = "current_owner_only_fixture_unavailable"
+            if readiness.get("fixture", {}).get("status") == "PASS":
+                try:
+                    fixture = exact_fixture()
+                except (ValueError, OSError, json.JSONDecodeError) as error:
+                    fixture_error = str(error) if isinstance(error, ValueError) else type(error).__name__
+
+            backend_ready = (readiness.get("backend", {}).get("POSTGRES_READY") == "PASS" and
+                             readiness.get("backend", {}).get("CAREGIVER_HTTPS_READY") == "PASS" and
+                             readiness.get("caregiver_home", {}).get("caregiver_home_ready") is True)
+            android_ready = readiness.get("android_apk", {}).get("status") == "PASS"
+            enrollment_ready = readiness.get("physical_enrollment", {}).get("status") == "PASS"
+            policy_ready = policy_status["applied_policy"]["status"] == "PASS"
+            rooms_ready = policy_status["room_fixtures"]["status"] == "PASS" and enrollment_ready
+            ingress_ready = (policy_status["physical_ingress"]["status"] == "PASS" and
+                             readiness.get("hub_ingress", {}).get("status") == "PASS")
+            applied_gate_ready = backend_ready and policy_ready
+            applied_gate_reason = (policy_status["applied_policy"]["reason"] if backend_ready else
+                                   "PostgreSQL, caregiver HTTPS or authenticated Home readiness is unavailable")
+            approval = None
+            approval_reason = "approval evaluation waits until policy, fixture, enrollment and ingress gates pass"
+            if all((backend_ready, android_ready, policy_ready, rooms_ready, ingress_ready)):
+                try:
+                    if fixture is None:
+                        raise ValueError(fixture_error)
+                    approval = morning_run_approval(
+                        MORNING_APPROVAL, fixture,
+                        policy_status["applied_policy"]["applied_version"])
+                    approval_reason = "one-use Bedroom Morning Routine approval is valid and fixture-bound"
+                except (ValueError, OSError) as error:
+                    approval_reason = str(error) if isinstance(error, ValueError) else type(error).__name__
+
             now = datetime.now(timezone.utc)
             run_id = "MORNING-ROUTINE-" + now.strftime("%Y%m%dT%H%M%S") + "Z-" + secrets.token_hex(4)
+            checks = {
+                "applied_household_policy": (applied_gate_ready, applied_gate_reason),
+                "enrolled_room_nodes": (rooms_ready, policy_status["room_fixtures"]["reason"]
+                                        if not enrollment_ready else
+                                        readiness.get("physical_enrollment", {}).get("reason", "not verified")),
+                "trusted_hub_configuration": (policy_ready, policy_status["applied_policy"]["reason"]),
+                "hardware_authorization": (approval is not None, approval_reason),
+                "fresh_physical_ingress": (ingress_ready, policy_status["physical_ingress"]["reason"]),
+            }
             stages = {}
-            blocked = {
-                "applied_household_policy": policy_status["applied_policy"]["status"] != "PASS",
-                "enrolled_room_nodes": policy_status["room_fixtures"]["status"] != "PASS",
-                "trusted_hub_configuration": policy_status["applied_policy"]["status"] != "PASS",
-                "hardware_authorization": policy_status["hardware_authorization"]["status"] != "PASS",
-                "fresh_physical_ingress": policy_status["physical_ingress"]["status"] != "PASS",
-            }
-            reasons = {
-                "applied_household_policy": policy_status["applied_policy"]["reason"],
-                "enrolled_room_nodes": policy_status["room_fixtures"]["reason"],
-                "trusted_hub_configuration": policy_status["applied_policy"]["reason"],
-                "hardware_authorization": policy_status["hardware_authorization"]["reason"],
-                "fresh_physical_ingress": policy_status["physical_ingress"]["reason"],
-            }
-            first = next(name for name in MORNING_STAGES if blocked.get(name, False))
             for name in MORNING_STAGES:
-                status = ("PASS" if name in {"applied_household_policy",
-                                             "trusted_hub_configuration"} and
-                          not blocked[name] else
-                          "BLOCKED" if blocked.get(name, False) else "NOT_STARTED")
-                stages[name] = {"status": status,
-                                "reason": (reasons.get(name, "not reached because an earlier readiness gate is blocked")
-                                           if status != "PASS" else "verified from the authenticated TEST_ONLY settings and applied-version receipt"),
-                                "at": now.isoformat()}
+                if name in checks:
+                    passed, reason = checks[name]
+                    status = "PASS" if passed else "BLOCKED"
+                else:
+                    status, reason = "NOT_STARTED", "not reached before physical execution"
+                stages[name] = {"status": status, "reason": reason, "at": now.isoformat()}
+            first = next((name for name in MORNING_STAGES
+                          if stages[name]["status"] == "BLOCKED"), None)
             report = {
                 "run_id": run_id,
                 "scenario_id": "MORNING_ROUTINE",
@@ -675,26 +820,231 @@ class Controller:
                                        "reason": readiness.get("fixture", {}).get("reason", "not reported")}
                                       if isinstance(readiness.get("fixture"), dict) else
                                       {"status": "NOT_VERIFIED", "reason": "not reported"}),
+                    "physical_enrollment": (readiness.get("physical_enrollment", {})
+                                            if isinstance(readiness.get("physical_enrollment"), dict) else
+                                            {"status": "NOT_VERIFIED", "reason": "not reported"}),
+                    "morning_run_approval": (readiness.get("morning_run_approval", {})
+                                             if isinstance(readiness.get("morning_run_approval"), dict) else
+                                             {"status": "NOT_VERIFIED", "reason": "not reported"}),
                     "android_apk": ({"status": readiness.get("android_apk", {}).get("status", "NOT_VERIFIED"),
                                      "reason": readiness.get("android_apk", {}).get("reason", "not reported")}
                                     if isinstance(readiness.get("android_apk"), dict) else
                                     {"status": "NOT_VERIFIED", "reason": "not reported"}),
                 },
-                "hardware_authorization": policy_status["hardware_authorization"],
+                "hardware_authorization": {
+                    "status": "PASS" if approval is not None else "BLOCKED",
+                    "reason": approval_reason,
+                },
                 "physical_ingress": policy_status["physical_ingress"],
                 "physical_operations": [],
+                "planned_operations": ["C3_COM4_INJECT_MOTION_ONCE"],
                 "event_keys": [],
                 "hub_rule_decision": None,
+                "approval_ref": None,
                 "first_failing_stage": first,
-                "overall": "BLOCKED",
-                "acceptance": "NOT_RUN",
+                "overall": "BLOCKED" if first else "RUNNING",
+                "acceptance": "NOT_RUN" if first else "RUNNING",
                 "stages": stages,
             }
             self.save(report)
             self.morning_current = report
+            if first is None:
+                consumed = MORNING_APPROVAL.with_name(
+                    MORNING_APPROVAL.stem + ".consumed." +
+                    datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ") +
+                    MORNING_APPROVAL.suffix)
+                os.rename(MORNING_APPROVAL, consumed)
+                os.chmod(consumed, 0o600)
+                report["approval_ref"] = approval["approval_ref"]
+                report["approval_consumed_at"] = utc()
+                self._morning_active_report = report
+                self.save(report)
+                threading.Thread(target=self.execute_morning_routine,
+                                 args=(report, fixture, interval_seconds), daemon=True).start()
+                started = True
             return report
         finally:
-            self.lock.release()
+            if not started and self.lock.locked():
+                self.lock.release()
+
+    @staticmethod
+    def _morning_mark(report: dict, name: str, status: str, reason: str) -> None:
+        report["stages"][name] = {"status": status, "reason": reason, "at": utc()}
+        if status in {"FAIL", "BLOCKED"} and report.get("first_failing_stage") is None:
+            report["first_failing_stage"] = name
+
+    def execute_morning_routine(self, report: dict, fixture: dict,
+                                interval_seconds: int) -> None:
+        """Reuse TC-001's real C3 path, then require the Hub decision in DB, API and APK."""
+        try:
+            approved_version = report.get("applied_policy", {}).get("applied_version")
+            readiness = self.readiness(force=True)
+            current_policy = self.morning_policy_status(readiness)
+            current_fixture = exact_fixture()
+            same_fixture = all(
+                current_fixture.get(key) == fixture.get(key)
+                for key in ("home_id", "hub_id", "installation_epoch", "physical_device_id")
+            ) and all(
+                current_fixture.get(board, {}).get(key) == fixture.get(board, {}).get(key)
+                for board in ("c3", "s3") for key in ("port", "serial_number", "usb_hwid")
+            )
+            if (not same_fixture or current_policy["applied_policy"].get("status") != "PASS" or
+                    current_policy["applied_policy"].get("applied_version") != approved_version or
+                    current_policy["room_fixtures"].get("status") != "PASS" or
+                    current_policy["physical_ingress"].get("status") != "PASS" or
+                    readiness.get("physical_enrollment", {}).get("status") != "PASS" or
+                    readiness.get("android_apk", {}).get("status") != "PASS"):
+                reason = ("fresh configuration, exact fixture, enrollment, ingress or APK differs "
+                          "from the one-use approval snapshot")
+                self._morning_mark(report, "trusted_hub_configuration", "BLOCKED", reason)
+                report["overall"], report["acceptance"] = "BLOCKED", "NOT_RUN"
+                self.save(report)
+                return
+            fixture = current_fixture
+            event_report = {
+                "run_id": report["run_id"] + "-NODE-EVENT",
+                "test_id": "MORNING_ROUTINE", "started_at": utc(),
+                "overall": "PARTIAL", "apk_observation": "NOT_VERIFIED",
+                "stages": {name: {"status": "NOT_VERIFIED", "reason": "not reached", "at": utc()}
+                           for name in STAGES},
+            }
+            self.execute(event_report, fixture_override=fixture, release_lock=False)
+            report["node_event_run"] = event_report
+            if event_report.get("overall") != "PASS":
+                failed = next((name for name in STAGES
+                               if event_report.get("stages", {}).get(name, {}).get("status") != "PASS"),
+                              "environment")
+                self._morning_mark(report, "hub_rule_decision", "BLOCKED",
+                                   "C3-to-APK motion path did not pass; first motion stage=" + failed)
+                for name in MORNING_STAGES[MORNING_STAGES.index("postgres_decision"):]:
+                    if report["stages"][name]["status"] == "NOT_STARTED":
+                        self._morning_mark(report, name, "NOT_STARTED",
+                                           "not reached because the physical motion path did not pass")
+                report["overall"] = event_report.get("overall", "BLOCKED")
+                report["acceptance"] = "NOT_RUN"
+                self.save(report)
+                return
+
+            source_key = event_report.get("event_key")
+            if (not isinstance(source_key, dict) or source_key.get("logical_node_id") != "bedroom" or
+                    source_key.get("physical_device_id") != fixture["physical_device_id"]):
+                self._morning_mark(report, "hub_rule_decision", "FAIL",
+                                   "fresh C3 EventKey is missing or does not match the approved Bedroom Node")
+                report["overall"], report["acceptance"] = "FAIL", "FAIL"
+                self.save(report)
+                return
+            report["event_keys"] = [source_key]
+            decision_id = "morning-complete:" + event_key_text(
+                fixture["physical_device_id"], source_key["origin_session_id"],
+                source_key["event_sequence"])
+            report["expected_decision_id"] = decision_id
+            query = {
+                "action": "morning_decision", "home_id": fixture["home_id"],
+                "physical_device_id": fixture["physical_device_id"],
+                "logical_node_id": "bedroom", "hub_id": fixture["hub_id"],
+                "installation_epoch": fixture["installation_epoch"],
+                "origin_session_id": source_key["origin_session_id"],
+                "event_sequence": source_key["event_sequence"],
+                "decision_id": decision_id,
+            }
+            decision = {"decision_count": 0, "caregiver_decision_count": 0}
+            for _ in range(15):
+                decision = backend(query)
+                if decision.get("decision_count", 0) != 0:
+                    break
+                time.sleep(2)
+            report["hub_rule_decision"] = decision
+            exact_decision = (decision.get("decision_count") == 1 and
+                              decision.get("decision_id") == decision_id and
+                              decision.get("kind") == "MORNING_ROUTINE_COMPLETED" and
+                              decision.get("tone") == "EXPECTED" and
+                              decision.get("physical_device_id") == fixture["physical_device_id"] and
+                              decision.get("logical_node_id") == "bedroom" and
+                              decision.get("origin_session_id") == source_key["origin_session_id"] and
+                              decision.get("event_sequence") == source_key["event_sequence"] and
+                              decision.get("hub_device_id") == fixture["hub_id"] and
+                              decision.get("installation_epoch") == fixture["installation_epoch"])
+            if not exact_decision:
+                self._morning_mark(report, "hub_rule_decision", "FAIL",
+                                   "actual S3 MORNING_ROUTINE_COMPLETED decision is absent, duplicated, or mismatched")
+                report["overall"], report["acceptance"] = "FAIL", "FAIL"
+                self.save(report)
+                return
+            self._morning_mark(report, "hub_rule_decision", "PASS",
+                               "physical S3 committed the exact configured Bedroom completion decision")
+            self._morning_mark(report, "postgres_decision", "PASS",
+                               "exact Hub decision has one PostgreSQL row linked to the original C3 EventKey")
+            caregiver_decision = decision.get("caregiver_decision")
+            if (decision.get("caregiver_decision_count") != 1 or
+                    not isinstance(caregiver_decision, dict) or
+                    caregiver_decision.get("decision_id") != decision_id or
+                    caregiver_decision.get("kind") != "MORNING_ROUTINE_COMPLETED" or
+                    caregiver_decision.get("source_type") != "HUB_RULE"):
+                self._morning_mark(report, "caregiver_api", "FAIL",
+                                   "authenticated caregiver API did not return the exact Hub decision once")
+                report["overall"], report["acceptance"] = "FAIL", "FAIL"
+                self.save(report)
+                return
+            self._morning_mark(report, "caregiver_api", "PASS",
+                               "authenticated caregiver timeline returned the Hub decision exactly once")
+            phone_fixture = dict(fixture)
+            phone_fixture["decision_id"] = decision_id
+            apk = powershell("AndroidVerifyDecision", phone_fixture)
+            screenshot_b64 = apk.pop("screenshot_png_b64", None)
+            ui_b64 = apk.pop("ui_hierarchy_xml_b64", None)
+            if (apk.get("status") != "PASS" or apk.get("observation") != "AUTOMATED_PASS" or
+                    apk.get("decision_id") != decision_id or
+                    apk.get("decision_kind") != "MORNING_ROUTINE_COMPLETED" or
+                    apk.get("home_id") != fixture["home_id"] or
+                    not isinstance(screenshot_b64, str) or not isinstance(ui_b64, str)):
+                self._morning_mark(report, "android_apk", "FAIL",
+                                   "installed APK did not show the exact Morning Routine decision in Reports")
+                report["overall"], report["acceptance"] = "FAIL", "FAIL"
+                self.save(report)
+                return
+            screenshot = base64.b64decode(screenshot_b64, validate=True)
+            hierarchy = base64.b64decode(ui_b64, validate=True)
+            if (not screenshot.startswith(b"\x89PNG\r\n\x1a\n") or len(screenshot) > 8 * 1024 * 1024 or
+                    len(hierarchy) > 2 * 1024 * 1024 or
+                    hashlib.sha256(hierarchy).hexdigest() != apk.get("ui_dump_sha256")):
+                self._morning_mark(report, "android_apk", "FAIL",
+                                   "APK screenshot/accessibility evidence is invalid or failed its digest")
+                report["overall"], report["acceptance"] = "FAIL", "FAIL"
+                self.save(report)
+                return
+            screenshot_path = STATE / (report["run_id"] + "-android.png")
+            hierarchy_path = STATE / (report["run_id"] + "-android.xml")
+            for target, payload in ((screenshot_path, screenshot), (hierarchy_path, hierarchy)):
+                with target.open("xb") as stream:
+                    stream.write(payload)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                os.chmod(target, 0o600)
+            report["android_evidence"] = {
+                "decision_id": decision_id, "decision_kind": "MORNING_ROUTINE_COMPLETED",
+                "home_id": fixture["home_id"], "backend_origin": apk.get("backend_origin"),
+                "backend_status": apk.get("backend_status"),
+                "package": apk.get("package"), "device_serial": apk.get("device_serial"),
+                "event_label": apk.get("event_label"),
+                "screenshot_file": screenshot_path.name,
+                "screenshot_sha256": hashlib.sha256(screenshot).hexdigest(),
+                "ui_hierarchy_file": hierarchy_path.name,
+                "ui_hierarchy_sha256": hashlib.sha256(hierarchy).hexdigest(),
+            }
+            self._morning_mark(report, "android_apk", "PASS",
+                               "installed APK Reports displayed the exact Hub decision after refresh")
+            report["overall"], report["acceptance"] = "PASS", "TARGET_TEST_INPUT_PASS"
+        except (ValueError, OSError, subprocess.SubprocessError, KeyError, TypeError) as error:
+            stage_name = next((name for name in MORNING_STAGES
+                               if report["stages"][name]["status"] == "NOT_STARTED"), "android_apk")
+            self._morning_mark(report, stage_name, "BLOCKED",
+                               str(error) if isinstance(error, ValueError) else type(error).__name__)
+            report["overall"], report["acceptance"] = "BLOCKED", "NOT_RUN"
+        finally:
+            self.save(report)
+            self._morning_active_report = None
+            if self.lock.locked():
+                self.lock.release()
 
     @staticmethod
     def _git_head() -> str | None:
@@ -719,6 +1069,14 @@ class Controller:
     def mark(self, report: dict, name: str, status: str, reason: str) -> None:
         stage(report, name, status, reason)
         self.save(report)
+        morning = self._morning_active_report
+        if (isinstance(morning, dict) and report.get("run_id") ==
+                morning.get("run_id", "") + "-NODE-EVENT"):
+            morning["node_event_run"] = report
+            morning["node_event_stages"] = report["stages"]
+            if name == "c3_injection" and status in {"PASS", "FAIL", "BLOCKED"}:
+                morning["physical_operations"] = ["C3_COM4_INJECT_MOTION_ATTEMPTED"]
+            self.save(morning)
         campaign = self.current
         if campaign is not None and campaign.get("run_id") != report.get("run_id"):
             active = campaign.get("active_run")
@@ -1282,7 +1640,7 @@ const esc=s=>escape(s);const stageList=x=>'<ol>'+Object.entries(x.stages||{}).ma
 function oneRun(x){if(!x)return '<p>No individual run started.</p>';let key=x.event_key?JSON.stringify(x.event_key):'not observed';let image=x.apk_evidence&&x.apk_evidence.screenshot_file&&/^TC001-[A-Za-z0-9_-]+-android\\.png$/.test(x.apk_evidence.screenshot_file)?'<p><img alt="Private Android APK event evidence" src="/evidence/'+esc(x.apk_evidence.screenshot_file)+'"></p>':'';return '<p><b>'+esc(x.run_id)+'</b> — '+esc(x.overall)+' — APK '+esc(x.apk_observation||'NOT_VERIFIED')+'</p><p>EventKey: <code>'+esc(key)+'</code></p><p>Duplicate durable rows: '+esc(x.duplicate_count??'NOT_VERIFIED')+'</p>'+stageList(x)+image}
 function campaign(x){if(!x)return 'No campaign yet.';let active=x.active_run;return '<p><b>'+esc(x.run_id)+'</b> — '+esc(x.overall)+' — '+esc(x.passed_runs||0)+'/'+esc(x.planned_runs||5)+' PASS; '+esc(x.completed_runs||0)+' completed.</p>'+stageList(x)+(active?'<h3>Active or latest individual run</h3>'+oneRun(active):'')+(x.not_run||[]).map(n=>'<p>'+esc(n.run_number)+': '+esc(n.status)+' — '+esc(n.reason)+'</p>').join('')}
 async function refresh(){let r=await fetch('/api/status',{cache:'no-store'}),d=await r.json();csrf=d.csrf;current=d.current;const readiness={backend:d.backend,caregiver_home:d.caregiver_home,physical_boards:d.physical_boards,fixture:d.fixture,campaign_approval:d.campaign_approval,hub_ingress:d.hub_ingress,android_apk:d.android_apk};document.getElementById('readiness').textContent=JSON.stringify(readiness,null,2);document.getElementById('power-mode').textContent='C3 power/HIL mode: '+(current&&current.active_run&&current.active_run.c3_power_mode||'HIL_AWAKE_TEST_ONLY profile receipt only; runtime checked before injection');const ready=d.backend&&d.backend.POSTGRES_READY==='PASS'&&d.backend.CAREGIVER_HTTPS_READY==='PASS'&&d.caregiver_home&&d.caregiver_home.caregiver_home_ready===true&&d.physical_boards&&d.physical_boards.c3==='PASS'&&d.physical_boards.s3==='PASS'&&d.fixture&&d.fixture.status==='PASS'&&d.campaign_approval&&d.campaign_approval.status==='PASS'&&d.hub_ingress&&d.hub_ingress.status==='PASS'&&d.android_apk&&d.android_apk.status==='PASS';document.getElementById('run').disabled=!!d.running||!ready;document.getElementById('blocked').textContent=ready?'All software, fixture and device-readiness gates pass. Owner approval will be consumed once before the first COM4 operation.':(d.campaign_approval&&d.campaign_approval.reason)||'Readiness gates are not all PASS.';document.getElementById('current').innerHTML=campaign(current);document.getElementById('previous').innerHTML=d.previous.map(x=>'<details><summary>'+esc(x.run_id)+' — '+esc(x.overall)+'</summary>'+oneRun(x)+(x.runs||[]).map(id=>'<p>Run: '+esc(id)+'</p>').join('')+'</details>').join('')||'No saved runs yet.';}
-function morningStages(x){if(!x)return 'No Morning Routine attempt yet.';return '<p><b>'+esc(x.run_id)+'</b> — '+esc(x.overall)+'; acceptance '+esc(x.acceptance)+'</p><p>First blocked stage: <code>'+esc(x.first_failing_stage)+'</code></p><ol>'+Object.entries(x.stages||{}).map(([k,v])=>'<li>'+esc(k)+': <b>'+esc(v.status)+'</b> — '+esc(v.reason)+'</li>').join('')+'</ol><p>Physical operations: '+esc(JSON.stringify(x.physical_operations||[]))+'; EventKeys: '+esc(JSON.stringify(x.event_keys||[]))+'</p>'}
+function morningStages(x){if(!x)return 'No Morning Routine attempt yet.';const nodeStages=x.node_event_stages||{};return '<p><b>'+esc(x.run_id)+'</b> — '+esc(x.overall)+'; acceptance '+esc(x.acceptance)+'</p><p>First blocked stage: <code>'+esc(x.first_failing_stage)+'</code></p><ol>'+Object.entries(x.stages||{}).map(([k,v])=>'<li>'+esc(k)+': <b>'+esc(v.status)+'</b> — '+esc(v.reason)+'</li>').join('')+'</ol><h4>Physical Node event path</h4><ol>'+Object.entries(nodeStages).map(([k,v])=>'<li>'+esc(k)+': <b>'+esc(v.status)+'</b> — '+esc(v.reason)+'</li>').join('')+'</ol><p>Physical operations: '+esc(JSON.stringify(x.physical_operations||[]))+'; EventKeys: '+esc(JSON.stringify(x.event_keys||[]))+'</p>'}
 function roomNames(steps,filter){if(!Array.isArray(steps))return 'Unavailable';return steps.filter(s=>s&&s.enabled===true&&(filter==='all'||s.required===(filter==='required'))).map(s=>s.location).join(', ')||'None'}
 async function refresh(){let r=await fetch('/api/status',{cache:'no-store'}),d=await r.json();csrf=d.csrf;current=d.current;const readiness={backend:d.backend,caregiver_home:d.caregiver_home,physical_boards:d.physical_boards,fixture:d.fixture,campaign_approval:d.campaign_approval,hub_ingress:d.hub_ingress,android_apk:d.android_apk};document.getElementById('readiness').textContent=JSON.stringify(readiness,null,2);document.getElementById('power-mode').textContent='C3 power/HIL mode: '+(current&&current.active_run&&current.active_run.c3_power_mode||'HIL_AWAKE_TEST_ONLY profile receipt only; runtime checked before injection');const ready=d.backend&&d.backend.POSTGRES_READY==='PASS'&&d.backend.CAREGIVER_HTTPS_READY==='PASS'&&d.caregiver_home&&d.caregiver_home.caregiver_home_ready===true&&d.physical_boards&&d.physical_boards.c3==='PASS'&&d.physical_boards.s3==='PASS'&&d.fixture&&d.fixture.status==='PASS'&&d.campaign_approval&&d.campaign_approval.status==='PASS'&&d.hub_ingress&&d.hub_ingress.status==='PASS'&&d.android_apk&&d.android_apk.status==='PASS';document.getElementById('run').disabled=!!d.running||!ready;document.getElementById('blocked').textContent=ready?'All software, fixture and device-readiness gates pass. Owner approval will be consumed once before the first COM4 operation.':(d.campaign_approval&&d.campaign_approval.reason)||'Readiness gates are not all PASS.';document.getElementById('current').innerHTML=campaign(current);document.getElementById('previous').innerHTML=d.previous.map(x=>'<details><summary>'+esc(x.run_id)+' — '+esc(x.overall)+'</summary>'+oneRun(x)+(x.runs||[]).map(id=>'<p>Run: '+esc(id)+'</p>').join('')+'</details>').join('')||'No saved runs yet.';const mr=d.morning_readiness||{},policy=mr.applied_policy||{},display=policy.display_config||policy.applied_config||policy.desired_config||{},steps=display.activity_rules&&display.activity_rules.morning_steps;document.getElementById('morning-version').textContent=String(policy.desired_version??'Unavailable')+' / '+String(policy.applied_version??'Unavailable');document.getElementById('morning-included').textContent=roomNames(steps,'all');document.getElementById('morning-required').textContent=roomNames(steps,'required');document.getElementById('morning-optional').textContent=roomNames(steps,'optional');document.getElementById('morning-policy').textContent='Desired / applied household configuration: '+(policy.status||'BLOCKED')+' — '+(policy.reason||'unavailable');document.getElementById('morning-blocked').textContent=(mr.room_fixtures&&mr.room_fixtures.reason||'Room fixture status unavailable')+'; '+(mr.hardware_authorization&&mr.hardware_authorization.reason||'hardware authorization unavailable')+'; '+(mr.physical_ingress&&mr.physical_ingress.reason||'physical ingress unavailable');document.getElementById('morning-run').disabled=!!d.running;document.getElementById('morning-current').innerHTML=morningStages(d.morning_routine);document.getElementById('morning-history').innerHTML=(d.morning_history||[]).map(x=>'<details><summary>'+esc(x.run_id)+' — '+esc(x.overall)+'</summary>'+morningStages(x)+'</details>').join('')||'No saved attempts.';}
 async function post(path,payload){let r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(payload)});let data=await r.json();if(!r.ok)alert(data.error||'Request failed');if(path==='/api/scenarios/morning-routine/run'&&r.ok){document.getElementById('morning-current').innerHTML=morningStages(data)}await refresh()}

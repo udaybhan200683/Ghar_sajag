@@ -604,6 +604,11 @@ def exact_key_in_ui(root: ET.Element, expected: dict) -> bool:
     return False
 
 
+def exact_decision_in_ui(root: ET.Element, expected: str) -> bool:
+    """Match a Hub-owned decision identity, never a Node EventKey."""
+    return any(text == "Decision ID: " + expected for text in ui_texts(root))
+
+
 def canonical_https_origin(value: str) -> tuple[str, str, int] | None:
     try:
         parsed = urlsplit(value)
@@ -633,7 +638,7 @@ def tap_text(adb: Path, serial_number: str, root: ET.Element,
 
 def android_verify_event(config: dict, *, adb_locator=find_adb,
                          call=adb_call, sleep=time.sleep) -> dict:
-    """Foreground the real app, refresh Reports, open details, and match key."""
+    """Foreground the real app, refresh Reports, and match a Node key or Hub decision."""
     adb = adb_locator()
     ready = android_device_ready(config, adb_locator=lambda: adb, call=call)
     phone = config["phone"]
@@ -642,8 +647,13 @@ def android_verify_event(config: dict, *, adb_locator=find_adb,
     home_id = config.get("home_id")
     expected_origin = config.get("backend_origin")
     expected_key = config.get("event_key")
-    if not isinstance(home_id, str) or not isinstance(expected_key, dict):
-        raise ValueError("TC001_ANDROID_EVENT_SCOPE_MISSING")
+    expected_decision = config.get("decision_id")
+    decision_mode = isinstance(expected_decision, str)
+    if (not isinstance(home_id, str) or
+            (decision_mode and (not expected_decision.startswith("morning-complete:") or
+                                len(expected_decision) > 256 or isinstance(expected_key, dict))) or
+            (not decision_mode and not isinstance(expected_key, dict))):
+        raise ValueError("TC001_ANDROID_OUTCOME_SCOPE_MISSING")
     call(adb, serial_number, "shell", "monkey", "-p", package,
          "-c", "android.intent.category.LAUNCHER", "1", timeout_seconds=12)
     foreground = call(adb, serial_number, "shell", "dumpsys", "activity", "activities",
@@ -718,43 +728,59 @@ def android_verify_event(config: dict, *, adb_locator=find_adb,
         raise ValueError("TC001_APPROVED_ANDROID_APP_NOT_FOREGROUNDED_AFTER_REFRESH")
 
     # Poll for at most 30 seconds. The view may need to finish its authenticated
-    # request; details are expanded sequentially until this exact EventKey is
-    # exposed by the installed APK's accessibility tree.
+    # request; details are expanded sequentially until the exact Node EventKey
+    # or separately identified Hub decision appears in accessibility output.
     for _ in range(60):
         sleep(0.5)
         root, raw = ui_dump(adb, serial_number)
         joined = "\n".join(ui_texts(root))
         if "Latest recorded events" not in joined or home_id not in joined:
             raise ValueError("TC001_ANDROID_REPORTS_HOME_CHANGED_DURING_REFRESH")
-        if exact_key_in_ui(root, expected_key):
+        exact_outcome = (exact_decision_in_ui(root, expected_decision) if decision_mode
+                         else exact_key_in_ui(root, expected_key))
+        if exact_outcome:
             screenshot = call(adb, serial_number, "exec-out", "screencap", "-p",
                               timeout_seconds=12)
             if (not screenshot.startswith(b"\x89PNG\r\n\x1a\n") or
                     len(screenshot) > 8 * 1024 * 1024):
                 raise ValueError("TC001_ANDROID_SCREENSHOT_CAPTURE_INVALID")
-            if "Motion recorded" not in joined or "bedroom" not in joined.casefold():
+            expected_label = ("Morning routine completed" if decision_mode else "Motion recorded")
+            if expected_label.casefold() not in joined.casefold():
+                raise ValueError("TC001_ANDROID_EXACT_OUTCOME_LABEL_MISMATCH")
+            if not decision_mode and "bedroom" not in joined.casefold():
                 raise ValueError("TC001_ANDROID_EXACT_KEY_NOT_ASSOCIATED_WITH_BEDROOM_MOTION")
-            return {"status": "PASS", "observation": "AUTOMATED_PASS",
+            result = {"status": "PASS", "observation": "AUTOMATED_PASS",
                     "package": package, "device_serial": serial_number,
                     "version_name": ready["version_name"],
                     "signer_sha256": ready.get("signer_sha256"),
                     "home_id": home_id, "backend_origin": settings_origin,
                     "backend_status": backend_status,
-                    "event_key": expected_key,
                     "reports_view": "Latest recorded events",
-                    "event_details_open": True,
-                    "event_label": "Motion recorded", "logical_node_id": "bedroom",
+                    "outcome_details_open": True,
+                    "event_label": expected_label,
                     "ui_dump_sha256": hashlib.sha256(raw).hexdigest(),
                     "ui_hierarchy_xml_b64": base64.b64encode(raw).decode("ascii"),
                     "screenshot_png_b64": base64.b64encode(screenshot).decode("ascii")}
+            if decision_mode:
+                result["decision_id"] = expected_decision
+                result["decision_kind"] = "MORNING_ROUTINE_COMPLETED"
+            else:
+                result["event_key"] = expected_key
+                result["event_details_open"] = True
+                result["logical_node_id"] = "bedroom"
+            return result
+        details_label = "Decision details" if decision_mode else "Event details"
+        identity_prefix = "Decision ID:" if decision_mode else "EventKey:"
         summaries = [node for node in root.iter("node")
-                     if node.get("text", "").strip() == "Event details"]
-        expanded = sum(1 for text in ui_texts(root) if text.startswith("EventKey:"))
+                     if node.get("text", "").strip() == details_label]
+        expanded = sum(1 for text in ui_texts(root) if text.startswith(identity_prefix))
         if summaries and expanded < len(summaries):
-            if not tap_text(adb, serial_number, root, "Event details",
+            if not tap_text(adb, serial_number, root, details_label,
                             index=expanded, call=call):
-                raise ValueError("TC001_ANDROID_EVENT_DETAILS_CONTROL_UNAVAILABLE")
+                raise ValueError("TC001_ANDROID_OUTCOME_DETAILS_CONTROL_UNAVAILABLE")
             sleep(0.25)
+    if decision_mode:
+        raise ValueError("TC001_EXACT_HUB_DECISION_NOT_VISIBLE_IN_ANDROID_REPORTS")
     raise ValueError("TC001_EXACT_EVENT_KEY_NOT_VISIBLE_IN_ANDROID_EVENT_DETAILS")
 
 
@@ -789,6 +815,8 @@ if __name__ == "__main__":
         elif action == "AndroidReady":
             value = android_device_ready(config)
         elif action == "AndroidVerify":
+            value = android_verify_event(config)
+        elif action == "AndroidVerifyDecision":
             value = android_verify_event(config)
         else:
             raise ValueError("TC001_SERIAL_ACTION_NOT_ALLOWED")

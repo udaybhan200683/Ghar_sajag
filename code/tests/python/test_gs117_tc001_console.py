@@ -26,6 +26,44 @@ import gs117_tc001_backend as tc_backend
 
 
 class TC001Test(unittest.TestCase):
+    @staticmethod
+    def _morning_fixture():
+        return {
+            "home_id": "gs177-test-product", "hub_id": "test-hub-a",
+            "installation_epoch": 3, "physical_device_id": "test-c3-bedroom",
+            "c3": {"port": "COM4", "serial_number": "14:63:93:C5:D1:58"},
+            "s3": {"port": "COM10", "serial_number": "E0:72:A1:D3:8D:34"},
+            "phone_receipt": {"package": "in.gharsajag.caregiver.discoverytest",
+                              "adb_serial": "ZA2237MRHN",
+                              "backend_origin": "https://laptop.local"},
+        }
+
+    @classmethod
+    def _ready_morning_state(cls):
+        config = {"timezone": "Asia/Kolkata", "mode": "HOME",
+                  "morning": {"enabled": True, "start_minute": 360,
+                              "end_minute": 660, "grace_minutes": 30},
+                  "activity_rules": {"morning_steps": [
+                      {"location": "bedroom", "enabled": True, "required": True}]}}
+        return {
+            "backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS"},
+            "caregiver_home": {"caregiver_home_ready": True,
+                               "backend_origin": "https://laptop.local",
+                               "configuration": {
+                                   "status": "PASS",
+                                   "source": "AUTHENTICATED_GS148_TEST_ONLY_SETTINGS",
+                                   "test_only": True, "home_id": "gs177-test-product",
+                                   "schema_version": 1, "desired_version": 4,
+                                   "desired_status": "APPLIED", "applied_version": 4,
+                                   "desired_config": config, "applied_config": config}},
+            "physical_boards": {"status": "PARTIAL", "c3": "PASS", "s3": "PASS"},
+            "fixture": {"status": "PASS", "reason": "current exact owner fixture"},
+            "physical_enrollment": {"status": "PASS", "reason": "current Bedroom enrollment",
+                                    "enrollment_generation": 2},
+            "hub_ingress": {"status": "PASS", "listener": "ACTIVE"},
+            "android_apk": {"status": "PASS", "reason": "current APK receipt"},
+        }
+
     def test_backend_helper_reads_policy_from_authenticated_settings_route(self):
         calls = []
         snapshot = {"home_id": "gs177-test-product", "desired_version": 4,
@@ -52,10 +90,33 @@ class TC001Test(unittest.TestCase):
         self.assertEqual(wrong_home["reason"], "settings_snapshot_home_mismatch")
         self.assertEqual(unavailable["reason"], "authenticated_settings_snapshot_invalid")
 
+    def test_backend_decision_projection_requires_one_matching_durable_and_api_decision(self):
+        decision_id = "morning-complete:p15:test-c3-bedroomn7:bedrooms82q9"
+        row = (decision_id, "MORNING_ROUTINE_COMPLETED", "EXPECTED",
+               "configured_required_steps_complete", 1_798_000_000, 0,
+               "event-1", "test-c3-bedroom", "bedroom", 82, 9,
+               "test-hub-a", 3)
+        projection = {"source": "AUTHENTICATED_GS148_TEST_ONLY",
+                      "recent_events": [{"decision_id": decision_id,
+                                         "kind": "MORNING_ROUTINE_COMPLETED",
+                                         "source_type": "HUB_RULE"}]}
+        result = tc_backend.project_morning_decision([row], projection, decision_id)
+        self.assertEqual(result["decision_count"], 1)
+        self.assertEqual(result["caregiver_decision_count"], 1)
+        self.assertEqual(result["physical_device_id"], "test-c3-bedroom")
+        self.assertEqual(result["event_sequence"], 9)
+        self.assertEqual(tc_backend.project_morning_decision([], projection, decision_id),
+                         {"decision_count": 0, "caregiver_decision_count": 0})
+        wrong_api = dict(projection, recent_events=[dict(projection["recent_events"][0],
+                                                          decision_id=decision_id + "x")])
+        self.assertEqual(tc_backend.project_morning_decision([row], wrong_api, decision_id)
+                         ["caregiver_decision_count"], 0)
+
     def test_morning_routine_run_persists_blocked_state_without_physical_operations(self):
         with tempfile.TemporaryDirectory() as directory:
             controller = tc.Controller()
             with patch.object(tc, "STATE", Path(directory)), \
+                    patch.object(controller, "readiness", return_value={"hub_ingress": {"status": "PASS"}}), \
                     patch.object(tc, "powershell", side_effect=AssertionError("physical operation attempted")):
                 controller._readiness = {"hub_ingress": {"status": "PASS"}}
                 report = controller.start_morning_routine(10)
@@ -83,7 +144,8 @@ class TC001Test(unittest.TestCase):
                               "end_minute": 660, "grace_minutes": 30},
                   "activity_rules": {"morning_steps": [
                       {"location": "bedroom", "enabled": True, "required": True}]}}
-        readiness = {"caregiver_home": {"configuration": {
+        readiness = {"backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS"},
+            "caregiver_home": {"caregiver_home_ready": True, "configuration": {
             "status": "PASS", "source": "AUTHENTICATED_GS148_TEST_ONLY_SETTINGS",
             "test_only": True, "home_id": "gs177-test-product", "schema_version": 1,
             "desired_version": 3, "desired_status": "APPLIED", "applied_version": 3,
@@ -102,6 +164,7 @@ class TC001Test(unittest.TestCase):
             controller = tc.Controller()
             controller._readiness = readiness
             with patch.object(tc, "STATE", Path(directory)), \
+                    patch.object(controller, "readiness", return_value=readiness), \
                     patch.object(tc, "powershell", side_effect=AssertionError("physical operation attempted")):
                 report = controller.start_morning_routine(10)
             self.assertEqual(report["overall"], "BLOCKED")
@@ -110,6 +173,134 @@ class TC001Test(unittest.TestCase):
             self.assertEqual(report["stages"]["trusted_hub_configuration"]["status"], "PASS")
             self.assertEqual(report["stages"]["enrolled_room_nodes"]["status"], "BLOCKED")
             self.assertEqual(report["physical_operations"], [])
+
+    def test_morning_policy_blocks_rooms_without_their_own_enrolled_physical_node(self):
+        config = {"timezone": "Asia/Kolkata", "mode": "HOME",
+                  "morning": {"enabled": True, "start_minute": 360,
+                              "end_minute": 660, "grace_minutes": 30},
+                  "activity_rules": {"morning_steps": [
+                      {"location": "bedroom", "enabled": True, "required": True},
+                      {"location": "kitchen", "enabled": True, "required": True}]}}
+        readiness = {
+            "backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS"},
+            "caregiver_home": {"caregiver_home_ready": True, "configuration": {
+                "status": "PASS", "source": "AUTHENTICATED_GS148_TEST_ONLY_SETTINGS",
+                "test_only": True, "home_id": "gs177-test-product", "schema_version": 1,
+                "desired_version": 7, "desired_status": "APPLIED", "applied_version": 7,
+                "desired_config": config, "applied_config": config}},
+            "physical_boards": {"c3": "PASS", "s3": "PASS"},
+            "fixture": {"status": "PASS"},
+            "physical_enrollment": {"status": "PASS"},
+            "hub_ingress": {"status": "PASS"},
+        }
+        status = tc.Controller.morning_policy_status(readiness)
+        self.assertEqual(status["room_fixtures"]["status"], "BLOCKED")
+        self.assertFalse(status["room_fixtures"]["scenario_policy_ready"])
+        self.assertEqual(status["room_fixtures"]["unavailable_locations"], ["kitchen"])
+        self.assertIn("Bedroom Node cannot represent another room",
+                      status["room_fixtures"]["reason"])
+
+    def test_morning_run_requires_its_own_one_use_approval_after_all_readiness_gates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            controller = tc.Controller()
+            state = self._ready_morning_state()
+            fixture = self._morning_fixture()
+            with (patch.object(tc, "STATE", Path(directory)),
+                  patch.object(tc, "MORNING_APPROVAL", Path(directory) / "missing.json"),
+                  patch.object(controller, "readiness", return_value=state),
+                  patch.object(tc, "exact_fixture", return_value=fixture),
+                  patch.object(controller, "execute", side_effect=AssertionError("motion path reached")),
+                  patch.object(tc, "powershell", side_effect=AssertionError("hardware accessed"))):
+                report = controller.start_morning_routine(10)
+            self.assertEqual(report["overall"], "BLOCKED")
+            self.assertEqual(report["first_failing_stage"], "hardware_authorization")
+            self.assertEqual(report["stages"]["hardware_authorization"]["status"], "BLOCKED")
+            self.assertIn("owner_approval_missing", report["stages"]["hardware_authorization"]["reason"])
+            self.assertEqual(report["physical_operations"], [])
+            self.assertFalse(controller.lock.locked())
+
+    def test_morning_one_click_orchestrates_decision_checks_after_scoped_approval(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            approval_path = root / "morning.json"
+            fixture = self._morning_fixture()
+            approval = {
+                "schema_version": 1, "test_id": "MORNING_ROUTINE",
+                "profile": "GS179_TEST_ONLY", "operation": "C3_INJECT_MOTION_ONE_BEDROOM_RUN",
+                "run_count": 1, "home_id": fixture["home_id"], "hub_id": fixture["hub_id"],
+                "installation_epoch": fixture["installation_epoch"],
+                "physical_device_id": fixture["physical_device_id"], "logical_node_id": "bedroom",
+                "desired_config_version": 4,
+                "c3": {"port": "COM4", "serial_number": fixture["c3"]["serial_number"]},
+                "s3": {"port": "COM10", "serial_number": fixture["s3"]["serial_number"],
+                       "uart_open_authorized": False},
+                "c3_serial_open_reset_risk_accepted": True, "stop_on_first_failure": True,
+                "firmware_write_authorized": False, "commissioning_authorized": False,
+                "ownership_or_enrollment_mutation_authorized": False,
+                "database_mutation_authorized": False,
+                "approval_ref": "test-scoped-one-run", "approved_at": datetime.now(timezone.utc).isoformat(),
+            }
+            approval_path.write_text(json.dumps(approval), encoding="utf-8")
+            approval_path.chmod(0o600)
+            event_key = {"physical_device_id": fixture["physical_device_id"],
+                         "logical_node_id": "bedroom", "origin_session_id": 82,
+                         "event_sequence": 9}
+            decision_id = "morning-complete:" + tc.event_key_text(
+                fixture["physical_device_id"], 82, 9)
+            decision = {"decision_count": 1, "caregiver_decision_count": 1,
+                        "decision_id": decision_id, "kind": "MORNING_ROUTINE_COMPLETED",
+                        "tone": "EXPECTED", "physical_device_id": fixture["physical_device_id"],
+                        "logical_node_id": "bedroom", "origin_session_id": 82,
+                        "event_sequence": 9, "hub_device_id": fixture["hub_id"],
+                        "installation_epoch": fixture["installation_epoch"],
+                        "caregiver_decision": {"decision_id": decision_id,
+                                                "kind": "MORNING_ROUTINE_COMPLETED",
+                                                "source_type": "HUB_RULE"}}
+            screenshot = base64.b64encode(b"\x89PNG\r\n\x1a\nmock").decode()
+            hierarchy = b'<hierarchy><node text="Decision ID"/></hierarchy>'
+            apk = {"status": "PASS", "observation": "AUTOMATED_PASS",
+                   "decision_id": decision_id, "decision_kind": "MORNING_ROUTINE_COMPLETED",
+                   "home_id": fixture["home_id"], "backend_origin": "https://laptop.local",
+                   "backend_status": "Backend API · CONNECTED",
+                   "package": fixture["phone_receipt"]["package"],
+                   "device_serial": fixture["phone_receipt"]["adb_serial"],
+                   "event_label": "Morning routine completed",
+                   "screenshot_png_b64": screenshot,
+                   "ui_hierarchy_xml_b64": base64.b64encode(hierarchy).decode(),
+                   "ui_dump_sha256": hashlib.sha256(hierarchy).hexdigest()}
+            controller = tc.Controller()
+
+            def event_pass(report, **_kwargs):
+                report["overall"] = "PASS"
+                report["event_key"] = event_key
+                report["stages"] = {name: {"status": "PASS", "reason": "mocked"}
+                                    for name in tc.STAGES}
+
+            class InlineThread:
+                def __init__(self, target, args, daemon):
+                    self.target, self.args = target, args
+                def start(self):
+                    self.target(*self.args)
+
+            with (patch.object(tc, "STATE", root),
+                  patch.object(tc, "MORNING_APPROVAL", approval_path),
+                  patch.object(controller, "readiness", return_value=self._ready_morning_state()),
+                  patch.object(tc, "exact_fixture", return_value=fixture),
+                  patch.object(controller, "execute", side_effect=event_pass),
+                  patch.object(tc, "backend", return_value=decision),
+                  patch.object(tc, "powershell", return_value=apk),
+                  patch.object(tc.threading, "Thread", InlineThread)):
+                report = controller.start_morning_routine(10)
+            self.assertEqual(report["overall"], "PASS")
+            self.assertEqual(report["acceptance"], "TARGET_TEST_INPUT_PASS")
+            self.assertEqual(report["event_keys"], [event_key])
+            self.assertEqual(report["expected_decision_id"], decision_id)
+            self.assertTrue(all(report["stages"][name]["status"] == "PASS"
+                                for name in tc.MORNING_STAGES))
+            self.assertEqual(report["android_evidence"]["decision_id"], decision_id)
+            self.assertFalse(approval_path.exists())
+            self.assertTrue(list(root.glob("morning.consumed.*.json")))
+            self.assertFalse(controller.lock.locked())
 
     def test_morning_routine_interval_is_bounded_and_controller_remains_idle(self):
         controller = tc.Controller()
@@ -323,6 +514,13 @@ class TC001Test(unittest.TestCase):
         altered = dict(key, event_sequence=5)
         self.assertFalse(tc_serial.exact_key_in_ui(tc_serial.ET.fromstring(xml), altered))
 
+    def test_apk_decision_details_parser_requires_exact_hub_decision_id(self):
+        decision = "morning-complete:p15:test-c3-bedroomn7:bedrooms82q9"
+        root = tc_serial.ET.fromstring(
+            '<hierarchy><node text="Decision ID: ' + decision + '"/></hierarchy>')
+        self.assertTrue(tc_serial.exact_decision_in_ui(root, decision))
+        self.assertFalse(tc_serial.exact_decision_in_ui(root, decision + "x"))
+
     def _android_tree(self, entries):
         root = tc_serial.ET.Element("hierarchy")
         for text, bounds in entries:
@@ -331,6 +529,7 @@ class TC001Test(unittest.TestCase):
         return tc_serial.ET.fromstring(raw), raw
 
     def _run_android_verification(self, *, event_key=None, visible_key=None,
+                                  decision_id=None, visible_decision_id=None,
                                   settings_origin="https://laptop.local"):
         package = "in.gharsajag.caregiver.discoverytest"
         adb_serial = "ZA2237MRHN"
@@ -345,18 +544,22 @@ class TC001Test(unittest.TestCase):
             ("Backend API · CONNECTED", "[0,0][100,100]"),
             (settings_origin, "[0,0][100,100]"),
             ("Reports", "[0,0][100,100]")])
+        outcome_label = "Morning routine completed" if decision_id else "Motion recorded"
+        details_label = "Decision details" if decision_id else "Event details"
+        identity_label = ("Decision ID: " + (visible_decision_id or decision_id)
+                          if decision_id else
+                          "EventKey: " + json.dumps(visible_key or expected_key))
         reports = self._android_tree([
             ("Reports", "[0,0][100,100]"), ("Latest recorded events", "[0,0][100,100]"),
             ("gs177-test-product", "[0,0][100,100]"),
-            ("Motion recorded", "[0,0][100,100]"), ("Bedroom", "[0,0][100,100]"),
-            ("Event details", "[0,0][100,100]")])
-        key_json = json.dumps(visible_key or expected_key)
+            (outcome_label, "[0,0][100,100]"), ("Bedroom", "[0,0][100,100]"),
+            (details_label, "[0,0][100,100]")])
         expanded = self._android_tree([
             ("Reports", "[0,0][100,100]"), ("Latest recorded events", "[0,0][100,100]"),
             ("gs177-test-product", "[0,0][100,100]"),
-            ("Motion recorded", "[0,0][100,100]"), ("Bedroom", "[0,0][100,100]"),
-            ("Event details", "[0,0][100,100]"),
-            ("EventKey: " + key_json, "[0,0][100,100]")])
+            (outcome_label, "[0,0][100,100]"), ("Bedroom", "[0,0][100,100]"),
+            (details_label, "[0,0][100,100]"),
+            (identity_label, "[0,0][100,100]")])
         ui_sequence = iter((home, settings, settings, reports, reports, expanded))
         last = [reports]
         def dump(_adb, _serial):
@@ -383,8 +586,11 @@ class TC001Test(unittest.TestCase):
                              "version_name": "0.4.0-connected-lite-staging",
                              "signer_sha256": "a" * 64,
                              "backend_origin": "https://laptop.local"},
-                  "home_id": "gs177-test-product", "backend_origin": "https://laptop.local",
-                  "event_key": expected_key}
+                  "home_id": "gs177-test-product", "backend_origin": "https://laptop.local"}
+        if decision_id:
+            config["decision_id"] = decision_id
+        else:
+            config["event_key"] = expected_key
         with (patch.object(tc_serial.subprocess, "run", return_value=subprocess.CompletedProcess(
                 ["adb", "devices", "-l"], 0,
                 "List of devices attached\n" + adb_serial + " device product:motorola\n", "")),
@@ -415,6 +621,23 @@ class TC001Test(unittest.TestCase):
                            "origin_session_id": 82, "event_sequence": 10},
                 visible_key={"physical_device_id": "c3-146393c5d158", "logical_node_id": "bedroom",
                              "origin_session_id": 82, "event_sequence": 9})
+
+    def test_android_verification_refreshes_and_matches_exact_hub_morning_decision(self):
+        decision_id = "morning-complete:p15:test-c3-bedroomn7:bedrooms82q9"
+        result, calls = self._run_android_verification(decision_id=decision_id)
+        self.assertEqual(result["observation"], "AUTOMATED_PASS")
+        self.assertEqual(result["decision_id"], decision_id)
+        self.assertEqual(result["decision_kind"], "MORNING_ROUTINE_COMPLETED")
+        self.assertEqual(result["event_label"], "Morning routine completed")
+        self.assertTrue(result["outcome_details_open"])
+        self.assertTrue(result["screenshot_png_b64"])
+        self.assertTrue(any(args[:2] == ("shell", "monkey") for _, args in calls))
+
+    def test_android_verification_rejects_a_different_hub_decision(self):
+        with self.assertRaisesRegex(ValueError, "EXACT_HUB_DECISION_NOT_VISIBLE"):
+            self._run_android_verification(
+                decision_id="morning-complete:p15:test-c3-bedroomn7:bedrooms82q10",
+                visible_decision_id="morning-complete:p15:test-c3-bedroomn7:bedrooms82q9")
 
     def test_android_verification_fails_closed_on_wrong_live_backend_origin(self):
         with self.assertRaisesRegex(ValueError, "BACKEND_ORIGIN_HOME_OR_AUTHENTICATED_SESSION_MISMATCH"):

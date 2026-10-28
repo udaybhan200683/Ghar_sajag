@@ -37,6 +37,30 @@ def read_caregiver_configuration(call, home_id: str = HOME) -> dict:
             "test_only": True, **snapshot}
 
 
+def project_morning_decision(rows, overview: dict, decision_id: str) -> dict:
+    """Correlate one durable Hub decision to the same authenticated caregiver projection."""
+    if len(rows) != 1:
+        return {"decision_count": len(rows), "caregiver_decision_count": 0}
+    if overview.get("source") != "AUTHENTICATED_GS148_TEST_ONLY":
+        raise ValueError("TC001_morning_decision_caregiver_api_unavailable")
+    row = rows[0]
+    matches = [event for event in overview.get("recent_events", [])
+               if event.get("decision_id") == decision_id and
+               event.get("kind") == "MORNING_ROUTINE_COMPLETED" and
+               event.get("source_type") == "HUB_RULE"]
+    return {
+        "decision_count": 1,
+        "caregiver_decision_count": len(matches),
+        "decision_id": row[0], "kind": row[1], "tone": row[2],
+        "reason": row[3], "decided_at": row[4],
+        "duration_seconds": row[5], "source_event_id": row[6],
+        "physical_device_id": row[7], "logical_node_id": row[8],
+        "origin_session_id": int(row[9]), "event_sequence": int(row[10]),
+        "hub_device_id": row[11], "installation_epoch": int(row[12]),
+        "caregiver_decision": matches[0] if len(matches) == 1 else None,
+    }
+
+
 def run(request: dict) -> dict:
     import psycopg
 
@@ -81,6 +105,30 @@ def run(request: dict) -> dict:
                     "authority_ready": bool(owner and owner == (
                         HOME, request["installation_epoch"], "ACTIVE") and len(enrollment) == 1),
                     "enrollment_generation": int(enrollment[0][0]) if len(enrollment) == 1 else None}
+        elif action == "morning_decision":
+            decision_id = request.get("decision_id")
+            if (not isinstance(decision_id, str) or
+                    not decision_id.startswith("morning-complete:") or
+                    len(decision_id) > 256 or type(request.get("installation_epoch")) is not int or
+                    request["installation_epoch"] <= 0):
+                raise ValueError("TC001_morning_decision_identity_invalid")
+            rows = db.execute(
+                """SELECT d.decision_id,d.kind,d.tone,d.reason,d.decided_at,
+                          d.duration_seconds,c.event_id,c.physical_device_id,
+                          c.logical_node_id,c.origin_session_id,c.event_sequence,
+                          c.hub_device_id,c.ownership_epoch
+                   FROM hub_rule_decisions d JOIN durable_event_commits c
+                     ON c.event_id=d.source_event_id
+                   WHERE d.home_id=%s AND d.hub_device_id=%s
+                     AND d.installation_epoch=%s AND d.decision_id=%s
+                     AND c.home_id=d.home_id AND c.hub_device_id=d.hub_device_id
+                     AND c.ownership_epoch=d.installation_epoch
+                     AND c.physical_device_id=%s AND c.logical_node_id=%s
+                     AND c.origin_session_id=%s AND c.event_sequence=%s""",
+                (HOME, request["hub_id"], request["installation_epoch"], decision_id,
+                 device, "bedroom", int(request["origin_session_id"]),
+                 int(request["event_sequence"])),
+            ).fetchall()
         elif action != "event":
             raise ValueError("TC001_unknown_read_action")
         else:
@@ -95,6 +143,8 @@ def run(request: dict) -> dict:
             ).fetchall()
     if action == "event" and len(rows) != 1:
         return {"durable_count": len(rows), "caregiver_count": 0}
+    if action == "morning_decision" and len(rows) != 1:
+        return {"decision_count": len(rows), "caregiver_decision_count": 0}
 
     # This helper runs inside WSL, where the current Windows Wi-Fi address and
     # its phone-facing portproxy are not a reliable route to the local API.
@@ -133,6 +183,9 @@ def run(request: dict) -> dict:
                 "source_freshness": overview.get("source_freshness"),
                 "monitoring": overview.get("monitoring"),
                 "configuration": configuration}
+    if action == "morning_decision":
+        return project_morning_decision(rows, overview, request["decision_id"])
+
     key = {"physical_device_id": device, "logical_node_id": "bedroom",
            "origin_session_id": session, "event_sequence": sequence}
     matches = [event for event in overview.get("recent_events", [])
