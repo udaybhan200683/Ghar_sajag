@@ -12,6 +12,26 @@ No product or security requirement changes. See
 
 # Ghar Sajag Product / Architecture Decision Log
 
+## GS-117 configurable morning sequence — owner-approved product requirement (2026-10-28)
+
+GS-117 owner clarification 11773 requires morning-sequence policy to be
+household-configurable across enrolled motion locations, with per-location
+enablement, required/optional selection, and ordered or unordered completion.
+The actual Hub rule engine owns completion; software or web test orchestration
+may provide inputs and observe decisions but may not decide the result. An
+enabled required activity must be present within the existing configured
+window; optional and excluded locations do not block completion. Trusted time,
+Home mode, enrollment and sensor-coverage safeguards remain in force. Legacy
+configurations continue their existing behavior until an authorized new policy
+is applied.
+
+This records the owner-approved GS-117 requirement; it does not select new
+household defaults, change the separate morning check-in/missed-routine rule,
+authorize physical execution, establish a production Hub configuration-delivery
+path, or lift the GS-104 personalized-learning hold. The requirement and
+canonical index are updated before the dependent implementation. Context
+revision advances to `2026-10-28.001`.
+
 ## GS-178 / GS-40 India local-time adapter — 2026-10-19 (bounded TEST_ONLY implementation evidence)
 
 The explicit GS-40 TEST_ONLY S3 configuration now accepts authenticated
