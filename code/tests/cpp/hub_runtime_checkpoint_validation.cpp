@@ -589,6 +589,50 @@ void configured_activity_checkpoint_extension_test() {
             reencoded[2] == 0 && reencoded[3] == 0,
             "configured-rule schema remains extended after restart without a pending intent");
 }
+void configurable_morning_checkpoint_test() {
+    gs::host::security::OpenSslCommissioningCrypto crypto;
+    const auto key = storage_key();
+    MemorySegments segments(4U * 1024U * 1024U);
+    DurableEventOutbox outbox(segments, crypto, key);
+    require(outbox.recover() == OutboxRecovery::Empty,
+            "configurable morning checkpoint fixture starts empty");
+    OutboxJournalBackend backend(outbox);
+    gs::hub::HubRuntime runtime(32, backend);
+    gs::ActivityRuleConfig policy;
+    policy.morning_steps = {{"bedroom", true, true}, {"bathroom", true, true},
+                            {"pooja", true, false}};
+    require(runtime.configure_home_activity(policy, gs::HomeMode::Home),
+            "generic morning policy applies to runtime");
+    runtime.authorize_node("room1", 42, false);
+    auto first = event(1);
+    first.location = "bedroom";
+    first.occurred_at = 7 * 3600;
+    first.received_at = first.occurred_at;
+    require(runtime.radio_callback(first) && runtime.run_state_once(7 * 60),
+            "first configured required location commits");
+    require(runtime.activity_state().morning_seen_locations == std::vector<std::string>{"bedroom"},
+            "partial generic morning progress is retained before checkpoint");
+    gs::security::Bytes encoded;
+    require(gs::hub::HubCheckpointCodec::encode(runtime, encoded) && encoded.size() >= 4 &&
+            encoded[0] == 4 && encoded[1] == 0 && encoded[2] == 0 && encoded[3] == 0,
+            "generic morning policy uses the additive checkpoint v4 extension");
+
+    gs::hub::HubRuntime recovered(32, backend);
+    require(gs::hub::HubCheckpointCodec::restore(recovered, encoded),
+            "generic morning policy and partial progress restore");
+    require(recovered.activity_state().morning_seen_locations == std::vector<std::string>{"bedroom"},
+            "checkpoint preserves completed required steps across restart");
+    recovered.authorize_node("room1", 42, false);
+    auto second = event(2);
+    second.location = "bathroom";
+    second.occurred_at = 7 * 3600 + 10;
+    second.received_at = second.occurred_at;
+    require(recovered.radio_callback(second), "second configured location admitted after restart");
+    const auto completed = recovered.run_state_once(7 * 60 + 1);
+    require(completed && completed->rule_signals.size() == 1 &&
+            completed->rule_signals.front().kind == gs::RuleSignalKind::MorningRoutineCompleted,
+            "restored required progress completes through the configured Hub rule");
+}
 #endif
 void interruption_tests() {
     gs::host::security::OpenSslCommissioningCrypto crypto;const auto key=storage_key();
@@ -2432,6 +2476,7 @@ checkpoint_tests();interruption_tests();published_checkpoint_interruption();time
 #ifndef GS148_OLD_READER
         rule_decision_intent_crash_replay_test();
         configured_activity_checkpoint_extension_test();
+        configurable_morning_checkpoint_test();
 #endif
         backend_completion_lifecycle_tests();sparse_checkpoint_replay_tests();
         segmented_lifecycle_reuse_tests();

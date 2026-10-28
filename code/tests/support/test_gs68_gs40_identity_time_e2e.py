@@ -23,7 +23,8 @@ sys.path.insert(0, str(ROOT / "tests" / "support"))
 from cloudsync_mtls_certs import issue_test_cert, make_test_ca
 from cloudsync_mtls_local import tls_post
 from pilot_test_issuer import TestOnlyAuthority, TestOnlyIssuer, new_test_csr
-from gs40_test_bootstrap import AuthorityService, SignedTimeService, encode_config, rsa3072
+from gs40_test_bootstrap import (AuthorityService, SignedTimeService, encode_config,
+                                encode_activity_rule_config, rsa3072)
 from gs68_signed_time_fixture import TestOnlySignedTimeFixture, SignedTimeFixtureError
 from cryptography.hazmat.primitives.asymmetric import ec, padding
 from cryptography.hazmat.primitives import hashes
@@ -234,6 +235,40 @@ class Gs68Gs40IdentityTimeE2eTest(unittest.TestCase):
         fields[9] = b"test-hub-product"
         synthetic = encode_config(b"n" * 32, target, fields, signer)
         self.assertTrue(synthetic)
+
+    def test_005a_morning_rule_encoder_preserves_legacy_and_emits_bounded_ar2(self):
+        rules = {
+            "quiet_start_minute": 60, "quiet_end_minute": 300,
+            "door_open_timeout_seconds": 7200,
+            "daytime_start_minute": 480, "daytime_end_minute": 1260,
+            "daytime_inactivity_seconds": 10800,
+            "morning_start_minute": 360, "morning_end_minute": 660,
+            "morning_sequence_window_seconds": 14400,
+            "morning_bedroom_location": "bedroom",
+            "morning_bathroom_location": "bathroom",
+            "morning_kitchen_location": "kitchen",
+            "night_start_minute": 1320, "night_end_minute": 360,
+            "night_bathroom_location": "bathroom",
+            "night_bathroom_visit_threshold": 4,
+            "night_common_location": "common",
+            "night_common_visit_threshold": 4,
+            "night_visit_merge_seconds": 300,
+            "post_door_inactivity_seconds": 7200,
+        }
+        self.assertTrue(encode_activity_rule_config(rules).startswith(b"AR1"))
+        rules["morning_steps"] = [
+            {"location": "bedroom", "enabled": True, "required": False},
+            {"location": "bathroom", "enabled": True, "required": True},
+            {"location": "kitchen", "enabled": True, "required": True},
+        ]
+        rules["morning_sequence_strict_order"] = True
+        encoded = encode_activity_rule_config(rules)
+        self.assertTrue(encoded.startswith(b"AR2"))
+        self.assertLessEqual(len(encoded), 1024)
+        self.assertEqual(encoded[3] & 0x20, 0x20)
+        rules["morning_steps"][-1]["location"] = "bathroom"
+        with self.assertRaisesRegex(ValueError, "duplicate_activity_rule_morning_location"):
+            encode_activity_rule_config(rules)
 
     def test_006_gs117_physical_authority_is_bound_to_exact_home(self):
         fingerprint = "c" * 64

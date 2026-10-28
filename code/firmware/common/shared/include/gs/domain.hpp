@@ -139,6 +139,15 @@ struct NodeConfig {
     std::uint32_t heartbeat_seconds{60};
 };
 
+// A household-selected location in the morning activity policy. Its position
+// in ActivityRuleConfig::morning_steps is its configured order; optional steps
+// may be absent.
+struct MorningRoutineStep {
+    std::string location;
+    bool enabled{true};
+    bool required{true};
+};
+
 // Per-household behaviour policy. These values are versioned configuration, not transport constants.
 // Defaults are safe starting values for a newly provisioned home and may be changed by an authorised
 // family/caregiver through Settings.
@@ -159,6 +168,11 @@ struct ActivityRuleConfig {
     std::uint16_t morning_start_minute{6 * 60};
     std::uint16_t morning_end_minute{11 * 60};
     EpochSeconds morning_sequence_window_seconds{4 * 60 * 60};
+    // Empty preserves the established v1 Bedroom -> Bathroom+Kitchen policy
+    // for stored/older configuration. Newer policy can select any enrolled
+    // motion locations without changing rule code.
+    bool morning_sequence_strict_order{false};
+    std::vector<MorningRoutineStep> morning_steps;
     std::string morning_bedroom_location{"room1"};
     std::string morning_bathroom_location{"bathroom"};
     std::string morning_kitchen_location{"kitchen"};

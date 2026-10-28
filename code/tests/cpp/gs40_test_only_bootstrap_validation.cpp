@@ -114,14 +114,22 @@ void put_location(std::vector<std::uint8_t>& out, const std::string& value) {
     out.push_back(static_cast<std::uint8_t>(value.size()));
     out.insert(out.end(), value.begin(), value.end());
 }
-std::vector<std::uint8_t> activity_rules() {
-    std::vector<std::uint8_t> out{'A','R','1',0x1f};
+std::vector<std::uint8_t> activity_rules(bool configurable = false) {
+    std::vector<std::uint8_t> out = configurable
+        ? std::vector<std::uint8_t>{'A','R','2',0x3f}
+        : std::vector<std::uint8_t>{'A','R','1',0x1f};
     put16(out,60);put16(out,300);put32(out,7200);
     put16(out,480);put16(out,1260);put32(out,10800);
     put16(out,360);put16(out,660);put32(out,14400);
     put_location(out,"bedroom");put_location(out,"bathroom");put_location(out,"kitchen");
     put16(out,1320);put16(out,360);put_location(out,"bathroom");put16(out,4);
     put_location(out,"common");put16(out,4);put32(out,300);put32(out,7200);
+    if (configurable) {
+        out.push_back(3);
+        put_location(out,"bedroom"); out.push_back(1); // enabled optional
+        put_location(out,"bathroom"); out.push_back(3); // enabled required
+        put_location(out,"kitchen"); out.push_back(3); // enabled required
+    }
     return out;
 }
 void put64(std::vector<std::uint8_t>& out, std::uint64_t value) {
@@ -188,7 +196,8 @@ std::vector<std::uint8_t> signed_config(EVP_PKEY* signer,
     const std::string& cert, const std::string& key, const std::string& fingerprint,
     const std::string& timezone = "Etc/UTC",
     const std::string& hub_id = "test-hub-000001",
-    const std::string& fixture_home_id = {}) {
+    const std::string& fixture_home_id = {},
+    bool configurable_morning = false) {
     std::vector<std::uint8_t> plain{'G','4','0','P',1};
     field(plain,1,"gs40-lab"); field(plain,2,"test-passphrase");
     field(plain,3,"https://127.0.0.1:9443"); field(plain,4,"127.0.0.1");
@@ -198,7 +207,7 @@ std::vector<std::uint8_t> signed_config(EVP_PKEY* signer,
     field(plain,12,fingerprint); field(plain,13,number(1)); field(plain,14,number(1));
     field(plain,15,number(1893456000)); field(plain,16,authority_der);
     field(plain,17,"home1"); field(plain,18,timezone);
-    field(plain,19,activity_rules()); field(plain,20,std::vector<std::uint8_t>{0});
+    field(plain,19,activity_rules(configurable_morning)); field(plain,20,std::vector<std::uint8_t>{0});
     if (!fixture_home_id.empty()) field(plain,21,fixture_home_id);
     EVP_PKEY* peer = p256_key();
     std::array<std::uint8_t, 65> peer_public{}; std::size_t peer_length = peer_public.size();
@@ -302,6 +311,23 @@ int main() {
           config.household_timezone=="Etc/UTC" &&
           config.activity_rules.morning_bedroom_location=="bedroom",
           "parsed signed Home activity configuration");
+
+    Gs40TestOnlyEnvelopeSession configurable_session(config_der);
+    std::array<std::uint8_t,32> configurable_challenge{};
+    std::vector<std::uint8_t> configurable_target;
+    check(configurable_session.begin(configurable_challenge, configurable_target),
+          "configurable Home rule challenge");
+    auto configurable_envelope = signed_config(config_root, configurable_challenge,
+        configurable_target, time_der, authority_der, cert, client_private, fingerprint,
+        "Etc/UTC", "test-hub-000001", {}, true);
+    Gs40TestOnlyRuntimeConfig configurable_config;
+    check(configurable_session.accept(configurable_envelope, configurable_config) &&
+          configurable_config.valid_activity_rules_shape() &&
+          configurable_config.activity_rules.morning_sequence_strict_order &&
+          configurable_config.activity_rules.morning_steps.size() == 3 &&
+          !configurable_config.activity_rules.morning_steps[0].required &&
+          configurable_config.activity_rules.morning_steps[1].required,
+          "AR2 signed Home rules preserve ordered optional/required locations");
     check(gs40_test_only_hub_id_allowed("test-hub-000001") &&
           gs40_test_only_hub_id_allowed(physical_hub_id) &&
           !gs40_test_only_hub_id_allowed("hub-00112233445z") &&

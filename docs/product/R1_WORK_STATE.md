@@ -8586,6 +8586,61 @@ Next action: investigate the all-ones C3 JEDEC response using existing offline
 tool/provenance evidence and prepare a minimal diagnosis. Any further COM4
 access requires a new scoped owner approval. Do not proceed to S3 readback or
 recovery until C3 capacity is genuinely identified and validated.
+
+### 2026-10-28 — GS-117/178 configurable Morning Routine source slice
+
+At start, canonical `/home/udaybhan/projects/Ghar_sajag_r1`, branch
+`feature/r1-commercial-baseline`, local and origin HEAD were both
+`7fcb2cd35d3f0b17bbd68da794e4955e259bd125`; context preflight passed. Existing
+tracked edits from the interrupted session and unrelated untracked/private
+evidence remain preserved. No competing product writer or active test process
+was present at closeout. Latest owner corrections were read from GS-117
+comment 11773, GS-178 comment 11775, GS-130 comment 11774, GS-116 comment
+11769 and GS-121 comment 11770.
+
+Implemented and host-validated the generic required/optional Morning Routine
+rule shape in the existing shared rule/config path, including strict and
+unordered ordering, legacy compatibility, bounded input validation, checkpoint
+v4 progress preservation and TEST_ONLY AR2 bootstrap decoding. Added a
+fail-closed guard so an empty strict policy cannot invoke the legacy Bedroom
+sequence. Updated the existing GS-130 feature row and `PHY-GS117` case; no new
+test framework or physical case was created.
+
+The real-device utility is not complete. Backend desired configuration is
+versioned, but production S3 has no authenticated fetch plus durable apply
+consumer; the frontend serializer is not connected to a visible Settings
+editor; and GS-117's existing local console still runs only its fixed
+five-event Bedroom Motion campaign. The known fixture has only a Bedroom C3.
+Do not use it to impersonate another location. No hardware or Android operation
+was performed for this rule slice; no fresh sequence event or APK completion
+was observed. Existing historical HOST_SIM-to-APK evidence is unchanged.
+
+Validation: `make -C code cpp-test` 1,529 checks PASS; `make -C code app-test`
+36/36 PASS; `make -C code gs178-software-e2e` 39/39 PASS (HOST_SIM);
+`make -C code feature-coverage-test` 226 features / 285 modules / 27 physical
+cases plus 22/22 mapping tests PASS. The full `validation-hub` gate failed on
+the known migration case and P0 `product_status=PARTIAL`; the full
+`validation-contract` gate failed on P0 `product_status=PARTIAL`. Both gates'
+registered GS-178 39/39 passed; contract GS-117 console 43/43 passed. The
+paired ESP-IDF build was interrupted and its attempted resume hit a malformed
+generated archive before any S3 build; no target build result is claimed.
+Detailed commands/results and acceptance limits are in the
+[GS-178 evidence note](../exec-plans/evidence/GS178_SOFTWARE_VERTICAL_20261018.md#2026-10-28--configurable-morning-routine-rule-slice-and-real-target-audit).
+
+Current Git checkpoint at this handoff: base local/origin SHA above, with
+validated source and documentation changes awaiting the normal reviewed
+commit/push. Untracked evidence/build assets remain preserved. GS-117 stays
+OnHold at physical TC-001 0/5 and real PIR NOT_RUN; GS-178/179 remain In
+Progress. No five-run approval is present or implied.
+
+Next exact product action: audit and implement the missing authenticated,
+versioned S3 desired-config fetch/persistence/application path using existing
+Hub identity/storage contracts, then wire the current authorized Settings
+publish path and existing GS-117 controller to genuine enrolled Nodes. Keep
+multi-room scenarios BLOCKED until each configured required room has its own
+current enrolled physical input. Resume target builds from fresh isolated
+outputs; request hardware authorization only for an operation actually
+required after software readiness is established.
 ## GS-178 P0 software readiness and targeted regressions — 2026-10-19
 
 ### 2026-10-28 — GS-178 HOST_SIM event observed in the installed Android APK

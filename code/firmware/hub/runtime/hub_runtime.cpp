@@ -17,6 +17,34 @@
 
 namespace gs::hub {
 namespace {
+bool same_morning_policy(const ActivityRuleConfig& left, const ActivityRuleConfig& right) {
+    if (left.morning_sequence_enabled != right.morning_sequence_enabled ||
+        left.morning_start_minute != right.morning_start_minute ||
+        left.morning_end_minute != right.morning_end_minute ||
+        left.morning_sequence_window_seconds != right.morning_sequence_window_seconds ||
+        left.morning_sequence_strict_order != right.morning_sequence_strict_order ||
+        left.morning_bedroom_location != right.morning_bedroom_location ||
+        left.morning_bathroom_location != right.morning_bathroom_location ||
+        left.morning_kitchen_location != right.morning_kitchen_location ||
+        left.morning_steps.size() != right.morning_steps.size()) return false;
+    for (std::size_t i = 0; i < left.morning_steps.size(); ++i) {
+        const auto& a = left.morning_steps[i];
+        const auto& b = right.morning_steps[i];
+        if (a.location != b.location || a.enabled != b.enabled || a.required != b.required)
+            return false;
+    }
+    return true;
+}
+
+void reset_morning_progress(ActivityRuleState& state) {
+    state.morning_started = false;
+    state.morning_bathroom_seen = false;
+    state.morning_kitchen_seen = false;
+    state.morning_completed = false;
+    state.morning_started_at.reset();
+    state.morning_seen_locations.clear();
+}
+
 bool parse_unsigned(const std::string& text, std::size_t begin, std::size_t end,
                     std::uint64_t& value) {
     if (begin >= end) return false;
@@ -1023,7 +1051,8 @@ void HubRuntime::configure_activity_rules(const ActivityRuleConfig& config) {
     if (activity_authority_binding_) {
         activity_state_ = ActivityRuleState{};
         activity_authority_binding_.reset();
-    }
+    } else if (activity_rules_configured_ && !same_morning_policy(activity_config_, config))
+        reset_morning_progress(activity_state_);
     activity_config_=config;
     activity_rules_configured_ = true;
     if(journal_replayed_) (void)checkpoint_state();
@@ -1036,7 +1065,8 @@ bool HubRuntime::configure_home_activity(const ActivityRuleConfig& config, HomeM
         // under an authenticated Home authority.
         activity_state_ = ActivityRuleState{};
         activity_authority_binding_.reset();
-    }
+    } else if (activity_rules_configured_ && !same_morning_policy(activity_config_, config))
+        reset_morning_progress(activity_state_);
     activity_config_ = config;
     activity_rules_configured_ = true;
     routine_.set_mode(mode);
@@ -1047,9 +1077,12 @@ bool HubRuntime::configure_home_activity(const ActivityRuleConfig& config, HomeM
     if (checkpoint_fault_ || static_cast<std::uint8_t>(mode) >
             static_cast<std::uint8_t>(HomeMode::Privacy) || authority.home_id.empty() ||
         authority.hub_device_id.empty() || authority.ownership_epoch == 0) return false;
-    if (!activity_authority_binding_ ||
-        !(*activity_authority_binding_ == authority))
+    const bool authority_changed = !activity_authority_binding_ ||
+        !(*activity_authority_binding_ == authority);
+    if (authority_changed)
         activity_state_ = ActivityRuleState{};
+    else if (activity_rules_configured_ && !same_morning_policy(activity_config_, config))
+        reset_morning_progress(activity_state_);
     activity_authority_binding_ = authority;
     activity_config_ = config;
     activity_rules_configured_ = true;

@@ -854,3 +854,71 @@ not satisfy the separate real-board web-to-USB→C3→S3 acceptance recorded in
 GS-178 Jira comment 11767. No C3/S3, sensor, COM port or physical ingress was
 accessed. Physical TC-001 and AM312 remain NOT_RUN; GS-178 remains In Progress,
 all 17 P0 groups and the complete product remain PARTIAL.
+
+### 2026-10-28 — configurable Morning Routine rule slice and real-target audit
+
+This checkpoint audited the latest GS-117/178/130/116/121 owner comments and
+the existing rule, configuration, CloudSync, caregiver and TC-001 controller
+paths before editing. The locked GS-MORNING-01 semantics are implemented in
+the shared `RulesCore` policy: any configured enrolled motion location can be
+enabled or excluded and marked required or optional; unordered or strict
+configured order is supported; an absent optional step does not block; an
+unselected/disabled room cannot satisfy the sequence; and only the Hub emits
+the `MorningRoutineCompleted` signal after required steps, time window and
+chronology pass. Empty legacy configuration retains the prior Bedroom →
+Bathroom + Kitchen behavior. Invalid strict-order-without-steps fails closed.
+Generic policy validation/serialization exists in the current schema/backend
+and frontend config builder, while Hub checkpoint schema v4 retains policy and
+partial progress. The existing TEST_ONLY GS40 AR2 decoder can apply this
+policy in its isolated bootstrap profile.
+
+This is a source/rule implementation slice, not completion of the requested
+one-click real-device utility. The source audit found the backend can publish
+and version desired Home configuration, but the ESP32-S3 production composition
+has no authenticated desired-config fetch plus durable versioned apply path;
+the JSON builder is not called by a visible caregiver Settings editor; and
+the local GS-117 web console still exposes only its fixed five-run Bedroom
+Motion campaign, not a selectable multi-step scenario runner. The current
+known physical fixture establishes only the Bedroom C3, so it cannot stand in
+for Bathroom, Kitchen, Pooja Ghar or another room. These gaps leave the
+multi-step real-target run `BLOCKED` and the full utility `PARTIAL` until the
+existing configuration/authentication design is completed and each required
+location has a genuine enrolled physical input.
+
+The minimum reusable source support added here is registered as
+`HUB-RULE-SEQUENCE::morning_sequence`; it is mapped to existing `PHY-GS117`
+for later target-to-caregiver qualification. The physical case was not run and
+no hardware authorization was used in this checkpoint. No COM port, sensor,
+board, firmware installation, credentials, enrollment or protected data were
+touched. The prior one-event `HOST_SIM_PASS` observed in the installed APK is
+historical software evidence; this Morning Routine checkpoint produced no
+fresh backend, Hub, browser, or Android event.
+
+Focused validation on the current working tree:
+
+| Command | Result |
+|---|---|
+| `make -C code cpp-test` | 1,529 checks PASS, including required/optional, ordering, window, chronology, replay-state and fail-closed cases. |
+| `make -C code app-test` | 36/36 PASS, including config serialization and invalid strict-policy validation. |
+| `make -C code gs178-software-e2e` | 39/39 PASS; HOST_SIM Node/Hub/backend/browser only. No physical or Android result. |
+| `make -C code feature-coverage-test` | 226 features / 285 modules / 27 physical cases; mapping tests 22/22 PASS. Consistency only. |
+| `make -C code validation-hub` | FAIL: existing `hub-journal-migration-host-test` (`clean migration commits`) and the required P0 full-product gate (`product_status=PARTIAL`). Other completed stages, including Hub C++, GS40, checkpoint, storage ASan/UBSan, CloudSync security and GS-178 39/39, passed. |
+| `make -C code validation-contract` | FAIL: required P0 full-product gate (`product_status=PARTIAL`); its GS-178 39/39 and GS-117 console 43/43 stages passed. Other completed contract stages passed. |
+
+The prescribed paired ESP-IDF 6.0.3 target build did not produce a valid build
+result. Its first process was interrupted at C3 step 998/1,027. Resuming in
+that isolated output directory then failed on a generated `libmain.a` whose
+object members were reported as an invalid format; no S3 target build was
+reached. This is an incomplete build result, not a firmware-build PASS or a
+source compiler diagnostic. It remains unverified and should be rerun from a
+fresh isolated output when target-build evidence is needed.
+
+Overall: shared configurable RuleCore behavior is host-tested; production S3
+configuration delivery, real multi-node routine execution, actual Hub
+completion receipt and APK `Done/Completed` observation remain NOT_RUN/BLOCKED.
+GS-117 remains OnHold at 0/5 TC-001; real optical PIR remains NOT_RUN. GS-178
+and GS-179 retain their existing Jira statuses. Next engineering action is to
+complete the authenticated, versioned desired-config fetch/persist/apply path
+using the existing Hub identity and storage contracts, then connect it to the
+existing Settings/config publish path and the existing GS-117 controller—no
+parallel framework or simulated room identity.

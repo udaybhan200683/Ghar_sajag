@@ -39,6 +39,111 @@ def public_der(key):
                                          serialization.PublicFormat.SubjectPublicKeyInfo)
 
 
+def encode_activity_rule_config(rules: dict) -> bytes:
+    """Encode the existing signed Home rule envelope payload (AR1 or AR2).
+
+    AR1 is preserved byte-for-byte for legacy household policy. AR2 adds the
+    current configurable morning steps; target validation remains authoritative.
+    This pure encoder does not identify a board, sign a Home authority, or open
+    a serial port.
+    """
+    if not isinstance(rules, dict):
+        raise ValueError("activity_rule_object_required")
+
+    def integer(name, minimum, maximum):
+        value = rules.get(name)
+        if type(value) is not int or not minimum <= value <= maximum:
+            raise ValueError("invalid_activity_rule_" + name)
+        return value
+
+    def boolean(name, default):
+        value = rules.get(name, default)
+        if type(value) is not bool:
+            raise ValueError("invalid_activity_rule_" + name)
+        return value
+
+    def location(name):
+        value = rules.get(name)
+        if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,32}", value):
+            raise ValueError("invalid_activity_rule_" + name)
+        encoded = value.encode("ascii")
+        return bytes([len(encoded)]) + encoded
+
+    def location_value(value):
+        if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,32}", value):
+            raise ValueError("invalid_activity_rule_location")
+        encoded = value.encode("ascii")
+        return bytes([len(encoded)]) + encoded
+
+    flags = 0
+    for bit, name, default in (
+            (0, "quiet_hours_enabled", True),
+            (1, "daytime_inactivity_enabled", True),
+            (2, "morning_sequence_enabled", True),
+            (3, "night_activity_enabled", True),
+            (4, "post_door_inactivity_enabled", True)):
+        if boolean(name, default):
+            flags |= 1 << bit
+    steps = rules.get("morning_steps")
+    strict = boolean("morning_sequence_strict_order", False)
+    if steps is not None:
+        if not isinstance(steps, list) or not 1 <= len(steps) <= 24:
+            raise ValueError("invalid_activity_rule_morning_steps")
+        seen = set()
+        required_enabled = False
+        encoded_steps = bytearray([len(steps)])
+        for step in steps:
+            if (not isinstance(step, dict) or
+                    set(step) != {"location", "enabled", "required"} or
+                    type(step.get("enabled")) is not bool or
+                    type(step.get("required")) is not bool):
+                raise ValueError("invalid_activity_rule_morning_steps")
+            encoded_location = location_value(step["location"])
+            if step["location"] in seen:
+                raise ValueError("duplicate_activity_rule_morning_location")
+            seen.add(step["location"])
+            required_enabled |= step["enabled"] and step["required"]
+            encoded_steps.extend(encoded_location)
+            encoded_steps.append((1 if step["enabled"] else 0) |
+                                 (2 if step["required"] else 0))
+        if not required_enabled:
+            raise ValueError("morning_required_step_missing")
+        if strict:
+            flags |= 1 << 5
+    elif strict:
+        raise ValueError("strict_morning_order_requires_steps")
+
+    payload = bytearray(b"AR2" if steps is not None else b"AR1")
+    payload.append(flags)
+    payload.extend(struct.pack(
+        ">HHIHHIHHI",
+        integer("quiet_start_minute", 0, 1439),
+        integer("quiet_end_minute", 0, 1439),
+        integer("door_open_timeout_seconds", 30, 86400),
+        integer("daytime_start_minute", 0, 1439),
+        integer("daytime_end_minute", 0, 1439),
+        integer("daytime_inactivity_seconds", 300, 86400),
+        integer("morning_start_minute", 0, 1439),
+        integer("morning_end_minute", 0, 1439),
+        integer("morning_sequence_window_seconds", 1, 86400)))
+    payload.extend(location("morning_bedroom_location"))
+    payload.extend(location("morning_bathroom_location"))
+    payload.extend(location("morning_kitchen_location"))
+    payload.extend(struct.pack(">HH", integer("night_start_minute", 0, 1439),
+                               integer("night_end_minute", 0, 1439)))
+    payload.extend(location("night_bathroom_location"))
+    payload.extend(struct.pack(">H", integer("night_bathroom_visit_threshold", 1, 32)))
+    payload.extend(location("night_common_location"))
+    payload.extend(struct.pack(">HII", integer("night_common_visit_threshold", 1, 32),
+                               integer("night_visit_merge_seconds", 1, 86400),
+                               integer("post_door_inactivity_seconds", 300, 86400)))
+    if steps is not None:
+        payload.extend(encoded_steps)
+    if len(payload) > 1024:
+        raise ValueError("activity_rule_config_too_large")
+    return bytes(payload)
+
+
 def rsa3072():
     return rsa.generate_private_key(public_exponent=65537, key_size=3072)
 
@@ -95,9 +200,12 @@ def encode_config(challenge: bytes, target_public: bytes, fields: dict[int, byte
                 fixture_home != _GS117_PHYSICAL_HOME_ID):
             raise ValueError("invalid_test_fixture_home_binding")
     if supplied == base_fields | rule_fields:
+        encoded_rules = fields[19]
         if (not fields[17] or len(fields[17]) > 64 or
-                fields[18] != b"Etc/UTC" or len(fields[19]) < 40 or
-                len(fields[19]) > 512 or not fields[19].startswith(b"AR1") or
+                fields[18] != b"Etc/UTC" or len(encoded_rules) < 40 or
+                len(encoded_rules) > 1024 or
+                not encoded_rules.startswith((b"AR1", b"AR2")) or
+                (encoded_rules.startswith(b"AR1") and len(encoded_rules) > 512) or
                 len(fields[20]) != 1 or fields[20][0] > 4):
             raise ValueError("invalid_signed_home_rule_config")
     plaintext = b"G40P\x01" + b"".join(

@@ -10,6 +10,9 @@
 #include "lifecycle/configuration/config_service.hpp"
 #include "gs/logging.hpp"
 
+#include <algorithm>
+#include <set>
+
 namespace gs::hub {
 
 HomeConfigResult ConfigService::apply(const HomeConfig& desired) {
@@ -20,6 +23,27 @@ HomeConfigResult ConfigService::apply(const HomeConfig& desired) {
         return {false, "invalid_window_boundaries", active_ ? active_->version : 0};
     }
     const auto& rules = desired.activity_rules;
+    if (rules.morning_steps.size() > 24 ||
+        (rules.morning_sequence_strict_order && rules.morning_steps.empty())) {
+        return {false, "invalid_morning_steps", active_ ? active_->version : 0};
+    }
+    if (!rules.morning_steps.empty()) {
+        std::set<std::string> locations;
+        bool required_enabled = false;
+        for (const auto& step : rules.morning_steps) {
+            if (step.location.empty() || step.location.size() > 32 ||
+                !locations.insert(step.location).second ||
+                !std::all_of(step.location.begin(), step.location.end(), [](unsigned char ch) {
+                    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+                           (ch >= '0' && ch <= '9') || ch == '-' || ch == '_';
+                })) {
+                return {false, "invalid_morning_steps", active_ ? active_->version : 0};
+            }
+            required_enabled = required_enabled || (step.enabled && step.required);
+        }
+        if (!required_enabled)
+            return {false, "morning_required_step_missing", active_ ? active_->version : 0};
+    }
     if (rules.quiet_start_minute >= 24U * 60U || rules.quiet_end_minute >= 24U * 60U ||
         rules.daytime_start_minute >= 24U * 60U || rules.daytime_end_minute >= 24U * 60U ||
         rules.door_open_timeout_seconds < 30 || rules.door_open_timeout_seconds > 86400 ||

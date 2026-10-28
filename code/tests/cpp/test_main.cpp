@@ -315,6 +315,17 @@ void test_hub_modules() {
     gs::HomeConfig desired{1, "home-1", "Asia/Kolkata", gs::HomeMode::Home, config, {}};
     check(configs.apply(desired).applied, "valid home config applies");
     check(!configs.apply(desired).applied, "same config version is rejected");
+    auto configurable_home = desired;
+    configurable_home.version = 2;
+    configurable_home.activity_rules.morning_steps = {
+        {"bedroom", true, false}, {"bathroom", true, true}, {"kitchen", true, true}};
+    check(configs.apply(configurable_home).applied,
+          "versioned home config accepts unique bounded configurable morning steps");
+    auto duplicate_morning_location = configurable_home;
+    duplicate_morning_location.version = 3;
+    duplicate_morning_location.activity_rules.morning_steps[2].location = "bathroom";
+    check(!configs.apply(duplicate_morning_location).applied,
+          "home config rejects duplicate morning locations without replacing active policy");
 
     journal.commit(call);
     gs::hub::CloudSync cloud(journal);
@@ -664,6 +675,84 @@ void test_protocol_and_generic_rules() {
           "backlogged motion cannot rewind the live inactivity anchor");
     check(routine_state.morning_completed && routine_state.morning_started_at == 100,
           "backlogged bedroom evidence cannot reset an already completed morning sequence");
+
+    gs::ActivityRuleConfig configurable_morning;
+    configurable_morning.morning_steps = {
+        {"bedroom", true, false}, {"bathroom", true, true},
+        {"kitchen", true, true}, {"pooja", true, false},
+        {"common", false, true}};
+    gs::ActivityRuleState configurable_state;
+    check(gs::RulesCore::apply_activity_event(configurable_state, configurable_morning,
+          event(80, gs::EventKind::Motion, 1000, "bathroom", "bathroom"), 7 * 60).empty(),
+          "configurable unordered routine begins from any enabled motion location");
+    const auto configurable_done = gs::RulesCore::apply_activity_event(configurable_state,
+          configurable_morning, event(81, gs::EventKind::Motion, 1010, "kitchen", "kitchen"),
+          7 * 60 + 1);
+    check(configurable_done.size() == 1 &&
+          configurable_done[0].kind == gs::RuleSignalKind::MorningRoutineCompleted &&
+          configurable_state.morning_seen_locations.size() == 2,
+          "required bathroom and kitchen complete while optional bedroom/pooja and disabled common are absent");
+    check(gs::RulesCore::apply_activity_event(configurable_state, configurable_morning,
+          event(82, gs::EventKind::Motion, 1020, "pooja", "pooja"), 7 * 60 + 2).empty(),
+          "optional activity after completion does not emit a second routine decision");
+
+    gs::ActivityRuleConfig ordered_morning;
+    ordered_morning.morning_sequence_strict_order = true;
+    ordered_morning.morning_steps = {
+        {"bedroom", true, true}, {"pooja", true, false}, {"bathroom", true, true}};
+    gs::ActivityRuleState ordered_state;
+    check(gs::RulesCore::apply_activity_event(ordered_state, ordered_morning,
+          event(83, gs::EventKind::Motion, 2000, "bathroom", "bathroom"), 7 * 60).empty() &&
+          ordered_state.morning_seen_locations.empty() && !ordered_state.morning_started &&
+          !ordered_state.morning_started_at.has_value(),
+          "strict order rejects a later required activity without anchoring the sequence timer");
+    check(gs::RulesCore::apply_activity_event(ordered_state, ordered_morning,
+          event(84, gs::EventKind::Motion, 2010, "bedroom", "bedroom"), 7 * 60 + 1).empty(),
+          "strict order records its first required activity");
+    const auto ordered_done = gs::RulesCore::apply_activity_event(ordered_state, ordered_morning,
+          event(85, gs::EventKind::Motion, 2020, "bathroom", "bathroom"), 7 * 60 + 2);
+    check(ordered_done.size() == 1 && ordered_state.morning_seen_locations.size() == 2,
+          "strict order may skip an absent optional step without blocking required completion");
+    check(gs::RulesCore::apply_activity_event(ordered_state, ordered_morning,
+          event(89, gs::EventKind::Motion,
+                2020 + ordered_morning.morning_sequence_window_seconds + 1,
+                "bedroom", "bedroom"), 7 * 60).empty() &&
+          ordered_state.morning_started && !ordered_state.morning_completed &&
+          ordered_state.morning_seen_locations == std::vector<std::string>{"bedroom"},
+          "a later morning window starts a new generic sequence after prior completion");
+    const auto ordered_next_done = gs::RulesCore::apply_activity_event(ordered_state, ordered_morning,
+          event(90, gs::EventKind::Motion,
+                2030 + ordered_morning.morning_sequence_window_seconds,
+                "bathroom", "bathroom"), 7 * 60 + 1);
+    check(ordered_next_done.size() == 1 && ordered_next_done.front().kind ==
+              gs::RuleSignalKind::MorningRoutineCompleted,
+          "the restarted generic sequence completes once on its own required observations");
+
+    gs::ActivityRuleConfig missing_required_policy;
+    missing_required_policy.morning_steps = {{"bedroom", true, true}, {"bathroom", true, true}};
+    gs::ActivityRuleState missing_required_state;
+    gs::RulesCore::apply_activity_event(missing_required_state, missing_required_policy,
+        event(86, gs::EventKind::Motion, 3000, "bedroom", "bedroom"), 7 * 60);
+    check(gs::RulesCore::apply_activity_event(missing_required_state, missing_required_policy,
+        event(87, gs::EventKind::Motion, 3010, "common", "common"), 7 * 60 + 1).empty() &&
+        !missing_required_state.morning_completed,
+        "unconfigured location is ignored and a missing required activity blocks completion");
+    const auto late_required = gs::RulesCore::apply_activity_event(missing_required_state,
+        missing_required_policy,
+        event(88, gs::EventKind::Motion, 3000 + missing_required_policy.morning_sequence_window_seconds + 1,
+              "bathroom", "bathroom"), 7 * 60 + 2);
+    check(late_required.empty() && !missing_required_state.morning_completed,
+          "required activity after the configured sequence window cannot complete the prior run");
+
+    gs::ActivityRuleConfig invalid_ordered_morning;
+    invalid_ordered_morning.morning_sequence_strict_order = true;
+    gs::ActivityRuleState invalid_ordered_state;
+    check(gs::RulesCore::apply_activity_event(invalid_ordered_state,
+          invalid_ordered_morning,
+          event(91, gs::EventKind::Motion, 3100, "room1", "room1"), 7 * 60).empty() &&
+          !invalid_ordered_state.morning_started &&
+          !invalid_ordered_state.morning_started_at.has_value(),
+          "strict ordering without a configured step list fails closed instead of using the legacy policy");
 
     gs::ActivityRuleState night_state;
     routines.night_bathroom_visit_threshold=1; routines.night_visit_merge_seconds=60;

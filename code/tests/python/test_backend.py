@@ -122,6 +122,47 @@ class BackendTest(unittest.TestCase):
         self.assertEqual((first.version, second.version), (1, 2))
         self.assertEqual(self.service.fleet.record_applied("home-1", 2, 53).applied_version, 2)
 
+    def test_GS117_configurable_morning_steps_are_validated_and_versioned(self) -> None:
+        base = {
+            "schema": 1, "home_id": "home-1", "timezone": "Asia/Kolkata", "mode": "HOME",
+            "morning": {"enabled": True, "start_minute": 360, "end_minute": 660,
+                        "grace_minutes": 20},
+            "activity_rules": {
+                "quiet_start_minute": 60, "quiet_end_minute": 300,
+                "door_open_timeout_seconds": 300, "daytime_start_minute": 480,
+                "daytime_end_minute": 1260, "daytime_inactivity_seconds": 10800,
+                "morning_steps": [
+                    {"location": "bedroom", "enabled": True, "required": False},
+                    {"location": "bathroom", "enabled": True, "required": True},
+                    {"location": "kitchen", "enabled": True, "required": True},
+                ],
+                "morning_sequence_strict_order": True,
+            },
+        }
+        desired = self.service.fleet.publish_config("home-1", "owner-1", base, 61)
+        self.assertEqual(desired.version, 1)
+        self.assertTrue(desired.body["activity_rules"]["morning_sequence_strict_order"])
+        self.assertEqual(len(desired.body["activity_rules"]["morning_steps"]), 3)
+        before = copy.deepcopy(desired.body)
+        for invalid_steps in (
+                [base["activity_rules"]["morning_steps"][0]] * 2,
+                [{"location": "pooja", "enabled": True, "required": False}],
+                [{"location": "bad room", "enabled": True, "required": True}],
+                [{"location": "pooja", "enabled": 1, "required": True}],
+                []):
+            with self.subTest(steps=invalid_steps):
+                invalid = copy.deepcopy(base)
+                invalid["activity_rules"]["morning_steps"] = invalid_steps
+                with self.assertRaises(ValueError):
+                    self.service.fleet.publish_config("home-1", "owner-1", invalid, 62)
+                self.assertEqual(self.service.store.configs["home-1"].body, before)
+                self.assertEqual(self.service.store.configs["home-1"].version, 1)
+        with self.assertRaises(ValueError):
+            self.service.fleet.publish_config("home-1", "owner-1",
+                {**base, "activity_rules": {**base["activity_rules"],
+                    "morning_sequence_strict_order": "true"}}, 63)
+        self.assertEqual(self.service.store.configs["home-1"].version, 1)
+
     def test_B07_B08_snapshot_separates_activity_from_reachability(self) -> None:
         self.service.accept_hub_event(self.cloud_event("node-1:1:3", "MOTION", received=100))
         stale = self.service.queries.snapshot("home-1", "care-1", 500)

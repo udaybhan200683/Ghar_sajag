@@ -6,6 +6,7 @@
 #include <cctype>
 #include <cstring>
 #include <limits>
+#include <set>
 #include <utility>
 
 #if defined(ESP_PLATFORM)
@@ -400,11 +401,17 @@ bool read_rule_location(const std::uint8_t* bytes, std::size_t size,
 
 bool parse_activity_rule_config(const std::uint8_t* bytes, std::size_t size,
                                 ActivityRuleConfig& rules) {
-    // AR1 is a compact, versioned representation of the existing deterministic
-    // ActivityRuleConfig. It carries no algorithm or alternate rule engine.
-    if (bytes == nullptr || size < 40 || size > 512 ||
-        std::memcmp(bytes, "AR1", 3) != 0 || (bytes[3] & 0xe0U) != 0) return false;
+    // AR1 remains the compact legacy form. AR2 appends a bounded household
+    // location policy while using the same deterministic RulesCore.
+    if (bytes == nullptr || size < 40 || size > 1024) return false;
+    const bool legacy_ar1 = std::memcmp(bytes, "AR1", 3) == 0;
+    const bool configurable_ar2 = std::memcmp(bytes, "AR2", 3) == 0;
+    if ((!legacy_ar1 && !configurable_ar2) ||
+        (legacy_ar1 && (bytes[3] & 0xe0U) != 0) ||
+        (configurable_ar2 && (bytes[3] & 0xc0U) != 0)) return false;
     const auto flags = bytes[3];
+    rules.morning_sequence_strict_order = configurable_ar2 && (flags & 0x20U) != 0;
+    rules.morning_steps.clear();
     std::size_t offset = 4;
     rules.quiet_hours_enabled = (flags & 1U) != 0;
     rules.daytime_inactivity_enabled = (flags & 2U) != 0;
@@ -432,8 +439,32 @@ bool parse_activity_rule_config(const std::uint8_t* bytes, std::size_t size,
         !read_rule_location(bytes, size, offset, rules.night_common_location) ||
         !read_rule_u16(bytes, size, offset, rules.night_common_visit_threshold) ||
         !read_rule_u32(bytes, size, offset, night_merge) ||
-        !read_rule_u32(bytes, size, offset, post_door_timeout) || offset != size)
+        !read_rule_u32(bytes, size, offset, post_door_timeout))
         return false;
+    if (configurable_ar2) {
+        if (offset >= size) return false;
+        const auto count = bytes[offset++];
+        if (count == 0 || count > 24) return false;
+        std::set<std::string> locations;
+        bool required_enabled = false;
+        for (std::uint8_t i = 0; i < count; ++i) {
+            std::string location;
+            if (!read_rule_location(bytes, size, offset, location) || offset >= size)
+                return false;
+            const auto step_flags = bytes[offset++];
+            if ((step_flags & 0xfcU) != 0 || !locations.insert(location).second)
+                return false;
+            MorningRoutineStep step;
+            step.location = std::move(location);
+            step.enabled = (step_flags & 1U) != 0;
+            step.required = (step_flags & 2U) != 0;
+            required_enabled = required_enabled || (step.enabled && step.required);
+            rules.morning_steps.push_back(std::move(step));
+        }
+        if (offset != size || !required_enabled) return false;
+    } else if (offset != size) {
+        return false;
+    }
     rules.door_open_timeout_seconds = door_timeout;
     rules.daytime_inactivity_seconds = daytime_timeout;
     rules.morning_sequence_window_seconds = morning_window;
@@ -825,7 +856,9 @@ bool Gs40TestOnlyRuntimeConfig::valid_activity_rules_shape() const {
         rules.night_bathroom_visit_threshold == 0 || rules.night_bathroom_visit_threshold > 32 ||
         rules.night_common_visit_threshold == 0 || rules.night_common_visit_threshold > 32 ||
         rules.night_visit_merge_seconds <= 0 || rules.night_visit_merge_seconds > 86400 ||
-        rules.post_door_inactivity_seconds < 300 || rules.post_door_inactivity_seconds > 86400)
+        rules.post_door_inactivity_seconds < 300 || rules.post_door_inactivity_seconds > 86400 ||
+        rules.morning_steps.size() > 24 ||
+        (rules.morning_sequence_strict_order && rules.morning_steps.empty()))
         return false;
     HomeConfig home;
     home.version = 1;

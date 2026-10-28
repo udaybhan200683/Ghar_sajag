@@ -66,6 +66,32 @@ export function validateActivityRules(rules) {
   if (!Number.isInteger(rules.nightVisitMergeSeconds) || rules.nightVisitMergeSeconds < 0 || rules.nightVisitMergeSeconds > 7200) errors.nightVisitMergeSeconds = "Visit merge interval must be 0–2 hours";
   if (!Number.isInteger(rules.postDoorInactivitySeconds) || rules.postDoorInactivitySeconds < 300 || rules.postDoorInactivitySeconds > 86400) errors.postDoorInactivitySeconds = "Post-door inactivity must be 5 minutes–24 hours";
   for (const key of ["morningBedroomLocation","morningBathroomLocation","morningKitchenLocation","nightBathroomLocation","nightCommonLocation"]) if (typeof rules[key] !== "string" || !rules[key]) errors[key] = "Location is required";
+  if (rules.morningSequenceStrictOrder !== undefined &&
+      typeof rules.morningSequenceStrictOrder !== "boolean")
+    errors.morningSequenceStrictOrder = "Choose ordered or unordered activity";
+  if (rules.morningSequenceStrictOrder === true &&
+      (!Array.isArray(rules.morningSteps) || rules.morningSteps.length === 0))
+    errors.morningSteps = "Ordered activity requires configured morning locations";
+  if (rules.morningSteps !== undefined) {
+    if (!Array.isArray(rules.morningSteps) || rules.morningSteps.length < 1 || rules.morningSteps.length > 24) {
+      errors.morningSteps = "Choose 1–24 morning locations";
+    } else {
+      const seen = new Set();
+      let requiredEnabled = false;
+      for (const [index, step] of rules.morningSteps.entries()) {
+        if (!step || typeof step !== "object" ||
+            typeof step.location !== "string" || !/^[A-Za-z0-9_-]{1,32}$/.test(step.location) ||
+            typeof step.enabled !== "boolean" || typeof step.required !== "boolean" ||
+            seen.has(step.location)) {
+          errors[`morningSteps.${index}`] = "Each step needs a unique enrolled location and explicit enabled/required settings";
+          continue;
+        }
+        seen.add(step.location);
+        requiredEnabled ||= step.enabled && step.required;
+      }
+      if (!requiredEnabled) errors.morningSteps = "Enable at least one required activity";
+    }
+  }
   return { valid: Object.keys(errors).length === 0, errors };
 }
 
@@ -77,7 +103,7 @@ export function buildDesiredConfig(homeId, version, timezone, mode, routine, act
   const policy = { ...DEFAULT_ACTIVITY_RULES, ...(activityRules ?? {}) };
   const policyValidation = validateActivityRules(policy);
   if (!policyValidation.valid) throw new Error("invalid_activity_rules");
-  return {
+  const config = {
     schema: 1,
     home_id: homeId,
     version,
@@ -118,6 +144,16 @@ export function buildDesiredConfig(homeId, version, timezone, mode, routine, act
       post_door_inactivity_seconds: policy.postDoorInactivitySeconds,
     },
   };
+  if (policy.morningSteps !== undefined) {
+    config.activity_rules.morning_steps = policy.morningSteps.map((step) => ({
+      location: step.location,
+      enabled: step.enabled,
+      required: step.required,
+    }));
+    config.activity_rules.morning_sequence_strict_order =
+      policy.morningSequenceStrictOrder === true;
+  }
+  return config;
 }
 
 // @requirements F04, F10, F14, E07

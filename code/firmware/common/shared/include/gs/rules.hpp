@@ -48,6 +48,9 @@ struct ActivityRuleState {
     bool morning_kitchen_seen{false};
     bool morning_completed{false};
     std::optional<EpochSeconds> morning_started_at;
+    // Locations accepted for the current generic sequence, persisted with the
+    // Hub checkpoint so a reboot cannot lose partial required-step progress.
+    std::vector<std::string> morning_seen_locations;
 
     std::uint16_t night_bathroom_visits{0};
     std::uint16_t night_common_visits{0};

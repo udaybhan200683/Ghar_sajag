@@ -143,25 +143,136 @@ std::vector<RuleSignalDecision> RulesCore::apply_activity_event(
     }
 
     if (is_motion && in_morning) {
-        if (event.location == config.morning_bedroom_location) {
-            state.morning_started = true;
-            state.morning_started_at = event.occurred_at;
-            state.morning_bathroom_seen = false;
-            state.morning_kitchen_seen = false;
-            state.morning_completed = false;
-        } else if (state.morning_started && state.morning_started_at.has_value() &&
-                   event.occurred_at >= *state.morning_started_at &&
-                   config.morning_sequence_window_seconds >= 0 &&
-                   static_cast<std::uint64_t>(event.occurred_at) -
-                       static_cast<std::uint64_t>(*state.morning_started_at) <=
-                       static_cast<std::uint64_t>(config.morning_sequence_window_seconds)) {
-            if (event.location == config.morning_bathroom_location) state.morning_bathroom_seen = true;
-            if (event.location == config.morning_kitchen_location) state.morning_kitchen_seen = true;
-            if (!state.morning_completed && state.morning_bathroom_seen && state.morning_kitchen_seen) {
-                state.morning_completed = true;
-                result.push_back({RuleSignalKind::MorningRoutineCompleted, RuleTone::Expected,
-                                  "morning-complete:" + event.key.str(), "configured_sequence_complete",
-                                  event.occurred_at - *state.morning_started_at, true, false});
+        if (config.morning_steps.empty() && !config.morning_sequence_strict_order) {
+            // Backward-compatible semantics for existing v1 household
+            // configuration and AR1 signed test envelopes.
+            if (event.location == config.morning_bedroom_location) {
+                state.morning_started = true;
+                state.morning_started_at = event.occurred_at;
+                state.morning_bathroom_seen = false;
+                state.morning_kitchen_seen = false;
+                state.morning_seen_locations.clear();
+                state.morning_completed = false;
+            } else if (state.morning_started && state.morning_started_at.has_value() &&
+                       event.occurred_at >= *state.morning_started_at &&
+                       config.morning_sequence_window_seconds >= 0 &&
+                       static_cast<std::uint64_t>(event.occurred_at) -
+                           static_cast<std::uint64_t>(*state.morning_started_at) <=
+                           static_cast<std::uint64_t>(config.morning_sequence_window_seconds)) {
+                if (event.location == config.morning_bathroom_location) state.morning_bathroom_seen = true;
+                if (event.location == config.morning_kitchen_location) state.morning_kitchen_seen = true;
+                if (!state.morning_completed && state.morning_bathroom_seen && state.morning_kitchen_seen) {
+                    state.morning_completed = true;
+                    result.push_back({RuleSignalKind::MorningRoutineCompleted, RuleTone::Expected,
+                                      "morning-complete:" + event.key.str(), "configured_sequence_complete",
+                                      event.occurred_at - *state.morning_started_at, true, false});
+                }
+            }
+        } else {
+            // Config is bounded/validated at the configuration boundary too;
+            // reject malformed policy here as a second fail-closed layer.
+            std::size_t required_count = 0;
+            bool valid_policy = config.morning_sequence_window_seconds >= 0 &&
+                                !config.morning_steps.empty() &&
+                                config.morning_steps.size() <= 24;
+            std::size_t matching_index = config.morning_steps.size();
+            for (std::size_t i = 0; i < config.morning_steps.size(); ++i) {
+                const auto& step = config.morning_steps[i];
+                if (step.location.empty() || step.location.size() > 32 ||
+                    std::any_of(config.morning_steps.begin(), config.morning_steps.begin() + i,
+                                [&](const MorningRoutineStep& prior) {
+                                    return prior.location == step.location;
+                                })) {
+                    valid_policy = false;
+                    break;
+                }
+                if (step.enabled && step.required) ++required_count;
+                if (step.enabled && step.location == event.location) matching_index = i;
+            }
+            if (valid_policy && required_count > 0 && matching_index < config.morning_steps.size()) {
+                bool expired = false;
+                if (state.morning_started_at.has_value() &&
+                    event.occurred_at >= *state.morning_started_at) {
+                    expired = static_cast<std::uint64_t>(event.occurred_at) -
+                              static_cast<std::uint64_t>(*state.morning_started_at) >
+                              static_cast<std::uint64_t>(config.morning_sequence_window_seconds);
+                }
+                const bool new_sequence = !state.morning_started ||
+                                          !state.morning_started_at.has_value() || expired;
+                if (!state.morning_completed || expired) {
+                    if (new_sequence) {
+                        state.morning_started = false;
+                        state.morning_started_at.reset();
+                        state.morning_seen_locations.clear();
+                        state.morning_bathroom_seen = false;
+                        state.morning_kitchen_seen = false;
+                        state.morning_completed = false;
+                    }
+                    const auto already_seen = [&](const std::string& location) {
+                        return std::find(state.morning_seen_locations.begin(),
+                                         state.morning_seen_locations.end(), location) !=
+                               state.morning_seen_locations.end();
+                    };
+                    bool order_allowed = true;
+                    if (config.morning_sequence_strict_order) {
+                        std::size_t last_index = 0;
+                        bool has_last = false;
+                        for (const auto& seen : state.morning_seen_locations) {
+                            for (std::size_t i = 0; i < config.morning_steps.size(); ++i) {
+                                if (config.morning_steps[i].enabled &&
+                                    config.morning_steps[i].location == seen) {
+                                    last_index = i;
+                                    has_last = true;
+                                    break;
+                                }
+                            }
+                        }
+                        // A late/out-of-order input cannot start the sequence's
+                        // timer. The first accepted step is the time anchor.
+                        order_allowed = !has_last || matching_index > last_index;
+                        if (order_allowed) {
+                            for (std::size_t i = has_last ? last_index + 1 : 0;
+                                 i < matching_index; ++i) {
+                                const auto& prior = config.morning_steps[i];
+                                if (prior.enabled && prior.required && !already_seen(prior.location)) {
+                                    order_allowed = false;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    // Do not let a timestamp older than the active sequence
+                    // move policy state backward, even if normal Hub
+                    // chronological admission was bypassed.
+                    const bool chronology_allowed = new_sequence ||
+                        (state.morning_started_at.has_value() &&
+                         event.occurred_at >= *state.morning_started_at);
+                    if (chronology_allowed && order_allowed) {
+                        if (new_sequence) {
+                            state.morning_started = true;
+                            state.morning_started_at = event.occurred_at;
+                        }
+                        if (!already_seen(event.location))
+                            state.morning_seen_locations.push_back(event.location);
+
+                        bool all_required_seen = true;
+                        for (const auto& step : config.morning_steps) {
+                            if (step.enabled && step.required && !already_seen(step.location)) {
+                                all_required_seen = false;
+                                break;
+                            }
+                        }
+                        if (!state.morning_completed && all_required_seen) {
+                            state.morning_completed = true;
+                            result.push_back({RuleSignalKind::MorningRoutineCompleted, RuleTone::Expected,
+                                              "morning-complete:" + event.key.str(),
+                                              config.morning_sequence_strict_order
+                                                  ? "configured_ordered_sequence_complete"
+                                                  : "configured_required_steps_complete",
+                                              event.occurred_at - *state.morning_started_at, true, false});
+                        }
+                    }
+                }
             }
         }
     }

@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 from .logging_config import traced
+import re
 from typing import Any
 
 from .identity import IdentityService
@@ -36,6 +37,29 @@ def _validate_household_config(body: dict[str, Any]) -> None:
     inactivity = rules.get("daytime_inactivity_seconds")
     if not isinstance(inactivity, int) or isinstance(inactivity, bool) or not 300 <= inactivity <= 86400:
         raise ValueError("invalid_inactivity_threshold")
+    strict_order = rules.get("morning_sequence_strict_order", False)
+    if type(strict_order) is not bool:
+        raise ValueError("invalid_morning_order_policy")
+    steps = rules.get("morning_steps")
+    if steps is not None:
+        if not isinstance(steps, list) or not 1 <= len(steps) <= 24:
+            raise ValueError("invalid_morning_steps")
+        locations: set[str] = set()
+        required_enabled = False
+        for step in steps:
+            if (not isinstance(step, dict) or set(step) != {"location", "enabled", "required"} or
+                    not isinstance(step.get("location"), str) or
+                    not re.fullmatch(r"[A-Za-z0-9_-]{1,32}", step["location"]) or
+                    type(step.get("enabled")) is not bool or
+                    type(step.get("required")) is not bool or
+                    step["location"] in locations):
+                raise ValueError("invalid_morning_steps")
+            locations.add(step["location"])
+            required_enabled = required_enabled or (step["enabled"] and step["required"])
+        if not required_enabled:
+            raise ValueError("morning_required_step_missing")
+    elif strict_order:
+        raise ValueError("invalid_morning_order_policy")
 
 
 class FleetService:

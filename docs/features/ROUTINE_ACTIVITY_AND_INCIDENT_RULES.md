@@ -100,16 +100,26 @@ Two related behaviors exist in source:
    coverage is Covered, and no qualifying activity or explicit OK exists.
    A stable `missing-morning:<window_id>` key prevents repeat creation for
    that window. Unknown coverage or untrusted time suppresses the concern.
-2. `HubRuntime` activity rules can recognize a motion sequence during the
-   configured local morning window: bedroom motion starts/restarts a sequence;
-   bathroom and kitchen evidence within the configured sequence window
-   completes it. Bathroom and kitchen may arrive in either order. Completion
-   emits an expected-tone signal once for the sequence.
+2. `HubRuntime` activity rules recognize motion sequences during the
+   configured local morning window. A legacy configuration without
+   `morning_steps` retains its versioned bedroom starter followed by bathroom
+   and kitchen in either order. A generic configuration instead supplies an
+   ordered list of enabled locations with per-step `required`/`optional`
+   semantics. Unordered policy accepts enabled observations in either order;
+   strict policy accepts them in configured order and may skip absent optional
+   steps. Disabled/unselected locations do not count. At least one enabled
+   required step is needed. The first accepted observation anchors the
+   sequence deadline; an out-of-order event cannot start that timer, and an
+   event earlier than the anchor cannot complete the sequence. Once all
+   required steps have been observed, the Hub emits one expected-tone
+   `MorningRoutineCompleted` signal for that sequence. A later sequence can
+   start after the prior sequence window expires.
 
-   **CURRENT IMPLEMENTATION LIMITATION:** the sequence check currently tests
-   only `event.occurred_at - morning_started_at <= window`; it does not enforce
-   `event.occurred_at >= morning_started_at`. A late-arriving event whose
-   `occurred_at` predates the bedroom event may therefore satisfy the check.
+   The current `ActivityRuleConfig`/checkpoint and GS40 TEST_ONLY AR2 bootstrap
+   support this generic form. The source audit found no composed production S3
+   consumer for the backend's versioned desired Home config yet: publishing a
+   desired version is not proof the target applied it. Real-target policy
+   delivery and physical qualification remain open.
 
 The routine-window check uses `RoutineConfig.qualifying_locations`: when this
 set is populated, locations outside it do not satisfy the check; when it is
@@ -210,10 +220,12 @@ quiet household.
 
 ## Recovery, reset and persistence
 
-`ActivityRuleState` and routine state are runtime reducer state; the shared
-rule structs do not themselves persist a complete rule checkpoint. The Hub
-event journal restore reconstructs basic event-derived state, but current
-status calls full timer/policy state restoration incomplete. A frontend reload
+`ActivityRuleState` and routine state are runtime reducer state. The Hub
+checkpoint codec retains legacy schema layouts and adds schema v4 for a generic
+morning policy plus its partial seen-location progress, so that supported
+checkpoint round-trip does not lose those required observations. This is a
+bounded shared-code/host result, not proof that the physical target composes
+the checkpoint/configuration consumer or restores all timer/policy state. A frontend reload
 re-fetches backend/PWA household state and timeline from its configured store;
 simulator volatile rule state may be recreated from simulator state. Backend
 restart durability depends on which repository/store path is in use: local

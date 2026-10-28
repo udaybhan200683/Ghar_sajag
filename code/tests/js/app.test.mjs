@@ -145,3 +145,30 @@ test("A03 serializes configurable household routine thresholds", () => {
   assert.equal(c.activity_rules.night_bathroom_visit_threshold,2);
   assert.equal(c.activity_rules.post_door_inactivity_seconds,9000);
 });
+
+test("A03 serializes configurable required and optional morning locations", () => {
+  const policy = {
+    ...DEFAULT_ACTIVITY_RULES,
+    morningSequenceStrictOrder: true,
+    morningSteps: [
+      { location: "bedroom", enabled: true, required: false },
+      { location: "bathroom", enabled: true, required: true },
+      { location: "kitchen", enabled: true, required: true },
+      { location: "pooja", enabled: false, required: true },
+    ],
+  };
+  assert.equal(validateActivityRules(policy).valid, true);
+  const config = buildDesiredConfig("h3", 5, "Asia/Kolkata", "HOME",
+    { startMinute: 360, endMinute: 660, graceMinutes: 20 }, policy);
+  assert.equal(config.activity_rules.morning_sequence_strict_order, true);
+  assert.deepEqual(config.activity_rules.morning_steps, policy.morningSteps);
+  assert.equal(validateActivityRules({ ...policy, morningSteps: [
+    { location: "same", enabled: true, required: true },
+    { location: "same", enabled: true, required: false },
+  ] }).valid, false);
+  assert.equal(validateActivityRules({ ...policy, morningSteps: [
+    { location: "bedroom", enabled: true, required: false },
+  ] }).valid, false);
+  assert.equal(validateActivityRules({ ...DEFAULT_ACTIVITY_RULES,
+    morningSequenceStrictOrder: true }).valid, false);
+});

@@ -73,6 +73,9 @@ bool HubCheckpointCodec::encode_after_event(HubRuntime& r, const DomainEvent& ev
 
 bool HubCheckpointCodec::encode(HubRuntime& r, security::Bytes& bytes) {
     bytes.clear(); Codec c{bytes,false};
+    const bool generic_morning_policy = r.activity_config_.morning_sequence_strict_order ||
+        !r.activity_config_.morning_steps.empty() ||
+        !r.activity_state_.morning_seen_locations.empty();
     const bool extended_rule_state = r.activity_rules_configured_ ||
         !r.pending_rule_decisions_.empty() ||
         r.activity_authority_binding_.has_value();
@@ -81,7 +84,7 @@ bool HubCheckpointCodec::encode(HubRuntime& r, security::Bytes& bytes) {
     // compatibility for ordinary journal/checkpoint updates. Once a signed
     // Home/epoch binding or pending publication intent exists, store the
     // complete v3 authority and decision state atomically in the checkpoint.
-    std::uint32_t version = extended_rule_state ? 3 : 1;
+    std::uint32_t version = generic_morning_policy ? 4 : (extended_rule_state ? 3 : 1);
     c.scalar(version);
     c.scalar(r.routine_.config_.start_at);
     c.scalar(r.routine_.config_.end_at);
@@ -207,12 +210,22 @@ bool HubCheckpointCodec::encode(HubRuntime& r, security::Bytes& bytes) {
         }
         c.scalar(activity_home); c.scalar(activity_hub); c.scalar(activity_epoch);
     }
+    if (version >= 4) {
+        c.scalar(r.activity_config_.morning_sequence_strict_order);
+        std::uint32_t step_count = r.activity_config_.morning_steps.size();
+        c.scalar(step_count);
+        if (step_count > 24) c.ok = false;
+        for (auto& step : r.activity_config_.morning_steps) {
+            c.scalar(step.location); c.scalar(step.enabled); c.scalar(step.required);
+        }
+        c.strings(r.activity_state_.morning_seen_locations, 24);
+    }
     return c.ok && bytes.size()<=64U*1024U;
 }
 bool HubCheckpointCodec::restore(HubRuntime& target, const security::Bytes& input) {
     if(input.size()>64U*1024U)return false;
     security::Bytes bytes=input; HubRuntime r(0,0); Codec c{bytes,true};
-    std::uint32_t version=0; c.scalar(version); if(version<1 || version>3)c.ok=false;
+    std::uint32_t version=0; c.scalar(version); if(version<1 || version>4)c.ok=false;
     c.scalar(r.routine_.config_.start_at);
     c.scalar(r.routine_.config_.end_at);
     c.scalar(r.routine_.config_.grace_end_at);
@@ -358,6 +371,31 @@ bool HubCheckpointCodec::restore(HubRuntime& target, const security::Bytes& inpu
         // authenticated Hub clock. Keep it for chronology but do not use it
         // for timer-driven inactivity until a trusted event resets the flag.
         r.activity_state_.last_activity_time_trusted = false;
+    }
+    if (version >= 4) {
+        c.scalar(r.activity_config_.morning_sequence_strict_order);
+        std::uint32_t step_count = 0; c.scalar(step_count);
+        if (step_count > 24) c.ok = false;
+        std::set<std::string> locations;
+        bool required_enabled = false;
+        for (std::uint32_t i = 0; i < step_count && c.ok; ++i) {
+            MorningRoutineStep step;
+            c.scalar(step.location); c.scalar(step.enabled); c.scalar(step.required);
+            if (step.location.empty() || step.location.size() > 32 ||
+                !std::all_of(step.location.begin(), step.location.end(), [](unsigned char ch) {
+                    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+                           (ch >= '0' && ch <= '9') || ch == '-' || ch == '_';
+                }) || !locations.insert(step.location).second) c.ok = false;
+            required_enabled = required_enabled || (step.enabled && step.required);
+            r.activity_config_.morning_steps.push_back(std::move(step));
+        }
+        c.strings(r.activity_state_.morning_seen_locations, 24);
+        if ((step_count == 0 && r.activity_config_.morning_sequence_strict_order) ||
+            (step_count > 0 && !required_enabled)) c.ok = false;
+        std::set<std::string> seen_locations;
+        for (const auto& seen : r.activity_state_.morning_seen_locations)
+            if (locations.count(seen) == 0 || !seen_locations.insert(seen).second)
+                c.ok = false;
     }
     r.activity_rules_configured_ = version >= 2;
     if(!c.ok || c.at!=bytes.size() || r.routine_.config_.window_id!=r.routine_.state_.window_id ||
