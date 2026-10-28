@@ -696,6 +696,25 @@ void test_protocol_and_generic_rules() {
           event(82, gs::EventKind::Motion, 1020, "pooja", "pooja"), 7 * 60 + 2).empty(),
           "optional activity after completion does not emit a second routine decision");
 
+    gs::ActivityRuleConfig bedroom_only_morning;
+    bedroom_only_morning.morning_steps = {{"bedroom", true, true}};
+    gs::ActivityRuleState bedroom_only_state;
+    check(gs::RulesCore::apply_activity_event(bedroom_only_state, bedroom_only_morning,
+          event(181, gs::EventKind::Motion, 1500, "bathroom", "bathroom"), 7 * 60).empty() &&
+          !bedroom_only_state.morning_started && !bedroom_only_state.morning_completed,
+          "single-required-bedroom policy ignores motion from a location outside its configured steps");
+    const auto bedroom_only_done = gs::RulesCore::apply_activity_event(
+        bedroom_only_state, bedroom_only_morning,
+        event(182, gs::EventKind::Motion, 1510, "bedroom", "bedroom"), 7 * 60 + 1);
+    check(bedroom_only_done.size() == 1 &&
+          bedroom_only_done.front().kind == gs::RuleSignalKind::MorningRoutineCompleted &&
+          bedroom_only_state.morning_completed &&
+          bedroom_only_state.morning_seen_locations == std::vector<std::string>{"bedroom"},
+          "generic configured policy completes from its sole required bedroom observation");
+    check(gs::RulesCore::apply_activity_event(bedroom_only_state, bedroom_only_morning,
+          event(183, gs::EventKind::Motion, 1520, "bedroom", "bedroom"), 7 * 60 + 2).empty(),
+          "a completed single-required-bedroom routine does not emit a duplicate decision");
+
     gs::ActivityRuleConfig ordered_morning;
     ordered_morning.morning_sequence_strict_order = true;
     ordered_morning.morning_steps = {

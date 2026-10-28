@@ -309,6 +309,28 @@ class ConfigurationRepositoryTest(unittest.TestCase):
         duplicate = self.repo.record_applied(context=self.hub, home_id="home-1", version=1, at=13)
         self.assertEqual(duplicate.applied_version, 1)
 
+    def test_bedroom_only_required_policy_round_trips_as_desired_then_applied(self):
+        policy = copy.deepcopy(self.policy)
+        policy["activity_rules"]["morning_steps"] = [
+            {"location": "bedroom", "enabled": True, "required": True},
+        ]
+        desired = self.repo.publish_desired(
+            actor=self.actor, home_id="home-1", config=policy,
+            expected_version=0, at=20)
+        self.assertEqual(desired.desired_config["activity_rules"]["morning_steps"],
+                         [{"location": "bedroom", "enabled": True, "required": True}])
+        self.assertEqual(desired.desired_status, "DESIRED")
+        self.assertIsNone(desired.applied_version)
+
+        before_apply = self.repo.get_for_hub(context=self.hub, home_id="home-1", at=21)
+        self.assertEqual(before_apply.desired_config, policy)
+        self.assertIsNone(before_apply.applied_config)
+
+        applied = self.repo.record_applied(context=self.hub, home_id="home-1",
+                                           version=desired.desired_version, at=22)
+        self.assertEqual(applied.applied_config, policy)
+        self.assertEqual(applied.applied_version, desired.desired_version)
+
     def test_new_desired_version_preserves_last_applied_and_rejects_stale_ack(self):
         first = self.repo.publish_desired(
             actor=self.actor, home_id="home-1", config=self.policy, expected_version=0, at=10)

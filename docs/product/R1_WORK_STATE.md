@@ -1,4 +1,70 @@
-## Current active checkpoint — GS-117 Morning Routine config repository and console gate — 2026-10-28
+## Latest active checkpoint — GS-117 Bedroom-only Morning Routine readiness — 2026-10-28
+
+Resumed and validated from canonical commit
+`f3223a1a687c9c3729a3ad3b5960e620b9039622` on
+`feature/r1-commercial-baseline`; local and origin matched. Context preflight
+PASS (`2026-10-28.001`). Unrelated untracked Android, IDF and hardware evidence
+is preserved.
+
+Reused the already implemented configurable `RulesCore`, desired/applied
+configuration repository and fail-closed GS-117 console. No rule-engine,
+repository, controller or framework was recreated. The generic Hub policy is
+now explicitly regression-tested with Bedroom as the *only* enabled required
+location: outside configured locations are ignored, Bedroom completes once,
+and replay does not emit another decision. No test-only completion shortcut
+was added. The same policy round-trips as desired and applied through the
+existing repository contract.
+
+The existing GS-109/GS-148 decision package now contains a concise owner
+approval record. It proposes the existing RSA-3072 DS-backed Hub mTLS
+candidate, GS-76 caregiver authentication/session authority, the backend
+Home/Hub/epoch registry, and a trusted middleware boundary. The requested
+architecture dispositions remain pending. They are explicitly separate from
+credential provisioning and from hardware/serial/run authorization. No
+identity, issuer, trust root, production route, Settings integration, S3
+configuration transport or device credential was activated.
+
+Validation on this working tree:
+
+- `make -C code cpp-test`: 1,532 checks PASS.
+- Backend Python test file: 21/21 PASS.
+- GS-117 console/ADB controller test file: 47/47 PASS.
+- GS-179 PostgreSQL/security integration module: 20/20 PASS against the
+  existing TLS PostgreSQL service in `gs179_monitoring`, using a temporary
+  isolated schema that was dropped in teardown; no shared/public household
+  rows were changed.
+- `test_node_usb_stable_profile.py`: 4/4 PASS after correcting its close-path
+  assertion to match the existing reverse-order stream cleanup.
+- Feature-traceability tests: 22/22 PASS; validation framework: 51/51 PASS;
+  the validation-tooling feature-traceability stage passed 226 mappings.
+
+Aggregate outcomes remain distinct: `validation-hub` failed its existing
+`migration` clean-commit check and reports P0 `product_status=PARTIAL`; its
+GS-178 stage passed 39/39. `validation-backend` reports the same P0 partial
+state and the existing CSS budget excess (29,576 bytes versus 18,432); its
+intermediate traceability error was corrected and the focused mapping suite
+passes, but the aggregate was not rerun. `validation-tooling` had the same CSS
+budget failure and an outdated stream-close assertion; the latter is corrected
+and its focused test passes 4/4, but the aggregate was not rerun. No release
+gate or unrelated 39-case suite was repeated.
+
+Physical state is unchanged and blocks Run: Bedroom is the only established
+physical Node room; production policy has not been applied to an actual S3;
+fresh authenticated S3 ingress and current fixture evidence are absent; the
+owner-only fixture and one-run hardware approval are not present. The prior
+C3 JEDEC stop remains unresolved (`0xffffff`, capacity unknown), so no COM,
+board, reset, injection, ADB or Android operation was performed. No genuine
+Hub `MORNING_ROUTINE_COMPLETED` decision or Android routine outcome is claimed.
+GS-117 remains OnHold; TC-001 and real optical PIR remain NOT_RUN.
+
+Next action: obtain owner/security disposition for the architecture rows in
+the existing GS-109/GS-148 package. After an approved contract, implement only
+its authorized identity/config delivery interfaces. Credential provisioning
+and the first bounded Bedroom Run each need separate current authorization;
+the physical JEDEC/image and fresh-S3-authentication guards must also pass.
+Do not change Jira status or start hardware work before those gates.
+
+## Prior checkpoint — GS-117 Morning Routine config repository and console gate — 2026-10-28
 
 Resumed from canonical commit `5687854d700b4e97bd5f975c6b820c13dd3d365b` on
 `feature/r1-commercial-baseline`; local and origin matched and context preflight

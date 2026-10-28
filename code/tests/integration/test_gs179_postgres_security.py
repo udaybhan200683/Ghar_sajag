@@ -7,12 +7,107 @@ import textwrap
 import unittest
 import psycopg
 
+from ghar_sajag.cloud_client_identity import TimeReadiness, VerifiedHubContext
+from ghar_sajag.configuration_repository import (
+    ConfigurationConflict, PostgresConfigurationRepository,
+)
+from ghar_sajag.diagnostic_authorization import ActorSession
 from ghar_sajag.postgres_database import connect_postgres, initialize_postgres
 from gs179_postgres_test_db import IsolatedPostgresSchema, local_verified_postgres_url
 
 CODE_ROOT = Path(__file__).resolve().parents[2]
 LAPTOP_SERVER = CODE_ROOT / "tools" / "local" / "gs179-laptop-server.sh"
 WINDOWS_PROXY = CODE_ROOT / "tools" / "local" / "gs179-windows-lan-proxy.ps1"
+
+
+class MorningRoutineConfigurationPostgres(unittest.TestCase):
+    """Exercise desired/applied policy on real PG in the existing isolated schema."""
+
+    @classmethod
+    def setUpClass(cls):
+        base_dsn = os.environ.get("GS179_TEST_POSTGRES_DSN")
+        if not base_dsn:
+            raise RuntimeError("GS179_TEST_POSTGRES_DSN_required_for_isolated_config_test")
+        cls.isolated = IsolatedPostgresSchema(base_dsn)
+        try:
+            cls.db = connect_postgres(cls.isolated.dsn, allow_local_unencrypted=True)
+            initialize_postgres(cls.db)
+        except BaseException:
+            cls.isolated.close()
+            raise
+
+    @classmethod
+    def tearDownClass(cls):
+        if hasattr(cls, "db"):
+            cls.db.close()
+        if hasattr(cls, "isolated"):
+            cls.isolated.close()
+
+    def test_bedroom_only_policy_persists_and_requires_exact_hub_apply_ack(self):
+        suffix = os.urandom(8).hex()
+        home_id = "gs117-bedroom-only-" + suffix
+        hub_id = "gs117-test-hub-" + suffix
+        ownership_fingerprint = "a" * 64
+        self.db.execute(
+            "INSERT INTO households(home_id,display_name,timezone,created_at,updated_at) "
+            "VALUES(?,?,?,?,?)",
+            (home_id, "GS-117 isolated Morning Routine", "Etc/UTC", 1, 1),
+        )
+        self.db.execute(
+            """INSERT INTO hub_ownership_registry
+               (hub_device_id,identity_key_fingerprint,state,home_id,installation_epoch,created_at,updated_at)
+               VALUES(?,?,'ACTIVE',?,1,1,1)""",
+            (hub_id, ownership_fingerprint, home_id),
+        )
+        actor = ActorSession("test-owner-" + suffix, "test-session-" + suffix,
+                             "approved-test-adapter", 1000)
+        hub = VerifiedHubContext(
+            hub_id, home_id, 1, "b" * 64, ownership_fingerprint, True,
+            TimeReadiness.TRUSTED,
+        )
+        policy = {
+            "morning": {"enabled": True, "start_minute": 420,
+                        "end_minute": 600, "grace_minutes": 30},
+            "activity_rules": {
+                "quiet_hours_enabled": True, "quiet_start_minute": 60,
+                "quiet_end_minute": 300, "door_open_timeout_seconds": 300,
+                "daytime_inactivity_enabled": True, "daytime_start_minute": 480,
+                "daytime_end_minute": 1260, "daytime_inactivity_seconds": 10800,
+                "morning_steps": [
+                    {"location": "bedroom", "enabled": True, "required": True},
+                ],
+            },
+        }
+        repository = PostgresConfigurationRepository(
+            self.db,
+            authorize_caregiver_settings=lambda _actor, _home, at: at < _actor.expires_at,
+            authorize_hub_configuration=lambda context, home, _at: (
+                context.permanent_hub_id == hub_id and context.home_id == home),
+        )
+        self.assertTrue(self.db.durable_commit_ready)
+
+        desired = repository.publish_desired(
+            actor=actor, home_id=home_id, config=policy, expected_version=0, at=10)
+        self.assertEqual((desired.desired_version, desired.desired_status), (1, "DESIRED"))
+        self.assertIsNone(desired.applied_version)
+        fetched = repository.get_for_hub(context=hub, home_id=home_id, at=11)
+        self.assertEqual(fetched.desired_config, policy)
+        self.assertIsNone(fetched.applied_config)
+
+        applied = repository.record_applied(context=hub, home_id=home_id,
+                                            version=desired.desired_version, at=12)
+        self.assertEqual(applied.applied_version, 1)
+        self.assertEqual(applied.applied_config["activity_rules"]["morning_steps"],
+                         [{"location": "bedroom", "enabled": True, "required": True}])
+        self.assertEqual(self.db.execute(
+            "SELECT COUNT(*) FROM configurations WHERE home_id=?", (home_id,)
+        ).fetchone()[0], 1)
+        self.assertEqual(self.db.execute(
+            "SELECT COUNT(*) FROM audit_log WHERE home_id=?", (home_id,)
+        ).fetchone()[0], 2)
+        with self.assertRaisesRegex(ConfigurationConflict, "stale_desired"):
+            repository.publish_desired(actor=actor, home_id=home_id, config=policy,
+                                       expected_version=0, at=13)
 
 
 class PostgresSecurityBoundary(unittest.TestCase):

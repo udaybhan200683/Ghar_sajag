@@ -5,6 +5,52 @@
 **Repository checkpoint:** `bb2b77cb26ac88aaea244b7d1f73b124d18f6a3f`, branch `feature/r1-commercial-baseline`; local and `origin` matched at preparation. Context preflight PASS (`2026-10-13.001`).
 **Related Jira:** [GS-109](https://udaybhan200683.atlassian.net/browse/GS-109), [GS-148](https://udaybhan200683.atlassian.net/browse/GS-148), GS-109 comments 10595 (existing independent design review), 10601 (D01–D16 register), 11008 (this proposal), and GS-148 comments 11007 (CloudSync checkpoint), 11009 (cross-reference).
 
+## Owner approval record — requested, pending
+
+Prepared for the GS-117 Morning Routine configuration path at canonical
+checkpoint `f3223a1a687c9c3729a3ad3b5960e620b9039622`. This is a decision
+request, not an approval or credential/hardware authorization. The detailed
+D01–D16 register and 2026-10-28 configuration delta below remain the technical
+rationale.
+
+### A. Product-security architecture disposition
+
+Approve the proposed direction, select an alternative, or defer each row. An
+architecture disposition authorizes only implementation of the agreed
+interfaces and contracts; it does not authorize issuing credentials or
+operating a board.
+
+| Decision | Proposed direction for approval | Still to decide |
+|---|---|---|
+| Hub identity | Reuse the GS-68/GS-109/GS-148 RSA-3072 DS-backed client-certificate/mTLS candidate; resolve its verified fingerprint to the permanent Hub identity. | Confirm the identity and proof contract, issuer authority, key-custody profile dependency (GS-68 D12), trust-root ownership, and rotation/revocation/recovery rules. |
+| Caregiver authority | Reuse GS-76 `HumanAuthenticationBoundary`; only a verified credential may create a server-owned, revocable `ActorSession`. | Approve issuer/audience and verification-key lifecycle, expiry/revocation source, Android handoff, and current Home-settings membership/role authority. |
+| Home and epoch | Keep the existing backend Hub ownership registry as the sole current Hub → Home → installation-epoch authority. | Choose authenticated versioned binding manifest or online authority lookup; settle offline, stale/revoked, transfer and recovery behavior. |
+| Trusted middleware | Prefer the application-owned mTLS verifier constructing `VerifiedHubContext`; allow a proxy only with a trusted, integrity-protected peer-identity handoff and strict header stripping. | Select TLS termination, verifier/runtime owner and deployment boundary. Caller-provided identity headers are not trusted. |
+| Configuration apply | Use the existing versioned desired/applied repository; bind fetch and acknowledgement to Hub, Home, epoch, schema and version, and report applied only after durable S3 persistence. | Approve the exact fetch/ack payload, stale/revoke/rollback behavior and supported restart/offline persistence contract. |
+
+**Owner/security response:** `APPROVE PROPOSED DIRECTION`, `SELECT ALTERNATIVE:
+<contract>`, or `DEFER` for each row; record the approver, authority and date.
+No response has yet been recorded here. Deferral keeps production Settings and
+Hub configuration routes/transport disabled.
+
+### B. Separate credential-provisioning approval
+
+Architecture approval is not permission to create, sign, export, install,
+replace or revoke a key/certificate; alter a trust root; enroll a Hub; or change
+hardware security state. Before any such operation, obtain a separately scoped
+provisioning authorization naming the exact issuer, Hub identity, artifacts,
+target operation, custody and recovery procedure, and stop conditions. No
+production credential is requested or issued by this record.
+
+### C. Separate physical-operation approval
+
+The first Bedroom-only Run requires its own current, bounded hardware approval
+for the exact C3 `INJECT_MOTION` USB operation and its COM4 reset risk, plus
+verified current C3/S3 image, JEDEC/capacity, enrollment, applied policy and
+fresh authenticated S3 ingress. Any COM10 access or Hub reset requires separate
+explicit scope. This is independent of (A), (B), and the five-run TC-001
+campaign approval. No physical operation is authorized here.
+
 ## Purpose and disposition
 
 This package closes the source-to-decision gap for activating the existing GS-148 CloudSync path. It reuses the GS-109 audit and D01–D16 register; it is not a second architecture review. The nine listed decisions remain open. Approval of a recommendation will authorize its contract definition only to the extent stated by the approver; it does not itself deploy credentials or turn on S3 sending.

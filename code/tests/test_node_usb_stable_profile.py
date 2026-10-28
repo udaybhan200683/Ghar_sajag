@@ -46,9 +46,9 @@ int main() { return 0; }
         self.assertIn('"HIL_AWAKE_TEST_ONLY"', control_source)
         self.assertIn('if (!returned_from_light_sleep) vTaskDelay(pdMS_TO_TICKS(kPirPollMs));', adapter)
         serial_helper=(ROOT/'tools/local/gs117_tc001_serial_windows.py').read_text()
-        self.assertIn('finally:', serial_helper)
+        self.assertIn('for stream in reversed(streams):\n            if stream.is_open:\n                stream.close()',
+                      serial_helper)
         self.assertIn('if c3_stream.is_open:\n            c3_stream.close()', serial_helper)
-        self.assertIn('if s3_stream.is_open:\n            s3_stream.close()', serial_helper)
 
     def test_get_state_remains_enabled_in_both_hil_profiles(self):
         source=(NODE/'idf/main/hil_control.cpp').read_text()

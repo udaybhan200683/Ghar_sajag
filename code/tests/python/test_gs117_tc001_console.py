@@ -42,7 +42,13 @@ class TC001Test(unittest.TestCase):
                 self.assertEqual(report["physical_operations"], [])
                 self.assertEqual(report["event_keys"], [])
                 self.assertEqual(report["physical_ingress"]["listener_status"], "PASS")
+                self.assertEqual(report["readiness_snapshot"]["postgres"], "NOT_VERIFIED")
+                self.assertEqual(report["readiness_snapshot"]["android_apk"]["status"],
+                                 "NOT_VERIFIED")
                 self.assertEqual(len(list(Path(directory).glob("MORNING-ROUTINE-*.json"))), 1)
+                history = controller.recent_morning_reports()
+                self.assertEqual(len(history), 1)
+                self.assertEqual(history[0]["run_id"], report["run_id"])
 
     def test_morning_routine_interval_is_bounded_and_controller_remains_idle(self):
         controller = tc.Controller()

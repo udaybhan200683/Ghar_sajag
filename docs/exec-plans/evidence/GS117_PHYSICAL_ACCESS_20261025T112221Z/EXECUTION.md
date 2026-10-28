@@ -2711,3 +2711,83 @@ decisions are summarized in the existing GS-109/GS-148 decision package. No
 production endpoint, identity provider, credential, Home authority or device
 configuration was activated. TC-001 remains 0/5 NOT_RUN; actual S3 rule
 application, Morning Routine decision and Android completion remain NOT_RUN.
+
+### 2026-10-28 — Bedroom-only policy and live PostgreSQL repository verification
+
+Resumed from canonical `f3223a1a687c9c3729a3ad3b5960e620b9039622` with
+context preflight PASS and local/origin HEAD equal. Existing configurable
+`RulesCore`, PostgreSQL desired/applied repository and GS-117 controller were
+reused. The owner approval record in the existing GS-109/GS-148 decision
+package is a request only: RSA-3072 DS/mTLS Hub identity, GS-76 caregiver
+authority, backend Home/Hub/epoch source and trusted TLS middleware remain
+pending product-security disposition. Credential provisioning and any
+physical Run require separate scoped approvals.
+
+The general configured-step implementation now has a regression for a policy
+whose sole enabled required location is Bedroom. It ignores an event from a
+location outside the configured list, emits `MORNING_ROUTINE_COMPLETED` once
+on Bedroom activity, and does not emit a duplicate on replay. This is generic
+required-step evaluation, not a Bedroom-only shortcut. The repository also
+round-trips this policy through desired/fetched/applied states, first through
+the SQLite contract suite and then through the existing isolated live
+PostgreSQL test facility.
+
+Focused results on the working tree: C++ test harness 1,532 checks PASS;
+backend Python file 21/21 PASS; GS-117 console/controller 47/47 PASS; GS-179
+PostgreSQL/security integration module 20/20 PASS; Node USB stable-profile
+regression 4/4 PASS; feature-traceability tests 22/22 PASS and validation
+framework 51/51 PASS. The PostgreSQL run used TLS to the existing
+`gs179_monitoring` service and a disposable isolated schema, dropped at
+teardown; it did not modify shared/public household records.
+
+Aggregate checks are not all green: `validation-hub` reports the existing
+migration clean-commit failure and P0 `product_status=PARTIAL` (GS-178 remains
+39/39 PASS). `validation-backend` reports P0 partial and CSS budget 29,576 B
+against 18,432 B; its earlier traceability assertion issue was corrected and
+the focused mapping tests now pass, but the aggregate was not rerun.
+`validation-tooling` reports the CSS budget issue plus an outdated assertion
+about stream closure; that assertion now matches the existing reverse-order
+cleanup and its focused test passes 4/4, but the aggregate was not rerun. No
+release gate was run.
+
+No physical readiness was promoted. Bedroom remains the only established
+physical room fixture. Production configuration is not delivered/applied to an
+actual S3; fresh authenticated physical ingress and a current approved fixture
+are absent. The unresolved C3 JEDEC result is still `0xffffff` with unknown
+capacity. No COM port, hardware, USB input, reset, Android session or credential
+was accessed in this checkpoint. Run remains BLOCKED at `applied_household_policy`;
+there is no real Hub completion decision or corresponding Android result.
+TC-001 and optical PIR remain NOT_RUN. Next: obtain the scoped architecture
+disposition, then address separately authorized credential and physical gates
+without weakening the existing JEDEC, image, ingress or campaign controls.
+
+#### First Bedroom-only real-device Run — prepared, not authorized/executed
+
+The bounded scenario is one configured Bedroom motion observation, not the
+five-run TC-001 campaign:
+
+1. Approve and implement the production identity/configuration contracts; use
+   authorized Settings to publish a schema-valid policy with Bedroom as the
+   sole enabled required activity. Confirm desired version in PostgreSQL and
+   exact Hub/Home/epoch apply acknowledgement only after S3 durably persists
+   that version.
+2. Requalify current C3/S3 identities, app-slot/partition provenance, JEDEC
+   capacity, enrollment/epoch, fresh authenticated S3 ingress, backend/API and
+   Android observer. A failed/missing gate keeps Run blocked.
+3. Obtain a separate bounded approval for the existing C3 USB
+   `INJECT_MOTION` operation, including COM4 open/reset risk and exact stop
+   conditions. COM10 remains unopened unless an independent configuration or
+   recovery operation is separately authorized.
+4. Use the existing GS-117 Morning Routine Run path once. Capture the original
+   Node EventKey and NodeRuntime state; require authenticated ESP-NOW delivery,
+   durable S3 admission/ACK, and the actual S3 rule engine's
+   `MORNING_ROUTINE_COMPLETED` decision. Stop on the first failure.
+5. Correlate that decision through authenticated CloudSync, one PostgreSQL
+   business record, caregiver API and the installed Android APK's routine
+   result. Event-row visibility alone does not satisfy the run.
+
+The current implementation intentionally cannot pass step 1 because the
+production authority/delivery boundary is pending approval and is not
+installed. This plan grants no hardware, credential or configuration-change
+authority. After this single-room vertical passes, additional rooms require
+their own enrolled physical Nodes; Bedroom is never relabeled as another room.
