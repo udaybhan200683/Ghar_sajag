@@ -922,3 +922,65 @@ complete the authenticated, versioned desired-config fetch/persist/apply path
 using the existing Hub identity and storage contracts, then connect it to the
 existing Settings/config publish path and the existing GS-117 controller—no
 parallel framework or simulated room identity.
+
+### 2026-10-28 — config-path security boundary and clean paired target builds
+
+Resumed from canonical HEAD `238bf5dfc84b973a511b9874b982060ded591bbd`.
+Context preflight passed and local/origin matched. No hardware or source change
+was made in this checkpoint.
+
+The targeted GS-109/GS-148/GS-179 audit confirms the production integration
+cannot safely be completed by adding an endpoint or Hub GET call alone:
+
+* GS-D032 locks ownership behavior but explicitly leaves the production
+  credential issuer/verification mechanism, proof freshness, deployable trusted
+  middleware and production database composition open. GS-148 P2-D says its
+  proposed mTLS direction is not implementation authorization; GS-109 owns the
+  trusted onboarding/identity authority.
+* `HumanAuthenticationBoundary` is not connected to `JsonApi`; production
+  caregiver verifier/session and Home membership authorities are not installed.
+  `VerifiedHubContext` is a typed seam, not a deployed authenticator. GS-179's
+  current laptop ingress is TEST_ONLY; Render TLS termination does not provide
+  the peer socket needed to create this context.
+* The versioned `configurations` table exists in the base schema, but no durable
+  PostgreSQL desired/applied-config repository or production route consumes it.
+  The current `/v1/homes/{home}/config` handler delegates to development
+  `FleetService`/`InMemoryStore` and its actor identity is not production auth.
+* S3 `HttpsBackendChannel` supports POST only; the active production Hub
+  composition has no authenticated desired-config fetch or durable apply path.
+  The existing frontend routine serializer is not called by a caregiver Settings
+  screen. GS-117's console still runs the fixed Bedroom campaign.
+
+These are the precise blockers for the requested Settings → PostgreSQL →
+authenticated S3 → applied-policy/status → scenario-runner path. Adding a route,
+trusting an actor header, selecting an mTLS issuer, or inventing a Hub credential
+would cross the unresolved GS-109/GS-148 boundary. No such change was made.
+The Morning Routine engine at `5cbbc73` remains code-tested, but no new policy
+was persisted or applied to a real Hub. Only a Bedroom physical Node is
+established; other room fixtures remain unavailable and cannot be impersonated.
+
+The previously incomplete target build was rerun with the canonical paired
+builder in fresh ignored output
+`code/build/validation_targets/gs116-rclvmmof/`, source
+`238bf5dfc84b973a511b9874b982060ded591bbd`, ESP-IDF 6.0.3, production
+`GS_HIL_BUILD=OFF`. C3 and S3 compiled, passed slot-size checks and packaged:
+
+| Target | Result | Image size / OTA slot | SHA-256 |
+|---|---:|---:|---|
+| ESP32-C3 | PASS | 944,272 / 1,966,080 bytes | `cd8f0a2d11c6ee4f97f3d34ed0e6ffefe7535989a18685d0a28b1a2be4b365a6` |
+| ESP32-S3 | PASS | 2,200,480 / 4,194,304 bytes | `91113e128a3bf1298de5adef0dd4d98285109eebec6fcd4655394329d0fa4c02` |
+
+The builder report records `TARGET_COMPILED_ONLY`, `physical_status=NOT_RUN`,
+and `hardware_actions=NONE`. This clears the earlier target-build uncertainty
+for this source commit; it does not establish installed-image identity, Hub
+configuration application, physical event processing, or Android business
+outcome. Focused rule/config tests at `5cbbc73` remain the prior 1,529 C++ and
+36/36 app results; no test suite was repeated because this checkpoint changed
+no source.
+
+Overall real-device Morning Routine remains BLOCKED before scenario execution:
+there is no authorized production config/authentication path and no genuine
+enrolled C3 for each configured required room. A production security decision
+from the existing GS-109/GS-148 owners is required before implementation can
+continue across that boundary. No COM port, device, database record, credential,
+enrollment, or protected configuration was accessed or changed.

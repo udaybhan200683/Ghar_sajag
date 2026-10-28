@@ -8692,3 +8692,51 @@ remains NOT_RUN. GS-179 remains In Progress: its health check still reports
 physical Hub authentication NO, monitoring freshness UNKNOWN and persistent
 ingress NOT_CONFIGURED. GS-178 remains In Progress; its separate real-target
 USB→C3→S3 acceptance and remaining scenario/use-case coverage are outstanding.
+
+### 2026-10-28 — GS-117 production config boundary and paired target build
+
+Resumed at canonical `238bf5dfc84b973a511b9874b982060ded591bbd`; branch and
+origin matched and context preflight passed. No competing writer or hardware
+operation was active. No source behavior changed in this checkpoint.
+
+The targeted GS-109/GS-148/GS-179 audit establishes a security decision
+boundary before implementing the desired/applied-config product path. GS-D032
+does not approve a production Hub credential issuer, proof-of-possession or
+freshness contract, trusted mTLS middleware/deployment, or caregiver auth
+adapter. `HumanAuthenticationBoundary` and `VerifiedHubContext` are unconnected
+seams. The local Hub ingress is TEST_ONLY. The development `JsonApi` config
+route reads/writes `InMemoryStore`; despite the existing schema table,
+PostgreSQL has no wired versioned config repository/route. The frontend routine
+serializer is not connected to a caregiver Settings page. S3's production
+HTTP channel is POST-only and has no desired-config fetch/apply consumer.
+
+I did not select an mTLS issuer, trust an actor header, introduce credentials,
+or bypass current authorization. The requested Settings → PostgreSQL →
+authenticated S3 → persisted applied policy path therefore remains BLOCKED at
+the existing GS-109/GS-148 security contract. The GS-117 console has no Morning
+Routine button; its fixed Bedroom campaign cannot run a multi-room scenario.
+Only a Bedroom physical Node is established, so any required other room remains
+BLOCKED rather than mapped to that Node. No COM, device, Android, credential,
+enrollment or protected database access occurred.
+
+Current-source paired ESP-IDF 6.0.3 production builds completed from fresh
+ignored output `code/build/validation_targets/gs116-rclvmmof/` at source HEAD
+`238bf5dfc84b973a511b9874b982060ded591bbd` (fingerprint
+`07d98b97cf40f24e2c44f2bc45b42f90f41ad0766e290957cf25a5243786fa23`). C3:
+944,272/1,966,080 bytes, SHA-256
+`cd8f0a2d11c6ee4f97f3d34ed0e6ffefe7535989a18685d0a28b1a2be4b365a6`; S3:
+2,200,480/4,194,304 bytes, SHA-256
+`91113e128a3bf1298de5adef0dd4d98285109eebec6fcd4655394329d0fa4c02`.
+Both compiled and passed slot/package checks. Qualification is
+`TARGET_COMPILED_ONLY`; physical status NOT_RUN and hardware actions NONE. This
+replaces the earlier incomplete-build checkpoint for this source, without
+claiming installed-image or runtime acceptance. Existing focused tests from
+`5cbbc73` remain unchanged; no source suites were rerun.
+
+Next required owner decision: GS-109/GS-148 must provide or approve the
+production authenticated caregiver/Hub identity and trusted-context contract
+that the existing config path can use. Once that boundary is resolved, persist
+desired/applied versions through the existing database schema, wire Hub fetch
+and durable apply, then connect the authorized Settings UI and GS-117 console.
+Do not start the real multi-room scenario until each required location has a
+genuinely enrolled C3 and the ordinary GS-117 fixture/campaign gates pass.
