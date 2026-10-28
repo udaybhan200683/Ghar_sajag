@@ -6,6 +6,11 @@ passed. Pre-existing unrelated untracked Android/IDF/physical evidence was
 preserved. No hardware, ADB, protected database, credential or enrollment
 operation was performed.
 
+The validated implementation and evidence are committed as
+`bb7fe430f4ce8447692025ca334d7349cca6e196`, pushed normally, and verified equal
+to origin at this source checkpoint. All test results below apply to that
+source commit.
+
 Added `PostgresConfigurationRepository` over the existing versioned
 `configurations` and `audit_log` schema. Desired publish requires a live
 `ActorSession` and an injected current Home-settings authorization callback;
