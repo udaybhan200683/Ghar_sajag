@@ -109,6 +109,20 @@ function Wait-PortProxyListener([string]$Address, [int]$Port) {
     return $false
 }
 
+function Get-NetstatListenerCount([string]$Address, [int]$Port) {
+    $output = & netstat.exe -ano -p tcp 2>&1
+    if ($LASTEXITCODE -ne 0) { return $null }
+    $count = 0
+    foreach ($line in $output) {
+        $parts = ([string]$line).Trim() -split '\s+'
+        if ($parts.Count -ge 4 -and $parts[0] -eq "TCP" -and
+            $parts[1] -eq "$Address`:$Port" -and $parts[3] -eq "LISTENING") {
+            $count++
+        }
+    }
+    return $count
+}
+
 function Get-ActiveWifiState([bool]$WaitForReady) {
     $attempts = if ($WaitForReady) { 30 } else { 1 }
     for ($attempt = 0; $attempt -lt $attempts; $attempt++) {
@@ -171,12 +185,18 @@ if ($Action -eq "RegisterWatch") {
     $escapedArguments = [System.Security.SecurityElement]::Escape($taskArguments)
     $userSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
     $eventPath = "Microsoft-Windows-NetworkProfile/Operational"
+    $watchStartBoundary = [DateTime]::Now.AddMinutes(1).ToString("s")
     $taskXml = @"
 <?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <Triggers>
     <LogonTrigger><Enabled>true</Enabled></LogonTrigger>
     <EventTrigger><Enabled>true</Enabled><Subscription><![CDATA[<QueryList><Query Id="0" Path="$eventPath"><Select Path="$eventPath">*[System[(EventID=10000)]]</Select></Query></QueryList>]]></Subscription></EventTrigger>
+    <CalendarTrigger>
+      <Enabled>true</Enabled><StartBoundary>$watchStartBoundary</StartBoundary>
+      <Repetition><Interval>PT1M</Interval><Duration>P1D</Duration><StopAtDurationEnd>false</StopAtDurationEnd></Repetition>
+      <ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay>
+    </CalendarTrigger>
   </Triggers>
   <Principals><Principal id="Author"><UserId>$userSid</UserId><LogonType>InteractiveToken</LogonType><RunLevel>HighestAvailable</RunLevel></Principal></Principals>
   <Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><StartWhenAvailable>true</StartWhenAvailable><ExecutionTimeLimit>PT3M</ExecutionTimeLimit><Enabled>true</Enabled></Settings>
@@ -184,7 +204,7 @@ if ($Action -eq "RegisterWatch") {
 </Task>
 "@
     Register-ScheduledTask -TaskName $WatchTaskName -Xml $taskXml -Force -ErrorAction Stop | Out-Null
-    [pscustomobject]@{ Action = $Action; Task = $WatchTaskName; Triggers = "logon,Wi-Fi profile connected"; LinuxScriptPath = $LinuxScriptPath } | ConvertTo-Json -Compress
+    [pscustomobject]@{ Action = $Action; Task = $WatchTaskName; Triggers = "logon,Wi-Fi profile connected,daily WSL address reconciliation every minute"; LinuxScriptPath = $LinuxScriptPath } | ConvertTo-Json -Compress
     & $PSCommandPath -Action Watch -LinuxScriptPath $LinuxScriptPath
     exit $LASTEXITCODE
 }
@@ -249,6 +269,13 @@ if ($Action -eq "Audit") {
             $listenerReadStatus = "BLOCKED_ADMIN_READ_PERMISSION"
         }
     }
+    if ($listenerReadStatus -ne "READABLE") {
+        $netstatListenerCount = Get-NetstatListenerCount $actualAddress $ListenPort
+        if ($null -ne $netstatListenerCount) {
+            $listenerCount = $netstatListenerCount
+            $listenerReadStatus = "READABLE_NETSTAT"
+        }
+    }
     [pscustomobject]@{
         Action = $Action
         EndpointKind = $EndpointKind
@@ -263,6 +290,8 @@ if ($Action -eq "Audit") {
         PortProxyRows = (Get-PortProxyRows | ConvertTo-Json -Compress)
         FirewallRuleReadStatus = $firewallReadStatus
         FirewallRuleExists = $firewallExists
+        ListenerReadStatus = $listenerReadStatus
+        ListenerCount = $listenerCount
         Port443ListenerReadStatus = $listenerReadStatus
         Port443Listeners = $listenerCount
     } | ConvertTo-Json -Compress
@@ -320,13 +349,20 @@ if ($Action -eq "Start") {
             -RemoteAddress $scope -Profile $firewallProfile -InterfaceAlias "Wi-Fi" -EdgeTraversalPolicy Block | Out-Null
         $createdFirewall = $true
     } else {
-        $oldFirewallAddress = $existingRule | Get-NetFirewallAddressFilter
-        $oldFirewallProfile = $existingRule.Profile
-        # The named GS-179 rule is preserved and narrowed to the currently active
-        # Wi-Fi address/subnet. It is never broadened to Any local/remote address.
-        $existingRule | Get-NetFirewallAddressFilter |
-            Set-NetFirewallAddressFilter -LocalAddress $actualAddress -RemoteAddress $scope | Out-Null
-        Set-NetFirewallRule -Name $RuleName -Profile $firewallProfile | Out-Null
+        $currentFirewallAddress = $existingRule | Get-NetFirewallAddressFilter
+        $needsFirewallScopeUpdate =
+            ((@($currentFirewallAddress.LocalAddress) -join ",") -ne $actualAddress) -or
+            ((@($currentFirewallAddress.RemoteAddress) -join ",") -ne $scope) -or
+            ((@($existingRule.Profile) -join ",") -ne $firewallProfile)
+        if ($needsFirewallScopeUpdate) {
+            $oldFirewallAddress = $currentFirewallAddress
+            $oldFirewallProfile = $existingRule.Profile
+            # The named GS-179 rule is preserved and narrowed to the current
+            # Wi-Fi address/subnet only when its stored scope actually differs.
+            $currentFirewallAddress |
+                Set-NetFirewallAddressFilter -LocalAddress $actualAddress -RemoteAddress $scope | Out-Null
+            Set-NetFirewallRule -Name $RuleName -Profile $firewallProfile | Out-Null
+        }
     }
     $attemptedPortProxy = $false
     $originalMappingRemoved = $false

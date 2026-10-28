@@ -25,6 +25,7 @@ UNIT_PATH="$HOME/.config/systemd/user/gs179-laptop.service"
 WINDOWS_TARGET_FILE="$STATE_ROOT/windows-wsl-target"
 PG_PORT="55432"
 APP_PORT="8444"
+NETWORK_CONFIGURATION_CHANGED=0
 
 mkdir -p "$STATE_ROOT"
 chmod 700 "$STATE_ROOT"
@@ -101,12 +102,14 @@ EOF
     mv -f "$temp_dir/server.pem" "$ANDROID_CERT"
     printf 'GS179_TEST_ONLY_TLS_IDENTITY_REFRESHED=YES hostname=%s ip_san=%s rollback=%s\n' \
         "$host_local" "$address" "$backup"
+    NETWORK_CONFIGURATION_CHANGED=1
     rm -rf "$temp_dir"
     trap - RETURN
 }
 
 refresh_network_configuration() {
     local address host
+    NETWORK_CONFIGURATION_CHANGED=0
     address="$(windows_wifi_address)"
     host="$(windows_computer_name)"
     python3 - "$address" "$host" <<'PY' || fail "active_wifi_requires_rfc1918_and_valid_laptop_hostname"
@@ -126,7 +129,8 @@ if not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", host):
 PY
     refresh_endpoint_certificate "$address" "$host"
     if [[ -f "$ENV_FILE" ]]; then
-        python3 - "$ENV_FILE" "$host" "$address" <<'PY'
+        local endpoint_refresh
+        endpoint_refresh="$(python3 - "$ENV_FILE" "$host" "$address" <<'PY'
 import os, shlex, sys, tempfile, secrets
 from datetime import datetime, timezone
 from pathlib import Path
@@ -174,6 +178,11 @@ finally:
 print("GS179_TEST_ONLY_ENDPOINT_CONFIG_REFRESHED=YES hostname=" + host +
       ".local current_wifi_ip=" + address + " rollback=" + str(backup))
 PY
+        )"
+        if [[ -n "$endpoint_refresh" ]]; then
+            NETWORK_CONFIGURATION_CHANGED=1
+            printf '%s\n' "$endpoint_refresh"
+        fi
         chmod 600 "$ENV_FILE"
     fi
 }
@@ -300,14 +309,66 @@ record_proxy_target() {
 network_refresh_config() {
     refresh_network_configuration
     load_config
-    systemctl --user reset-failed gs179-laptop.service
-    systemctl --user restart gs179-laptop.service
-    wait_for_local_backend || {
+    ensure_local_service || {
         printf 'GS179_NETWORK_REFRESH: backend_not_ready_after_certificate_or_origin_refresh\n' >&2
         return 1
     }
-    printf 'GS179_TEST_ONLY_NETWORK_REFRESH=PASS hostname=%s current_wifi_ip=%s\n' \
-        "$GS179_LAN_HOSTNAME" "$(windows_wifi_address)"
+    printf 'GS179_LOCAL_SERVICE_RECOVERY=PASS hostname=%s current_wifi_ip=%s configuration_changed=%s\n' \
+        "$GS179_LAN_HOSTNAME" "$(windows_wifi_address)" "$NETWORK_CONFIGURATION_CHANGED"
+}
+
+wait_for_local_backend() {
+    local attempt
+    for attempt in $(seq 1 30); do
+        if postgres_health_check >/dev/null 2>&1 && local_https_health_check >/dev/null 2>&1; then
+            return 0
+        fi
+        if (( attempt < 30 )); then sleep 1; fi
+    done
+    printf 'GS179_STARTUP_READINESS: local PostgreSQL/caregiver HTTPS did not become ready within 30 seconds\n' >&2
+    return 1
+}
+
+ensure_local_service() {
+    if ! systemctl --user is-active --quiet gs179-laptop.service; then
+        systemctl --user reset-failed gs179-laptop.service
+        systemctl --user start gs179-laptop.service || return 1
+    elif (( NETWORK_CONFIGURATION_CHANGED != 0 )); then
+        systemctl --user reset-failed gs179-laptop.service
+        systemctl --user restart gs179-laptop.service || return 1
+    elif ! wait_for_local_backend; then
+        printf 'GS179_STARTUP_RECOVERY=local_service_unhealthy_restarting_existing_unit\n' >&2
+        systemctl --user reset-failed gs179-laptop.service
+        systemctl --user restart gs179-laptop.service || return 1
+    fi
+    wait_for_local_backend
+}
+
+start_service() {
+    refresh_network_configuration
+    load_config
+    ensure_local_service || { health_check || true; return 1; }
+    proxy_start
+    start_mdns_advertiser
+    health_check
+}
+
+dev_start() {
+    NETWORK_CONFIGURATION_CHANGED=0
+    load_config
+    ensure_local_service || { health_check || true; return 1; }
+    health_check
+}
+
+restart_service() {
+    refresh_network_configuration
+    load_config
+    systemctl --user reset-failed gs179-laptop.service
+    systemctl --user restart gs179-laptop.service
+    proxy_start
+    wait_for_local_backend || { health_check || true; return 1; }
+    start_mdns_advertiser
+    health_check
 }
 
 provision() {
@@ -551,16 +612,21 @@ lan_endpoint_health_check() {
     observed_ip="$(windows_wifi_address 2>/dev/null || true)"
     if [[ -z "$observed_ip" ]]; then
         printf 'LAPTOP_LAN_ENDPOINT_TLS_READY=UNKNOWN reason=windows_wifi_read_unavailable\n'
+        printf 'LAN_FORWARDING_READY=FAIL reason=windows_wifi_read_unavailable\n'
         printf 'PHONE_LAN_REACHABLE=NOT_VERIFIED reason=phone_side_probe_required\n'
-        return 0
+        return 1
     fi
     if curl --fail --silent --show-error --connect-timeout 3 --max-time 8 \
         --cacert "$ANDROID_CA" --resolve "$GS179_LAN_HOSTNAME:443:$observed_ip" \
         "https://$GS179_LAN_HOSTNAME/readyz"; then
         printf '\nLAPTOP_LAN_ENDPOINT_TLS_READY=PASS tls=ca_and_dns_san_verified host=%s current_wifi_ip=%s probe_source=WSL\n' \
             "$GS179_LAN_HOSTNAME" "$observed_ip"
+        printf 'LAN_FORWARDING_READY=PASS\n'
     else
         printf 'LAPTOP_LAN_ENDPOINT_TLS_READY=FAIL reason=windows_forwarding_or_endpoint_unavailable\n'
+        printf 'LAN_FORWARDING_READY=FAIL reason=windows_forwarding_or_endpoint_unavailable\n'
+        printf 'PHONE_LAN_REACHABLE=NOT_VERIFIED reason=phone_side_probe_required\n'
+        return 1
     fi
     printf 'PHONE_LAN_REACHABLE=NOT_VERIFIED reason=phone_side_probe_required\n'
     return 0
@@ -569,6 +635,7 @@ lan_endpoint_health_check() {
 health_check() {
     load_config
     local local_ready=0
+    local lan_ready=0
     if postgres_health_check; then :; else local_ready=1; fi
     if local_https_health_check; then :; else local_ready=1; fi
     if (( local_ready == 0 )); then
@@ -576,49 +643,23 @@ health_check() {
     else
         printf 'LOCAL_BACKEND_READY=FAIL\n'
     fi
-    lan_endpoint_health_check
+    if lan_endpoint_health_check; then :; else lan_ready=1; fi
+    if (( local_ready == 0 && lan_ready == 0 )); then
+        printf 'DEVELOPMENT_ENDPOINT_READY=PASS\n'
+    else
+        printf 'DEVELOPMENT_ENDPOINT_READY=FAIL local_backend=%s lan_forwarding=%s\n' \
+            "$([[ $local_ready == 0 ]] && printf PASS || printf FAIL)" \
+            "$([[ $lan_ready == 0 ]] && printf PASS || printf FAIL)"
+    fi
     printf 'HUB_INGRESS_RUNTIME_IMPLEMENTED=YES\n'
     printf 'HUB_INGRESS_AUTOSTART=DISABLED\n'
     printf 'HUB_IDENTITY_AUTHENTICATED=NO\n'
     printf 'HUB_MONITORING_FRESHNESS=UNKNOWN\n'
     printf 'PERSISTENT_HUB_INGRESS=NOT_CONFIGURED\n'
     printf 'HUB_INGRESS_READY=NOT_CONFIGURED (TEST_ONLY runtime is default-disabled; caregiver service has no active Hub ingress)\n'
-    return "$local_ready"
+    (( local_ready == 0 && lan_ready == 0 ))
 }
 
-wait_for_local_backend() {
-    local attempt
-    for attempt in $(seq 1 30); do
-        if postgres_health_check >/dev/null 2>&1 && local_https_health_check >/dev/null 2>&1; then
-            return 0
-        fi
-        if (( attempt < 30 )); then sleep 1; fi
-    done
-    printf 'GS179_STARTUP_READINESS: local PostgreSQL/caregiver HTTPS did not become ready within 30 seconds\n' >&2
-    return 1
-}
-
-start_service() {
-    refresh_network_configuration
-    load_config
-    systemctl --user reset-failed gs179-laptop.service
-    systemctl --user restart gs179-laptop.service
-    proxy_start
-    wait_for_local_backend || { health_check || true; return 1; }
-    start_mdns_advertiser
-    health_check
-}
-
-restart_service() {
-    refresh_network_configuration
-    load_config
-    systemctl --user reset-failed gs179-laptop.service
-    systemctl --user restart gs179-laptop.service
-    proxy_start
-    wait_for_local_backend || { health_check || true; return 1; }
-    start_mdns_advertiser
-    health_check
-}
 
 run_event() {
     load_config
@@ -660,31 +701,17 @@ case "${1:-}" in
         fi
         ;;
     health) health_check ;;
+    dev-start) dev_start ;;
+    wait-local)
+        load_config
+        wait_for_local_backend
+        ;;
     logs) journalctl --user-unit=gs179-laptop.service --no-pager -n "${2:-100}" ;;
     event) run_event ;;
     change-login) change_login ;;
     browser) run_caregiver_browser ;;
     run) run_service ;;
-    proxy-start)
-        refresh_network_configuration
-        load_config
-        systemctl --user reset-failed gs179-laptop.service
-        systemctl --user restart gs179-laptop.service
-        proxy_start
-        wait_for_local_backend || { health_check || true; exit 1; }
-        start_mdns_advertiser
-        health_check
-        ;;
-    network-refresh)
-        refresh_network_configuration
-        load_config
-        systemctl --user reset-failed gs179-laptop.service
-        systemctl --user restart gs179-laptop.service
-        proxy_start
-        wait_for_local_backend || { health_check || true; exit 1; }
-        start_mdns_advertiser
-        health_check
-        ;;
+    proxy-start|network-refresh) start_service ;;
     stop-post) stop_post ;;
     health-source) run_health_source ;;
     proxy-audit) proxy_audit ;;
@@ -694,5 +721,5 @@ case "${1:-}" in
     record-proxy-target) record_proxy_target "${2:-}" ;;
     start-mdns-advertiser) load_config; start_mdns_advertiser ;;
     mdns-status) mdns_status ;;
-    *) printf 'Usage: %s {provision|install-unit|start|stop|restart|status|health|proxy-start|proxy-audit|proxy-watch-register|proxy-watch-unregister|network-refresh|network-refresh-config|record-proxy-target IP|start-mdns-advertiser|mdns-status|logs [N]|event|health-source|browser|change-login}\n' "$0"; exit 2 ;;
+    *) printf 'Usage: %s {provision|install-unit|start|stop|restart|status|health|dev-start|wait-local|proxy-start|proxy-audit|proxy-watch-register|proxy-watch-unregister|network-refresh|network-refresh-config|record-proxy-target IP|start-mdns-advertiser|mdns-status|logs [N]|event|health-source|browser|change-login}\n' "$0"; exit 2 ;;
 esac

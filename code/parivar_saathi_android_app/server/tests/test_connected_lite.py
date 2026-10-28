@@ -9,6 +9,7 @@ from io import BytesIO
 from uuid import uuid4
 import stat
 import secrets
+import threading
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -365,6 +366,29 @@ class ConnectedLiteTests(unittest.TestCase):
         self.assertEqual(self.request('POST','/lite/v1/auth/login',{'email':'admin@example.org','password':'wrong'},origin='https://evil.example.org')[0],'403 Forbidden')
         cloud_event={'event_key':{'home_id':'real-home','device_id':'node-1','boot_id':'boot-1','sequence':1}}
         self.assertEqual(self.request('POST','/v1/homes/real-home/events',cloud_event)[0],'404 Not Found')
+
+    def test_product_permission_denial_is_forbidden_not_service_unavailable(self):
+        cookie = self.login()
+
+        class DeniedProductView:
+            service = type("Service", (), {"lock": threading.RLock()})()
+
+            @staticmethod
+            def dispatch(*_args):
+                raise PermissionError("current_home_settings_membership_required")
+
+        with patch.dict(os.environ, {"GS178_LOCAL_TEST": "1"}, clear=False):
+            previous = self.api
+            self.api = LiteApi(self.store, clock=lambda: 1000,
+                               product_view=DeniedProductView())
+            try:
+                status, payload, _ = self.request(
+                    "GET", f"/lite/v1/homes/{HOME_ID}/routine-config", cookie=cookie
+                )
+            finally:
+                self.api = previous
+        self.assertEqual(status, "403 Forbidden")
+        self.assertEqual(payload, {"error": "not_authorized"})
 
     def test_authenticated_api_rate_limit_is_bounded_and_recovers_next_window(self):
         home='gs177-test-rate-limit'

@@ -287,6 +287,8 @@ class LiteApi:
             headers += extra
         except Denied:
             status, payload = "403 Forbidden", {"error": "not_authorized"}
+        except PermissionError:
+            status, payload = "403 Forbidden", {"error": "not_authorized"}
         except RateLimited as error:
             status, payload = "429 Too Many Requests", {"error": "rate_limited"}
             headers.append(("Retry-After", str(error.retry_after)))
@@ -711,7 +713,7 @@ def build_app():
                      AND s.expires_at>? AND a.active=TRUE AND m.home_id=?
                      AND m.active=TRUE AND m.role='ADMIN' AND h.test_only=TRUE
                      AND h.ownership_epoch=m.ownership_epoch
-                     AND c.active=TRUE AND c.role IN ('OWNER','PRIMARY')
+                     AND c.active=1 AND c.role IN ('OWNER','PRIMARY')
                      AND p.consent_state='ACTIVE'""",
                 (actor.session_id, actor.actor_id, at, home_id)).fetchone()
             return row is not None

@@ -11,6 +11,7 @@ import socket
 import subprocess
 import sys
 import unittest
+from unittest.mock import patch
 from cryptography.hazmat.primitives import serialization
 from psycopg import OperationalError
 from psycopg.conninfo import make_conninfo
@@ -26,6 +27,7 @@ from ghar_sajag.gs179_hub_ingress_runtime import (
 )
 from ghar_sajag.identity_namespaces import is_gs179_test_hub_home
 from gs178_stack import ProductStack, HOME
+from connected_lite import build_app
 
 
 CODE_ROOT = Path(__file__).resolve().parents[2]
@@ -157,6 +159,26 @@ class RuntimeOwnedPostgresCaregiverE2E(unittest.TestCase):
         fd = os.open(self.authority_signer_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, "wb") as signer_file:
             signer_file.write(signer_pem)
+
+    def test_authenticated_routine_settings_read_works_with_postgres_roster_flags(self):
+        with patch.dict(os.environ, {
+            "DATABASE_URL": self.stack.postgres_url,
+            "PUBLIC_ORIGIN": "https://caregiver.gs178.dev",
+            "GS179_TEST_ONLY_MONITORING": "1",
+            "GS179_LOCAL_LAN_TEST_ONLY": "0",
+            "GS179_TEST_ONLY_ALLOWED_ORIGINS": "",
+            "GS179_TEST_ONLY_HOME_PREFIX": "gs177-test-",
+        }, clear=False):
+            api = build_app()
+        self.addCleanup(api.product_view.durable_api.db.close)
+        self.stack.lite = api
+        cookie = self.stack.login()
+        status, settings, _ = self.stack.human(
+            "GET", f"/lite/v1/homes/{HOME}/routine-config", cookie=cookie
+        )
+        self.assertEqual(status, 200, settings)
+        self.assertEqual(settings["desired_version"], 0)
+        self.assertIsNone(settings["applied_version"])
 
     def _config(self, *, epoch=None, port=None):
         return HubIngressRuntimeConfig(

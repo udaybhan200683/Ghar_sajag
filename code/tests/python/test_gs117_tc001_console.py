@@ -27,6 +27,26 @@ import gs117_tc001_backend as tc_backend
 
 
 class TC001Test(unittest.TestCase):
+    def test_health_preserves_lan_failure_reason_and_overall_exit(self):
+        result = SimpleNamespace(
+            returncode=1,
+            stdout=("POSTGRES_READY=PASS tls=verify-full\n"
+                    "CAREGIVER_HTTPS_READY=PASS tls=ca_and_dns_san_verified\n"
+                    "LOCAL_BACKEND_READY=PASS\n"
+                    "LAPTOP_LAN_ENDPOINT_TLS_READY=FAIL reason=windows_forwarding_or_endpoint_unavailable\n"
+                    "LAN_FORWARDING_READY=FAIL reason=windows_forwarding_or_endpoint_unavailable\n"
+                    "DEVELOPMENT_ENDPOINT_READY=FAIL local_backend=PASS lan_forwarding=FAIL\n"),
+        )
+        with patch.object(tc.subprocess, "run", return_value=result) as run:
+            state = tc.health()
+        self.assertEqual(run.call_args.args[0][-1], "health")
+        self.assertEqual(state["LOCAL_BACKEND_READY"], "PASS")
+        self.assertEqual(state["LAPTOP_LAN_ENDPOINT_TLS_READY"], "FAIL")
+        self.assertEqual(state["LAPTOP_LAN_ENDPOINT_TLS_READY_REASON"],
+                         "windows_forwarding_or_endpoint_unavailable")
+        self.assertEqual(state["DEVELOPMENT_ENDPOINT_READY"], "FAIL")
+        self.assertEqual(state["exit_code"], 1)
+
     @staticmethod
     def _morning_fixture():
         return {
@@ -47,7 +67,7 @@ class TC001Test(unittest.TestCase):
                   "activity_rules": {"morning_steps": [
                       {"location": "bedroom", "enabled": True, "required": True}]}}
         return {
-            "backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS"},
+            "backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS", "DEVELOPMENT_ENDPOINT_READY": "PASS", "LAPTOP_LAN_ENDPOINT_TLS_READY": "PASS"},
             "caregiver_home": {"caregiver_home_ready": True,
                                "backend_origin": "https://laptop.local",
                                "configuration": {
@@ -172,8 +192,8 @@ class TC001Test(unittest.TestCase):
                 self.assertEqual(report["acceptance"], "NOT_RUN")
                 self.assertEqual(report["scenario_id"], "MORNING_ROUTINE")
                 self.assertEqual(report["test_stimulus_interval_seconds"], 10)
-                self.assertEqual(report["first_failing_stage"], "applied_household_policy")
-                self.assertEqual(report["stages"]["applied_household_policy"]["status"], "BLOCKED")
+                self.assertEqual(report["first_failing_stage"], "caregiver_network")
+                self.assertEqual(report["stages"]["caregiver_network"]["status"], "BLOCKED")
                 self.assertEqual(report["stages"]["android_apk"]["status"], "NOT_STARTED")
                 self.assertEqual(report["physical_operations"], [])
                 self.assertEqual(report["event_keys"], [])
@@ -186,13 +206,31 @@ class TC001Test(unittest.TestCase):
                 self.assertEqual(len(history), 1)
                 self.assertEqual(history[0]["run_id"], report["run_id"])
 
+    def test_morning_run_blocks_when_local_https_passes_but_lan_forwarding_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            controller = tc.Controller()
+            state = self._ready_morning_state()
+            state["backend"]["DEVELOPMENT_ENDPOINT_READY"] = "FAIL"
+            state["backend"]["LAPTOP_LAN_ENDPOINT_TLS_READY"] = "FAIL"
+            with (patch.object(tc, "STATE", Path(directory)),
+                  patch.object(controller, "readiness", return_value=state),
+                  patch.object(tc, "exact_fixture", return_value=self._morning_fixture()),
+                  patch.object(tc, "powershell", side_effect=AssertionError("physical operation attempted")),
+                  patch.object(controller, "execute", side_effect=AssertionError("USB input attempted"))):
+                report = controller.start_morning_routine(10)
+            self.assertEqual(report["overall"], "BLOCKED")
+            self.assertEqual(report["first_failing_stage"], "caregiver_network")
+            self.assertIn("LAN HTTPS", report["stages"]["caregiver_network"]["reason"])
+            self.assertEqual(report["physical_operations"], [])
+            self.assertEqual(report["event_keys"], [])
+
     def test_morning_policy_uses_exact_applied_settings_and_still_blocks_unqualified_fixture(self):
         config = {"timezone": "Asia/Kolkata", "mode": "HOME",
                   "morning": {"enabled": True, "start_minute": 360,
                               "end_minute": 660, "grace_minutes": 30},
                   "activity_rules": {"morning_steps": [
                       {"location": "bedroom", "enabled": True, "required": True}]}}
-        readiness = {"backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS"},
+        readiness = {"backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS", "DEVELOPMENT_ENDPOINT_READY": "PASS", "LAPTOP_LAN_ENDPOINT_TLS_READY": "PASS"},
             "caregiver_home": {"caregiver_home_ready": True, "configuration": {
             "status": "PASS", "source": "AUTHENTICATED_GS148_TEST_ONLY_SETTINGS",
             "test_only": True, "home_id": "gs177-test-product", "schema_version": 1,
@@ -230,7 +268,7 @@ class TC001Test(unittest.TestCase):
                       {"location": "bedroom", "enabled": True, "required": True},
                       {"location": "kitchen", "enabled": True, "required": True}]}}
         readiness = {
-            "backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS"},
+            "backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS", "DEVELOPMENT_ENDPOINT_READY": "PASS", "LAPTOP_LAN_ENDPOINT_TLS_READY": "PASS"},
             "caregiver_home": {"caregiver_home_ready": True, "configuration": {
                 "status": "PASS", "source": "AUTHENTICATED_GS148_TEST_ONLY_SETTINGS",
                 "test_only": True, "home_id": "gs177-test-product", "schema_version": 1,
@@ -771,7 +809,7 @@ class TC001Test(unittest.TestCase):
                    "c3": {"port": "COM4", "serial_number": "14:63:93:C5:D1:58"},
                    "s3": {"port": "COM10", "serial_number": "E0:72:A1:D3:8D:34"}}
         approval = {"approval_ref": "owner-approved"}
-        readiness = {"backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS"},
+        readiness = {"backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS", "DEVELOPMENT_ENDPOINT_READY": "PASS", "LAPTOP_LAN_ENDPOINT_TLS_READY": "PASS"},
                      "caregiver_home": {"caregiver_home_ready": True},
                      "physical_boards": {"c3": "PASS", "s3": "PASS"},
                      "fixture": {"status": "PASS"}, "android_apk": {"status": "PASS"},
@@ -858,7 +896,7 @@ class TC001Test(unittest.TestCase):
         state_dir = tempfile.TemporaryDirectory()
         self.addCleanup(state_dir.cleanup)
         with (patch.object(tc, "STATE", Path(state_dir.name)),
-              patch.object(controller, "readiness", return_value={"backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS"}, "caregiver_home": {"caregiver_home_ready": True, "backend_origin": home_origin}, "android_apk": {"status": "PASS"}, "hub_ingress": {"status": "PASS"}}),
+              patch.object(controller, "readiness", return_value={"backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS", "DEVELOPMENT_ENDPOINT_READY": "PASS", "LAPTOP_LAN_ENDPOINT_TLS_READY": "PASS"}, "caregiver_home": {"caregiver_home_ready": True, "backend_origin": home_origin}, "android_apk": {"status": "PASS"}, "hub_ingress": {"status": "PASS"}}),
               patch.object(tc, "exact_fixture", return_value=fixture),
               patch.object(tc, "powershell", side_effect=[ports if ports_override is None else ports_override, serial_data, apk_result]) as hardware,
               patch.object(tc, "backend", side_effect=[baseline, outcome]),

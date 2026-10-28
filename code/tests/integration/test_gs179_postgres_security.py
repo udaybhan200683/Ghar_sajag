@@ -400,6 +400,10 @@ class LaptopServiceLifecycleBoundary(unittest.TestCase):
 
     def test_read_only_audit_precedes_mutation_admin_gate(self):
         source = WINDOWS_PROXY.read_text(encoding="utf-8")
+        self.assertIn("function Get-NetstatListenerCount([string]$Address, [int]$Port)", source)
+        self.assertIn('if ($listenerReadStatus -ne "READABLE")', source)
+        self.assertIn('ListenerReadStatus = $listenerReadStatus', source)
+        self.assertIn('ListenerCount = $listenerCount', source)
         audit = source.index('if ($Action -eq "Audit")')
         audit_exit = source.index("exit 0", audit)
         admin_gate = source.index('if ($Action -in @("Start", "Stop", "Watch")) { Assert-Administrator }')
@@ -412,6 +416,7 @@ class LaptopServiceLifecycleBoundary(unittest.TestCase):
         for mutation in ("New-NetFirewallRule -Name", "Set-NetFirewallAddressFilter",
                          "portproxy add", "portproxy delete"):
             self.assertGreater(start.index(mutation), 0)
+        self.assertIn("if ($needsFirewallScopeUpdate)", start)
         self.assertLess(source.index('if ($Action -eq "UnregisterWatch")'),
                         source.index("Unregister-ScheduledTask"))
         self.assertLess(source.index('if ($Action -eq "RegisterWatch")'),
@@ -430,6 +435,9 @@ class LaptopServiceLifecycleBoundary(unittest.TestCase):
         source = LAPTOP_SERVER.read_text(encoding="utf-8")
         self.assertIn("LOCAL_BACKEND_READY=PASS", source)
         self.assertIn("LAPTOP_LAN_ENDPOINT_TLS_READY=PASS tls=ca_and_dns_san_verified", source)
+        self.assertIn("LAN_FORWARDING_READY=FAIL", source)
+        self.assertIn("DEVELOPMENT_ENDPOINT_READY=FAIL local_backend=%s lan_forwarding=%s", source)
+        self.assertIn("(( local_ready == 0 && lan_ready == 0 ))", source)
         self.assertIn("PHONE_LAN_REACHABLE=NOT_VERIFIED", source)
         self.assertIn("HUB_INGRESS_RUNTIME_IMPLEMENTED=YES", source)
         self.assertIn("HUB_INGRESS_AUTOSTART=DISABLED", source)
@@ -469,6 +477,33 @@ class LaptopServiceLifecycleBoundary(unittest.TestCase):
         self.assertLess(trusted_start, proxy.index('$existingRule = Get-ExactFirewallRule', trusted_start))
         self.assertNotIn("ExpectedWifiName", proxy)
         self.assertNotIn("WifiAddress = \"192.168.", proxy)
+
+    def test_existing_watcher_reconciles_wsl_only_ip_changes_without_restarting_healthy_backend(self):
+        proxy = WINDOWS_PROXY.read_text(encoding="utf-8")
+        source = LAPTOP_SERVER.read_text(encoding="utf-8")
+        self.assertIn("<CalendarTrigger>", proxy)
+        self.assertIn("<Interval>PT1M</Interval><Duration>P1D</Duration>", proxy)
+        self.assertIn("<ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay>", proxy)
+        self.assertIn("logon,Wi-Fi profile connected,daily WSL address reconciliation every minute", proxy)
+        self.assertIn("-Action Watch", proxy)
+        self.assertIn("network-refresh-config", proxy)
+        self.assertIn("NETWORK_CONFIGURATION_CHANGED=0", source)
+        self.assertIn("ensure_local_service ||", source)
+        self.assertIn("elif (( NETWORK_CONFIGURATION_CHANGED != 0 )); then", source)
+        self.assertIn("elif ! wait_for_local_backend; then", source)
+        self.assertIn("LAN_FORWARDING_READY=FAIL", source)
+
+    def test_gs117_entrypoint_starts_local_service_and_waits_for_controller_page(self):
+        launcher = (CODE_ROOT / "tools" / "local" / "gs117-tc001-launch.sh").read_text(encoding="utf-8")
+        windows_launcher = (CODE_ROOT / "tools" / "local" / "GS117-TC001-Console.cmd").read_text(encoding="utf-8")
+        self.assertIn('"$GS179" dev-start', launcher)
+        self.assertIn('"$GS179" proxy-audit', launcher)
+        self.assertIn("GS117_WEB_UTILITY_READY=ALREADY_RUNNING", launcher)
+        self.assertIn("http://127.0.0.1:18791/", launcher)
+        self.assertIn("exec python3 code/tools/local/gs117_tc001_console.py", launcher)
+        self.assertIn("http://127.0.0.1:18791/", windows_launcher)
+        self.assertIn("AddSeconds(30)", windows_launcher)
+        self.assertIn("GS-117 utility did not become reachable", windows_launcher)
         print("CASE GS179-LAN-AUTO-001 PASS")
 
     def test_GS179_LAN_RECOVERY_001_proxy_stop_rollback_needs_no_active_wifi(self):
@@ -511,7 +546,7 @@ class LaptopServiceLifecycleBoundary(unittest.TestCase):
         restart = source[source.index("restart_service()") : source.index("run_event()")]
         self.assertIn("load_config", start)
         self.assertIn("load_config", restart)
-        self.assertIn("wait_for_local_backend ||", start)
+        self.assertIn("ensure_local_service ||", start)
         self.assertIn("wait_for_local_backend ||", restart)
 
 
