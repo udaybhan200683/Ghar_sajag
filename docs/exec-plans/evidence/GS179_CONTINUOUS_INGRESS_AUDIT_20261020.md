@@ -623,3 +623,68 @@ five-run approval are absent. Local backend health and old `.6` forwarding
 rows do not establish current Android reachability or any fresh physical S3
 receipt; no credentials were sent to `.10`, and no hardware or Android action
 was performed.
+
+### 2026-10-28 — recovery watcher and end-to-end readiness correction
+
+Recovery changes were committed and pushed as
+`c6efa7b4f347be408449fee56c7f8fb67b5d0842`, based on
+`9159203a6fd219100ac06f959c2c18bcff3a10f9`. The root cause was reproduced:
+Windows still had the owned `.6:443 -> 172.17.152.10:8444` and
+`.6:8445 -> 172.17.152.10:8445` portproxy rows, while `netstat` found no
+listener on `.6:443`; the GS-179 scheduled recovery task was absent. WSL
+`eth0` is currently `172.17.152.10`, Windows Wi-Fi is the trusted Private
+`Airtel_Agrim` network at `192.168.1.6/24`, and the existing leaf certificate
+verifies against the preserved CA for both `desktop-3qqu64b.local` and
+`192.168.1.6`. Certificate replacement was unnecessary.
+
+The existing user systemd unit is enabled and active (`Restart=on-failure`).
+After the controlled service restart, PostgreSQL TLS/durability and local
+caregiver HTTPS passed; durable `events` and `durable_event_commits` remained
+139 each. Repeated `network-refresh-config` kept the healthy process and did
+not rotate TLS identity or restart the service. The corrected overall health
+now returns nonzero when certificate-verified LAN HTTPS fails, so local health
+cannot mask broken Windows forwarding. The existing GS-117 entry point reuses
+the local service, audits Windows forwarding, avoids duplicate console
+processes, and opens the utility only after its loopback page responds.
+
+The existing Windows watcher now also reconciles the current WSL address every
+minute, alongside logon and trusted Wi-Fi connection triggers. It retains the
+existing trusted-network and scoped firewall/portproxy guards and does not
+restart a healthy backend when configuration is unchanged. This watcher is
+not registered on this machine: the task is absent and the current Windows
+token is not elevated. No Windows route/firewall/task mutation was attempted.
+Therefore restart recovery is implemented and regression-tested but is not
+operationally qualified yet. One elevated registration-and-initial-recovery
+action is required; after it, verify the task and run a controlled recovery
+test. From elevated Windows PowerShell, run the existing registration command:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File '\\wsl.localhost\Ubuntu\home\udaybhan\projects\Ghar_sajag_r1\code\tools\local\gs179-windows-lan-proxy.ps1' -Action RegisterWatch -LinuxScriptPath '/home/udaybhan/projects/Ghar_sajag_r1/code/tools/local/gs179-laptop-server.sh'
+```
+
+This registers the existing logon/Wi-Fi/minute-level reconciliation triggers
+and performs one initial recovery. WSL shutdown was not performed because it
+would terminate this active execution and cannot demonstrate watcher recovery
+before registration.
+
+Live checks: local HTTPS/PostgreSQL PASS; LAN HTTPS to `.6:443` FAIL (timeout);
+Windows listener count 0; GS-117 Windows loopback page and `/api/status` HTTP
+200. The console reports `DEVELOPMENT_ENDPOINT_READY=FAIL`, fixture BLOCKED
+(`owner_only_fixture_approval_and_identity_file_missing`) and Hub ingress
+NOT_LISTENING. Read-only USB enumeration matched the expected C3 COM4 and S3
+COM10 descriptors; no port was opened. WSL TCP 8445 and UDP 4468 are not
+listening, so there is no fresh physical S3 authentication or signed-time
+proof. After one `adb start-server`, the existing Android observer and
+`adb devices -l` still found no authorized device; current APK connectivity
+could not be checked. No credential was sent to `.10`, and no board, database
+identity, APK or hardware state was changed.
+
+Focused results on this source: GS-179 PostgreSQL/security 23/23, including
+`GS179-LAN-RECOVERY-001` and `GS179-LAN-AUTO-001`; GS-179 runtime composition
+6/6 against isolated TLS PostgreSQL; GS-117 controller 60/60; connected-lite
+23/23. Shell/Python syntax, `git diff --check`, TLS CA/SAN verification and
+context preflight passed. Physical E2E remains NOT_RUN. Source changes are
+committed and origin matches `c6efa7b4f347be408449fee56c7f8fb67b5d0842`; this
+evidence/work-state closeout follows as a documentation commit. Windows watcher
+registration, post-registration recovery, Android connection and fresh S3
+authentication remain unverified.

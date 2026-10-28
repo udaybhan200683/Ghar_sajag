@@ -8991,3 +8991,51 @@ desired/applied versions through the existing database schema, wire Hub fetch
 and durable apply, then connect the authorized Settings UI and GS-117 console.
 Do not start the real multi-room scenario until each required location has a
 genuinely enrolled C3 and the ordinary GS-117 fixture/campaign gates pass.
+
+### 2026-10-28 — development endpoint recovery checkpoint
+
+Recovery code commit: `c6efa7b4f347be408449fee56c7f8fb67b5d0842` on
+`feature/r1-commercial-baseline`; origin matched after push. Local backend
+recovery was verified after a controlled existing systemd service
+restart, but Windows LAN and WSL-restart recovery are not fully qualified.
+
+The confirmed LAN root cause is an absent GS-179 scheduled recovery task and
+owned Windows portproxy rows without a listening socket. Current Windows Wi-Fi
+is trusted Private `.6/24`; WSL is `.10`; existing HTTPS CA/SAN identity is
+valid. Code now makes overall readiness fail when LAN HTTPS fails, uses the
+existing watcher with bounded minute-level WSL-address reconciliation, keeps
+healthy backend starts idempotent, and routes the GS-117 launcher through the
+existing readiness/report path. The local persistent service, PostgreSQL and
+loopback GS-117 utility are up; the Windows loopback page and readiness API
+return HTTP 200. Durable event and commit counts remain 139 each.
+
+The watcher registration requires an elevated Windows token. The task remains
+ABSENT because this run has no administrator token; no UAC bypass or network
+mutation was performed. Thus LAN HTTPS `.6:443` still times out and automatic
+recovery after WSL/IP change is not yet proven. The exact next operation is one
+elevated invocation of the existing Windows PowerShell script, followed by
+verification of the task and a controlled recovery cycle:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File '\\wsl.localhost\Ubuntu\home\udaybhan\projects\Ghar_sajag_r1\code\tools\local\gs179-windows-lan-proxy.ps1' -Action RegisterWatch -LinuxScriptPath '/home/udaybhan/projects/Ghar_sajag_r1/code/tools/local/gs179-laptop-server.sh'
+```
+
+A WSL shutdown was not run while this active execution was using the distro.
+
+The existing Android observer plus Windows ADB still reports
+`TC001_APPROVED_ANDROID_DEVICE_NOT_AUTHORIZED_OR_CONNECTED` after one bounded
+ADB server start; PnP has no Android/ADB device. The current app endpoint/login
+cannot be freshly checked. The utility's read-only status endpoint returns 200
+and safely reports LAN readiness FAIL, fixture BLOCKED, and Hub ingress
+NOT_LISTENING. Expected C3 COM4/S3 COM10 USB descriptors were enumerated only;
+no serial port was opened. TCP 8445, UDP 4468, current S3 authentication and
+physical image/fixture readiness remain BLOCKED. TC-001 and Morning Routine
+physical acceptance remain NOT_RUN.
+
+Focused results: GS-179 PostgreSQL/security 23/23; isolated live PostgreSQL
+runtime composition 6/6; GS-117 controller 60/60; connected-lite 23/23;
+shell/Python syntax, context preflight, TLS CA/SAN verification and diff check
+PASS. See the existing
+[`GS-179 ingress/recovery evidence`](../exec-plans/evidence/GS179_CONTINUOUS_INGRESS_AUDIT_20261020.md#2026-10-28--recovery-watcher-and-end-to-end-readiness-correction)
+for commands, root cause and limitations. Jira GS-179 remains In Progress;
+GS-117 remains OnHold for physical qualification.
