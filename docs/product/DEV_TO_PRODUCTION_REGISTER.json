@@ -2,7 +2,7 @@
   "schema_version": 1,
   "register_owner": "GS-173",
   "validation_owner": "GS-116",
-  "source_commit": "732b848df157859cffaf813332d8ab1e0058ad7a",
+  "source_commit": "d6a37dc113ead8fe5559a990dcce2974d271e182",
   "verified_date": "2026-10-28",
   "items": [
     {
@@ -380,6 +380,8 @@
       "scope": "MANDATORY_R1",
       "source_paths": [
         "code/tools/local/gs117_tc001_console.py",
+        "code/tools/local/gs117_tc001_backend.py",
+        "code/tools/local/gs117_tc001_serial_windows.py",
         "code/parivar_saathi_android_app/android/app/src/main/java/in/gharsajag/caregiver/TrustedPwaWebView.kt"
       ],
       "dev_effective_config": "Existing installed authorized APK and ADB observer against isolated TEST_ONLY Home only",
@@ -402,13 +404,13 @@
         "foreground/background notification delivery if required"
       ],
       "acceptance": "The actual installed application presents the real Hub Morning Routine completion with the correct Home and decision identity after refresh, with screenshot/accessibility evidence.",
-      "evidence": "Historical HOST_SIM EventKey was observed in actual APK; no physical Morning Routine decision evidence exists.",
+      "evidence": "Historical HOST_SIM EventKey was observed in actual APK. GS-117 controller now requires one PostgreSQL MORNING_ROUTINE_COMPLETED decision linked to the original EventKey, matching authenticated caregiver API projection, and exact Hub Decision ID in installed APK Reports with screenshot/accessibility evidence; mocked controller/observer regressions pass 58/58. No physical Morning Routine decision or current APK outcome is verified.",
       "release_blocking": true,
       "gate_status": "NOT_RUN",
       "accountable_reviewer": "GS-117/177 Android owner; GS-173 release",
       "owner_security_approval": "Android observation only under existing authorization; no physical event generation authorized",
-      "last_verified_commit": "732b848df157859cffaf813332d8ab1e0058ad7a",
-      "dev_state_detail": "Historical HOST_SIM-to-APK PASS; physical S3 Morning Routine decision unverified"
+      "last_verified_commit": "d6a37dc113ead8fe5559a990dcce2974d271e182",
+      "dev_state_detail": "Historical HOST_SIM-to-APK PASS; exact physical Hub-decision observer implemented and host-mocked; physical S3 decision and APK outcome unverified"
     },
     {
       "gate_id": "DTP-010",

@@ -2867,3 +2867,42 @@ Isolated TLS PostgreSQL repository/security tests passed 21/21 and runtime
 composition 5/5 using a disposable schema. These do not establish physical
 S3 configuration application or a Morning Routine decision. GS-117 remains
 OnHold; TC-001, real optical PIR and Android routine outcome remain NOT_RUN.
+
+## 2026-10-28 — guarded Bedroom Morning Routine Run integration
+
+Resumed from pushed closeout `74458e2df560752d41e93c442e05f710e9bd1584`.
+The controller/observer source is `3854d661f731e996a0cc7f26f0a7800a49e3be78`;
+the final read-only decision-query regression commit is
+`d6a37dc113ead8fe5559a990dcce2974d271e182`.
+Existing configurable RulesCore, authenticated desired/applied policy,
+GS-117 C3 USB path, PostgreSQL/caregiver API and ADB observer were reused. The
+minimum integration now extends the existing Run panel from readiness reporting
+to a one-use, Bedroom-only sequence that requires an actual Hub-owned
+`MORNING_ROUTINE_COMPLETED` row joined to the original Node EventKey, the
+matching authorized caregiver decision and the exact decision ID in the
+installed APK Reports detail view. It captures screenshot and accessibility
+evidence privately. The fixed TC-001 five-injection campaign remains unchanged.
+
+The Run path checks the applied household version, actual enrolled room mapping,
+current exact fixture/image/JEDEC receipts, backend/Home, Android readiness,
+fresh authenticated physical ingress and a separate one-use Run approval before
+consuming approval or opening C3 COM4. S3 COM10 remains unopened. Configured
+rooms without their own enrolled physical Node report BLOCKED. The Run approval
+was not present or consumed; no hardware or Android operation occurred.
+
+Validation: Python compilation PASS; GS-117 controller/ADB suite **58/58 PASS**;
+GS-116 component-gate suite **55/55 PASS**; `make feature-coverage-test` PASS
+(226 features, 286 source modules, 27 physical cases; 22/22 mapping tests);
+`git diff --check` PASS. The successful one-click orchestration and APK
+exact-decision tests use mocks; they are not a real board run or an Android
+observation. No target build was needed because firmware/configuration sources
+were unchanged.
+
+Read-only current service status: PostgreSQL TLS/durability and local caregiver
+HTTPS at WSL `172.17.152.10:8444` PASS; LAN HTTPS `192.168.1.6:443` times out;
+TCP `8445` and UDP `4468` listeners absent. Backend reports no authenticated
+Hub identity, monitoring freshness UNKNOWN and ingress NOT_CONFIGURED. The
+current C3 JEDEC/image receipts, owner-only fixture, fresh physical S3 mTLS
+receipt and separate Morning Routine approval are not established. No physical
+S3 completion decision or APK business outcome is claimed. GS-117 remains
+OnHold; TC-001 is 0/5 NOT_RUN and optical PIR is NOT_RUN.

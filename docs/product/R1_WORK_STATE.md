@@ -1,4 +1,82 @@
-## Latest active checkpoint — GS-117/GS-179 TEST_ONLY Morning Routine integration — 2026-10-28
+## Latest active checkpoint — GS-117 Morning Routine Run controller — 2026-10-28
+
+Resumed at verified canonical commit `74458e2df560752d41e93c442e05f710e9bd1584`
+on `feature/r1-commercial-baseline`; context preflight PASS (`2026-10-28.001`).
+The controller/observer follow-on is
+`3854d661f731e996a0cc7f26f0a7800a49e3be78`; a read-only SQL guard regression
+is `d6a37dc113ead8fe5559a990dcce2974d271e182`, the validated source checkpoint.
+Those commits touch only four scoped GS-117 tool/test files. Existing unrelated
+untracked Android, IDF and hardware-evidence assets remain untouched. The
+previous checkpoint's TEST_ONLY desired/applied policy integration and DTP
+register remain in the following historical section.
+
+**Existing implementation → gap → minimum change.** The configurable
+MorningRoutine RulesCore, TEST_ONLY desired/applied policy repository and S3
+application path, GS-179 backend, GS-117 fixed Bedroom campaign/USB helper, and
+the installed-APK ADB observer already exist. The Run panel previously persisted
+BLOCKED readiness only, while its observer proved a Node motion EventKey rather
+than the separate Hub-owned completion. Extended the same controller to perform
+one Bedroom-only run only after current applied policy, enrolled-room mapping,
+physical identity/image/JEDEC fixture, backend/Home, Android, fresh ingress and
+one-use run approval all pass. It reuses the existing C3 COM4 helper and exact
+Node-to-APK flow, then requires one PostgreSQL `MORNING_ROUTINE_COMPLETED` row
+joined to the original EventKey, the same authenticated caregiver API decision,
+and the exact Hub Decision ID in the actual APK Reports details with private
+screenshot/accessibility evidence. The established fixed five-run TC-001 flow is
+preserved. Additional enabled rooms without their own enrolled Node remain
+BLOCKED; Bedroom cannot stand in for Kitchen or another location.
+
+This is controller/observer integration, not a new backend or rule engine. The
+separate one-use Morning Routine approval is not present or consumed. No COM,
+USB, ADB, flash, reset, credential, enrollment, database mutation, or physical
+input occurred. The mocked one-click test proves orchestration/fail-closed
+contracts only; it is not a real-device Run or APK observation.
+
+Focused validation on source commit `d6a37dc`:
+
+- Python compilation of the three existing GS-117 tools and their regression:
+  PASS.
+- `python3 -m unittest tests.python.test_gs117_tc001_console -v`: **58/58
+  PASS**, including exact decision identity, screenshot/accessibility digest,
+  missing one-use approval, wrong decision, and un-enrolled extra-room guards.
+- `PYTHONPATH=. python3 -m unittest tests.python.test_component_gate -v`:
+  **55/55 PASS**.
+- `make feature-coverage-test`: PASS; **226 features, 286 source modules, 27
+  physical cases**, with **22/22** traceability registration tests. Mapping
+  consistency is not physical or semantic qualification.
+- `git diff --check`: PASS.
+- No target build was needed for these Python-only controller and ADB-observer
+  changes; existing firmware and configuration integration were not modified.
+
+Read-only current host health: PostgreSQL TLS/durability and local caregiver
+HTTPS on WSL `172.17.152.10:8444` PASS; phone-facing LAN HTTPS at
+`192.168.1.6:443` FAIL/timeout. No physical ingress TCP `8445` or signed-time
+UDP `4468` listener is active. The backend reports no authenticated Hub identity,
+unknown monitoring freshness and no persistent ingress configuration. The
+current owner-only fixture/current C3 JEDEC-image evidence, fresh physical S3
+receipt and separate Morning Run authorization are not established. No current
+APK decision observation was made. GS-117 remains OnHold; TC-001 is 0/5
+NOT_RUN and real optical PIR is NOT_RUN.
+
+The existing development-to-production register remains the single register:
+`DTP-001..010` in `DEV_TO_PRODUCTION_REGISTER.md/.json`. Production identity,
+issuer/key lifecycle, caregiver production issuer, middleware/deployment,
+hosting, signed firmware/root-of-trust, external notifications and final
+production Android qualification remain release-gated; none is substituted by
+this DEV controller. DTP-001..009 remain open; DTP-010 only qualifies existing
+TEST_ONLY build-profile isolation. No production endpoint or security control
+was activated.
+
+Next action: restore the already-owned laptop LAN HTTPS route only through its
+approved UAC procedure; restore bounded 8445/4468 service under the existing
+GS-179 procedure; then obtain current C3 JEDEC/image and S3 configuration/auth
+receipts and validate the owner-only fixture. If every readiness gate passes,
+obtain a separate one-use Bedroom Run approval, then exercise the existing
+Morning Routine Run once and require actual S3 completion, PostgreSQL/API, and
+APK decision evidence. Do not start another room or the five-run TC-001 campaign
+without its applicable independent approval.
+
+## Prior checkpoint — GS-117/GS-179 TEST_ONLY Morning Routine integration — 2026-10-28
 
 Resumed from canonical commit `a92bd8214df67ae68ac5e902bf2b2f49367223ec` on
 `feature/r1-commercial-baseline`; local and origin matched at resume. The
