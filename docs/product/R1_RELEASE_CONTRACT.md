@@ -20,6 +20,26 @@ or a later explicit support-set decision. Unchanged persistent bytes alone do
 not establish rollback availability. Exact signed-image pair, S3 self-OTA and
 physical rollback qualification remain separate and unqualified.
 
+## Development-to-production reactivation register — GS-173 / GS-116
+
+The canonical [DEV-to-production register](DEV_TO_PRODUCTION_REGISTER.md) and
+its machine-readable [gate data](DEV_TO_PRODUCTION_REGISTER.json) track current
+implementation, effective DEV configuration, production readiness, owner
+decisions and reactivation evidence. GS-173 owns the itemized register and R1
+scope disposition; GS-116 owns release-gate enforcement; GS-130 owns feature and
+physical traceability. The two register representations must keep identical
+stable gate IDs.
+
+At a frozen release candidate, missing or stale evidence, unresolved mandatory
+scope, an unqualified production capability, or an effective TEST_ONLY route,
+identity, trust root or build option is a release NO-GO. A source default or
+requested CMake value does not prove the effective image profile. The existing
+paired target builder and release registry must verify TEST_ONLY controls are
+disabled/absent and every mandatory production gate is `PASS`/`QUALIFIED` before
+release approval. This is a release-stage check, not a prerequisite to isolated
+development use-case testing. Physical and credential operations retain their
+separate approvals.
+
 ## Pre-R1 fix rule
 
 A defect is an R1 blocker only if it causes:

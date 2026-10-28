@@ -78,13 +78,6 @@ class PostgresConfigurationRepository:
         """Persist a caregiver-authorized desired version using optimistic concurrency."""
         self._validate_time(at)
         self._validate_home(home_id)
-        if (type(actor) is not ActorSession or not self._identifier(actor.actor_id) or
-                not self._identifier(actor.session_id) or
-                not self._identifier(actor.issuer_reference) or
-                type(actor.expires_at) is not int or at >= actor.expires_at):
-            raise ConfigurationDenied("current_caregiver_session_required")
-        if self.authorize_caregiver_settings is None:
-            raise ConfigurationDenied("trusted_home_settings_authority_unavailable")
         if (type(expected_version) is not int or expected_version < 0):
             raise ValueError("invalid_expected_config_version")
         canonical = self._request_policy(config, home_id=home_id,
@@ -95,8 +88,7 @@ class PostgresConfigurationRepository:
             try:
                 if self.db.execute("SELECT 1 FROM households WHERE home_id=?", (home_id,)).fetchone() is None:
                     raise ConfigurationDenied("home_not_found")
-                if self.authorize_caregiver_settings(actor, home_id, at) is not True:
-                    raise ConfigurationDenied("current_home_settings_membership_required")
+                self._authorize_caregiver(actor, home_id, at)
                 row = self.db.execute(
                     "SELECT COALESCE(MAX(version),0) FROM configurations WHERE home_id=?",
                     (home_id,),
@@ -124,6 +116,24 @@ class PostgresConfigurationRepository:
                 self._audit(home_id, at, "CAREGIVER", actor.actor_id,
                             "config.desired.published", str(version),
                             {"schema_version": self.SCHEMA_VERSION})
+                snapshot = self._snapshot(home_id)
+                self.db.commit()
+                return snapshot
+            except BaseException:
+                self.db.rollback()
+                raise
+
+    def get_for_caregiver(self, *, actor: ActorSession, home_id: str,
+                          at: int) -> HouseholdConfigurationSnapshot:
+        """Read desired/applied state only for a current Home Settings member."""
+        self._validate_time(at)
+        self._validate_home(home_id)
+        with self.lock:
+            self._begin()
+            try:
+                if self.db.execute("SELECT 1 FROM households WHERE home_id=?", (home_id,)).fetchone() is None:
+                    raise ConfigurationDenied("home_not_found")
+                self._authorize_caregiver(actor, home_id, at)
                 snapshot = self._snapshot(home_id)
                 self.db.commit()
                 return snapshot
@@ -210,6 +220,17 @@ class PostgresConfigurationRepository:
                 int(row[2]) != context.installation_epoch or
                 row[0] != context.ownership_fingerprint_sha256):
             raise ConfigurationDenied("hub_home_epoch_ownership_changed")
+
+    def _authorize_caregiver(self, actor: ActorSession, home_id: str, at: int) -> None:
+        if (type(actor) is not ActorSession or not self._identifier(actor.actor_id) or
+                not self._identifier(actor.session_id) or
+                not self._identifier(actor.issuer_reference) or
+                type(actor.expires_at) is not int or at >= actor.expires_at):
+            raise ConfigurationDenied("current_caregiver_session_required")
+        if self.authorize_caregiver_settings is None:
+            raise ConfigurationDenied("trusted_home_settings_authority_unavailable")
+        if self.authorize_caregiver_settings(actor, home_id, at) is not True:
+            raise ConfigurationDenied("current_home_settings_membership_required")
 
     def _snapshot(self, home_id: str) -> HouseholdConfigurationSnapshot:
         latest = self.db.execute(

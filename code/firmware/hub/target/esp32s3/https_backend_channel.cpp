@@ -2,6 +2,7 @@
 #include "esp_http_client.h"
 #include "esp_timer.h"
 #include <utility>
+#include <string_view>
 #if defined(ESP_PLATFORM)
 #include <sys/time.h>
 #include <time.h>
@@ -14,6 +15,23 @@
 
 namespace gs::hub::target {
 namespace {
+bool home_route(const std::string& path, std::string_view suffix) {
+    constexpr std::string_view prefix = "/v1/homes/";
+    if (path.size() <= prefix.size() + suffix.size() ||
+        path.compare(0, prefix.size(), prefix) != 0 ||
+        path.compare(path.size() - suffix.size(), suffix.size(), suffix) != 0)
+        return false;
+    const auto home_end = path.size() - suffix.size();
+    const auto home_size = home_end - prefix.size();
+    if (home_size == 0 || home_size > 80) return false;
+    for (std::size_t index = prefix.size(); index < home_end; ++index) {
+        const unsigned char ch = static_cast<unsigned char>(path[index]);
+        if (!((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+              (ch >= '0' && ch <= '9') || ch == '_' || ch == '-')) return false;
+    }
+    return true;
+}
+
 bool valid_cloud_identity_reference(const CloudTlsIdentity& identity) {
     if (identity.permanent_hub_id.empty() || identity.permanent_hub_id.size() > 64 ||
         identity.credential_generation == 0 ||
@@ -38,6 +56,19 @@ HttpsBackendChannel::~HttpsBackendChannel() {
     for (std::size_t i = 0; i < authorization_.size(); ++i) secret[i] = 0;
 }
 BackendHttpResponse HttpsBackendChannel::post(const std::string& path, const std::string& body) {
+    return request(path, body, false);
+}
+BackendHttpResponse HttpsBackendChannel::get(const std::string& path) {
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    return request(path, {}, true);
+#else
+    (void)path;
+    return {};
+#endif
+}
+BackendHttpResponse HttpsBackendChannel::request(const std::string& path,
+                                                   const std::string& body,
+                                                   bool get_request) {
     BackendHttpResponse result;
     const auto deadline = esp_timer_get_time() + 5000000;
     CloudTlsIdentity identity;
@@ -94,10 +125,19 @@ BackendHttpResponse HttpsBackendChannel::post(const std::string& path, const std
 #endif
     }
     // A fixed HTTPS origin; no userinfo, fragments, queries, redirects or paths.
-    const bool node_health_path = path.compare(0, 10, "/v1/homes/") == 0;
+    const bool ordinary_home_post_path = !get_request &&
+        (home_route(path, "/events") || home_route(path, "/node-health") ||
+         home_route(path, "/hub-rule-decisions"));
+    bool test_configuration_path = false;
+    bool test_configuration_ack_path = false;
 #if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    const bool test_identity_ready = cloud_identity_ != nullptr && test_only_software_identity;
+    test_configuration_path = get_request && test_identity_ready &&
+        home_route(path, "/config/desired");
+    test_configuration_ack_path = !get_request && test_identity_ready &&
+        home_route(path, "/config/applied");
     const bool test_authority_path = path == "/v1/test/authority/refresh" &&
-        test_only_software_identity;
+        test_identity_ready && !get_request;
 #else
     constexpr bool test_authority_path = false;
 #endif
@@ -106,8 +146,11 @@ BackendHttpResponse HttpsBackendChannel::post(const std::string& path, const std
         trusted_ca_.empty() || trusted_ca_.size() > 8192 ||
         (cloud_identity_ == nullptr && authorization_.empty()) ||
         authorization_.size() > 1024 || authorization_.find_first_of("\r\n") != std::string::npos ||
-        (!node_health_path && !test_authority_path) || path.size() > 128 ||
-        body.empty() || body.size() > HttpBackendTransport::kMaximumRequestBytes) return result;
+        (!ordinary_home_post_path && !test_authority_path &&
+         !test_configuration_path && !test_configuration_ack_path) ||
+        (get_request && !test_configuration_path) || path.size() > 128 ||
+        (get_request ? !body.empty() : body.empty()) ||
+        body.size() > HttpBackendTransport::kMaximumRequestBytes) return result;
 #if defined(ESP_PLATFORM)
     if (cloud_identity_ != nullptr) {
         // ESP-TLS validates X.509 validity using the system clock. Set that
@@ -133,7 +176,7 @@ BackendHttpResponse HttpsBackendChannel::post(const std::string& path, const std
     config.timeout_ms = 3000;
     config.buffer_size = 1024;
     config.buffer_size_tx = 1024;
-    config.method = HTTP_METHOD_POST;
+    config.method = get_request ? HTTP_METHOD_GET : HTTP_METHOD_POST;
 #if CONFIG_ESP_TLS_USE_DS_PERIPHERAL
     if (cloud_identity_ != nullptr && !test_only_software_identity) {
         // Candidate profile exercised by the host mTLS integration and current
@@ -156,11 +199,11 @@ BackendHttpResponse HttpsBackendChannel::post(const std::string& path, const std
         esp_http_client_handle_t client;
         ~Cleanup() { esp_http_client_close(client); esp_http_client_cleanup(client); }
     } cleanup{client};
-    if (esp_http_client_set_header(client, "Content-Type", "application/json") != ESP_OK ||
+    if ((!get_request && esp_http_client_set_header(client, "Content-Type", "application/json") != ESP_OK) ||
         (cloud_identity_ == nullptr &&
          esp_http_client_set_header(client, "Authorization", authorization_.c_str()) != ESP_OK)) return result;
     result.network_attempted = true;
-    if (esp_http_client_open(client, static_cast<int>(body.size())) != ESP_OK) return result;
+    if (esp_http_client_open(client, get_request ? 0 : static_cast<int>(body.size())) != ESP_OK) return result;
     std::size_t sent = 0;
     while (sent < body.size()) {
         if (esp_timer_get_time() >= deadline) return result;
@@ -170,18 +213,21 @@ BackendHttpResponse HttpsBackendChannel::post(const std::string& path, const std
         sent += static_cast<std::size_t>(written);
     }
     const auto length = esp_http_client_fetch_headers(client);
-    if (length < 0 || length > static_cast<std::int64_t>(HttpBackendTransport::kMaximumResponseBytes)) return result;
+    constexpr std::size_t kMaximumConfigurationResponseBytes = 16U * 1024U;
+    const std::size_t response_limit = (test_configuration_path || test_configuration_ack_path)
+        ? kMaximumConfigurationResponseBytes : HttpBackendTransport::kMaximumResponseBytes;
+    if (length < 0 || length > static_cast<std::int64_t>(response_limit)) return result;
     result.status = static_cast<unsigned>(esp_http_client_get_status_code(client));
     // open completed SSL handshake with required CA and hostname verification.
     // A later framing/read error still cannot make this a usable receipt.
     result.server_authenticated = true;
     char buffer[256];
-    for (std::size_t reads = 0; reads <= HttpBackendTransport::kMaximumResponseBytes; ++reads) {
+    for (std::size_t reads = 0; reads <= response_limit; ++reads) {
         if (esp_timer_get_time() >= deadline) return result;
         const int received = esp_http_client_read(client, buffer, sizeof(buffer));
         if (received < 0) return result;
         if (received == 0) break;
-        if (result.body.size() + static_cast<std::size_t>(received) > HttpBackendTransport::kMaximumResponseBytes)
+        if (result.body.size() + static_cast<std::size_t>(received) > response_limit)
             return result;
         result.body.append(buffer, static_cast<std::size_t>(received));
     }

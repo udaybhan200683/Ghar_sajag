@@ -248,16 +248,54 @@ struct CloudAuthorityRefreshContext {
     AuthenticatedTimeRandomSource* random{nullptr};
     HttpsBackendChannel* channel{nullptr};
     Gs40TestOnlyAuthorityLeaseVerifier* verifier{nullptr};
+    S3CloudTrustProvisioning* trust{nullptr};
+    QueueHandle_t policy_queue{nullptr};
+    QueueHandle_t acknowledgement_queue{nullptr};
+};
+
+struct Gs40TestOnlyConfigurationAck {
+    std::uint32_t version{0};
+    CloudAuthorityBinding authority;
 };
 
 void cloud_authority_refresh_task(void* opaque) {
     auto& context = *static_cast<CloudAuthorityRefreshContext*>(opaque);
     for (;;) {
-        if (gs40_test_only_refresh_time(context.material->config(), *context.time) != ESP_OK ||
-            !gs40_test_only_refresh_authority(*context.material, *context.time,
-                *context.clock, *context.random, *context.channel, *context.verifier)) {
+        const bool refreshed =
+            gs40_test_only_refresh_time(context.material->config(), *context.time) == ESP_OK &&
+            gs40_test_only_refresh_authority(*context.material, *context.time,
+                *context.clock, *context.random, *context.channel, *context.verifier);
+        if (!refreshed) {
             context.material->invalidate();
             ESP_LOGE(kTag, "TEST_ONLY time/authority refresh failed; publication fenced");
+        } else if (context.trust != nullptr && context.policy_queue != nullptr &&
+                   context.acknowledgement_queue != nullptr) {
+            CloudAuthorityBinding current;
+            if (context.trust->current_binding(current)) {
+                Gs40TestOnlyConfigurationAck* ack = nullptr;
+                while (xQueueReceive(context.acknowledgement_queue, &ack, 0) == pdTRUE) {
+                    std::unique_ptr<Gs40TestOnlyConfigurationAck> owned_ack(ack);
+                    if (owned_ack && owned_ack->authority == current &&
+                        !gs40_test_only_ack_household_config(
+                            context.material->config(), current, owned_ack->version,
+                            *context.channel)) {
+                        ESP_LOGW(kTag, "TEST_ONLY applied-config acknowledgement remains pending");
+                    }
+                    ack = nullptr;
+                }
+                auto policy = std::make_unique<Gs40TestOnlyHouseholdPolicy>();
+                const auto fetched = gs40_test_only_fetch_household_config(
+                    context.material->config(), current, *context.channel, *policy);
+                if (fetched == Gs40TestOnlyConfigSyncResult::PolicyReady) {
+                    auto* pending = policy.release();
+                    if (xQueueSend(context.policy_queue, &pending, 0) != pdTRUE) {
+                        delete pending;
+                        ESP_LOGW(kTag, "TEST_ONLY desired config queue full; will retry");
+                    }
+                } else if (fetched == Gs40TestOnlyConfigSyncResult::Rejected) {
+                    ESP_LOGW(kTag, "TEST_ONLY desired config rejected; last checkpoint remains active");
+                }
+            }
         }
         vTaskDelay(pdMS_TO_TICKS(15000));
     }
@@ -1035,8 +1073,20 @@ void secure_owner_task(void*) {
     Gs40TestOnlyAuthorityLeaseVerifier* test_lease_verifier = g_gs40_test_authority_verifier.get();
     Gs40TestOnlyCloudComposition cloud_composition(*test_material, *test_time, *test_clock);
     auto& bootstrap_channel = cloud_composition.bootstrap_channel;
+    QueueHandle_t config_policy_queue = xQueueCreate(
+        1, sizeof(Gs40TestOnlyHouseholdPolicy*));
+    QueueHandle_t config_acknowledgement_queue = xQueueCreate(
+        4, sizeof(Gs40TestOnlyConfigurationAck*));
+    if (config_policy_queue == nullptr || config_acknowledgement_queue == nullptr) {
+        if (config_policy_queue != nullptr) vQueueDelete(config_policy_queue);
+        if (config_acknowledgement_queue != nullptr) vQueueDelete(config_acknowledgement_queue);
+        ESP_LOGE(kTag, "TEST_ONLY household configuration queues unavailable; owner remains closed");
+        vTaskDelete(nullptr);
+        return;
+    }
     CloudAuthorityRefreshContext refresh_context{test_material, test_time,
-        test_clock, test_random, &bootstrap_channel, test_lease_verifier};
+        test_clock, test_random, &bootstrap_channel, test_lease_verifier,
+        &cloud_composition.trust, config_policy_queue, config_acknowledgement_queue};
     if (!gs40_test_only_refresh_authority(*test_material, *test_time, *test_clock,
             *test_random, bootstrap_channel, *test_lease_verifier)) {
         ESP_LOGE(kTag, "TEST_ONLY authority bootstrap unavailable; publication remains fenced");
@@ -1049,31 +1099,49 @@ void secure_owner_task(void*) {
         security_link, runtime, cloud_trust);
     CloudRuntimeAuthoritySource cloud_authority_source(cloud_authority);
 #if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    auto& cloud_channel = cloud_composition.cloud_channel;
     bool test_activity_home_ready = false;
     CloudAuthorityBinding initial_rule_binding;
-    if (cloud_trust.current_binding(initial_rule_binding) &&
-        gs40_test_only_apply_activity_home(test_material->config(),
-                                           initial_rule_binding, runtime)) {
-        test_activity_home_ready = true;
+    if (cloud_trust.current_binding(initial_rule_binding)) {
+        const auto configuration_sync = gs40_test_only_sync_household_config(
+            test_material->config(), initial_rule_binding, runtime, cloud_channel);
+        test_activity_home_ready =
+            configuration_sync == Gs40TestOnlyConfigSyncResult::Applied ||
+            configuration_sync == Gs40TestOnlyConfigSyncResult::AppliedAckPending;
+        if (!test_activity_home_ready &&
+            runtime.has_home_activity_configuration(initial_rule_binding)) {
+            // An authenticated configuration already in the checkpoint is the
+            // last valid policy. A temporary backend or acknowledgement outage
+            // cannot replace it with the signed bootstrap default.
+            test_activity_home_ready = true;
+        } else if (!test_activity_home_ready &&
+                   (configuration_sync == Gs40TestOnlyConfigSyncResult::Unavailable ||
+                    configuration_sync == Gs40TestOnlyConfigSyncResult::NoDesired) &&
+                   gs40_test_only_apply_activity_home(test_material->config(),
+                                                       initial_rule_binding, runtime)) {
+            test_activity_home_ready = true;
+        }
+        if (configuration_sync == Gs40TestOnlyConfigSyncResult::Rejected)
+            ESP_LOGE(kTag, "TEST_ONLY desired household policy rejected; last valid checkpoint preserved");
+        if (test_activity_home_ready) {
         TrustedHubTimeSnapshot initial_time;
         const auto initial_now_ms = static_cast<Milliseconds>(esp_timer_get_time() / 1000);
         std::uint16_t initial_local_minute = 0;
         if (cloud_trust.trusted_hub_time(initial_now_ms, initial_time) &&
             initial_time.trusted && initial_time.monotonic_ms == initial_now_ms &&
             initial_time.boot_generation != 0 && initial_time.utc_now > 0 &&
-            gs40_test_only_local_minute(test_material->config(), initial_time.utc_now,
-                                        initial_local_minute) &&
+            gs40_test_only_local_minute(test_material->config(), runtime,
+                                        initial_time.utc_now, initial_local_minute) &&
             !runtime.activity_state().monitoring_started_at) {
             runtime.start_activity_monitor(initial_time.utc_now);
             if (!runtime.durable_admission_open()) test_activity_home_ready = false;
+        }
         }
     }
     if (!test_activity_home_ready)
         ESP_LOGW(kTag, "TEST_ONLY deterministic activity rules disabled: signed Home config, current lease or trusted time unavailable");
 #endif
-#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
-    auto& cloud_channel = cloud_composition.cloud_channel;
-#else
+#if !defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) || !GS40_TEST_ONLY_CLOUDSYNC_BUILD
     HttpsBackendChannel cloud_channel("", "", cloud_trust);
 #endif
     HttpBackendTransport cloud_transport(cloud_channel);
@@ -1172,6 +1240,28 @@ void secure_owner_task(void*) {
         const auto now_ms = static_cast<std::uint64_t>(esp_timer_get_time() / 1000);
 #if CONFIG_IDF_TARGET_ESP32S3
 #if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+        Gs40TestOnlyHouseholdPolicy* pending_policy = nullptr;
+        if (xQueueReceive(config_policy_queue, &pending_policy, 0) == pdTRUE) {
+            std::unique_ptr<Gs40TestOnlyHouseholdPolicy> policy(pending_policy);
+            CloudAuthorityBinding current_binding;
+            if (policy && cloud_trust.current_binding(current_binding) &&
+                current_binding == policy->authority &&
+                gs40_test_only_apply_household_config(
+                    test_material->config(), *policy, runtime)) {
+                test_activity_home_ready = true;
+                auto acknowledgement = std::make_unique<Gs40TestOnlyConfigurationAck>();
+                acknowledgement->version = policy->home.version;
+                acknowledgement->authority = policy->authority;
+                auto* pending_acknowledgement = acknowledgement.release();
+                if (xQueueSend(config_acknowledgement_queue,
+                               &pending_acknowledgement, 0) != pdTRUE) {
+                    delete pending_acknowledgement;
+                    ESP_LOGW(kTag, "TEST_ONLY config checkpointed; acknowledgement queue full");
+                }
+            } else {
+                ESP_LOGW(kTag, "TEST_ONLY desired policy no longer matches current Hub/Home/epoch; not applied");
+            }
+        }
         if (test_activity_home_ready && now_ms >= next_rule_evaluation_ms) {
             next_rule_evaluation_ms = now_ms + 5000U;
             TrustedHubTimeSnapshot trusted_time;
@@ -1182,8 +1272,8 @@ void secure_owner_task(void*) {
                 trusted_time.boot_generation != 0 && trusted_time.utc_now > 0 &&
                 cloud_trust.current_binding(rule_binding) &&
                 rule_binding.home_id == test_material->config().activity_home_id &&
-                gs40_test_only_local_minute(test_material->config(), trusted_time.utc_now,
-                                            local_minute)) {
+                gs40_test_only_local_minute(test_material->config(), runtime,
+                                            trusted_time.utc_now, local_minute)) {
                 (void)runtime.activity_timers(trusted_time.utc_now, local_minute, true,
                                               &rule_binding);
             }
@@ -1761,8 +1851,8 @@ void secure_owner_task(void*) {
             std::uint16_t household_minute = 0;
             if (test_activity_home_ready && cloud_trust.current_binding(rule_binding) &&
                 rule_binding.home_id == test_material->config().activity_home_id &&
-                gs40_test_only_local_minute(test_material->config(), trusted_time.utc_now,
-                                            household_minute)) {
+                gs40_test_only_local_minute(test_material->config(), runtime,
+                                            trusted_time.utc_now, household_minute)) {
                 local_minute = household_minute;
                 decision_authority = &rule_binding;
             }

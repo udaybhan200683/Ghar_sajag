@@ -632,6 +632,59 @@ void configurable_morning_checkpoint_test() {
     require(completed && completed->rule_signals.size() == 1 &&
             completed->rule_signals.front().kind == gs::RuleSignalKind::MorningRoutineCompleted,
             "restored required progress completes through the configured Hub rule");
+
+    const gs::hub::CloudAuthorityBinding binding{"home-1", "hub-1", 7};
+    gs::hub::HubRuntime versioned(32, backend);
+    require(versioned.configure_home_activity(policy, gs::HomeMode::Home, binding, 4),
+            "authenticated household policy version is applied");
+    gs::security::Bytes versioned_checkpoint;
+    require(gs::hub::HubCheckpointCodec::encode(versioned, versioned_checkpoint) &&
+            versioned_checkpoint.size() >= 4 && versioned_checkpoint[0] == 5,
+            "authenticated household version uses checkpoint v5");
+    gs::hub::HubRuntime versioned_recovered(32, backend);
+    require(gs::hub::HubCheckpointCodec::restore(versioned_recovered, versioned_checkpoint) &&
+            versioned_recovered.applied_home_configuration_version() == 4 &&
+            versioned_recovered.home_activity_configuration_matches(
+                policy, gs::HomeMode::Home, binding, 4),
+            "policy and exact applied version recover together");
+    require(versioned_recovered.configure_home_activity(
+                policy, gs::HomeMode::Home, binding, 4),
+            "exact same authenticated version is idempotent");
+    require(!versioned_recovered.configure_home_activity(
+                policy, gs::HomeMode::Home, binding, 3),
+            "stale desired policy version is rejected");
+    auto conflicting_same_version = policy;
+    conflicting_same_version.morning_steps[0].required = false;
+    require(!versioned_recovered.configure_home_activity(
+                conflicting_same_version, gs::HomeMode::Home, binding, 4),
+            "same version with different policy content is rejected");
+    require(versioned_recovered.configure_home_activity(
+                policy, gs::HomeMode::Home, binding, 5) &&
+            versioned_recovered.applied_home_configuration_version() == 5,
+            "new authenticated policy version advances monotonically");
+
+    gs::hub::HubRuntime timezone_versioned(32, backend);
+    require(timezone_versioned.configure_home_activity(
+                policy, gs::HomeMode::Home, binding, 6, "Asia/Kolkata"),
+            "authenticated household timezone applies with policy version");
+    gs::security::Bytes timezone_checkpoint;
+    require(gs::hub::HubCheckpointCodec::encode(timezone_versioned, timezone_checkpoint) &&
+            timezone_checkpoint.size() >= 4 && timezone_checkpoint[0] == 6,
+            "timezone-bound household policy uses checkpoint v6");
+    gs::hub::HubRuntime timezone_recovered(32, backend);
+    require(gs::hub::HubCheckpointCodec::restore(timezone_recovered, timezone_checkpoint) &&
+            timezone_recovered.applied_home_configuration_version() == 6 &&
+            timezone_recovered.applied_home_timezone() == "Asia/Kolkata" &&
+            timezone_recovered.home_activity_configuration_matches(
+                policy, gs::HomeMode::Home, binding, 6, "Asia/Kolkata"),
+            "applied timezone and policy version recover together");
+    require(!timezone_recovered.configure_home_activity(
+                policy, gs::HomeMode::Home, binding, 6, "Etc/UTC"),
+            "same version cannot change its applied timezone");
+    require(timezone_recovered.configure_home_activity(
+                policy, gs::HomeMode::Home, binding, 7, "Etc/UTC") &&
+            timezone_recovered.applied_home_timezone() == "Etc/UTC",
+            "new authenticated version advances timezone policy");
 }
 #endif
 void interruption_tests() {

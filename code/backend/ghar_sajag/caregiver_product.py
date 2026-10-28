@@ -9,11 +9,13 @@ from .model import Home, HomeMode, Membership, Role
 
 class CaregiverProductView:
     def __init__(self, service, *, source, decision_reader=None,
-                 session_authority_db=None, bind_test_only_session=False):
+                 session_authority_db=None, bind_test_only_session=False,
+                 configuration_repository=None):
         self.service, self.source = service, source
         self.decision_reader = decision_reader
         self.session_authority_db = session_authority_db
         self.bind_test_only_session = bind_test_only_session
+        self.configuration_repository = configuration_repository
 
     def _bind_verified_test_session(self, session, home, now):
         """Bind an already authenticated Lite TEST_ONLY session to the domain view.
@@ -94,6 +96,25 @@ class CaregiverProductView:
                 return None
         else:
             self.service.identity.require(home, actor, "read", now)
+        if sub == "routine-config":
+            repository = self.configuration_repository
+            if repository is None:
+                raise RuntimeError("test_only_household_configuration_unavailable")
+            from .diagnostic_authorization import ActorSession
+            current_actor = ActorSession(
+                actor, session["session_id"], "GS179_TEST_ONLY_LITE",
+                session["expires_at"])
+            if method == "GET":
+                return asdict(repository.get_for_caregiver(
+                    actor=current_actor, home_id=home, at=now))
+            if method == "POST":
+                if (set(body) != {"expected_version", "config"} or
+                        type(body.get("expected_version")) is not int):
+                    raise ValueError("invalid_configuration_publish_request")
+                return ("202 Accepted", asdict(repository.publish_desired(
+                    actor=current_actor, home_id=home, config=body["config"],
+                    expected_version=body["expected_version"], at=now)))
+            return None
         snapshot = self.service.queries.snapshot(home, actor, now)
         base = {"home_id": home, "test_only": bool(session["test_only"]),
                 "source": self.source, "physical_status": "NOT_RUN",

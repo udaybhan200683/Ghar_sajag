@@ -5,7 +5,28 @@
 **Repository checkpoint:** `bb2b77cb26ac88aaea244b7d1f73b124d18f6a3f`, branch `feature/r1-commercial-baseline`; local and `origin` matched at preparation. Context preflight PASS (`2026-10-13.001`).
 **Related Jira:** [GS-109](https://udaybhan200683.atlassian.net/browse/GS-109), [GS-148](https://udaybhan200683.atlassian.net/browse/GS-148), GS-109 comments 10595 (existing independent design review), 10601 (D01–D16 register), 11008 (this proposal), and GS-148 comments 11007 (CloudSync checkpoint), 11009 (cross-reference).
 
-## Owner approval record — requested, pending
+## Owner approval record — architecture direction approved; production activation pending
+
+**Disposition, 2026-10-28:** The product owner approved the proposed security
+architecture direction in GS-109 comment 11797 and GS-148 comment 11798. The
+approval is limited to implementation planning and safe, inactive,
+fail-closed software integration. It does not approve production credentials,
+issuer/CA deployment, secure-boot/eFuse/flash-encryption activation, live
+production routes, or hardware operations.
+
+The approved direction is to reuse the existing per-Hub RSA-3072 ESP32-S3
+DS-backed mTLS candidate; GS-76's authenticated/revocable caregiver session and
+server-owned Home Settings authority; the backend Hub/Home/installation-epoch
+ownership registry; and trusted middleware that constructs `VerifiedHubContext`
+from authenticated peer identity. Versioned desired/applied configuration
+continues through the existing repository and actual Hub persistence/ACK path.
+
+Issuer and key-custody owner, credential lifecycle, caregiver issuer/audience,
+ownership freshness/offline semantics, mTLS termination/handoff, exact config
+contract details and numeric GS-68 constraints remain open for owner/security
+disposition. Each credential issuance, production activation, irreversible
+security change, USB/COM action and physical Run still requires its own exact
+approval and readiness evidence. These comments do not change Jira statuses.
 
 Prepared for the GS-117 Morning Routine configuration path at canonical
 checkpoint `f3223a1a687c9c3729a3ad3b5960e620b9039622`. This is a decision
@@ -28,10 +49,10 @@ operating a board.
 | Trusted middleware | Prefer the application-owned mTLS verifier constructing `VerifiedHubContext`; allow a proxy only with a trusted, integrity-protected peer-identity handoff and strict header stripping. | Select TLS termination, verifier/runtime owner and deployment boundary. Caller-provided identity headers are not trusted. |
 | Configuration apply | Use the existing versioned desired/applied repository; bind fetch and acknowledgement to Hub, Home, epoch, schema and version, and report applied only after durable S3 persistence. | Approve the exact fetch/ack payload, stale/revoke/rollback behavior and supported restart/offline persistence contract. |
 
-**Owner/security response:** `APPROVE PROPOSED DIRECTION`, `SELECT ALTERNATIVE:
-<contract>`, or `DEFER` for each row; record the approver, authority and date.
-No response has yet been recorded here. Deferral keeps production Settings and
-Hub configuration routes/transport disabled.
+**Owner/security response:** The architecture direction is approved as bounded
+above (GS-109 comment 11797; GS-148 comment 11798). The unresolved contract and
+deployment details in the final column remain open. No production Settings or
+Hub route/transport is activated by this disposition.
 
 ### B. Separate credential-provisioning approval
 
@@ -53,7 +74,7 @@ campaign approval. No physical operation is authorized here.
 
 ## Purpose and disposition
 
-This package closes the source-to-decision gap for activating the existing GS-148 CloudSync path. It reuses the GS-109 audit and D01–D16 register; it is not a second architecture review. The nine listed decisions remain open. Approval of a recommendation will authorize its contract definition only to the extent stated by the approver; it does not itself deploy credentials or turn on S3 sending.
+This package closes the source-to-decision gap for the approved architecture direction of the existing GS-148 CloudSync path. It reuses the GS-109 audit and D01–D16 register; it is not a second architecture review. The architecture direction is approved, while the named contract, issuer, lifecycle and deployment decisions remain open. This approval authorizes only bounded software planning/integration; it does not deploy credentials or turn on production S3 sending.
 
 At this checkpoint, the bounded `CloudSyncWorker` and its injected host path are implemented and the approved Hub validation has been completed. Target S3 does not instantiate that worker. The test-injected `CloudAuthoritySource` is not a production issuer or verifier. Commercial target sending must remain disabled until the authority, credential, receipt and runtime-coordination contracts below are approved and implemented.
 

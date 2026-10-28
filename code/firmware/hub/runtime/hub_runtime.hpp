@@ -177,6 +177,30 @@ public:
     // their original binding and are never reassigned.
     bool configure_home_activity(const ActivityRuleConfig& config, HomeMode mode,
                                  const CloudAuthorityBinding& authority);
+    // TEST_ONLY authenticated configuration transport supplies a monotonically
+    // increasing repository version. The value is checkpointed with the
+    // complete rule policy before the caller can acknowledge it upstream.
+    bool configure_home_activity(const ActivityRuleConfig& config, HomeMode mode,
+                                 const CloudAuthorityBinding& authority,
+                                 std::uint32_t version);
+    // Complete authenticated household policy including its trusted timezone.
+    // The timezone is checkpointed with the version so timer evaluation after
+    // restart uses the last applied policy rather than bootstrap defaults.
+    bool configure_home_activity(const ActivityRuleConfig& config, HomeMode mode,
+                                 const CloudAuthorityBinding& authority,
+                                 std::uint32_t version,
+                                 const std::string& timezone);
+    bool has_home_activity_configuration(const CloudAuthorityBinding& authority) const;
+    bool home_activity_configuration_matches(const ActivityRuleConfig& config,
+        HomeMode mode, const CloudAuthorityBinding& authority,
+        std::uint32_t version) const;
+    bool home_activity_configuration_matches(const ActivityRuleConfig& config,
+        HomeMode mode, const CloudAuthorityBinding& authority,
+        std::uint32_t version, const std::string& timezone) const;
+    std::uint32_t applied_home_configuration_version() const {
+        return activity_config_version_;
+    }
+    const std::string& applied_home_timezone() const { return activity_timezone_; }
     void set_mode(HomeMode mode);
     void start_activity_monitor(EpochSeconds at);
     std::vector<RuleSignalDecision> activity_timers(
@@ -276,6 +300,8 @@ private:
     ActivityRuleConfig activity_config_{};
     ActivityRuleState activity_state_{};
     bool activity_rules_configured_{false};
+    std::uint32_t activity_config_version_{0};
+    std::string activity_timezone_;
     std::optional<CloudAuthorityBinding> activity_authority_binding_;
     std::map<std::string, NodePowerTelemetry> power_telemetry_;
     std::map<std::string, AuthenticatedNodeHealth> node_health_;

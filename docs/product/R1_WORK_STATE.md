@@ -1,68 +1,92 @@
-## Latest active checkpoint — GS-117 Bedroom-only Morning Routine readiness — 2026-10-28
+## Latest active checkpoint — GS-117/GS-179 TEST_ONLY Morning Routine integration — 2026-10-28
 
-Resumed and validated from canonical commit
-`f3223a1a687c9c3729a3ad3b5960e620b9039622` on
-`feature/r1-commercial-baseline`; local and origin matched. Context preflight
-PASS (`2026-10-28.001`). Unrelated untracked Android, IDF and hardware evidence
-is preserved.
+Resumed from canonical commit `a92bd8214df67ae68ac5e902bf2b2f49367223ec` on
+`feature/r1-commercial-baseline`; local and origin matched at resume. Context
+preflight passed on resume and again during closeout (`2026-10-28.001`). This checkpoint continues the existing
+dirty worktree and preserves unrelated untracked Android, IDF and hardware
+evidence. No hardware, COM/USB, ADB, credential, or protected household-data
+operation was performed.
 
-Reused the already implemented configurable `RulesCore`, desired/applied
-configuration repository and fail-closed GS-117 console. No rule-engine,
-repository, controller or framework was recreated. The generic Hub policy is
-now explicitly regression-tested with Bedroom as the *only* enabled required
-location: outside configured locations are ignored, Bedroom completes once,
-and replay does not emit another decision. No test-only completion shortcut
-was added. The same policy round-trips as desired and applied through the
-existing repository contract.
+The approved DEV direction reuses the existing isolated GS-40/GS-179 TEST_ONLY
+profile. Production issuer, credential lifecycle/provisioning, commercial
+hosting and irreversible security activation remain release gates, not DEV
+prerequisites. Reused the existing GS-76 caregiver session boundary, GS-109/
+GS-148 Hub authority model, Home/Hub/epoch registry, PostgreSQL configuration
+repository, GS-117 controller, RulesCore, CloudSync and Android observer.
+Implemented only the missing integration in the existing TEST_ONLY composition:
+authorized Settings writes versioned desired policy, the authenticated S3
+configuration fetch validates and applies it, the Hub checkpoints the complete
+policy and timezone before returning applied-version acknowledgement, and the
+existing Settings/status view distinguishes desired from applied.
 
-The existing GS-109/GS-148 decision package now contains a concise owner
-approval record. It proposes the existing RSA-3072 DS-backed Hub mTLS
-candidate, GS-76 caregiver authentication/session authority, the backend
-Home/Hub/epoch registry, and a trusted middleware boundary. The requested
-architecture dispositions remain pending. They are explicitly separate from
-credential provisioning and from hardware/serial/run authorization. No
-identity, issuer, trust root, production route, Settings integration, S3
-configuration transport or device credential was activated.
+The applied policy now preserves its version and timezone in Hub checkpoint
+schema v6; stale/conflicting versions fail closed and policy/timezone changes
+reset routine progress. The existing Morning Routine web Run remains gated on
+fixture, authorization, authenticated physical ingress and Android readiness;
+no simulated event or decision can make it pass. The release-owned register is
+`docs/product/DEV_TO_PRODUCTION_REGISTER.md` and `.json` (GS-173, enforced by
+GS-116). It distinguishes implementation state from effective DEV state and
+production readiness; production release remains NO-GO for unresolved mandatory
+gates and pending scope.
 
 Validation on this working tree:
 
-- `make -C code cpp-test`: 1,532 checks PASS.
-- Backend Python test file: 21/21 PASS.
-- GS-117 console/ADB controller test file: 47/47 PASS.
-- GS-179 PostgreSQL/security integration module: 20/20 PASS against the
-  existing TLS PostgreSQL service in `gs179_monitoring`, using a temporary
-  isolated schema that was dropped in teardown; no shared/public household
-  rows were changed.
-- `test_node_usb_stable_profile.py`: 4/4 PASS after correcting its close-path
-  assertion to match the existing reverse-order stream cleanup.
-- Feature-traceability tests: 22/22 PASS; validation framework: 51/51 PASS;
-  the validation-tooling feature-traceability stage passed 226 mappings.
+- Hub checkpoint host suite: PASS, including schema-v6 timezone restore,
+  same-version conflict rejection and higher-version advancement.
+- GS-179 runtime composition against isolated schema on existing TLS
+  PostgreSQL: 5/5 PASS; no shared/public household rows changed.
+- GS-179 PostgreSQL/security integration against isolated schema: 21/21 PASS.
+- Backend Python tests: 24/24 PASS.
+- Android server tests: 28/28 PASS.
+- Caregiver JavaScript runtime: 11/11 PASS.
+- GS-116 component-gate tests: 55/55 PASS, including the register status
+  vocabulary and release-stage registration.
+- CloudSync security, Hub checkpoint and P2D HTTPS host suites: PASS.
+- Paired C3/S3 production-profile target build: PASS. C3 image 944,272 bytes;
+  S3 image 2,201,168 bytes. Cache guard verified TEST_ONLY CloudSync, HIL
+  controls, commissioning and external TEST_ONLY root are disabled/absent.
+  Build-only evidence; no image was installed.
+- Isolated TEST_ONLY S3 target build: PASS after fixing an ESP-IDF 6.0.3
+  dependency declaration in the existing TEST_ONLY composition. Reused the
+  existing cached/pinned Espressif cJSON 1.7.19~2 package, declared only for
+  ESP32-S3, and changed the conditional component from `json` to `cjson`.
+  Image size 2,271,744 bytes; SHA-256
+  `f1890698945acf502d43645faf5be7f0207cdc977f47d7bdfa644f636cb7e949`.
+  `GS40_TEST_ONLY_CLOUDSYNC=ON` used an external TEST_ONLY public root;
+  `GS_HIL_BUILD`, `GS_HIL_CONTROL` and `GS_HIL_COMMISSIONING` were OFF. The image
+  was not installed. A fresh incremental production-profile S3 rebuild after
+  this manifest/CMake change completed successfully: 2,201,049 bytes,
+  SHA-256 `989d0a20d8f38487d86d6fb2e3f5d4379b844fd1e2c712c45ddceb519f00948d`.
+  The S3 cache guard confirmed TEST_ONLY CloudSync, HIL build/control,
+  commissioning OFF and an empty external TEST_ONLY root. The build emitted
+  existing unused-variable and ESP-IDF Kconfig value warnings but exited 0.
+  This is compile/profile evidence only; no image was installed.
+- `make -C code validation-board-e2e`: PASS, 10 software checks; physical status
+  NOT_RUN. This is not board acceptance.
+- GS-117 focused console/ADB regression: 50/50 PASS after adding checks that
+  readiness uses the authenticated existing Settings route and Morning Run
+  remains physically blocked despite software policy acknowledgement.
+- `python3 code/validation/dev_to_production_gate.py` reports the expected
+  release NO-GO with open mandatory/deferred gates; this is not a DEV test
+  failure. Full release gate and unrelated GS-178 39-case suite were not rerun.
+- Browser UI testing is NOT_RUN because Chrome/Chromium is unavailable. Actual
+  Android APK/ADB observation is NOT_RUN in this session.
 
-Aggregate outcomes remain distinct: `validation-hub` failed its existing
-`migration` clean-commit check and reports P0 `product_status=PARTIAL`; its
-GS-178 stage passed 39/39. `validation-backend` reports the same P0 partial
-state and the existing CSS budget excess (29,576 bytes versus 18,432); its
-intermediate traceability error was corrected and the focused mapping suite
-passes, but the aggregate was not rerun. `validation-tooling` had the same CSS
-budget failure and an outdated stream-close assertion; the latter is corrected
-and its focused test passes 4/4, but the aggregate was not rerun. No release
-gate or unrelated 39-case suite was repeated.
+Physical/target acceptance remains blocked: C3 JEDEC identification is still
+`0xffffff`/unknown capacity; current installed-image provenance and fresh
+physical S3 authentication are absent; no actual S3 policy application or
+`MORNING_ROUTINE_COMPLETED` decision has been observed; the owner-only fixture
+and separate Run authorization are absent. Bedroom is the only established
+physical Node room. GS-117 remains OnHold; TC-001 and optical PIR remain
+NOT_RUN. No board or APK result is inferred from target compilation or tests.
 
-Physical state is unchanged and blocks Run: Bedroom is the only established
-physical Node room; production policy has not been applied to an actual S3;
-fresh authenticated S3 ingress and current fixture evidence are absent; the
-owner-only fixture and one-run hardware approval are not present. The prior
-C3 JEDEC stop remains unresolved (`0xffffff`, capacity unknown), so no COM,
-board, reset, injection, ADB or Android operation was performed. No genuine
-Hub `MORNING_ROUTINE_COMPLETED` decision or Android routine outcome is claimed.
-GS-117 remains OnHold; TC-001 and real optical PIR remain NOT_RUN.
-
-Next action: obtain owner/security disposition for the architecture rows in
-the existing GS-109/GS-148 package. After an approved contract, implement only
-its authorized identity/config delivery interfaces. Credential provisioning
-and the first bounded Bedroom Run each need separate current authorization;
-the physical JEDEC/image and fresh-S3-authentication guards must also pass.
-Do not change Jira status or start hardware work before those gates.
+Next action: validate the release-owned register and resulting working tree,
+then commit/push only the
+validated task files and post concise observed results to GS-116/117/148/173/
+179 as applicable. A first real Bedroom-only Run still requires the existing
+JEDEC/current-image guards, fresh authenticated S3 receipt, complete owner-only
+fixture and separate scoped hardware Run authorization. Do not operate hardware
+under the current development-only direction.
 
 ## Prior checkpoint — GS-117 Morning Routine config repository and console gate — 2026-10-28
 

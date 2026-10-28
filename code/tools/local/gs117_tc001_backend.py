@@ -2,14 +2,13 @@
 from __future__ import annotations
 
 import http.cookiejar
+import urllib.error
 import json
 import os
 from pathlib import Path
 import ssl
 import sys
 import urllib.request
-
-import psycopg
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
 from ghar_sajag.identity_namespaces import is_gs179_test_node_id
@@ -22,7 +21,25 @@ from gs179_verified_endpoint import (
 HOME = "gs177-test-product"
 
 
+def read_caregiver_configuration(call, home_id: str = HOME) -> dict:
+    """Read desired/applied policy using the already authenticated TEST_ONLY session."""
+    try:
+        status, snapshot = call(f"/lite/v1/homes/{home_id}/routine-config")
+    except urllib.error.HTTPError as error:
+        return {"status": "BLOCKED", "reason": f"settings_route_http_{error.code}"}
+    except (OSError, TimeoutError, ValueError):
+        return {"status": "BLOCKED", "reason": "authenticated_settings_read_unavailable"}
+    if status != 200 or not isinstance(snapshot, dict):
+        return {"status": "BLOCKED", "reason": "authenticated_settings_snapshot_invalid"}
+    if snapshot.get("home_id") != home_id:
+        return {"status": "BLOCKED", "reason": "settings_snapshot_home_mismatch"}
+    return {"status": "PASS", "source": "AUTHENTICATED_GS148_TEST_ONLY_SETTINGS",
+            "test_only": True, **snapshot}
+
+
 def run(request: dict) -> dict:
+    import psycopg
+
     dsn = os.environ["GS179_LOCAL_SERVER_DSN"]
     origin = os.environ["PUBLIC_ORIGIN"]
     ca = Path(os.environ["GS179_ANDROID_CA"])
@@ -103,6 +120,8 @@ def run(request: dict) -> dict:
     if status != 200 or profile.get("home_id") != HOME or profile.get("test_only") is not True:
         raise ValueError("TC001_caregiver_login_or_Home_rejected")
     try:
+        configuration = (read_caregiver_configuration(call)
+                         if action == "readiness" else None)
         status, overview = call(f"/lite/v1/homes/{HOME}/overview")
     finally:
         call("/lite/v1/auth/logout", "POST", {})
@@ -112,7 +131,8 @@ def run(request: dict) -> dict:
         return {"home_id": HOME, "caregiver_home_ready": True,
                 "source": overview["source"], "backend_origin": origin,
                 "source_freshness": overview.get("source_freshness"),
-                "monitoring": overview.get("monitoring")}
+                "monitoring": overview.get("monitoring"),
+                "configuration": configuration}
     key = {"physical_device_id": device, "logical_node_id": "bedroom",
            "origin_session_id": session, "event_sequence": sequence}
     matches = [event for event in overview.get("recent_events", [])

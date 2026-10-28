@@ -99,6 +99,12 @@ def open_postgres_durable_event_api(
     enable_test_hub_rule_decisions: bool = True,
     *,
     allow_local_unencrypted: bool = False,
+    enable_household_configuration: bool = False,
+    human_authentication=None,
+    caregiver_credential_from_request=None,
+    verified_hub_context_from_request=None,
+    authorize_caregiver_settings=None,
+    authorize_hub_configuration=None,
 ) -> DurableEventApi:
     """Compose the existing Hub event and caregiver read paths on PostgreSQL.
 
@@ -106,12 +112,25 @@ def open_postgres_durable_event_api(
     DSN must use verified TLS; local plaintext is opt-in for isolated tests.
     """
     from .postgres_database import connect_postgres, initialize_postgres
+    from .configuration_repository import PostgresConfigurationRepository
 
     if not callable(authorize_hub) and not require_registered_ownership:
         raise ValueError("trusted_hub_authorizer_required")
     db = connect_postgres(dsn, allow_local_unencrypted=allow_local_unencrypted)
     try:
         initialize_postgres(db)
+        configuration_repository = None
+        if enable_household_configuration:
+            if not callable(authorize_hub_configuration):
+                raise ValueError("trusted_hub_configuration_adapter_required")
+            # The repository is shared by independently authenticated
+            # composition roots. A Hub-only mTLS listener can install only its
+            # Hub adapter; caregiver routes remain fail-closed until that
+            # composition supplies its own human-session boundary.
+            configuration_repository = PostgresConfigurationRepository(
+                db, authorize_caregiver_settings=authorize_caregiver_settings,
+                authorize_hub_configuration=authorize_hub_configuration,
+                lock=service.lock)
         event_map = SQLiteEventMap(db, service.lock)
         service.store.events = event_map
         service.store.incidents = SQLiteIncidentMap(db, service.lock)
@@ -128,7 +147,11 @@ def open_postgres_durable_event_api(
             JsonApi(service=service, now=now, durable_events=committer,
                     authorize_hub=authorize_hub, hub_ownership_registry=ownership_registry,
                     node_health_status=node_health_status,
-                    hub_rule_decisions=hub_rule_decisions),
+                    hub_rule_decisions=hub_rule_decisions,
+                    configuration_repository=configuration_repository,
+                    human_authentication=human_authentication,
+                    caregiver_credential_from_request=caregiver_credential_from_request,
+                    verified_hub_context_from_request=verified_hub_context_from_request),
             db,
         )
     except BaseException:

@@ -91,6 +91,20 @@ test('Hub Wi-Fi native discovery is explicit and cannot become credential submis
   assert.doesNotMatch(settings,/wifiPassword|wifi_password|provisionCredential/);
 });
 
+test('caregiver Settings shows only authenticated server-confirmed desired/applied routine versions', () => {
+  const codeRoot=resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+  const settings=readFileSync(resolve(codeRoot,'tools/sim/pwa/connected_lite.mjs'),'utf8');
+  assert.match(settings,/Household routine policy · TEST_ONLY/);
+  assert.match(settings,/refreshHouseholdRoutineConfiguration\(profile\.home_id\)/);
+  assert.match(settings,/profile\?\.test_only===true\)void refreshHouseholdRoutineConfiguration/);
+  assert.match(settings,/api\(`homes\/\$\{encodeURIComponent\(homeId\)\}\/routine-config`\)/);
+  assert.match(settings,/snapshot\.home_id!==homeId/);
+  assert.match(settings,/desired_version/);
+  assert.match(settings,/applied_version/);
+  assert.match(settings,/snapshot\.desired_config\|\|snapshot\.applied_config/);
+  assert.doesNotMatch(settings,/X-Actor-Id/);
+});
+
 test('API URLs remain pinned to the configured HTTPS origin', () => {
   const runtime=normalizeRuntimeConfig({mode:'caregiver',backendOrigin:'https://care.gharsajag.in'},'https://appassets.androidplatform.net');
   assert.equal(requestUrl(runtime,'/healthz'),'https://care.gharsajag.in/healthz');

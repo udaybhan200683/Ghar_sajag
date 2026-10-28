@@ -1,5 +1,7 @@
 """Focused failure-closed PostgreSQL boundary tests for GS-179 TEST_ONLY."""
 import os
+from io import BytesIO
+import json
 from pathlib import Path
 import subprocess
 import tempfile
@@ -12,6 +14,10 @@ from ghar_sajag.configuration_repository import (
     ConfigurationConflict, PostgresConfigurationRepository,
 )
 from ghar_sajag.diagnostic_authorization import ActorSession
+from ghar_sajag.human_authentication import (
+    CurrentSession, HumanAuthenticationBoundary, IssuerPolicy, VerifiedAssertion,
+)
+from ghar_sajag.http_api import JsonApi
 from ghar_sajag.postgres_database import connect_postgres, initialize_postgres
 from gs179_postgres_test_db import IsolatedPostgresSchema, local_verified_postgres_url
 
@@ -108,6 +114,90 @@ class MorningRoutineConfigurationPostgres(unittest.TestCase):
         with self.assertRaisesRegex(ConfigurationConflict, "stale_desired"):
             repository.publish_desired(actor=actor, home_id=home_id, config=policy,
                                        expected_version=0, at=13)
+
+    def test_authorized_settings_to_hub_fetch_and_applied_status_api_on_isolated_postgres(self):
+        suffix = os.urandom(8).hex()
+        home_id = "gs117-config-api-" + suffix
+        hub_id = "gs117-config-hub-" + suffix
+        owner_id = "gs117-config-owner-" + suffix
+        session_id = "gs117-config-session-" + suffix
+        fingerprint = "c" * 64
+        self.db.execute(
+            "INSERT INTO households(home_id,display_name,timezone,created_at,updated_at) "
+            "VALUES(?,?,?,?,?)", (home_id, "Isolated config API", "Etc/UTC", 1, 1))
+        self.db.execute(
+            """INSERT INTO hub_ownership_registry
+               (hub_device_id,identity_key_fingerprint,state,home_id,installation_epoch,created_at,updated_at)
+               VALUES(?,?,'ACTIVE',?,3,1,1)""", (hub_id, fingerprint, home_id))
+        actor = ActorSession(owner_id, session_id, "fixture-issuer-reference", 200)
+        hub = VerifiedHubContext(hub_id, home_id, 3, "d" * 64, fingerprint, True,
+                                 TimeReadiness.TRUSTED)
+        policy = {
+            "morning": {"enabled": True, "start_minute": 420,
+                        "end_minute": 600, "grace_minutes": 30},
+            "activity_rules": {
+                "quiet_hours_enabled": True, "quiet_start_minute": 60,
+                "quiet_end_minute": 300, "door_open_timeout_seconds": 300,
+                "daytime_inactivity_enabled": True, "daytime_start_minute": 480,
+                "daytime_end_minute": 1260, "daytime_inactivity_seconds": 10800,
+                "morning_steps": [{"location": "bedroom", "enabled": True, "required": True}],
+            },
+        }
+
+        class Verifier:
+            def verify(self, credential):
+                if credential != "fixture-credential":
+                    return None
+                return VerifiedAssertion("https://fixture.invalid", owner_id,
+                    ("ghar-sajag-api",), session_id, "access", 90, 90, 200)
+
+        class Directory:
+            def current(self, issuer, subject, session):
+                if (issuer, subject, session) != (
+                        "https://fixture.invalid", owner_id, session_id):
+                    return None
+                return CurrentSession(issuer, subject, session, owner_id, True, True)
+
+        boundary = HumanAuthenticationBoundary(
+            IssuerPolicy("https://fixture.invalid", "ghar-sajag-api", "access"),
+            Verifier(), Directory(), lambda: 100)
+        repository = PostgresConfigurationRepository(
+            self.db,
+            authorize_caregiver_settings=lambda current, requested_home, at:
+                current.actor_id == owner_id and requested_home == home_id and at < current.expires_at,
+            authorize_hub_configuration=lambda context, requested_home, _at:
+                context.permanent_hub_id == hub_id and requested_home == home_id)
+        api = JsonApi(now=lambda: 100, configuration_repository=repository,
+            human_authentication=boundary,
+            caregiver_credential_from_request=lambda env: env.get("HTTP_AUTHORIZATION"),
+            verified_hub_context_from_request=lambda env: env.get("gs.fixture_hub"))
+
+        def request(method, path, body=None, **server_context):
+            raw = b"" if body is None else json.dumps(body).encode()
+            statuses = []
+            response = b"".join(api({"REQUEST_METHOD": method, "PATH_INFO": path,
+                "CONTENT_LENGTH": str(len(raw)), "wsgi.input": BytesIO(raw), **server_context},
+                lambda status, _headers: statuses.append(status)))
+            return int(statuses[0][:3]), json.loads(response)
+
+        path = f"/v1/homes/{home_id}/config"
+        status, desired = request("POST", path,
+            {"expected_version": 0, "config": policy},
+            HTTP_AUTHORIZATION="fixture-credential", HTTP_X_ACTOR_ID="wrong-actor")
+        self.assertEqual((status, desired["desired_version"], desired["applied_version"]),
+                         (202, 1, None))
+        status, fetched = request("GET", f"{path}/desired", **{"gs.fixture_hub": hub})
+        self.assertEqual((status, fetched["version"], fetched["config"]), (200, 1, policy))
+        status, applied = request("POST", f"{path}/applied", {"version": 1},
+                                  **{"gs.fixture_hub": hub})
+        self.assertEqual((status, applied["desired_version"], applied["applied_version"]),
+                         (200, 1, 1))
+        status, caregiver = request("GET", path, HTTP_AUTHORIZATION="fixture-credential")
+        self.assertEqual((status, caregiver["desired_status"], caregiver["applied_config"]),
+                         (200, "APPLIED", policy))
+        self.assertEqual(self.db.execute(
+            "SELECT COUNT(*) FROM configurations WHERE home_id=?", (home_id,)
+        ).fetchone()[0], 1)
 
 
 class PostgresSecurityBoundary(unittest.TestCase):

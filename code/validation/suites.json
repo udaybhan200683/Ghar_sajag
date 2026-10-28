@@ -2105,6 +2105,26 @@
       "count_kind": "cases"
     },
     {
+      "id": "dev-to-production-gates",
+      "components": [
+        "tooling"
+      ],
+      "command": [
+        "python3",
+        "validation/dev_to_production_gate.py"
+      ],
+      "inputs": [
+        "validation/dev_to_production_gate.py",
+        "../docs/product/DEV_TO_PRODUCTION_REGISTER.json",
+        "../docs/product/DEV_TO_PRODUCTION_REGISTER.md"
+      ],
+      "success": "^DEV TO PRODUCTION RELEASE GATE PASS gates=(\\d+)$",
+      "timeout": 60,
+      "fast": false,
+      "release": true,
+      "count_kind": "gates"
+    },
+    {
       "id": "p0-scenario-registry",
       "components": [
         "tooling"

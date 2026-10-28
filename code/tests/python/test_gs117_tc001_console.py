@@ -22,9 +22,36 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools" / "local"))
 import gs117_tc001_console as tc
 import gs117_tc001_serial_windows as tc_serial
+import gs117_tc001_backend as tc_backend
 
 
 class TC001Test(unittest.TestCase):
+    def test_backend_helper_reads_policy_from_authenticated_settings_route(self):
+        calls = []
+        snapshot = {"home_id": "gs177-test-product", "desired_version": 4,
+                    "desired_status": "APPLIED", "applied_version": 4,
+                    "schema_version": 1, "desired_config": {"activity_rules": {}},
+                    "applied_config": {"activity_rules": {}}}
+
+        def call(path):
+            calls.append(path)
+            return 200, snapshot
+
+        result = tc_backend.read_caregiver_configuration(call)
+        self.assertEqual(calls, ["/lite/v1/homes/gs177-test-product/routine-config"])
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["source"], "AUTHENTICATED_GS148_TEST_ONLY_SETTINGS")
+        self.assertTrue(result["test_only"])
+        self.assertEqual(result["applied_version"], 4)
+
+    def test_backend_helper_rejects_wrong_home_and_unavailable_settings(self):
+        wrong_home = tc_backend.read_caregiver_configuration(
+            lambda _path: (200, {"home_id": "another-home"}))
+        unavailable = tc_backend.read_caregiver_configuration(
+            lambda _path: (503, {"error": "unavailable"}))
+        self.assertEqual(wrong_home["reason"], "settings_snapshot_home_mismatch")
+        self.assertEqual(unavailable["reason"], "authenticated_settings_snapshot_invalid")
+
     def test_morning_routine_run_persists_blocked_state_without_physical_operations(self):
         with tempfile.TemporaryDirectory() as directory:
             controller = tc.Controller()
@@ -50,6 +77,40 @@ class TC001Test(unittest.TestCase):
                 self.assertEqual(len(history), 1)
                 self.assertEqual(history[0]["run_id"], report["run_id"])
 
+    def test_morning_policy_uses_exact_applied_settings_and_still_blocks_unqualified_fixture(self):
+        config = {"timezone": "Asia/Kolkata", "mode": "HOME",
+                  "morning": {"enabled": True, "start_minute": 360,
+                              "end_minute": 660, "grace_minutes": 30},
+                  "activity_rules": {"morning_steps": [
+                      {"location": "bedroom", "enabled": True, "required": True}]}}
+        readiness = {"caregiver_home": {"configuration": {
+            "status": "PASS", "source": "AUTHENTICATED_GS148_TEST_ONLY_SETTINGS",
+            "test_only": True, "home_id": "gs177-test-product", "schema_version": 1,
+            "desired_version": 3, "desired_status": "APPLIED", "applied_version": 3,
+            "desired_config": config, "applied_config": config}},
+            "hub_ingress": {"status": "PASS"}}
+        status = tc.Controller.morning_policy_status(readiness)
+        self.assertEqual(status["applied_policy"]["status"], "PASS")
+        self.assertEqual(status["applied_policy"]["desired_version"], 3)
+        self.assertEqual(status["applied_policy"]["applied_version"], 3)
+        self.assertEqual(status["room_fixtures"]["configured_enabled_locations"], ["bedroom"])
+        self.assertEqual(status["room_fixtures"]["status"], "BLOCKED")
+        self.assertFalse(status["room_fixtures"]["enrollment_verified"])
+        self.assertEqual(status["physical_ingress"]["status"], "BLOCKED")
+
+        with tempfile.TemporaryDirectory() as directory:
+            controller = tc.Controller()
+            controller._readiness = readiness
+            with patch.object(tc, "STATE", Path(directory)), \
+                    patch.object(tc, "powershell", side_effect=AssertionError("physical operation attempted")):
+                report = controller.start_morning_routine(10)
+            self.assertEqual(report["overall"], "BLOCKED")
+            self.assertEqual(report["first_failing_stage"], "enrolled_room_nodes")
+            self.assertEqual(report["stages"]["applied_household_policy"]["status"], "PASS")
+            self.assertEqual(report["stages"]["trusted_hub_configuration"]["status"], "PASS")
+            self.assertEqual(report["stages"]["enrolled_room_nodes"]["status"], "BLOCKED")
+            self.assertEqual(report["physical_operations"], [])
+
     def test_morning_routine_interval_is_bounded_and_controller_remains_idle(self):
         controller = tc.Controller()
         for interval in (0, 601, True, "10"):
@@ -61,7 +122,7 @@ class TC001Test(unittest.TestCase):
     def test_morning_routine_ui_is_added_alongside_fixed_tc001_campaign(self):
         self.assertIn("Run Test — five-event campaign", tc.HTML)
         self.assertIn("Run Morning Routine", tc.HTML)
-        self.assertIn("Applied policy version", tc.HTML)
+        self.assertIn("Desired / applied policy version", tc.HTML)
         self.assertIn("Included rooms", tc.HTML)
         self.assertIn("Required rooms", tc.HTML)
         self.assertIn("Optional rooms", tc.HTML)

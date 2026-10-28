@@ -369,14 +369,88 @@ function renderSettings(){
   const adminTools=profile?.role==='ADMIN'&&profile?.test_only===true
     ?card('Engineering and simulation · TEST_ONLY','<p>These tools are available only to the authorized TEST_ONLY administrator. They do not populate caregiver monitoring results.</p><div class="secondary-view-links"><button id="openSimulation" type="button">Simulation Lab</button><button id="openEngineering" type="button">Engineering</button></div>')
     :'';
+  const routineConfig=profile?.test_only===true
+    ?'<section class="settings-section" aria-labelledby="routinePolicyHeading"><h2 id="routinePolicyHeading">Household routine policy · TEST_ONLY</h2><div id="householdRoutineConfiguration" role="status" aria-live="polite"><p>Checking the authenticated development backend…</p></div><p class="muted">Only current server-confirmed desired and Hub-applied policy is shown.</p></section>'
+    :'';
   const localReconnect=runtime.localBackendReconnect?'<div class="settings-actions"><a class="local-backend-reconnect" href="gharsajag://backend/reconnect">Change local server</a><a class="local-backend-reset" href="gharsajag://backend/reset">Use paired laptop</a></div>':'';
-  panel(`${dataLabel()}<section class="screen-heading settings-heading"><h1>Settings</h1><p>Account, Home and supported connection options</p></section><div class="settings-grid"><section class="settings-section"><h2>Account &amp; session</h2><div class="settings-row"><span class="settings-icon" aria-hidden="true">●</span><div><strong>Signed-in account</strong><p>${esc(profile.email)} · ${esc(profile.role)}</p></div></div><div class="settings-row"><span class="settings-icon" aria-hidden="true">⌂</span><div><strong>Authorized Home</strong><p>${esc(profile.home_id)}</p></div></div><div class="settings-row"><span class="settings-icon" aria-hidden="true">◷</span><div><strong>Session expires</strong><p>${esc(new Date(profile.expires_at*1000).toLocaleString())}</p></div></div><div class="settings-actions"><button id="logoutButton">Log out</button></div></section><section class="settings-section"><h2>Hub setup</h2><div class="settings-row"><span class="settings-icon network" aria-hidden="true">⌁</span><div><strong>Hub Wi-Fi</strong>${hubSetup}</div></div></section><section class="settings-section"><h2>App &amp; connection</h2><div class="settings-row"><span class="settings-icon network" aria-hidden="true">◉</span><div><strong>Backend API · ${esc(connection)}</strong><p>${esc(runtime.backendOrigin||'UNCONFIGURED')}</p>${localReconnect}</div></div><div class="settings-row"><span class="settings-icon" aria-hidden="true">?</span><div><strong>Hub monitoring · ${esc(hubState)}</strong><p>Current source and coverage are shown on Home.</p></div></div><div class="settings-row"><span class="settings-icon" aria-hidden="true">i</span><div><strong>App version</strong><p>${esc(runtime.appVersion)} · source ${esc(runtime.sourceRevision)}</p><p>Backend revision: ${esc(profile.backend_revision||'unknown')}</p></div></div></section>${adminTools}</div>`);
+  panel(`${dataLabel()}<section class="screen-heading settings-heading"><h1>Settings</h1><p>Account, Home and supported connection options</p></section><div class="settings-grid"><section class="settings-section"><h2>Account &amp; session</h2><div class="settings-row"><span class="settings-icon" aria-hidden="true">●</span><div><strong>Signed-in account</strong><p>${esc(profile.email)} · ${esc(profile.role)}</p></div></div><div class="settings-row"><span class="settings-icon" aria-hidden="true">⌂</span><div><strong>Authorized Home</strong><p>${esc(profile.home_id)}</p></div></div><div class="settings-row"><span class="settings-icon" aria-hidden="true">◷</span><div><strong>Session expires</strong><p>${esc(new Date(profile.expires_at*1000).toLocaleString())}</p></div></div><div class="settings-actions"><button id="logoutButton">Log out</button></div></section>${routineConfig}<section class="settings-section"><h2>Hub setup</h2><div class="settings-row"><span class="settings-icon network" aria-hidden="true">⌁</span><div><strong>Hub Wi-Fi</strong>${hubSetup}</div></div></section><section class="settings-section"><h2>App &amp; connection</h2><div class="settings-row"><span class="settings-icon network" aria-hidden="true">◉</span><div><strong>Backend API · ${esc(connection)}</strong><p>${esc(runtime.backendOrigin||'UNCONFIGURED')}</p>${localReconnect}</div></div><div class="settings-row"><span class="settings-icon" aria-hidden="true">?</span><div><strong>Hub monitoring · ${esc(hubState)}</strong><p>Current source and coverage are shown on Home.</p></div></div><div class="settings-row"><span class="settings-icon" aria-hidden="true">i</span><div><strong>App version</strong><p>${esc(runtime.appVersion)} · source ${esc(runtime.sourceRevision)}</p><p>Backend revision: ${esc(profile.backend_revision||'unknown')}</p></div></div></section>${adminTools}</div>`);
+  if(profile?.test_only===true)void refreshHouseholdRoutineConfiguration(profile.home_id);
   if(runtime.hubWifiNativeDiscovery)$('#addHubWifi').onclick=()=>{window.location.href='gharsajag://hub-wifi/add'};
   document.querySelector('.local-backend-reconnect')?.addEventListener('click',event=>{event.preventDefault();window.location.href='gharsajag://backend/reconnect'});
   document.querySelector('.local-backend-reset')?.addEventListener('click',event=>{event.preventDefault();window.location.href='gharsajag://backend/reset'});
   $('#openSimulation')?.addEventListener('click',()=>openTab('simulation'));
   $('#openEngineering')?.addEventListener('click',()=>openTab('engineering'));
   $('#logoutButton').onclick=async()=>{try{await api('auth/logout',{method:'POST'})}finally{status('SIGNED OUT','Current session has been revoked.');loginScreen()}};
+}
+async function refreshHouseholdRoutineConfiguration(homeId){
+  const target=$('#householdRoutineConfiguration');
+  if(!target)return;
+  try{
+    const snapshot=await api(`homes/${encodeURIComponent(homeId)}/routine-config`);
+    if(snapshot.home_id!==homeId||!Number.isSafeInteger(snapshot.desired_version)||
+       !(snapshot.applied_version===null||Number.isSafeInteger(snapshot.applied_version)))
+      throw new Error('invalid_configuration_status');
+    const desired=snapshot.desired_version;
+    const applied=snapshot.applied_version;
+    let label='Pending on Hub';
+    if(desired===0)label='No household policy saved';
+    else if(applied===desired)label='Applied on Hub';
+    else if(applied!==null&&applied>desired)label='Configuration conflict';
+    const state=document.createElement('p');state.className='household-config-state';
+    state.textContent=`${label} · desired v${desired} · applied ${applied===null?'none':`v${applied}`}`;
+    const note=document.createElement('p');note.textContent=snapshot.desired_status==='DESIRED'
+      ?'The latest saved policy is waiting for Hub confirmation.'
+      :snapshot.desired_status==='APPLIED'
+        ?'The Hub confirmed the latest saved policy.'
+        :'No policy details were returned.';
+    const policy=snapshot.desired_config||snapshot.applied_config;
+    const steps=policy?.activity_rules?.morning_steps;
+    const policyForm=document.createElement('form');policyForm.className='routine-policy-editor';
+    if(Array.isArray(steps)&&steps.length){
+      for(const [index,step] of steps.entries()){
+        if(!step||typeof step.location!=='string')continue;
+        const row=document.createElement('div');row.className='settings-row';
+        const enabled=document.createElement('input');enabled.type='checkbox';enabled.checked=step.enabled===true;
+        enabled.setAttribute('aria-label',`${step.location} enabled`);
+        const required=document.createElement('select');required.setAttribute('aria-label',`${step.location} requirement`);
+        for(const [value,label] of [['true','Required'],['false','Optional']]){
+          const option=document.createElement('option');option.value=value;option.textContent=label;
+          required.append(option);
+        }
+        required.value=step.required===true?'true':'false';
+        const name=document.createElement('strong');name.textContent=step.location;
+        const controls=document.createElement('div');controls.append(enabled,document.createTextNode(' Enabled · '),required);
+        row.append(name,controls);policyForm.append(row);
+        row.dataset.stepIndex=String(index);
+      }
+      const save=document.createElement('button');save.type='submit';save.textContent='Save desired routine policy';
+      policyForm.append(save);
+      policyForm.addEventListener('submit',async event=>{
+        event.preventDefault();save.disabled=true;
+        try{
+          const next=JSON.parse(JSON.stringify(policy));
+          for(const row of policyForm.querySelectorAll('[data-step-index]')){
+            const index=Number(row.dataset.stepIndex);const step=next.activity_rules.morning_steps[index];
+            step.enabled=Boolean(row.querySelector('input').checked);
+            step.required=row.querySelector('select').value==='true';
+          }
+          await api(`homes/${encodeURIComponent(homeId)}/routine-config`,{
+            method:'POST',body:{expected_version:desired,config:next}});
+          await refreshHouseholdRoutineConfiguration(homeId);
+        }catch(error){
+          const failure=document.createElement('p');failure.setAttribute('role','alert');
+          failure.textContent=`Policy save failed: ${error.message}`;policyForm.prepend(failure);
+        }finally{save.disabled=false;}
+      });
+    }else{
+      const missing=document.createElement('p');
+      missing.textContent='No desired or applied routine policy is available to edit.';
+      policyForm.append(missing);
+    }
+    target.replaceChildren(state,note,policyForm);
+  }catch(error){
+    target.textContent=`Configuration status unavailable from the authenticated backend (${error.message}). No local or simulated policy is shown.`;
+  }
 }
 function renderEngineering(){
   const health=view?.gs124_health||{};

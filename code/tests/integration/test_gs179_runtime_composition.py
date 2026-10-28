@@ -16,6 +16,8 @@ from psycopg import OperationalError
 from psycopg.conninfo import make_conninfo
 
 from ghar_sajag.cloud_client_identity import TimeReadiness
+from ghar_sajag.configuration_repository import PostgresConfigurationRepository
+from ghar_sajag.diagnostic_authorization import ActorSession
 from ghar_sajag.gs179_hub_ingress_runtime import (
     Gs179TestOnlyHubIngressRuntime,
     HubIngressRuntimeConfig,
@@ -337,9 +339,68 @@ class RuntimeOwnedPostgresCaregiverE2E(unittest.TestCase):
         # Same port is used for orderly listener restart so the already
         # configured HOST_SIM Hub runtime can reconnect without a new identity.
         self._start_runtime_process()
+
+        # Exercise the real TEST_ONLY caregiver repository and mTLS Hub routes
+        # against this isolated PostgreSQL schema. The callback models the
+        # already-verified test session; it does not create a production issuer.
+        repository = PostgresConfigurationRepository(
+            self.stack.durable.db,
+            authorize_caregiver_settings=lambda actor, home_id, at: (
+                actor.actor_id == self.stack.actor and home_id == HOME and
+                actor.issuer_reference == "GS179_TEST_ONLY_LITE" and at < actor.expires_at
+            ),
+            lock=self.stack.service.lock,
+        )
+        self.stack.lite.product_view.configuration_repository = repository
+        policy = {
+            "schema": 1, "home_id": HOME, "timezone": "Etc/UTC", "mode": "HOME",
+            "morning": {"enabled": True, "start_minute": 360,
+                        "end_minute": 660, "grace_minutes": 20},
+            "activity_rules": {
+                "quiet_hours_enabled": True, "quiet_start_minute": 60,
+                "quiet_end_minute": 300, "door_open_timeout_seconds": 300,
+                "daytime_inactivity_enabled": True, "daytime_start_minute": 480,
+                "daytime_end_minute": 1260, "daytime_inactivity_seconds": 10800,
+                "morning_steps": [
+                    {"location": "bedroom", "enabled": True, "required": True},
+                ],
+                "morning_sequence_strict_order": True,
+            },
+        }
+        cookie = self.stack.login()
+        publish_status, desired, _ = self.stack.human(
+            "POST", f"/lite/v1/homes/{HOME}/routine-config",
+            {"expected_version": 0, "config": policy}, cookie=cookie,
+        )
+        self.assertEqual((publish_status, desired["desired_version"], desired["desired_status"]),
+                         (202, 1, "DESIRED"), desired)
+        canonical_policy = {key: value for key, value in policy.items()
+                            if key not in {"schema", "home_id"}}
+        hub_get_status, fetched = self.stack.hub_get(f"/v1/homes/{HOME}/config/desired")
+        self.assertEqual((hub_get_status, fetched["version"], fetched["config"]),
+                         (200, 1, canonical_policy), fetched)
+        unrelated_get_status, _ = self.stack.hub_get(f"/v1/homes/{HOME}/events")
+        self.assertEqual(unrelated_get_status, 404)
+        applied_status, applied_raw = self.stack.hub_request(
+            f"/v1/homes/{HOME}/config/applied", {"version": 1}
+        )
+        applied = json.loads(applied_raw)
+        self.assertEqual((applied_status, applied["desired_version"],
+                          applied["applied_version"]), (200, 1, 1), applied)
+        stale_status, stale_raw = self.stack.hub_request(
+            f"/v1/homes/{HOME}/config/applied", {"version": 2}
+        )
+        self.assertEqual(stale_status, 409, stale_raw)
+        self.assertEqual(json.loads(stale_raw), {"error": "configuration_conflict"})
+        caregiver_status, caregiver_snapshot, _ = self.stack.human(
+            "GET", f"/lite/v1/homes/{HOME}/routine-config", cookie=cookie
+        )
+        self.assertEqual((caregiver_status, caregiver_snapshot["desired_status"],
+                          caregiver_snapshot["applied_version"]), (200, "APPLIED", 1),
+                         caregiver_snapshot)
+
         ready = self.stack.start_node()
         self.assertEqual(ready["stage"], "CLOUDSYNC_READY")
-        cookie = self.stack.login()
         initial_status, initial_view, _ = self.stack.human(
             "GET", f"/lite/v1/homes/{HOME}/overview", cookie=cookie
         )

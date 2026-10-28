@@ -1,0 +1,456 @@
+{
+  "schema_version": 1,
+  "register_owner": "GS-173",
+  "validation_owner": "GS-116",
+  "source_commit": "a92bd8214df67ae68ac5e902bf2b2f49367223ec",
+  "verified_date": "2026-10-28",
+  "items": [
+    {
+      "gate_id": "DTP-001",
+      "component_requirement": "Hub credential and production client-auth trust",
+      "owning_jira": [
+        "GS-68",
+        "GS-109",
+        "GS-148",
+        "GS-165",
+        "GS-168",
+        "GS-169",
+        "GS-170",
+        "GS-171",
+        "GS-172"
+      ],
+      "scope": "MANDATORY_R1",
+      "source_paths": [
+        "code/firmware/hub/target/esp32s3/gs40_test_only_bootstrap.cpp",
+        "code/firmware/hub/target/esp32s3/cloud_trust_provider.cpp",
+        "code/tools/factory/pilot_test_issuer.py"
+      ],
+      "dev_effective_config": "GS40_TEST_ONLY_CLOUDSYNC=ON with an external TEST_ONLY public config root; isolated TEST_ONLY identities only",
+      "implementation_state": "PARTIAL",
+      "dev_effective_state": "PARTIAL",
+      "prod_readiness": "BLOCKED",
+      "deferred_or_missing": "Per-Hub production issuer, DS key custody, issuance, rotation, revocation, recovery, provisioning and qualified trusted-time deployment are not activated.",
+      "test_identity_termination": "TEST_ONLY roots, identities and Home remain within the isolated development backend and TEST_ONLY S3 build; no shared production secret or production trust root is used.",
+      "production_switch_over": "DECISION_PENDING for issuer/custody and lifecycle details; then configure existing DS/mTLS provider, provision through separately approved factory/security procedures and qualify current ownership/time.",
+      "dependencies_and_approvals": [
+        "GS-109 comment 11797 architecture direction",
+        "GS-148 comment 11798 architecture direction",
+        "separate security/credential approval",
+        "separate physical provisioning approval"
+      ],
+      "security_rollback": "Fail closed on invalid chain, stale/revoked authority, trusted-time failure or identity mismatch. Preserve current TEST_ONLY identity and device state; no irreversible activation in DEV.",
+      "required_tests": [
+        "cloudsync-security-ut",
+        "GS-68 issuer/verifier and DS non-exportability tests",
+        "rotation/revocation/recovery negative tests",
+        "production identity and trust-chain qualification"
+      ],
+      "acceptance": "Unique non-exportable production identity per Hub validates against an approved root; lifecycle, revocation, recovery, ownership and trusted-time behavior pass on the production profile.",
+      "evidence": "GS-109/148 decision comments and existing TEST_ONLY trust-provider tests; no production credential or physical receipt claimed.",
+      "release_blocking": true,
+      "gate_status": "BLOCKED",
+      "accountable_reviewer": "GS-173 owner/security; GS-116 validation",
+      "owner_security_approval": "Architecture direction approved; issuer/custody/provisioning approvals pending",
+      "last_verified_commit": "a92bd8214df67ae68ac5e902bf2b2f49367223ec",
+      "dev_state_detail": "Isolated TEST_ONLY profile; physical current receipt unverified"
+    },
+    {
+      "gate_id": "DTP-002",
+      "component_requirement": "Authenticated Hub ingress, ownership binding and durable backend receipt",
+      "owning_jira": [
+        "GS-109",
+        "GS-148",
+        "GS-179"
+      ],
+      "scope": "MANDATORY_R1",
+      "source_paths": [
+        "code/backend/ghar_sajag/cloud_client_identity.py",
+        "code/backend/ghar_sajag/gs179_hub_ingress_runtime.py",
+        "code/backend/ghar_sajag/test_only_mtls_listener.py",
+        "code/backend/ghar_sajag/durable_api.py"
+      ],
+      "dev_effective_config": "GS179_TEST_ONLY_HUB_INGRESS=1; locally trusted TEST_ONLY mTLS peer and gs177-test-* Home namespace",
+      "implementation_state": "PARTIAL",
+      "dev_effective_state": "PARTIAL",
+      "prod_readiness": "BLOCKED",
+      "deferred_or_missing": "Production server-verified peer middleware and deployed endpoint/ownership-freshness composition are not activated; the current listener is explicitly TEST_ONLY.",
+      "test_identity_termination": "Only locally configured TEST_ONLY peer certificates map to the synthetic/test Home registry; arbitrary self-asserted Hub/Home/epoch values are rejected.",
+      "production_switch_over": "Deploy approved server-verified Hub peer chain and construct VerifiedHubContext from current backend Home/Hub/epoch registry and revocation state; retain the existing durable API/repository.",
+      "dependencies_and_approvals": [
+        "GS-109/148 approved architecture direction",
+        "production middleware deployment decision",
+        "production Hub identity lifecycle"
+      ],
+      "security_rollback": "Unknown, stale, revoked, wrong-Home or wrong-epoch peers fail closed; fallback is local TEST_ONLY mode, never anonymous ingress.",
+      "required_tests": [
+        "GS-179 isolated PostgreSQL/mTLS security integration",
+        "wrong chain/hostname/epoch/revocation and unsupported-route negatives",
+        "durable commit and duplicate receipt checks"
+      ],
+      "acceptance": "Production requests cannot self-assert Hub authority; only current authenticated Home/epoch context reaches durable event/configuration routes, with exact commit and retry semantics.",
+      "evidence": "Existing GS-179 isolated PostgreSQL/mTLS tests; no current physical S3 authentication claim.",
+      "release_blocking": true,
+      "gate_status": "BLOCKED",
+      "accountable_reviewer": "GS-173 owner/security; GS-179 backend; GS-116 validation",
+      "owner_security_approval": "Architecture direction approved; production middleware deployment not activated",
+      "last_verified_commit": "a92bd8214df67ae68ac5e902bf2b2f49367223ec",
+      "dev_state_detail": "Local TEST_ONLY service; fresh physical S3 receipt unverified"
+    },
+    {
+      "gate_id": "DTP-003",
+      "component_requirement": "Caregiver identity, Home authority and authorized Settings",
+      "owning_jira": [
+        "GS-76",
+        "GS-109",
+        "GS-143",
+        "GS-148",
+        "GS-179"
+      ],
+      "scope": "MANDATORY_R1",
+      "source_paths": [
+        "code/backend/ghar_sajag/configuration_repository.py",
+        "code/backend/ghar_sajag/caregiver_product.py",
+        "code/backend/ghar_sajag/feature_flags.py",
+        "code/parivar_saathi_android_app/server/connected_lite.py",
+        "code/tools/sim/pwa/connected_lite.mjs"
+      ],
+      "dev_effective_config": "GS179_TEST_ONLY_MONITORING=1 and existing authenticated TEST_ONLY session for Home gs177-test-product",
+      "implementation_state": "PARTIAL",
+      "dev_effective_state": "ACTIVE_ISOLATED",
+      "prod_readiness": "BLOCKED",
+      "deferred_or_missing": "Production caregiver issuer/session lifecycle, expiry/revocation and deployed Home membership integration are not activated.",
+      "test_identity_termination": "TEST_ONLY caregiver sessions and household configuration are limited to the isolated test Home and local development backend.",
+      "production_switch_over": "Compose the existing GS-76 authenticated caregiver session with current Home membership/role authority; do not trust actor headers or create a parallel login system.",
+      "dependencies_and_approvals": [
+        "GS-76 caregiver authority contract",
+        "approved production issuer and session lifecycle",
+        "Home membership and Settings role decision"
+      ],
+      "security_rollback": "Expired/revoked sessions, wrong Home and unauthorized roles deny read/write; test sessions cannot access production Homes.",
+      "required_tests": [
+        "authenticated session expiry/revocation",
+        "Home isolation and OWNER/PRIMARY authorization",
+        "desired/applied version and stale-write conflicts",
+        "Android WebView/native session boundary"
+      ],
+      "acceptance": "Only an authorized current Home owner/primary can save and read desired policy; Hub-applied version is distinct and confirmed by authenticated Hub ACK.",
+      "evidence": "GS-179 backend/settings tests and caregiver integration tests; production session not qualified.",
+      "release_blocking": true,
+      "gate_status": "BLOCKED",
+      "accountable_reviewer": "GS-173 owner/security; GS-76 identity; GS-179 backend",
+      "owner_security_approval": "Architecture boundary approved; issuer, deployment and production Home membership remain pending",
+      "last_verified_commit": "a92bd8214df67ae68ac5e902bf2b2f49367223ec",
+      "dev_state_detail": "TEST_ONLY caregiver session and Settings; production issuer unverified"
+    },
+    {
+      "gate_id": "DTP-004",
+      "component_requirement": "Versioned household policy fetch, validation, durable S3 apply and desired/applied acknowledgement",
+      "owning_jira": [
+        "GS-109",
+        "GS-148",
+        "GS-179",
+        "GS-117"
+      ],
+      "scope": "MANDATORY_R1",
+      "source_paths": [
+        "code/backend/ghar_sajag/configuration_repository.py",
+        "code/backend/ghar_sajag/durable_api.py",
+        "code/firmware/hub/target/esp32s3/https_backend_channel.cpp",
+        "code/firmware/hub/target/esp32s3/gs40_test_only_runtime.cpp",
+        "code/firmware/hub/runtime/hub_checkpoint_codec.cpp",
+        "code/firmware/hub/runtime/hub_runtime.cpp"
+      ],
+      "dev_effective_config": "Existing TEST_ONLY mTLS configuration GET/applied ACK; versioned Hub checkpoint; Morning Routine policy supports arbitrary enabled/required steps",
+      "implementation_state": "PARTIAL",
+      "dev_effective_state": "PARTIAL",
+      "prod_readiness": "BLOCKED",
+      "deferred_or_missing": "Current implementation is TEST_ONLY and lacks actual physical S3 applied-version evidence. Production config authentication/deployment remains disabled pending lifecycle and middleware completion.",
+      "test_identity_termination": "Desired/applied test policy is served only through the authenticated GS-179 TEST_ONLY mTLS composition; no ordinary JSON or unauthenticated write route is enabled.",
+      "production_switch_over": "Reuse the same repository, schema validation, Hub checkpoint/apply and ACK contract under approved production Hub identity and middleware; qualify current ownership, revocation, restart and outage.",
+      "dependencies_and_approvals": [
+        "GS-109/148 architecture direction approved",
+        "production Hub credentials/middleware separately approved",
+        "current physical fixture and hardware authorization"
+      ],
+      "security_rollback": "Reject stale/revoked Home/epoch, malformed schema, stale version and conflicting same-version policy; preserve last valid durable policy and do not ACK before checkpoint success.",
+      "required_tests": [
+        "isolated PostgreSQL desired/applied repository",
+        "mTLS route and Home/epoch conflicts",
+        "Hub v6 checkpoint/restart and stale-version tests",
+        "S3 target build and physical restart/outage qualification"
+      ],
+      "acceptance": "Actual S3 fetches current authorized policy, validates and checkpoints complete policy including timezone before acknowledgement, then evaluates the configured Bedroom-only Morning Routine after reboot/outage.",
+      "evidence": "Source and focused host tests only until current physical S3 apply/ACK receipt exists.",
+      "release_blocking": true,
+      "gate_status": "BLOCKED",
+      "accountable_reviewer": "GS-148 Hub/backend; GS-179 integration; GS-117 physical acceptance",
+      "owner_security_approval": "TEST_ONLY software integration authorized; production identity activation and physical operations not authorized by this entry",
+      "last_verified_commit": "a92bd8214df67ae68ac5e902bf2b2f49367223ec",
+      "dev_state_detail": "Software integration present; policy has not been applied on actual S3"
+    },
+    {
+      "gate_id": "DTP-005",
+      "component_requirement": "Production firmware trust, signing, key storage, provisioning and recovery",
+      "owning_jira": [
+        "GS-68",
+        "GS-118",
+        "GS-165",
+        "GS-168",
+        "GS-169",
+        "GS-170",
+        "GS-171",
+        "GS-172"
+      ],
+      "scope": "MANDATORY_R1",
+      "source_paths": [
+        "code/firmware/hub/target/esp32s3/idf/CMakeLists.txt",
+        "code/firmware/hub/target/esp32s3/cloud_trust_provider.cpp",
+        "NO_SWITCH_EXISTS: production secure-boot/eFuse activation requires an approved factory/security procedure"
+      ],
+      "dev_effective_config": "GS40_TEST_ONLY_CLOUDSYNC is opt-in and uses an external TEST_ONLY trust root; development does not activate irreversible secure boot/eFuse state",
+      "implementation_state": "PARTIAL",
+      "dev_effective_state": "ACTIVE_ISOLATED",
+      "prod_readiness": "BLOCKED",
+      "deferred_or_missing": "Commercial signed image trust, approved secure-boot/flash-encryption/eFuse/key custody and factory recovery are not qualified; these cannot be remotely toggled through ordinary JSON.",
+      "test_identity_termination": "TEST_ONLY public roots are build-profile scoped and external; no commercial private key is present in the repository or development config.",
+      "production_switch_over": "Approve and qualify existing production image-signing, secure-boot, key custody and factory enrollment/recovery procedures; no implementation shortcut or remote flag.",
+      "dependencies_and_approvals": [
+        "GS-68 security contract",
+        "GS-165..172 factory/security decisions",
+        "separate irreversible hardware authorization"
+      ],
+      "security_rollback": "Preserve current fixture and recovery artifacts. Any irreversible fuse or key action requires separate exact approval and tested recovery limits.",
+      "required_tests": [
+        "signed image/provenance verification",
+        "boot chain and non-exportable key proof",
+        "factory lifecycle and recovery negatives",
+        "release profile trust-root absence"
+      ],
+      "acceptance": "Production image and device root of trust are approved, verifiable and recoverable per the signed production procedure on the exact supported hardware profile.",
+      "evidence": "No production image signing or irreversible hardware state change claimed.",
+      "release_blocking": true,
+      "gate_status": "BLOCKED",
+      "accountable_reviewer": "GS-173 owner/security; GS-68 security; GS-165 factory",
+      "owner_security_approval": "No production provisioning or irreversible hardware security activation authorized",
+      "last_verified_commit": "a92bd8214df67ae68ac5e902bf2b2f49367223ec",
+      "dev_state_detail": "TEST_ONLY profile available; commercial signing/provisioning unverified"
+    },
+    {
+      "gate_id": "DTP-006",
+      "component_requirement": "Development hosting, durable database, certificates, backup and recovery operations",
+      "owning_jira": [
+        "GS-109",
+        "GS-148",
+        "GS-177",
+        "GS-179"
+      ],
+      "scope": "MANDATORY_R1",
+      "source_paths": [
+        "code/backend/ghar_sajag/gs179_hub_ingress_runtime.py",
+        "code/backend/ghar_sajag/durable_api.py",
+        "code/backend/ghar_sajag/configuration_repository.py",
+        "NO_SWITCH_EXISTS: commercial hosting and managed recovery deployment are release operations, not a runtime feature flag"
+      ],
+      "dev_effective_config": "Existing local WSL/laptop HTTPS and TLS PostgreSQL service; GS179_TEST_ONLY_* flags and isolated test Home",
+      "implementation_state": "PARTIAL",
+      "dev_effective_state": "ACTIVE_ISOLATED",
+      "prod_readiness": "NOT_VERIFIED",
+      "deferred_or_missing": "Commercial hosting, production CA/secrets, backup/restore SLO, observability and service recovery deployment are intentionally outside DEV validation.",
+      "test_identity_termination": "Local TEST_ONLY service, certificate and synthetic Home terminate in developer infrastructure; no production endpoint is used by this profile.",
+      "production_switch_over": "Provision approved production hosting, managed durable database, CA/secrets, least-privilege operations, backup/restore and monitoring using existing API/service composition.",
+      "dependencies_and_approvals": [
+        "GS-173 deployment scope and release sign-off",
+        "GS-177 backend deployment",
+        "GS-179 mTLS endpoint identity"
+      ],
+      "security_rollback": "Development service remains bound/scoped to the test profile. Production rollout requires verified backup/restore and a rollback path before traffic cutover.",
+      "required_tests": [
+        "PostgreSQL TLS, isolation, durability and restore",
+        "production endpoint TLS/name validation",
+        "backup/restore and outage recovery drills"
+      ],
+      "acceptance": "The approved production backend and database meet current availability, durability, access, backup/restore, monitoring and endpoint-identity criteria.",
+      "evidence": "Isolated local PostgreSQL/backend tests; no commercial hosting or production recovery claim.",
+      "release_blocking": true,
+      "gate_status": "NOT_RUN",
+      "accountable_reviewer": "GS-173 owner; GS-177 hosting; GS-179 backend",
+      "owner_security_approval": "Development services authorized; production deployment requires separate release approval",
+      "last_verified_commit": "a92bd8214df67ae68ac5e902bf2b2f49367223ec",
+      "dev_state_detail": "Local development profile and isolated PostgreSQL tests"
+    },
+    {
+      "gate_id": "DTP-007",
+      "component_requirement": "Caregiver notification, call-provider and WAN delivery qualification",
+      "owning_jira": [
+        "GS-74",
+        "GS-75",
+        "GS-157",
+        "GS-177"
+      ],
+      "scope": "SCOPE_PENDING",
+      "source_paths": [
+        "code/parivar_saathi_android_app/server/push_adapter.py",
+        "code/parivar_saathi_android_app/server/call_signaling.py",
+        "code/parivar_saathi_android_app/web/caregiver/call.mjs",
+        "code/tools/sim/pwa/connected_lite.mjs"
+      ],
+      "dev_effective_config": "TEST_ONLY caregiver/API and app observation; no real outbound call or external recipient during development tests",
+      "implementation_state": "BLOCKED",
+      "dev_effective_state": "PARTIAL",
+      "prod_readiness": "NOT_VERIFIED",
+      "deferred_or_missing": "A caregiver-visible status/projection is distinct from qualified FCM, outbound calls, background delivery and real WAN notification reachability; those providers are not activated by Morning Routine DEV tests.",
+      "test_identity_termination": "Development checks remain on synthetic/test Homes and do not contact emergency services or unsuspecting recipients.",
+      "production_switch_over": "Complete the existing GS-74/75/157 provider, consent, delivery and recovery paths according to the approved product scope; do not introduce a second notification stack.",
+      "dependencies_and_approvals": [
+        "GS-173 scope adjudication",
+        "GS-74/75/157 provider and caregiver policy",
+        "production consent and recipient controls"
+      ],
+      "security_rollback": "No real recipient is contacted by test automation. Production provider activation is separately configured and revocable.",
+      "required_tests": [
+        "provider auth and consent",
+        "queue/retry/deduplication",
+        "offline and revoked-token failures",
+        "installed APK foreground/background delivery qualification"
+      ],
+      "acceptance": "Only explicitly approved R1 alert/call behavior is delivered to authorized caregivers with durable state, consent, deduplication and real-device delivery evidence.",
+      "evidence": "No outbound call or production notification delivery claimed by this Morning Routine integration.",
+      "release_blocking": true,
+      "gate_status": "NOT_RUN",
+      "accountable_reviewer": "GS-173 owner; GS-74/75 notifications; GS-157 calls",
+      "owner_security_approval": "No real outbound recipient or production notification provider authorized in this development task",
+      "last_verified_commit": "a92bd8214df67ae68ac5e902bf2b2f49367223ec",
+      "dev_state_detail": "Caregiver projection testable; external delivery unverified"
+    },
+    {
+      "gate_id": "DTP-008",
+      "component_requirement": "GS-117 physical C3/S3 fixture, current image and genuine sensor qualification",
+      "owning_jira": [
+        "GS-117",
+        "GS-114",
+        "GS-130",
+        "GS-173"
+      ],
+      "scope": "MANDATORY_R1",
+      "source_paths": [
+        "code/tools/local/gs117_tc001_console.py",
+        "code/tools/local/gs117_tc001_serial_windows.py",
+        "code/tools/local/gs117_tc001_backend.py",
+        "docs/validation/PHYSICAL_HIL_CATALOGUE.csv"
+      ],
+      "dev_effective_config": "TEST_ONLY Home gs177-test-product; existing Bedroom C3/S3 identity; guarded USB/HIL tools only after scoped authorization",
+      "implementation_state": "BLOCKED",
+      "dev_effective_state": "BLOCKED",
+      "prod_readiness": "BLOCKED",
+      "deferred_or_missing": "Physical evidence is not a production-only deferral: the current DEV Run is blocked by fixture/image/authentication guards; TC-001 and optical PIR remain NOT_RUN.",
+      "test_identity_termination": "The TEST_ONLY Home is isolated; exact physical C3/S3 and room mapping stay under the existing fixture registry and authorization guard.",
+      "production_switch_over": "Resolve JEDEC/capacity and current image provenance, establish fresh authenticated physical S3 ingress and policy apply, then obtain separate one-run/campaign and optical-sensor approvals.",
+      "dependencies_and_approvals": [
+        "C3 raw JEDEC/capacity guard",
+        "current C3/S3 image provenance",
+        "fresh physical S3 mTLS receipt",
+        "separate current hardware and campaign authorization"
+      ],
+      "security_rollback": "No COM access, flash, reset, enrollment or injection without separate exact approval; stop on any identity/image/security mismatch.",
+      "required_tests": [
+        "JEDEC/capacity and current image proof",
+        "authenticated ESP-NOW and durable-before-ACK",
+        "S3 fresh mTLS and config applied ACK",
+        "TC-001 exact-key APK observer",
+        "separate real AM312 PIR path"
+      ],
+      "acceptance": "Authorized actual C3 input produces its own EventKey and actual S3 decision through real authenticated radio, durable Hub, CloudSync, PostgreSQL/API and installed APK; optical PIR independently qualifies.",
+      "evidence": "Historical HOST_SIM-to-APK and old physical events are not current physical TC-001 or PIR acceptance.",
+      "release_blocking": true,
+      "gate_status": "BLOCKED",
+      "accountable_reviewer": "GS-117 physical owner; GS-116/130 evidence; GS-173 release",
+      "owner_security_approval": "No current COM/USB, reset, injection or physical campaign authorization in this task",
+      "last_verified_commit": "a92bd8214df67ae68ac5e902bf2b2f49367223ec",
+      "dev_state_detail": "C3 JEDEC is 0xffffff/capacity unknown; current image and fresh S3 auth unverified"
+    },
+    {
+      "gate_id": "DTP-009",
+      "component_requirement": "Production Android caregiver decision and native delivery observation",
+      "owning_jira": [
+        "GS-117",
+        "GS-177",
+        "GS-178",
+        "GS-179"
+      ],
+      "scope": "MANDATORY_R1",
+      "source_paths": [
+        "code/tools/local/gs117_tc001_console.py",
+        "code/parivar_saathi_android_app/android/app/src/main/java/in/gharsajag/caregiver/TrustedPwaWebView.kt"
+      ],
+      "dev_effective_config": "Existing installed authorized APK and ADB observer against isolated TEST_ONLY Home only",
+      "implementation_state": "PARTIAL",
+      "dev_effective_state": "PARTIAL",
+      "prod_readiness": "NOT_VERIFIED",
+      "deferred_or_missing": "The installed APK and observer exist. A physical S3 decision, native/background delivery and current signer/firmware-linked evidence are not established by host tests.",
+      "test_identity_termination": "Development APK uses only the TEST_ONLY Home/backend origin and authorized installed package; no fake screen or seeded caregiver record.",
+      "production_switch_over": "Retain the existing APK/session observer and validate the same original Hub decision identity, Home, time and status on an approved production profile.",
+      "dependencies_and_approvals": [
+        "current physical S3 decision and backend receipt",
+        "current APK/signer verification",
+        "Android device/ADB authorization for observation"
+      ],
+      "security_rollback": "Do not weaken HTTPS trust or session checks; remove only test data through existing isolated test teardown, never rewrite protected household records.",
+      "required_tests": [
+        "APK package/signature verification",
+        "exact decision identity and Home isolation",
+        "refresh/replay no duplicate UI",
+        "foreground/background notification delivery if required"
+      ],
+      "acceptance": "The actual installed application presents the real Hub Morning Routine completion with the correct Home and decision identity after refresh, with screenshot/accessibility evidence.",
+      "evidence": "Historical HOST_SIM EventKey was observed in actual APK; no physical Morning Routine decision evidence exists.",
+      "release_blocking": true,
+      "gate_status": "NOT_RUN",
+      "accountable_reviewer": "GS-117/177 Android owner; GS-173 release",
+      "owner_security_approval": "Android observation only under existing authorization; no physical event generation authorized",
+      "last_verified_commit": "a92bd8214df67ae68ac5e902bf2b2f49367223ec",
+      "dev_state_detail": "Historical HOST_SIM-to-APK PASS; physical S3 Morning Routine decision unverified"
+    },
+    {
+      "gate_id": "DTP-010",
+      "component_requirement": "TEST_ONLY build/profile isolation and production target build enforcement",
+      "owning_jira": [
+        "GS-40",
+        "GS-116",
+        "GS-179",
+        "GS-173"
+      ],
+      "scope": "MANDATORY_R1",
+      "source_paths": [
+        "code/firmware/hub/target/esp32s3/idf/CMakeLists.txt",
+        "code/scripts/build_validation_targets.py",
+        "code/validation/suites.json"
+      ],
+      "dev_effective_config": "GS40_TEST_ONLY_CLOUDSYNC=ON only for isolated TEST_ONLY S3 build and external public root; production paired builder sets TEST_ONLY/HIL switches OFF and checks resulting cache",
+      "implementation_state": "IMPLEMENTED_DISABLED",
+      "dev_effective_state": "ACTIVE_ISOLATED",
+      "prod_readiness": "QUALIFIED",
+      "deferred_or_missing": "The existing paired target builder enforces TEST_ONLY CloudSync, HIL controls, commissioning and external TEST_ONLY root as disabled/absent in the production profile. This qualifies profile isolation only; it does not qualify firmware signature, issuer, provisioning or release acceptance.",
+      "test_identity_termination": "TEST_ONLY identity/config terminates in the isolated S3 executable and local test backend; no public production trust root or shared key is included.",
+      "production_switch_over": "No pathway is activated for production. Keep the existing TEST_ONLY feature options OFF and the external test root absent in every production target build; separately qualify the production trust and signing gates.",
+      "dependencies_and_approvals": [
+        "GS-116 release registry",
+        "GS-173 G1/G6/G7 register consumption",
+        "current source-linked paired target build"
+      ],
+      "security_rollback": "Build fails closed if any restricted option or test root is present; test-only adapter symbols remain absent in production configuration.",
+      "required_tests": [
+        "python3 code/scripts/build_validation_targets.py paired C3/S3 production build and CMake-cache/root guard",
+        "TEST_ONLY S3 product-profile build with isolated external public root and HIL commissioning OFF",
+        "GS-116 component-gate tests and release-register consistency check"
+      ],
+      "acceptance": "A fresh paired production C3/S3 build passes the target guards with GS40_TEST_ONLY_CLOUDSYNC, GS_HIL_BUILD, GS_HIL_CONTROL and GS_HIL_COMMISSIONING OFF and no TEST_ONLY root. The separately selected TEST_ONLY S3 profile compiles its existing runtime only with an external public TEST_ONLY root; no image is installed.",
+      "evidence": "Paired build report from source a92bd821: C3 919e2a25... (944272 bytes), S3 b1604946... (2201168 bytes); production cache verified disabled options and empty TEST_ONLY root. TEST_ONLY target build is being validated in this working tree.",
+      "release_blocking": true,
+      "gate_status": "PASS",
+      "accountable_reviewer": "GS-173 release owner; GS-116 validation",
+      "owner_security_approval": "Build-profile enforcement authorized; production security activation remains separately controlled",
+      "last_verified_commit": "a92bd8214df67ae68ac5e902bf2b2f49367223ec",
+      "dev_state_detail": "Production profile verified to disable TEST_ONLY paths; selected TEST_ONLY compile remains isolated and is not deployed."
+    }
+  ]
+}

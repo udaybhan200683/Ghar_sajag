@@ -28,6 +28,9 @@ from ghar_sajag.configuration_repository import (
 )
 from ghar_sajag.cloud_client_identity import TimeReadiness, VerifiedHubContext
 from ghar_sajag.diagnostic_authorization import ActorSession
+from ghar_sajag.human_authentication import (
+    CurrentSession, HumanAuthenticationBoundary, IssuerPolicy, VerifiedAssertion,
+)
 from ghar_sajag.database import initialize_sqlite
 
 
@@ -291,6 +294,132 @@ class ConfigurationRepositoryTest(unittest.TestCase):
 
     def tearDown(self):
         self.db.close()
+
+    def _authorized_config_api(self):
+        class Verifier:
+            def verify(inner, credential):
+                if credential != "fixture-credential":
+                    return None
+                return VerifiedAssertion("https://issuer.test", "subject-1",
+                                         ("ghar-sajag-api",), "session-1",
+                                         "access", 90, 90, 150)
+
+        class Directory:
+            def current(inner, issuer, subject, session_id):
+                if (issuer, subject, session_id) != (
+                        "https://issuer.test", "subject-1", "session-1"):
+                    return None
+                return CurrentSession(issuer, subject, session_id,
+                                     "owner-1", True, True)
+
+        boundary = HumanAuthenticationBoundary(
+            IssuerPolicy("https://issuer.test", "ghar-sajag-api", "access"),
+            Verifier(), Directory(), lambda: 100)
+        repository = PostgresConfigurationRepository(
+            self.db,
+            authorize_caregiver_settings=lambda actor, home, at:
+                actor.actor_id == "owner-1" and home == "home-1" and at < actor.expires_at,
+            authorize_hub_configuration=lambda context, home, at:
+                context.permanent_hub_id == "hub-1" and home == "home-1")
+        from ghar_sajag.http_api import JsonApi
+        api = JsonApi(
+            now=lambda: 100, configuration_repository=repository,
+            human_authentication=boundary,
+            caregiver_credential_from_request=lambda env: env.get("HTTP_AUTHORIZATION"),
+            verified_hub_context_from_request=lambda env: env.get("gs.test_verified_hub"))
+        return api
+
+    def _request_config_api(self, api, method, path, body=None, **env):
+        raw = b"" if body is None else json.dumps(body).encode()
+        status = []
+        if "gs_test_verified_hub" in env:
+            env["gs.test_verified_hub"] = env.pop("gs_test_verified_hub")
+        response = b"".join(api({"REQUEST_METHOD": method, "PATH_INFO": path,
+            "CONTENT_LENGTH": str(len(raw)), "wsgi.input": BytesIO(raw), **env},
+            lambda value, _headers: status.append(value)))
+        return int(status[0][:3]), json.loads(response)
+
+    def test_authenticated_api_desired_fetch_and_applied_ack_share_repository(self):
+        api = self._authorized_config_api()
+        path = "/v1/homes/home-1/config"
+        status, denied = self._request_config_api(
+            api, "POST", path, {"expected_version": 0, "config": self.policy},
+            HTTP_X_ACTOR_ID="owner-1")
+        self.assertEqual((status, denied["error"]), (401, "human_not_authenticated"))
+
+        status, desired = self._request_config_api(
+            api, "POST", path, {"expected_version": 0, "config": self.policy},
+            HTTP_AUTHORIZATION="fixture-credential", HTTP_X_ACTOR_ID="attacker")
+        self.assertEqual((status, desired["desired_version"], desired["applied_version"]),
+                         (202, 1, None))
+
+        hub_path = "/v1/homes/home-1/config/desired"
+        status, fetched = self._request_config_api(
+            api, "GET", hub_path, gs_test_verified_hub=self.hub)
+        self.assertEqual((status, fetched["version"], fetched["config"]),
+                         (200, 1, self.policy))
+        status, state = self._request_config_api(
+            api, "POST", "/v1/homes/home-1/config/applied", {"version": 1},
+            gs_test_verified_hub=self.hub)
+        self.assertEqual((status, state["desired_version"], state["applied_version"]),
+                         (200, 1, 1))
+        status, caregiver_state = self._request_config_api(
+            api, "GET", path, HTTP_AUTHORIZATION="fixture-credential")
+        self.assertEqual((status, caregiver_state["desired_status"],
+                          caregiver_state["applied_config"]),
+                         (200, "APPLIED", self.policy))
+
+    def test_repository_api_missing_adapters_and_unverified_hub_fail_closed(self):
+        from ghar_sajag.http_api import JsonApi
+        api = JsonApi(now=lambda: 100, configuration_repository=self.repo)
+        status, body = self._request_config_api(
+            api, "POST", "/v1/homes/home-1/config",
+            {"expected_version": 0, "config": self.policy},
+            HTTP_X_ACTOR_ID="owner-1")
+        self.assertEqual((status, body["error"]),
+                         (503, "caregiver_configuration_authentication_unavailable"))
+        secured = self._authorized_config_api()
+        status, body = self._request_config_api(
+            secured, "GET", "/v1/homes/home-1/config/desired")
+        self.assertEqual((status, body["error"]), (403, "verified_hub_context_required"))
+
+    def test_test_only_caregiver_product_view_routes_routine_config_to_shared_repository(self):
+        from ghar_sajag.caregiver_product import CaregiverProductView
+        from ghar_sajag.configuration_repository import HouseholdConfigurationSnapshot
+        policy = self.policy
+
+        class Identity:
+            def require(self, home, actor, _action, _now):
+                if (home, actor) != ("home-1", "owner-1"):
+                    raise PermissionError("not_authorized")
+
+        class Service:
+            identity = Identity()
+
+        class Repository:
+            def get_for_caregiver(self, *, actor, home_id, at):
+                self.read = (actor, home_id, at)
+                return HouseholdConfigurationSnapshot(home_id, 4, "DESIRED",
+                    policy, 3, policy, 1)
+
+            def publish_desired(self, *, actor, home_id, config, expected_version, at):
+                self.write = (actor, home_id, config, expected_version, at)
+                return HouseholdConfigurationSnapshot(home_id, 5, "DESIRED",
+                    config, 3, policy, 1)
+
+        repository = Repository()
+        view = CaregiverProductView(Service(), source="TEST_ONLY",
+                                    configuration_repository=repository)
+        session = {"account_id": "owner-1", "session_id": "session-1",
+                   "expires_at": 200, "role": "ADMIN", "test_only": True}
+        snapshot = view.dispatch(session, "home-1", "routine-config", "GET", {}, 100)
+        self.assertEqual((snapshot["home_id"], snapshot["desired_version"],
+                          snapshot["applied_version"]), ("home-1", 4, 3))
+        self.assertEqual(repository.read[0].issuer_reference, "GS179_TEST_ONLY_LITE")
+        status, updated = view.dispatch(session, "home-1", "routine-config", "POST",
+            {"expected_version": 4, "config": policy}, 101)
+        self.assertEqual((status, updated["desired_version"]), ("202 Accepted", 5))
+        self.assertEqual(repository.write[3:], (4, 101))
 
     def test_desired_and_applied_are_distinct_and_ack_is_idempotent(self):
         desired = self.repo.publish_desired(

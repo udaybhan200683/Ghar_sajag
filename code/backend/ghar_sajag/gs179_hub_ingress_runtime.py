@@ -23,7 +23,7 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes
 from psycopg.conninfo import conninfo_to_dict
 
-from .cloud_client_identity import TimeReadiness
+from .cloud_client_identity import TimeReadiness, VerifiedHubContext
 from .durable_api import DurableEventApi, open_postgres_durable_event_api
 from .identity_namespaces import is_gs179_test_hub_home
 from .service import GharSajagService
@@ -253,6 +253,16 @@ class Gs179TestOnlyHubIngressRuntime:
                     service, self.config.dsn, now=lambda: int(_trusted_utc(self.trusted_time).timestamp()),
                     require_registered_ownership=True,
                     enable_test_hub_rule_decisions=True,
+                    enable_household_configuration=True,
+                    verified_hub_context_from_request=lambda request:
+                        request if type(request) is VerifiedHubContext else None,
+                    authorize_hub_configuration=lambda context, home_id, _at: (
+                        type(context) is VerifiedHubContext and
+                        context.permanent_hub_id == self.config.hub_id and
+                        context.home_id == self.config.home_id == home_id and
+                        context.installation_epoch == self.config.installation_epoch and
+                        is_gs179_test_hub_home(context.permanent_hub_id, context.home_id)
+                    ),
                 )
                 self._durable = durable
                 if getattr(durable.db, "dialect", None) != "postgres" or getattr(

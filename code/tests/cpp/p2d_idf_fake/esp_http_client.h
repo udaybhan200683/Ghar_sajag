@@ -3,7 +3,7 @@
 using esp_err_t = int;
 constexpr esp_err_t ESP_OK = 0;
 enum esp_http_client_transport_t { HTTP_TRANSPORT_OVER_SSL };
-enum esp_http_client_method_t { HTTP_METHOD_POST };
+enum esp_http_client_method_t { HTTP_METHOD_GET, HTTP_METHOD_POST };
 enum esp_http_client_tls_version_t { ESP_HTTP_CLIENT_TLS_VER_TLS_1_2 };
 struct esp_http_client_config_t {
     const char* url{};

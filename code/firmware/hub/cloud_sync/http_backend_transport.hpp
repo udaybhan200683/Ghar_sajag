@@ -19,6 +19,9 @@ class BackendHttpChannel {
 public:
     virtual ~BackendHttpChannel() = default;
     virtual BackendHttpResponse post(const std::string& path, const std::string& body) = 0;
+    // Configuration reads are not used by CloudSync. Concrete product
+    // channels may enable this only in a separately guarded profile.
+    virtual BackendHttpResponse get(const std::string&) { return {}; }
 };
 
 class HttpBackendTransport final : public CloudBackendTransport {

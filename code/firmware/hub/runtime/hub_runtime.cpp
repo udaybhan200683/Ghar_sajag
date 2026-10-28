@@ -36,6 +36,28 @@ bool same_morning_policy(const ActivityRuleConfig& left, const ActivityRuleConfi
     return true;
 }
 
+bool same_activity_config(const ActivityRuleConfig& left, const ActivityRuleConfig& right) {
+    return same_morning_policy(left, right) &&
+        left.quiet_hours_enabled == right.quiet_hours_enabled &&
+        left.quiet_start_minute == right.quiet_start_minute &&
+        left.quiet_end_minute == right.quiet_end_minute &&
+        left.door_open_timeout_seconds == right.door_open_timeout_seconds &&
+        left.daytime_inactivity_enabled == right.daytime_inactivity_enabled &&
+        left.daytime_start_minute == right.daytime_start_minute &&
+        left.daytime_end_minute == right.daytime_end_minute &&
+        left.daytime_inactivity_seconds == right.daytime_inactivity_seconds &&
+        left.night_activity_enabled == right.night_activity_enabled &&
+        left.night_start_minute == right.night_start_minute &&
+        left.night_end_minute == right.night_end_minute &&
+        left.night_bathroom_location == right.night_bathroom_location &&
+        left.night_bathroom_visit_threshold == right.night_bathroom_visit_threshold &&
+        left.night_common_location == right.night_common_location &&
+        left.night_common_visit_threshold == right.night_common_visit_threshold &&
+        left.night_visit_merge_seconds == right.night_visit_merge_seconds &&
+        left.post_door_inactivity_enabled == right.post_door_inactivity_enabled &&
+        left.post_door_inactivity_seconds == right.post_door_inactivity_seconds;
+}
+
 void reset_morning_progress(ActivityRuleState& state) {
     state.morning_started = false;
     state.morning_bathroom_seen = false;
@@ -1055,6 +1077,7 @@ void HubRuntime::configure_activity_rules(const ActivityRuleConfig& config) {
         reset_morning_progress(activity_state_);
     activity_config_=config;
     activity_rules_configured_ = true;
+    activity_config_version_ = 0;
     if(journal_replayed_) (void)checkpoint_state();
 }
 bool HubRuntime::configure_home_activity(const ActivityRuleConfig& config, HomeMode mode) {
@@ -1069,6 +1092,7 @@ bool HubRuntime::configure_home_activity(const ActivityRuleConfig& config, HomeM
         reset_morning_progress(activity_state_);
     activity_config_ = config;
     activity_rules_configured_ = true;
+    activity_config_version_ = 0;
     routine_.set_mode(mode);
     return !journal_replayed_ || checkpoint_state();
 }
@@ -1086,8 +1110,79 @@ bool HubRuntime::configure_home_activity(const ActivityRuleConfig& config, HomeM
     activity_authority_binding_ = authority;
     activity_config_ = config;
     activity_rules_configured_ = true;
+    activity_config_version_ = 0;
     routine_.set_mode(mode);
     return !journal_replayed_ || checkpoint_state();
+}
+bool HubRuntime::configure_home_activity(const ActivityRuleConfig& config,
+        HomeMode mode, const CloudAuthorityBinding& authority,
+        std::uint32_t version) {
+    if (version == 0 || checkpoint_fault_ ||
+        static_cast<std::uint8_t>(mode) > static_cast<std::uint8_t>(HomeMode::Privacy) ||
+        authority.home_id.empty() || authority.hub_device_id.empty() ||
+        authority.ownership_epoch == 0) return false;
+    if (version < activity_config_version_) return false;
+    if (version == activity_config_version_ && activity_config_version_ != 0)
+        return home_activity_configuration_matches(config, mode, authority, version);
+    const bool authority_changed = !activity_authority_binding_ ||
+        !(*activity_authority_binding_ == authority);
+    if (authority_changed) activity_state_ = ActivityRuleState{};
+    else if (activity_rules_configured_ && !same_morning_policy(activity_config_, config))
+        reset_morning_progress(activity_state_);
+    activity_authority_binding_ = authority;
+    activity_config_ = config;
+    activity_rules_configured_ = true;
+    activity_config_version_ = version;
+    activity_timezone_.clear();
+    routine_.set_mode(mode);
+    return !journal_replayed_ || checkpoint_state();
+}
+bool HubRuntime::configure_home_activity(const ActivityRuleConfig& config,
+        HomeMode mode, const CloudAuthorityBinding& authority,
+        std::uint32_t version, const std::string& timezone) {
+    if (version == 0 || checkpoint_fault_ || timezone.empty() || timezone.size() > 64 ||
+        !std::all_of(timezone.begin(), timezone.end(), [](unsigned char ch) {
+            return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+                   (ch >= '0' && ch <= '9') || ch == '/' || ch == '_' ||
+                   ch == '-' || ch == '+';
+        }) || static_cast<std::uint8_t>(mode) >
+            static_cast<std::uint8_t>(HomeMode::Privacy) || authority.home_id.empty() ||
+        authority.hub_device_id.empty() || authority.ownership_epoch == 0) return false;
+    if (version < activity_config_version_) return false;
+    if (version == activity_config_version_ && activity_config_version_ != 0)
+        return home_activity_configuration_matches(config, mode, authority, version, timezone);
+    const bool authority_changed = !activity_authority_binding_ ||
+        !(*activity_authority_binding_ == authority);
+    if (authority_changed || (activity_rules_configured_ &&
+            (!same_morning_policy(activity_config_, config) || activity_timezone_ != timezone)))
+        reset_morning_progress(activity_state_);
+    activity_authority_binding_ = authority;
+    activity_config_ = config;
+    activity_rules_configured_ = true;
+    activity_config_version_ = version;
+    activity_timezone_ = timezone;
+    routine_.set_mode(mode);
+    return !journal_replayed_ || checkpoint_state();
+}
+bool HubRuntime::has_home_activity_configuration(
+        const CloudAuthorityBinding& authority) const {
+    return activity_rules_configured_ && activity_authority_binding_ &&
+        *activity_authority_binding_ == authority;
+}
+bool HubRuntime::home_activity_configuration_matches(
+        const ActivityRuleConfig& config, HomeMode mode,
+        const CloudAuthorityBinding& authority, std::uint32_t version) const {
+    return version > 0 && activity_config_version_ == version &&
+        activity_rules_configured_ && activity_authority_binding_ &&
+        *activity_authority_binding_ == authority && routine_.state().mode == mode &&
+        same_activity_config(activity_config_, config);
+}
+bool HubRuntime::home_activity_configuration_matches(
+        const ActivityRuleConfig& config, HomeMode mode,
+        const CloudAuthorityBinding& authority, std::uint32_t version,
+        const std::string& timezone) const {
+    return !timezone.empty() && activity_timezone_ == timezone &&
+        home_activity_configuration_matches(config, mode, authority, version);
 }
 void HubRuntime::set_mode(HomeMode mode) {
     routine_.set_mode(mode); if(journal_replayed_) (void)checkpoint_state();

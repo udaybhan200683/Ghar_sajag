@@ -403,6 +403,22 @@ class ProductStack:
             try: return error.code, error.read()
             finally: error.close()
 
+    def hub_get(self, path):
+        cert_path, key_path = self.path / "client.pem", self.path / "client.key"
+        for path_, data in ((cert_path, self.credential.certificate_pem), (key_path, self.key_pem)):
+            fd = os.open(path_, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "wb") as stream: stream.write(data)
+        context = ssl.create_default_context(cafile=str(self.ca_path))
+        context.minimum_version = context.maximum_version = ssl.TLSVersion.TLSv1_2
+        context.load_cert_chain(cert_path, key_path)
+        request = Request(self.hub_origin + path, method="GET")
+        try:
+            with urlopen(request, context=context, timeout=5) as response:
+                return response.status, json.loads(response.read())
+        except HTTPError as error:
+            try: return error.code, json.loads(error.read())
+            finally: error.close()
+
     def login(self):
         status, _, headers = self.human("POST", "/lite/v1/auth/login", {"email":self.caregiver_email, "password":self.password})
         if status != 200: raise AssertionError("login failed")

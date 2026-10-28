@@ -60,6 +60,8 @@ bool HubCheckpointCodec::encode_after_event(HubRuntime& r, const DomainEvent& ev
     preview->routine_ = r.routine_; preview->coverage_ = r.coverage_;
     preview->activity_config_ = r.activity_config_; preview->activity_state_ = r.activity_state_;
     preview->activity_rules_configured_ = r.activity_rules_configured_;
+    preview->activity_config_version_ = r.activity_config_version_;
+    preview->activity_timezone_ = r.activity_timezone_;
     preview->activity_authority_binding_ = r.activity_authority_binding_;
     preview->power_telemetry_ = r.power_telemetry_;
     preview->pending_rule_decisions_ = r.pending_rule_decisions_;
@@ -84,7 +86,13 @@ bool HubCheckpointCodec::encode(HubRuntime& r, security::Bytes& bytes) {
     // compatibility for ordinary journal/checkpoint updates. Once a signed
     // Home/epoch binding or pending publication intent exists, store the
     // complete v3 authority and decision state atomically in the checkpoint.
-    std::uint32_t version = generic_morning_policy ? 4 : (extended_rule_state ? 3 : 1);
+    std::uint32_t version = 1;
+    if (r.activity_config_version_ > 0)
+        version = r.activity_timezone_.empty() ? 5 : 6;
+    else if (generic_morning_policy)
+        version = 4;
+    else if (extended_rule_state)
+        version = 3;
     c.scalar(version);
     c.scalar(r.routine_.config_.start_at);
     c.scalar(r.routine_.config_.end_at);
@@ -220,12 +228,17 @@ bool HubCheckpointCodec::encode(HubRuntime& r, security::Bytes& bytes) {
         }
         c.strings(r.activity_state_.morning_seen_locations, 24);
     }
+    if (version >= 5) c.scalar(r.activity_config_version_);
+    if (version >= 6) {
+        c.scalar(r.activity_timezone_);
+        if (r.activity_timezone_.empty() || r.activity_timezone_.size() > 64) c.ok = false;
+    }
     return c.ok && bytes.size()<=64U*1024U;
 }
 bool HubCheckpointCodec::restore(HubRuntime& target, const security::Bytes& input) {
     if(input.size()>64U*1024U)return false;
     security::Bytes bytes=input; HubRuntime r(0,0); Codec c{bytes,true};
-    std::uint32_t version=0; c.scalar(version); if(version<1 || version>4)c.ok=false;
+    std::uint32_t version=0; c.scalar(version); if(version<1 || version>6)c.ok=false;
     c.scalar(r.routine_.config_.start_at);
     c.scalar(r.routine_.config_.end_at);
     c.scalar(r.routine_.config_.grace_end_at);
@@ -397,6 +410,21 @@ bool HubCheckpointCodec::restore(HubRuntime& target, const security::Bytes& inpu
             if (locations.count(seen) == 0 || !seen_locations.insert(seen).second)
                 c.ok = false;
     }
+    if (version >= 5) {
+        c.scalar(r.activity_config_version_);
+        if (r.activity_config_version_ == 0) c.ok = false;
+    }
+    if (version >= 6) {
+        c.scalar(r.activity_timezone_);
+        if (r.activity_config_version_ == 0 || r.activity_timezone_.empty() ||
+            r.activity_timezone_.size() > 64 ||
+            !std::all_of(r.activity_timezone_.begin(), r.activity_timezone_.end(),
+                [](unsigned char ch) {
+                    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+                           (ch >= '0' && ch <= '9') || ch == '/' || ch == '_' ||
+                           ch == '-' || ch == '+';
+                })) c.ok = false;
+    }
     r.activity_rules_configured_ = version >= 2;
     if(!c.ok || c.at!=bytes.size() || r.routine_.config_.window_id!=r.routine_.state_.window_id ||
        static_cast<unsigned>(r.routine_.state_.mode)>static_cast<unsigned>(HomeMode::Privacy)||
@@ -405,6 +433,8 @@ bool HubCheckpointCodec::restore(HubRuntime& target, const security::Bytes& inpu
     target.routine_=std::move(r.routine_);target.coverage_=std::move(r.coverage_);
     target.activity_config_=std::move(r.activity_config_);target.activity_state_=std::move(r.activity_state_);
     target.activity_rules_configured_=r.activity_rules_configured_;
+    target.activity_config_version_=r.activity_config_version_;
+    target.activity_timezone_=std::move(r.activity_timezone_);
     target.activity_authority_binding_=std::move(r.activity_authority_binding_);
     target.power_telemetry_=std::move(r.power_telemetry_);
     target.pending_rule_decisions_=std::move(r.pending_rule_decisions_);

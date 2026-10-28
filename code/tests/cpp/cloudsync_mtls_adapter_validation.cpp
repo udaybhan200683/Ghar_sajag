@@ -41,12 +41,16 @@ FakeHttpClient client;
 unsigned initialized = 0, cleaned = 0, authorization_headers = 0;
 std::string certificate;
 std::string client_key;
+std::string expected_url = "https://backend.invalid/v1/homes/home-1/events";
+int expected_method = HTTP_METHOD_POST;
+int expected_content_length = 2;
 void* ds_context = nullptr;
 }  // namespace
 
 esp_http_client_handle_t esp_http_client_init(const esp_http_client_config_t* config) {
     check(config && config->client_cert_pem && config->cert_pem &&
           (config->ds_data != nullptr || config->client_key_pem != nullptr) &&
+          config->method == expected_method && std::string(config->url) == expected_url &&
           config->transport_type == HTTP_TRANSPORT_OVER_SSL &&
           config->tls_version == ESP_HTTP_CLIENT_TLS_VER_TLS_1_2 &&
           !config->skip_cert_common_name_check && config->disable_auto_redirect,
@@ -61,7 +65,10 @@ esp_err_t esp_http_client_set_header(esp_http_client_handle_t, const char* name,
     if (std::strcmp(name, "Authorization") == 0) ++authorization_headers;
     return ESP_OK;
 }
-esp_err_t esp_http_client_open(esp_http_client_handle_t, int) { client.opened = true; return ESP_OK; }
+esp_err_t esp_http_client_open(esp_http_client_handle_t, int length) {
+    check(length == expected_content_length, "request method has expected body length");
+    client.opened = true; return ESP_OK;
+}
 int esp_http_client_write(esp_http_client_handle_t, const char*, int length) { return length; }
 std::int64_t esp_http_client_fetch_headers(esp_http_client_handle_t) { return 2; }
 int esp_http_client_get_status_code(esp_http_client_handle_t) { return 201; }
@@ -89,24 +96,44 @@ int main() {
               client_key == provider.value.test_only_client_private_key_pem,
               "isolated TEST_ONLY software-key mTLS path without bearer fallback");
         std::cout << "GS-CLOUD-MTLS-TESTONLY-UT-001 PASS\n";
+        expected_url = "https://backend.invalid/v1/homes/home-1/config/desired";
+        expected_method = HTTP_METHOD_GET;
+        expected_content_length = 0;
+        const auto desired = channel.get("/v1/homes/home-1/config/desired");
+        check(desired.server_authenticated && desired.message_complete &&
+              desired.network_attempted && initialized == 2 && cleaned == 2 &&
+              authorization_headers == 0,
+              "TEST_ONLY mTLS configuration GET remains certificate authenticated");
+        check(!channel.get("/v1/homes/home-1/events").network_attempted && initialized == 2,
+              "TEST_ONLY GET is restricted to desired configuration");
+        expected_url = "https://backend.invalid/v1/homes/home-1/config/applied";
+        expected_method = HTTP_METHOD_POST;
+        expected_content_length = static_cast<int>(std::string("{\"version\":1}").size());
+        const auto ack = channel.post("/v1/homes/home-1/config/applied", "{\"version\":1}");
+        check(ack.server_authenticated && ack.message_complete && initialized == 3 &&
+              cleaned == 3 && authorization_headers == 0,
+              "TEST_ONLY applied-version acknowledgement uses authenticated mTLS");
+        expected_method = HTTP_METHOD_POST;
+        expected_content_length = 2;
+        expected_url = "https://backend.invalid/v1/homes/home-1/events";
         provider.value.test_only_software_identity = false;
-        check(!channel.post(path, "{}").server_authenticated && initialized == 1,
+        check(!channel.post(path, "{}").server_authenticated && initialized == 3,
               "software key without TEST_ONLY identity marker refused");
         provider.value.test_only_software_identity = true;
         provider.value.test_only_client_private_key_pem.clear();
-        check(!channel.post(path, "{}").server_authenticated && initialized == 1,
+        check(!channel.post(path, "{}").server_authenticated && initialized == 3,
               "missing TEST_ONLY software key refused");
         provider.value.test_only_client_private_key_pem =
             "-----BEGIN PRIVATE KEY-----\nTEST_ONLY\n-----END PRIVATE KEY-----\n";
         provider.value.ds_context = reinterpret_cast<void*>(0x1);
-        check(!channel.post(path, "{}").server_authenticated && initialized == 1,
+        check(!channel.post(path, "{}").server_authenticated && initialized == 3,
               "mixed DS/software identity refused");
         provider.value.ds_context = nullptr;
         gs::hub::target::HttpsBackendChannel no_ca("https://backend.invalid", "", provider);
-        check(!no_ca.post(path, "{}").server_authenticated && initialized == 1,
+        check(!no_ca.post(path, "{}").server_authenticated && initialized == 3,
               "missing TEST_ONLY server trust refused");
         provider.value.trusted_utc_seconds = 0;
-        check(!channel.post(path, "{}").server_authenticated && initialized == 1,
+        check(!channel.post(path, "{}").server_authenticated && initialized == 3,
               "missing authenticated time refused before TLS initialization");
         std::cout << "CLOUDSYNC TEST_ONLY SOFTWARE MTLS PASS cases=5 physical=NOT_RUN\n";
 #else
@@ -114,6 +141,8 @@ int main() {
               cleaned == 1 && authorization_headers == 0 && ds_context == provider.value.ds_context &&
               certificate == provider.value.client_certificate_pem, "mTLS DS path without bearer fallback");
         std::cout << "GS-CLOUD-MTLS-UT-001 PASS\n";
+        check(!channel.get("/v1/homes/home-1/config/desired").network_attempted && initialized == 1,
+              "configuration reads remain disabled outside the TEST_ONLY profile");
         provider.available = false;
         const auto missing_identity = channel.post(path, "{}");
         check(!missing_identity.server_authenticated && !missing_identity.network_attempted && initialized == 1,

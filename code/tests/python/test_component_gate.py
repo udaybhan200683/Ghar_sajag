@@ -1,11 +1,91 @@
 """GS-116 framework integrity tests: real controlled subprocesses, no boards."""
-import copy, json, os, subprocess, sys, tempfile, time, unittest
+import copy, csv, json, os, subprocess, sys, tempfile, time, unittest
 from pathlib import Path
 from unittest.mock import patch
 from validation import component_gate as gate
+from validation import dev_to_production_gate as production_gate
 ROOT=gate.ROOT
 
 class ComponentGateTest(unittest.TestCase):
+    def test_development_to_production_register_fails_closed_for_open_release_gates(self):
+        register=json.loads((ROOT.parent/"docs/product/DEV_TO_PRODUCTION_REGISTER.json").read_text())
+        row=copy.deepcopy(register["items"][0])
+        row.update(gate_id="DTP-999",scope="MANDATORY_R1",gate_status="BLOCKED",
+                   prod_readiness="BLOCKED",last_verified_commit="a"*40)
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary)
+            path=root/"register.json"
+            markdown=root/"register.md"
+            data={"schema_version":1,"register_owner":"GS-173","validation_owner":"GS-116",
+                  "source_commit":"a"*40,"items":[row]}
+            path.write_text(json.dumps(data))
+            markdown.write_text("| DTP-999 | test | PARTIAL | BLOCKED | BLOCKED | Yes |\n")
+            rows,errors=production_gate.audit_register(path,markdown)
+            self.assertFalse(errors)
+            self.assertEqual(production_gate.release_blockers(rows),["DTP-999"])
+            rows[0]["release_blocking"]=False
+            rows[0]["gate_status"]="PASS"
+            rows[0]["prod_readiness"]="QUALIFIED"
+            self.assertEqual(production_gate.release_blockers(rows),[])
+            rows[0]["implementation_state"]="UNKNOWN"
+            data["items"][0]=rows[0]
+            path.write_text(json.dumps(data))
+            _,errors=production_gate.audit_register(path,markdown)
+            self.assertTrue(any("invalid implementation_state" in error for error in errors))
+            rows[0]["implementation_state"]="PARTIAL"
+            rows[0]["scope"]="SCOPE_PENDING"
+            self.assertEqual(production_gate.release_blockers(rows),["DTP-999"])
+
+            rows[0]["scope"]="MANDATORY_R1"
+            rows[0]["source_paths"]=["missing/production_adapter.cpp"]
+            data["items"][0]=rows[0]
+            path.write_text(json.dumps(data))
+            _,errors=production_gate.audit_register(path,markdown)
+            self.assertTrue(any("source path missing" in error for error in errors))
+
+            rows[0]["source_paths"]=register["items"][0]["source_paths"]
+            data["items"][0]=rows[0]
+            path.write_text(json.dumps(data))
+            markdown.write_text("| DTP-998 | mismatch | PARTIAL | BLOCKED | BLOCKED | Yes |\n")
+            _,errors=production_gate.audit_register(path,markdown)
+            self.assertTrue(any("IDs/order do not match" in error for error in errors))
+
+    def test_development_register_uses_owner_status_vocabulary(self):
+        register=json.loads((ROOT.parent/"docs/product/DEV_TO_PRODUCTION_REGISTER.json").read_text())
+        allowed={"IMPLEMENTED_DISABLED","PARTIAL","MISSING","BLOCKED"}
+        self.assertEqual(production_gate.IMPLEMENTATION_STATES,allowed)
+        self.assertTrue(all(row["implementation_state"] in allowed for row in register["items"]))
+        self.assertIn("IMPLEMENTED_DISABLED",{row["implementation_state"] for row in register["items"]})
+        self.assertIn("BLOCKED",{row["implementation_state"] for row in register["items"]})
+
+    def test_dev_to_production_gate_is_release_only(self):
+        data=gate.load_registry()
+        stage=next(s for s in data["stages"] if s["id"]=="dev-to-production-gates")
+        self.assertTrue(stage["release"])
+        self.assertFalse(stage["fast"])
+        self.assertIn(stage["id"],{s["id"] for s in gate.select(data,"release")})
+        for suite in ("fast","node","hub","contract","backend","pwa"):
+            self.assertNotIn(stage["id"],{s["id"] for s in gate.select(data,suite)})
+
+    def test_production_target_profile_rejects_test_only_switches_and_root(self):
+        from scripts.build_validation_targets import verify_s3_production_profile
+        with tempfile.TemporaryDirectory() as temporary:
+            build=Path(temporary)
+            cache=build/"CMakeCache.txt"
+            cache.write_text("GS40_TEST_ONLY_CLOUDSYNC:BOOL=OFF\nGS_HIL_BUILD:BOOL=OFF\n"
+                             "GS_HIL_CONTROL:BOOL=OFF\nGS_HIL_COMMISSIONING:BOOL=OFF\n"
+                             "GS40_TEST_ONLY_CONFIG_ROOT_DER:FILEPATH=\n")
+            verify_s3_production_profile(build)
+            cache.write_text(cache.read_text().replace("GS40_TEST_ONLY_CLOUDSYNC:BOOL=OFF",
+                                                      "GS40_TEST_ONLY_CLOUDSYNC:BOOL=ON"))
+            with self.assertRaisesRegex(ValueError,"restricted options"):
+                verify_s3_production_profile(build)
+            cache.write_text(cache.read_text().replace("GS40_TEST_ONLY_CLOUDSYNC:BOOL=ON",
+                "GS40_TEST_ONLY_CLOUDSYNC:BOOL=OFF").replace("CONFIG_ROOT_DER:FILEPATH=",
+                                                            "CONFIG_ROOT_DER:FILEPATH=/tmp/root.der"))
+            with self.assertRaisesRegex(ValueError,"TEST_ONLY trust root"):
+                verify_s3_production_profile(build)
+
     def test_cloudsync_mtls_stages_are_mandatory_and_fail_closed(self):
         data=gate.load_registry()
         ids={"cloudsync-security-unit","cloudsync-security-sim-hil","cloudsync-mtls-integration"}

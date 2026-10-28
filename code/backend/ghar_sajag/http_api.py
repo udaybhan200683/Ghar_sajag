@@ -23,6 +23,16 @@ from .durable_commit import DurableEventCommit, EventCommitConflict
 from .cloud_client_identity import VerifiedHubContext
 from .node_health_status import NodeHealthStatusStore
 from .hub_rule_decisions import HubDecisionConflict, HubRuleDecisionCommit
+from .configuration_repository import (
+    ConfigurationConflict, ConfigurationDenied, PostgresConfigurationRepository,
+    HouseholdConfigurationSnapshot,
+)
+from .human_authentication import AuthenticationDenied, HumanAuthenticationBoundary
+from .diagnostic_authorization import ActorSession
+
+
+class ConfigurationIntegrationUnavailable(RuntimeError):
+    """A trusted production adapter was not installed for this request."""
 
 
 class JsonApi:
@@ -37,7 +47,11 @@ class JsonApi:
                  authorize_hub: Callable[[dict, str, dict], bool] | None = None,
                  hub_ownership_registry=None,
                  node_health_status: NodeHealthStatusStore | None = None,
-                 hub_rule_decisions: HubRuleDecisionCommit | None = None) -> None:
+                 hub_rule_decisions: HubRuleDecisionCommit | None = None,
+                 configuration_repository: PostgresConfigurationRepository | None = None,
+                 human_authentication: HumanAuthenticationBoundary | None = None,
+                 caregiver_credential_from_request: Callable[[dict], object] | None = None,
+                 verified_hub_context_from_request: Callable[[dict], VerifiedHubContext | None] | None = None) -> None:
         import time
 
         self.service = service or GharSajagService()
@@ -47,6 +61,10 @@ class JsonApi:
         self.hub_ownership_registry = hub_ownership_registry
         self.node_health_status = node_health_status
         self.hub_rule_decisions = hub_rule_decisions
+        self.configuration_repository = configuration_repository
+        self.human_authentication = human_authentication
+        self.caregiver_credential_from_request = caregiver_credential_from_request
+        self.verified_hub_context_from_request = verified_hub_context_from_request
 
     def __call__(self, environ: dict, start_response: Callable) -> Iterable[bytes]:
         try:
@@ -56,9 +74,15 @@ class JsonApi:
             body = self._body(environ)
             query = parse_qs(environ.get("QUERY_STRING", ""), keep_blank_values=True)
             status, payload = self.dispatch(method, path, actor, body, query, environ)
+        except AuthenticationDenied:
+            status, payload = "401 Unauthorized", {"error": "human_not_authenticated"}
+        except ConfigurationIntegrationUnavailable as error:
+            status, payload = "503 Service Unavailable", {"error": str(error)}
+        except ConfigurationDenied as error:
+            status, payload = "403 Forbidden", {"error": str(error)}
         except PermissionError as error:
             status, payload = "403 Forbidden", {"error": str(error)}
-        except (EventCommitConflict, HubDecisionConflict) as error:
+        except (EventCommitConflict, HubDecisionConflict, ConfigurationConflict) as error:
             status, payload = "409 Conflict", {"error": str(error)}
         except sqlite3.Error:
             status, payload = "503 Service Unavailable", {"error": "event_commit_unavailable"}
@@ -131,9 +155,47 @@ class JsonApi:
             accepted = self.node_health_status.ingest(
                 request_context, match.group(1), body, at)
             return "200 OK", {"status": "ACCEPTED", **accepted}
-        match = re.fullmatch(r"/v1/homes/([^/]+)/config", path)
+        match = re.fullmatch(r"/v1/homes/([^/]+)/config(?:/(desired|applied))?", path)
         if match:
-            home_id = match.group(1)
+            home_id, operation = match.groups()
+            repository = self.configuration_repository
+            if repository is not None:
+                if operation == "desired" and method == "GET":
+                    context = self._verified_hub_context(request_context)
+                    snapshot = repository.get_for_hub(context=context, home_id=home_id, at=at)
+                    return "200 OK", self._desired_configuration(snapshot)
+                if operation == "applied" and method == "POST":
+                    if set(body) != {"version"} or type(body["version"]) is not int:
+                        raise ValueError("invalid_applied_configuration_ack")
+                    context = self._verified_hub_context(request_context)
+                    snapshot = repository.record_applied(context=context, home_id=home_id,
+                                                         version=body["version"], at=at)
+                    return "200 OK", {
+                        "home_id": snapshot.home_id,
+                        "desired_version": snapshot.desired_version,
+                        "desired_status": snapshot.desired_status,
+                        "applied_version": snapshot.applied_version,
+                    }
+                if operation is not None:
+                    return "405 Method Not Allowed", {"error": "method_not_allowed"}
+                if method == "POST":
+                    if set(body) != {"expected_version", "config"} or type(body["expected_version"]) is not int:
+                        raise ValueError("invalid_configuration_publish_request")
+                    session = self._caregiver_session(request_context)
+                    snapshot = repository.publish_desired(
+                        actor=session, home_id=home_id, config=body["config"],
+                        expected_version=body["expected_version"], at=at)
+                    return "202 Accepted", self._configuration_snapshot(snapshot)
+                if method == "GET":
+                    session = self._caregiver_session(request_context)
+                    snapshot = repository.get_for_caregiver(actor=session, home_id=home_id, at=at)
+                    return "200 OK", self._configuration_snapshot(snapshot)
+                return "405 Method Not Allowed", {"error": "method_not_allowed"}
+
+            # Keep the existing explicit in-memory development adapter intact.
+            # Production/durable compositions use the repository branch above.
+            if operation is not None:
+                return "503 Service Unavailable", {"error": "household_configuration_repository_unavailable"}
             if method == "POST":
                 desired = self.service.fleet.publish_config(home_id, actor, body, at)
                 return "202 Accepted", {"home_id": home_id, "version": desired.version, "applied_version": desired.applied_version}
@@ -143,6 +205,7 @@ class JsonApi:
                 if desired is None:
                     return "200 OK", {"home_id": home_id, "version": 0, "applied_version": None, "config": None}
                 return "200 OK", {"home_id": home_id, "version": desired.version, "applied_version": desired.applied_version, "config": desired.body}
+            return "405 Method Not Allowed", {"error": "method_not_allowed"}
         match = re.fullmatch(r"/v1/homes/([^/]+)/snapshot", path)
         if method == "GET" and match:
             return "200 OK", self.service.queries.snapshot(match.group(1), actor, at)
@@ -159,6 +222,49 @@ class JsonApi:
                 self.service.notifications.human_acknowledged(incident_id)
             return "200 OK", {"incident_id": incident.incident_id, "state": incident.state.value, "owner_id": incident.owner_id}
         return "404 Not Found", {"error": "route_not_found"}
+
+    def _caregiver_session(self, request_context: dict | None) -> ActorSession:
+        if (self.configuration_repository is None or self.human_authentication is None or
+                not callable(self.caregiver_credential_from_request)):
+            raise ConfigurationIntegrationUnavailable(
+                "caregiver_configuration_authentication_unavailable")
+        credential = self.caregiver_credential_from_request(request_context or {})
+        return self.human_authentication.authenticate(credential)
+
+    def _verified_hub_context(self, request_context: dict | None) -> VerifiedHubContext:
+        if (self.configuration_repository is None or
+                not callable(self.verified_hub_context_from_request)):
+            raise ConfigurationIntegrationUnavailable(
+                "hub_configuration_authentication_unavailable")
+        context = self.verified_hub_context_from_request(request_context or {})
+        if type(context) is not VerifiedHubContext:
+            raise PermissionError("verified_hub_context_required")
+        return context
+
+    @staticmethod
+    def _configuration_snapshot(snapshot: HouseholdConfigurationSnapshot) -> dict:
+        return {
+            "home_id": snapshot.home_id,
+            "desired_version": snapshot.desired_version,
+            "desired_status": snapshot.desired_status,
+            "desired_config": snapshot.desired_config,
+            "applied_version": snapshot.applied_version,
+            "applied_config": snapshot.applied_config,
+            "schema_version": snapshot.schema_version,
+        }
+
+    @staticmethod
+    def _desired_configuration(snapshot: HouseholdConfigurationSnapshot) -> dict:
+        # The server-owned path/version/schema envelope is distinct from policy
+        # content. An empty desired state is a valid no-op, never a policy reset.
+        return {
+            "home_id": snapshot.home_id,
+            "version": snapshot.desired_version,
+            "schema": snapshot.schema_version or PostgresConfigurationRepository.SCHEMA_VERSION,
+            "status": snapshot.desired_status,
+            "config": snapshot.desired_config,
+            "applied_version": snapshot.applied_version,
+        }
 
     @staticmethod
     @traced("B11")

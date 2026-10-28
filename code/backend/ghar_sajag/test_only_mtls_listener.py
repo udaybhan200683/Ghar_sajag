@@ -23,12 +23,15 @@ from typing import Callable
 from urllib.parse import urlsplit
 
 from .cloud_client_identity import TimeReadiness, authorize_cloud_tls_context
+from .configuration_repository import ConfigurationConflict
 from .durable_commit import EventCommitConflict
 from .hub_rule_decisions import HubDecisionConflict
 from .identity_namespaces import is_gs179_test_hub_home
 
 
-_HOME_ROUTE = re.compile(r"^/v1/homes/([A-Za-z0-9_-]{1,80})/(events|node-health|hub-rule-decisions)$")
+_HOME_ROUTE = re.compile(
+    r"^/v1/homes/([A-Za-z0-9_-]{1,80})/(events|node-health|hub-rule-decisions|config/desired|config/applied)$"
+)
 _LOG = logging.getLogger("ghar_sajag.test_only_mtls_listener")
 
 
@@ -221,7 +224,7 @@ class TestOnlyMtlsListener:
                 self._dispatch_post()
 
             def do_GET(self):
-                self._send(405, {"error": "method_not_allowed"})
+                self._dispatch_get()
 
             def do_PUT(self):
                 self._send(405, {"error": "method_not_allowed"})
@@ -290,7 +293,7 @@ class TestOnlyMtlsListener:
                             status, response = 200, listener.authority_refresh(self.connection, body)
                         else:
                             match = _HOME_ROUTE.fullmatch(request_path.path)
-                            if match is None:
+                            if match is None or match.group(2) == "config/desired":
                                 status, response = 404, {"error": "route_not_found"}
                             elif match.group(1) != context.home_id:
                                 raise PermissionError("hub_home_binding_mismatch")
@@ -311,6 +314,11 @@ class TestOnlyMtlsListener:
                     if listener.on_result is not None:
                         listener.on_result(request_path.path, body, 403, response)
                     self._send(403, response)
+                except ConfigurationConflict:
+                    response = {"error": "configuration_conflict"}
+                    if listener.on_result is not None:
+                        listener.on_result(request_path.path, body, 409, response)
+                    self._send(409, response)
                 except (EventCommitConflict, HubDecisionConflict):
                     response = {"error": "conflicting_committed_content"}
                     if listener.on_result is not None:
@@ -336,6 +344,85 @@ class TestOnlyMtlsListener:
                     response = {"error": "test_listener_unavailable"}
                     if listener.on_result is not None:
                         listener.on_result(request_path.path, body, 503, response)
+                    self._send(503, response)
+
+            def _dispatch_get(self):
+                # GET is deliberately limited to the authenticated desired
+                # configuration read. In particular, this does not expose
+                # caregiver projections or an arbitrary API method dispatcher.
+                self.close_connection = True
+                self.connection.settimeout(listener.timeout_seconds)
+                request_path = urlsplit(self.path)
+                if request_path.query or request_path.fragment or request_path.path != self.path:
+                    self._send(400, {"error": "invalid_request_target"})
+                    return
+                if (self.headers.get_all("Transfer-Encoding") or
+                        (self.headers.get_all("Content-Length") or ["0"]) != ["0"]):
+                    self._send(400, {"error": "get_body_not_supported"})
+                    return
+                match = _HOME_ROUTE.fullmatch(request_path.path)
+                if match is None or match.group(2) != "config/desired":
+                    self._send(404, {"error": "route_not_found"})
+                    return
+                if not listener.available():
+                    self._send(503, {"error": "test_backend_unavailable"})
+                    return
+                try:
+                    with listener.api.service.lock:
+                        now = listener.trusted_time()
+                        context = authorize_cloud_tls_context(
+                            self.connection, trusted_now=now,
+                            time_readiness=(TimeReadiness.TRUSTED if _trusted_time_ready(now)
+                                            else TimeReadiness.UNTRUSTED),
+                            credentials=listener.credentials,
+                            ownership_db=listener.ownership_db,
+                        )
+                        if not is_gs179_test_hub_home(
+                                context.permanent_hub_id, context.home_id):
+                            raise PermissionError("test_only_identity_required")
+                        if match.group(1) != context.home_id:
+                            raise PermissionError("hub_home_binding_mismatch")
+                        status_line, response = listener.api.dispatch(
+                            "GET", request_path.path, "", {},
+                            request_context=context,
+                        )
+                        status = int(status_line.split(" ", 1)[0])
+                    if listener.on_result is not None:
+                        listener.on_result(request_path.path, {}, status, response)
+                    if listener.drop_response is not None and listener.drop_response(
+                            request_path.path, {}, status, response):
+                        return
+                    self._send(status, response)
+                except PermissionError as error:
+                    response = {"error": str(error)}
+                    if listener.on_result is not None:
+                        listener.on_result(request_path.path, {}, 403, response)
+                    self._send(403, response)
+                except ConfigurationConflict:
+                    response = {"error": "configuration_conflict"}
+                    if listener.on_result is not None:
+                        listener.on_result(request_path.path, {}, 409, response)
+                    self._send(409, response)
+                except (ValueError, KeyError, json.JSONDecodeError):
+                    response = {"error": "invalid_request"}
+                    if listener.on_result is not None:
+                        listener.on_result(request_path.path, {}, 400, response)
+                    self._send(400, response)
+                except sqlite3.Error:
+                    response = {"error": "durable_store_unavailable"}
+                    if listener.on_result is not None:
+                        listener.on_result(request_path.path, {}, 503, response)
+                    self._send(503, response)
+                except (TimeoutError, socket.timeout):
+                    response = {"error": "request_timeout"}
+                    if listener.on_result is not None:
+                        listener.on_result(request_path.path, {}, 503, response)
+                    self._send(503, response)
+                except Exception as error:
+                    _LOG.warning("TEST_ONLY Hub config read failed (%s)", type(error).__name__)
+                    response = {"error": "test_listener_unavailable"}
+                    if listener.on_result is not None:
+                        listener.on_result(request_path.path, {}, 503, response)
                     self._send(503, response)
 
             def _send(self, status: int, payload):

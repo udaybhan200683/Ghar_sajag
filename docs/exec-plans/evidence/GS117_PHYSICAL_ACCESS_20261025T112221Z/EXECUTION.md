@@ -2791,3 +2791,49 @@ production authority/delivery boundary is pending approval and is not
 installed. This plan grants no hardware, credential or configuration-change
 authority. After this single-room vertical passes, additional rooms require
 their own enrolled physical Nodes; Bedroom is never relabeled as another room.
+
+### 2026-10-28 — DEV-first Morning Routine integration update
+
+This is an implementation/status amendment to the earlier readiness notes;
+those notes remain historical evidence of the state at their recorded times.
+The architecture direction was approved in GS-109 comment 11797 and GS-148
+comment 11798. Production issuer/key custody, credential issuance, production
+deployment/activation and any physical operation remain separately gated.
+
+Reused the existing GS-40/GS-179 isolated TEST_ONLY profile, authenticated
+caregiver Settings boundary, versioned PostgreSQL desired/applied repository,
+configurable RulesCore, existing Hub checkpoint, GS-117 controller and Android
+observer. The S3 TEST_ONLY composition now fetches policy over its existing
+authenticated backend channel, validates Home/Hub/epoch and policy version,
+applies it to the existing rule engine, checkpoints policy/timezone, and
+acknowledges only after durable save. The caregiver Settings/status view
+distinguishes desired from acknowledged-applied versions. No production route
+was made anonymously writable and no production credential was issued.
+
+The existing controller reads its configuration from the authenticated
+Settings route and derives desired/applied status from that response. It
+continues to fail closed on physical Run: no device has been operated and no
+real S3 policy application, `MORNING_ROUTINE_COMPLETED` decision, or APK
+business-outcome observation is claimed. Only Bedroom is an established
+physical room; additional required rooms block until independently enrolled
+Nodes and fixture evidence exist.
+
+Focused results on the current working tree: GS-117 controller/ADB 50/50 PASS;
+GS-116 component-gate 55/55 PASS; caregiver JavaScript 11/11 PASS;
+`make -C code validation-board-e2e` 10 checks PASS (software only, physical
+NOT_RUN); isolated PostgreSQL repository/security 21/21 and runtime
+composition 5/5 PASS in disposable schema. The existing TEST_ONLY S3 target
+compiled with cJSON 1.7.19~2 and external TEST_ONLY public root; it was not
+installed. The incremental production-profile S3 rebuild following the
+conditional CMake dependency change completed PASS: 2,201,049 bytes,
+SHA-256 `989d0a20d8f38487d86d6fb2e3f5d4379b844fd1e2c712c45ddceb519f00948d`.
+The CMake cache verifies `GS40_TEST_ONLY_CLOUDSYNC`, `GS_HIL_BUILD`,
+`GS_HIL_CONTROL`, and `GS_HIL_COMMISSIONING` OFF and an empty external TEST_ONLY
+root. Build output included unused-variable and ESP-IDF Kconfig warnings but
+returned success. Neither the TEST_ONLY nor production image was installed.
+
+Current physical gates remain unchanged: C3 JEDEC `0xffffff`/capacity unknown,
+current installed-image provenance incomplete, fresh physical S3 mTLS receipt
+unverified, owner-only fixture absent, and no scoped Morning Routine Run
+authorization. GS-117 TC-001 and optical PIR remain NOT_RUN. No COM/USB, ADB,
+credential, reset, flash or physical input was used.

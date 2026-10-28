@@ -582,3 +582,24 @@ database; it did not use the S3 radio, physical mTLS connection or physical
 Hub endpoint. The separate `.6` caregiver API check passed; a browser run
 against `.6` was not performed. Physical ingress, current-image fixture and
 GS-117 0/5 TC-001 status remain unchanged. GS-179 remains **In Progress**.
+
+### 2026-10-28 — TEST_ONLY configuration integration and current ingress boundary
+
+Reused the existing GS-179 TEST_ONLY authenticated backend channel and the
+existing GS-148 desired/applied PostgreSQL repository. The S3 TEST_ONLY
+composition now fetches authorized household policy, checks identity/epoch,
+schema and version, applies it to the existing RulesCore, durably checkpoints
+the complete policy/timezone, and returns applied-version acknowledgement
+only after save. Caregiver Settings and the GS-117 observer distinguish
+desired from confirmed-applied state. No production credential or anonymous
+configuration path was introduced.
+
+On this working tree, the GS-179 PostgreSQL/security module passed 21/21 and
+runtime composition passed 5/5 against the existing TLS PostgreSQL service in
+a disposable isolated schema. Caregiver Settings/API and focused GS-117
+controller tests passed. The TEST_ONLY S3 target compiled with its external
+TEST_ONLY public trust root; no image was installed. The laptop backend's
+successful HOST_SIM-to-APK observation remains separate from physical Hub
+ingress. No fresh authenticated S3 receipt, actual S3 policy application,
+Morning Routine decision or APK routine result is claimed. Persistent
+physical ingress remains unconfigured/unverified; GS-179 remains In Progress.

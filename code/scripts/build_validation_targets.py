@@ -16,6 +16,22 @@ def slot_size(project,sdkconfig):
     s=apps[0][4].strip()
     return int(s[:-1])*1024 if s.upper().endswith("K") else int(s,0)
 
+def verify_s3_production_profile(build):
+    cache=build/"CMakeCache.txt"
+    if not cache.is_file(): raise ValueError("S3 production CMake cache missing")
+    values={}
+    for line in cache.read_text().splitlines():
+        if line and not line.startswith(("//","#")) and ":" in line and "=" in line:
+            key,value=line.split("=",1)
+            values[key.split(":",1)[0]]=value
+    expected_off=("GS40_TEST_ONLY_CLOUDSYNC","GS_HIL_BUILD","GS_HIL_CONTROL",
+                  "GS_HIL_COMMISSIONING")
+    enabled=[key for key in expected_off if values.get(key,"OFF").upper() not in
+             {"OFF","0","FALSE","NO"}]
+    if enabled: raise ValueError("S3 production profile enabled restricted options: "+",".join(enabled))
+    if values.get("GS40_TEST_ONLY_CONFIG_ROOT_DER","").strip():
+        raise ValueError("S3 production profile unexpectedly embeds a TEST_ONLY trust root")
+
 def main():
     export=Path(os.environ.get("GS_IDF_EXPORT",str(Path.home()/".espressif/v6.0.3/esp-idf/export.sh")))
     if not export.is_file(): raise ValueError("missing ESP-IDF6.0.3 activation: "+str(export))
@@ -33,7 +49,10 @@ def main():
         build=work/name
         args=["idf.py","-C",str(project),"-B",str(build),"-D","SDKCONFIG="+str(work/(name+"-sdkconfig")),
               "-D","IDF_TARGET="+target,"-D","PROJECT_VER="+version,
-              "-D","GS_HIL_BUILD=OFF"]
+              "-D","GS_HIL_BUILD=OFF","-D","GS_HIL_CONTROL=OFF"]
+        if name=="s3":
+            args += ["-D","GS40_TEST_ONLY_CLOUDSYNC=OFF",
+                     "-D","GS_HIL_COMMISSIONING=OFF"]
         if name=="s3": args+=["-D","GS_NODE_FIRMWARE_ASSET="+str(asset)]
         args+=["build","size"]
         shell="source "+shlex.quote(str(export))+" >/dev/null 2>&1 && idf.py --version && "+shlex.join(args)
@@ -50,6 +69,7 @@ def main():
             rc=subprocess.run(["bash","-c",shell],cwd=ROOT,stdout=f,stderr=subprocess.STDOUT,
                 env=build_env,timeout=1800).returncode
         if rc or "ESP-IDF v6.0.3" not in log.read_text(): raise ValueError(name+" build/version failed: "+str(log))
+        if name=="s3": verify_s3_production_profile(build)
         image=build/(binary+".bin");data=image.read_bytes()
         capacity=slot_size(project,work/(name+"-sdkconfig"))
         if len(data)>capacity: raise ValueError(name+" application exceeds OTA slot")
@@ -64,7 +84,9 @@ def main():
         "--s3-build",str(work/"s3"),"--output",str(bundle)],cwd=ROOT,check=True,
         stdout=(work/"package.log").open("w"))
     report={"source_head":subprocess.check_output(["git","rev-parse","HEAD"],cwd=ROOT,text=True).strip(),
-        "source_fingerprint":fingerprint,"profile":"production GS_HIL_BUILD=OFF",
+        "source_fingerprint":fingerprint,
+        "profile":"production GS40_TEST_ONLY_CLOUDSYNC=OFF GS_HIL_BUILD=OFF GS_HIL_CONTROL=OFF GS_HIL_COMMISSIONING=OFF",
+        "test_only_pathways":"VERIFIED_DISABLED",
         "idf_version":"6.0.3","images":records,"physical_status":"NOT_RUN",
         "hardware_actions":"NONE","qualification":"TARGET_COMPILED_ONLY"}
     (work/"report.json").write_text(json.dumps(report,indent=2)+"\n")

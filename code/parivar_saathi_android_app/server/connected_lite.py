@@ -437,6 +437,9 @@ class LiteApi:
                 with self.product_view.service.lock:
                     result = self.product_view.dispatch(session, home, sub, method, body, now)
                 if result is not None:
+                    if (isinstance(result, tuple) and len(result) == 2 and
+                            isinstance(result[0], str) and isinstance(result[1], dict)):
+                        return result[0], result[1], []
                     return "200 OK", result, []
             if method == "GET" and sub == "overview":
                 rows = self.store.sql(db, "SELECT run_id,scenario_id,status,created_at FROM lite_runs WHERE home_id=? ORDER BY created_at DESC,run_id DESC LIMIT 20", (home,)).fetchall()
@@ -685,15 +688,46 @@ def build_app():
             raise ValueError("test_only_monitoring_requires_verified_postgres_tls")
         from ghar_sajag.caregiver_product import CaregiverProductView
         from ghar_sajag.durable_api import open_postgres_durable_event_api
+        from ghar_sajag.configuration_repository import PostgresConfigurationRepository
         from ghar_sajag.service import GharSajagService
         service = GharSajagService()
         durable = open_postgres_durable_event_api(
             service, store.url, require_registered_ownership=True,
             enable_test_hub_rule_decisions=True)
+
+        def authorize_test_only_settings(actor, home_id, at):
+            if (actor.issuer_reference != "GS179_TEST_ONLY_LITE" or
+                    not home_id.startswith("gs177-test-")):
+                return False
+            row = durable.db.execute(
+                """SELECT 1 FROM lite_sessions s
+                   JOIN lite_accounts a ON a.account_id=s.account_id
+                   JOIN lite_memberships m ON m.account_id=s.account_id
+                   JOIN lite_homes h ON h.home_id=m.home_id
+                   JOIN households p ON p.home_id=m.home_id
+                   JOIN household_caregivers c ON c.home_id=p.home_id
+                        AND c.caregiver_id=a.account_id
+                   WHERE s.session_id=? AND s.account_id=? AND s.revoked_at IS NULL
+                     AND s.expires_at>? AND a.active=TRUE AND m.home_id=?
+                     AND m.active=TRUE AND m.role='ADMIN' AND h.test_only=TRUE
+                     AND h.ownership_epoch=m.ownership_epoch
+                     AND c.active=TRUE AND c.role IN ('OWNER','PRIMARY')
+                     AND p.consent_state='ACTIVE'""",
+                (actor.session_id, actor.actor_id, at, home_id)).fetchone()
+            return row is not None
+
+        configuration_repository = PostgresConfigurationRepository(
+            durable.db,
+            authorize_caregiver_settings=authorize_test_only_settings,
+            # This web process is the caregiver Settings surface. Hub reads and
+            # acknowledgements are served only by the separate mTLS runtime.
+            authorize_hub_configuration=lambda _context, _home, _at: False,
+            lock=service.lock)
         product_view = CaregiverProductView(
             service, source="AUTHENTICATED_GS148_TEST_ONLY",
             decision_reader=durable.api.hub_rule_decisions,
-            session_authority_db=durable.db, bind_test_only_session=True)
+            session_authority_db=durable.db, bind_test_only_session=True,
+            configuration_repository=configuration_repository)
         # Retain the durable connection composition for this WSGI worker.
         product_view.durable_api = durable
     return LiteApi(store, product_view=product_view, allowed_origins=allowed_origins)

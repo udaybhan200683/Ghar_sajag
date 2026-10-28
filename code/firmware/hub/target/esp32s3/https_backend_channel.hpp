@@ -41,7 +41,10 @@ public:
                         CloudTlsIdentityProvider& cloud_identity);
     ~HttpsBackendChannel() override;
     BackendHttpResponse post(const std::string& path, const std::string& body) override;
+    BackendHttpResponse get(const std::string& path) override;
 private:
+    BackendHttpResponse request(const std::string& path, const std::string& body,
+                                bool get_request);
     std::string origin_, trusted_ca_, authorization_;
     CloudTlsIdentityProvider* cloud_identity_{nullptr};
 };
