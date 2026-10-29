@@ -1,3 +1,28 @@
+## GS-117 — Session-118 32-event Android report reconciliation — 2026-10-29
+
+OWNING_JIRA=GS-117; RELATED_JIRA=GS-179
+BUG_CLASSIFICATION=R1_FIX
+REQUIREMENT_SOURCE=GS-117 event identity/time/chronology and caregiver-visible acceptance; GS-179 authenticated caregiver projection
+DECISION_IDS=NONE
+TASK_SCOPE=Read-only PostgreSQL, authenticated caregiver API, preserved physical ingress traces, and one existing ADB observer attempt.
+OUT_OF_SCOPE=No COM/Hub access, reset, bootstrap, injection, firmware operation, database mutation, credential change, authorization-latch change, or API source modification.
+
+The owner reports 32 Bedroom motion entries in the installed APK Reports view today (29 October), approximately 11:20–13:22 IST. Read-only PostgreSQL verification found exactly 32 unique durable event keys for Home `gs177-test-product`, C3 `c3-146393c5d158`, room `bedroom`, origin session 118, sequences 70–101. All 32 rows join to Hub `hub-e072a1d38d34`, installation epoch 1 and Node enrollment generation 1; all have `source_type=NODE` and `is_test=0`. Event types are 24 `MOTION` and 8 `MOTION_SUMMARY`. There is one durable row per key.
+
+The two preserved physical mTLS ingress traces contain 59 event POSTs for those keys: 32 first commits returned HTTP 201 `COMMITTED`; 27 retries returned HTTP 200 duplicate-safe `COMMITTED` (seq73 once, seq81 23 times, seq101 three times). The first and last PostgreSQL backend receive/commit timestamps are 11:25:50 and 13:22:26 IST; all 32 database receive/commit values match the physical ingress request time within 1.9 seconds. This confirms physical S3 CloudSync, authenticated backend admission and durable deduplication for the recorded keys. It does not by itself prove the C3 emitted each key over authenticated ESP-NOW or received an application ACK.
+
+All 32 stored `events.occurred_at` and `hub_received_at` values are zero. The caregiver read model substitutes backend `received_at` for zero `occurred_at`, so displayed API chronology is backend arrival time, not C3 generation time or Hub receipt time. C3-origin and S3-receipt timestamps are unavailable for this batch. Thus the owner’s approximate 11:20 first display cannot be independently compared with source time; backend first receipt was 11:25:50 IST.
+
+The current authenticated GS-148 caregiver Reports API returned 171 total Home event records and a 100-row recent-event window. It contained 31 of these 32 keys; seq100 was absent. Source inspection confirms the timeline query orders and limits on the stored `occurred_at` before `_row_to_event()` substitutes `received_at`. For the current data, all 32 raw occurrence times are zero and seq100 ranks 101 while seq101 ranks 100. This is a proven caregiver projection omission/order defect under GS-179; no source fix was made in this read-only validation task.
+
+No record is marked HOST_SIM or `is_test`, and the requests arrived through the actual authenticated S3 ingress; no synthetic seed is indicated. However, these event types can also result from the USB HIL input, and no C3 source transcript for seq70–101 establishes whether the initiating stimulus was optical PIR, USB injection, or another prior physical stimulus. This batch is not REAL_SENSOR_PASS or TC-001 controlled-injection acceptance.
+
+The authorized ADB device and installed APK were detected as `in.gharsajag.caregiver.discoverytest`, version `0.4.0-connected-lite-staging`. The existing exact-key observer for session118/seq101 stopped at `TC001_ANDROID_SETTINGS_NAVIGATION_NOT_FOUND`, before Reports/Event Details, and produced no new Android evidence. The owner-reported 32 count remains separate from independently verified APK evidence. The previous seq16 APK observation is historical and does not verify this batch.
+
+Current gates remain: TC-001 0/5 NOT_RUN; physical optical PIR NOT_RUN; current C3↔S3 application ACK NOT_VERIFIED; owner-only `fixture.json` absent; five-run campaign approval absent. The last preserved physical S3 trace is from the 29 October bounded service window and is not a substitute for a fresh pre-campaign ingress/time receipt. Next, correct and regression-test the GS-179 effective-time ordering/projection omission, then independently expose all 32 exact keys in the caregiver API and installed APK. Only after current fixture/receipt checks and separate campaign authorization should any controlled physical input proceed. No source tests or hardware operations were run in this analysis.
+
+Repository/code checkpoint analyzed: `512430a8472728e50c8d5d1330d19e83279534c7`, canonical branch `feature/r1-commercial-baseline`; context preflight PASS. Pre-existing untracked assets were preserved.
+
 ## Latest GS-117 offline S3 time/authority analysis — 2026-10-29
 
 OWNING_JIRA=GS-117

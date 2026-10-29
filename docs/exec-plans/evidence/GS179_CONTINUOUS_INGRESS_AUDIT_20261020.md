@@ -867,3 +867,16 @@ placeholders in `gs179_hub_ingress_runtime.py`, not contradictory live handshake
 results. No server/credential changes were made. GS179 remains In Progress;
 GS117 remains OnHold, TC001 0/5 NOT_RUN. Private evidence is under
 `~/.local/state/ghar-sajag/gs117-tc001/standing-activation-20261029T055250Z/`.
+
+
+### 2026-10-29 — session-118 event reconciliation and Reports-window omission
+
+Read-only reconciliation of Home `gs177-test-product`, physical Node `c3-146393c5d158`, room `bedroom`, origin session 118 found the complete original EventKey set:
+
+`(physical_device_id=c3-146393c5d158, logical_node_id=bedroom, origin_session_id=118, event_sequence=N)`, for every integer `N=70..101` inclusive. PostgreSQL contains exactly 32 unique durable rows; each maps to physical Hub `hub-e072a1d38d34`, epoch 1, enrollment generation 1, `source_type=NODE`, `is_test=0`. The two preserved physical ingress traces show 32 first HTTP 201 `COMMITTED` receipts and 27 retries returning HTTP 200 duplicate-safe `COMMITTED` (seq73×1, seq81×23, seq101×3). No HOST_SIM or synthetic seed source was found.
+
+The authenticated caregiver Reports API currently returns a 100-event recent window. It exposed 31/32 session-118 keys; seq100 was omitted. The 32 records have zero `occurred_at` and `hub_received_at`. Code inspection confirms `Queries.timeline()` orders and limits on raw `occurred_at` before event mapping substitutes `received_at`; among tied zero timestamps, seq100 falls at rank 101 while seq101 is rank 100. This is a real caregiver projection defect: the record exists durably but is excluded by the capped timeline. No source fix was included in this evidence-only closeout.
+
+The owner reported 32 events in the installed APK Reports view, but the existing ADB exact-key observer stopped at `TC001_ANDROID_SETTINGS_NAVIGATION_NOT_FOUND` before Reports/Event Details. Therefore the owner-visible observation is not independently reproduced in this session. C3 generation and S3 receipt timestamps are unavailable for these records; API display time falls back to backend receipt time (11:25:50–13:22:26 IST). The historical batch cannot be classified as optical PIR versus USB HIL input, does not establish a current C3 application ACK, and is not controlled TC-001 acceptance. See GS117 execution reconciliation for detailed timestamps, Android limits and remaining physical gates.
+
+Next GS179 action: correct the timeline's effective-time ordering before applying the cap, add a regression for zero source/Hub timestamps at the cap boundary, and verify all 32 exact keys in the API. Then independently reproduce exact-key visibility in the installed APK. No database mutation, hardware operation or source test was performed in this reconciliation.
