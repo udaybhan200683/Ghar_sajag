@@ -44,11 +44,12 @@ ADB mutation, credentials, certificate, or database record was changed.
 Focused validation after the source change: Python compilation PASS;
 `python3 code/tests/python/test_gs117_tc001_console.py` **63/63 PASS**, including
 active-route, WSL-only listener, wrong mapping and untrusted Wi-Fi cases. Live
-read-only audit confirms the current block. The three scoped evidence/work-state
-documents and the GS-117 controller/test changes are being finalized from the
-above checkpoint; at the time of this note they are uncommitted at the resume
-base, remote still matches the base, and all pre-existing untracked assets are
-preserved.
+read-only audit confirms the current block. The controller/test and three
+scoped evidence/work-state files were committed as
+`f9c997c0b572b48ad1bc164ece387e280220581f` and pushed to
+`feature/r1-commercial-baseline`; origin matched that commit after the push.
+Unrelated untracked Android, IDF, and historical hardware evidence remains
+preserved. No such files were staged.
 
 Next precise action: obtain one elevated run of the existing guarded helper for
 `PhysicalHubIngress` on trusted Private Wi-Fi, re-audit the Windows listener,
