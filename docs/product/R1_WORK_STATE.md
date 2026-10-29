@@ -1,4 +1,55 @@
-## Latest active checkpoint — GS-117 ingress route restored; S3 and fixture still blocked — 2026-10-29
+## Latest active checkpoint — GS-117 C3 JEDEC/capacity verified; fixture remains partial — 2026-10-29
+
+Resume base: canonical `feature/r1-commercial-baseline` at
+`6918ffcd4ba34bbcf082c9523720ff2df3385fdd`; origin matched. Context preflight
+PASS (`2026-10-28.001`). The owner approved exactly one read-only COM4 C3
+JEDEC/capacity query. Before open, Windows pySerial identified COM4 as
+`14:63:93:C5:D1:58`, VID/PID `303A:1001`, location `1-1:x.0`.
+
+The previous private readback helper still had the faulty call order
+`flash_id()` before SPI attachment, so it was not used. Existing Windows
+esptool 5.4.0 official `flash-id` CLI was checked offline: its callback calls
+`prepare_esp_object -> attach_flash -> flash_id`, contains no flash
+read/write/erase command, and accepts one connect attempt, no stub and no
+post-command reset. Version/help and source-order checks passed. The single
+command was `py -3 -m esptool --chip esp32c3 --port COM4 --baud 115200
+--before default-reset --after no-reset --connect-attempts 1 --no-stub
+flash-id`.
+
+Hardware result PASS: expected ESP32-C3/MAC `14:63:93:c5:d1:58`, manufacturer
+`0x46`, device `0x4016`, detected 4 MB XMC flash, exit 0. Esptool prints the
+manufacturer/device fields; per its byte mapping, their combined 24-bit JEDEC
+ID is `0x164046`. This resolves the previous all-ones result: the old helper
+queried before `attach_flash()`; the official corrected sequence attached
+first and returned recognized flash data.
+
+The default-reset connection sequence entered ROM; output ended
+`Staying in bootloader.` The no-reset-after option avoided another reset, and
+no physical reset edge was separately instrumented. The C3 is left in ROM
+bootloader. No flash write/erase, stub, firmware/partition read, COM10/S3
+operation, event input, credential/config change or campaign occurred. The
+one-query authorization is consumed; no retry or further hardware operation
+was performed.
+
+**Fixture result:** the C3 JEDEC/capacity gate passes; the full fixture remains
+PARTIAL/BLOCKED. Current C3 app/partition provenance, S3 current-image and
+Hub identity/time evidence, fresh S3 mTLS receipt and the owner-only fixture
+remain outstanding. The C3 also needs an authorized return to application
+state before a functional run. This approval did not cover those operations.
+TC-001 remains 0/5 NOT_RUN; its separate campaign approval is absent. The
+existing Settings 403 and lack of desired/applied Morning Routine policy
+remain as in the preceding checkpoint. GS-117 remains OnHold; GS-179 remains
+In Progress.
+
+Private one-attempt evidence:
+`~/.local/state/ghar-sajag/gs117-tc001/c3-jedec-once-20261029T034458Z/`
+(`result.json` SHA-256
+`9ba78a7789dae259b9adacdcaba23cbe7c3e8dd60fab8886158ce441a7c0edad`; log SHA-256
+`998df36cc3b5ec73722e485c41ba4e8d2c5e706ff6de5436412456780bdffb03`, mode
+0600). No source code changed; no product regression suite was rerun. Unrelated
+untracked Android, IDF and historical evidence files remain preserved.
+
+### Previous checkpoint — GS-117 ingress route restored; S3 and fixture still blocked — 2026-10-29
 
 Resume base is canonical `feature/r1-commercial-baseline` at
 `893a76f250fa8fb8dfce99fc7102e033682b1bcd`; origin matched before this

@@ -3083,3 +3083,55 @@ The current sanitized console observation is private at
 `~/.local/state/ghar-sajag/gs117-tc001/services-live-20261029T025923Z/console-ingress-readiness-20261029T033127Z.json`
 (mode 0600, SHA-256
 `72bcf73b862eebdbe69eba9bbb5d6b28c520808cd6a8a18709e6543517fa2be1`).
+
+### 2026-10-29 03:44 UTC — one authorized C3 JEDEC/capacity query
+
+The owner authorized exactly one read-only COM4 identification/capacity query.
+Before opening the port, Windows pySerial enumeration matched COM4 to USB serial
+`14:63:93:C5:D1:58`, VID/PID `303A:1001`, location `1-1:x.0`. The previous
+private readback helper was confirmed to call `flash_id()` before SPI flash
+attachment, so it was not reused. The existing Windows esptool 5.4.0 `flash-id`
+CLI was used instead. Its source callback and non-hardware checks verified the
+order `prepare_esp_object -> attach_flash -> flash_id`, no flash read/write/
+erase operation in the callback, version/help availability, and an explicit
+single connection attempt with no post-command reset. The complete attempt
+used `--chip esp32c3 --port COM4 --baud 115200 --before default-reset --after
+no-reset --connect-attempts 1 --no-stub flash-id`.
+
+Result: esptool connected to the expected ESP32-C3/MAC
+`14:63:93:c5:d1:58`; manufacturer `0x46`, device `0x4016`, detected capacity
+`4MB (XMC)`. Esptool reports those JEDEC components rather than the combined
+24-bit value; using esptool's `_get_flash_info()` byte-order mapping, the
+corresponding combined ID is `0x164046`. Exit code 0. This clears the C3 JEDEC
+and capacity sub-gate and explains the earlier all-ones result: the prior
+helper queried before `attach_flash()`, while the corrected official CLI
+attaches first and returned a recognized ID/capacity.
+
+The command's `default-reset` entry sequence connected to ROM; its output ended
+`Staying in bootloader.` `--after no-reset` intentionally performed no
+post-query reset, and no separate reset edge was instrumented. The C3 is
+therefore recorded as left in ROM bootloader. No stub, flash write/erase,
+partition/image read, other COM port, S3, credential, configuration, event
+input or campaign operation was used. The one-query authorization is consumed;
+no retry was attempted.
+
+The existing fixture can proceed past the JEDEC/capacity gate, but is **not
+fully qualified**: current C3 app/partition provenance and S3 current-image,
+identity/time and fresh mTLS evidence remain missing, and the C3 must be
+returned to its application state before a functional test. Any such further
+hardware operation is outside this one-query authorization. TC-001 remains
+0/5 NOT_RUN and its separate campaign approval remains absent.
+
+Non-hardware checks: `py -3 -m esptool version` and
+`py -3 -m esptool flash-id --help` report 5.4.0/PASS; AST inspection of the
+installed CLI confirmed corrected attachment order and no flash read/write/
+erase calls; current COM4 pySerial identity matched before open. No code tests
+were rerun because no source code changed.
+
+Private evidence is at
+`~/.local/state/ghar-sajag/gs117-tc001/c3-jedec-once-20261029T034458Z/`:
+`result.json` SHA-256
+`9ba78a7789dae259b9adacdcaba23cbe7c3e8dd60fab8886158ce441a7c0edad`, esptool
+log SHA-256
+`998df36cc3b5ec73722e485c41ba4e8d2c5e706ff6de5436412456780bdffb03`; files
+are mode 0600.
