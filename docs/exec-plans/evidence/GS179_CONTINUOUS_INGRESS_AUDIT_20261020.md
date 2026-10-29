@@ -730,3 +730,79 @@ physical S3 authentication or Morning Routine result is claimed. A full WSL
 shutdown/restart was not performed because it would terminate the active
 execution; only the bounded backend-service restart and scheduled recovery
 were verified.
+
+### 2026-10-29 — current Android connectivity and TEST_ONLY ingress state
+
+The owner-authorized Motorola phone was freshly enumerated with the supplied
+Windows ADB binary. The installed caregiver APK passed the existing observer
+for Home `gs177-test-product` and current origin `https://192.168.1.6/`.
+Settings showed `Backend API · CONNECTED`; authenticated `/me` and Reports
+requests returned HTTP 200 in the current backend log. Reports refreshed and
+matched historical HOST_SIM EventKey
+`p15:test-c3-bedroomn7:bedrooms2026102801q1`. The APK byte hash matched the
+preserved installed artifact. This verifies current phone-to-backend
+communication, not a physical S3 event or routine decision. Private screenshot
+and accessibility evidence are under
+`~/.local/state/ghar-sajag/gs117-tc001/android-live-check-20261029T025526Z/`.
+
+The bounded TEST_ONLY signed-time service was restarted on current Windows
+Wi-Fi `.6:4468`. A fresh host-generated challenge received a nonce- and
+generation-matched RSA-3072 proof that verified cryptographically and was
+within its validity interval. This does not establish that the physical Hub
+requested or accepted signed time. The existing authenticated ingress runtime
+was started on WSL `.10:8445` with loopback PostgreSQL durability and trusted
+time ready. Its trace contains zero requests and status still says
+`real_hub_authenticated=NO`, freshness `UNKNOWN`, persistent ingress
+`NOT_CONFIGURED`.
+
+The existing portproxy row `.6:8445 -> .10:8445` is present, but current
+Windows diagnostics find no `.6:8445` listener. `gs179-windows-lan-proxy.ps1
+-Action Audit -EndpointKind PhysicalHubIngress` reports the listener count as
+zero and cannot inspect the firewall rule without Administrator. The existing
+elevated scheduled task is configured only for caregiver 443, so it cannot
+perform this operation. The precise outstanding action is one elevated run of
+the existing helper with `-Action Start -EndpointKind PhysicalHubIngress
+-WslAddress 172.17.152.10`; its existing Private-Wi-Fi, port-ownership and
+firewall-scope guards remain in force. No persistent/autostart service,
+credential, certificate or firewall rule was created in this session. The bounded procedures and
+current private observation are under
+`~/.local/state/ghar-sajag/gs117-tc001/services-live-20261029T025923Z/`.
+
+GS-117 `/` and `/api/status` remain HTTP 200. The current controller correctly
+reports physical boards only `PARTIAL`, fixture `BLOCKED` because the
+owner-only approved fixture is absent, and no authorized Run. No serial port
+was opened. The live Android result is separate from the physical acceptance
+tier. TC-001 is 0/5 NOT_RUN; GS-179 remains In Progress and GS-117 remains
+OnHold. The focused GS-117 controller/ADB regression passed 60/60.
+
+### 2026-10-29 03:09 UTC — distinguish WSL ingress socket from Windows LAN route
+
+The live `PhysicalHubIngress` audit used the existing
+`gs179-windows-lan-proxy.ps1 -Action Audit` procedure. It confirmed current
+trusted Private Wi-Fi `Airtel_Agrim` at `192.168.1.6`, current WSL IPv4
+`172.17.152.10`, and the existing `.6:8445 -> .10:8445` owned mapping. The
+bounded WSL GS-179 ingress listener is active, but the Windows `.6:8445`
+listener count is **0** (`READABLE_NETSTAT`). Firewall-rule inspection itself
+is blocked by the non-Administrator token. Therefore this is not a live Hub LAN
+route and no authenticated physical Hub receipt is present.
+
+The GS-117 console previously used only `ss` in WSL and could label this socket
+PASS. The existing controller now combines the WSL listen table with the
+read-only Windows audit and requires the exact current mapping, a trusted network
+profile, and an active Windows listener. Live result is `BLOCKED` with
+`windows_physical_ingress_listener_missing`; authentication and physical receipt
+remain separate `NOT_VERIFIED` fields. Regression: GS-117 controller suite
+**63/63 PASS**, including route-present, WSL-only, wrong-mapping and Public-Wi-Fi
+cases. The source fix is in the same pending evidence closeout; no privileged
+operation was attempted. The owner-only live observation is
+`~/.local/state/ghar-sajag/gs117-tc001/services-live-20261029T025923Z/readiness-console-ingress-20261029T0311Z.json`
+(SHA-256 `2e079c03520b3fd80612c0803f4128a57a7d2414bfdf06c61e3d737fb928e63e`).
+
+The existing signed-time service is active at Windows `.6:4468`; its bounded
+host-generated RSA-3072 response verified against the challenge nonce and
+generation. This proves host service availability only. It does not prove that
+the physical Hub requested signed time or authenticated to ingress. The exact
+next privileged operation remains the existing scoped `Start` action for
+`PhysicalHubIngress` on trusted Private Wi-Fi; after it succeeds, require a new
+actual S3 mTLS receipt. No credential, TLS certificate, firewall boundary,
+database row, COM port or hardware state was changed.

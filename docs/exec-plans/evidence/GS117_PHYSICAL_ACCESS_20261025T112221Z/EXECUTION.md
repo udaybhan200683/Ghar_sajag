@@ -2906,3 +2906,126 @@ current C3 JEDEC/image receipts, owner-only fixture, fresh physical S3 mTLS
 receipt and separate Morning Routine approval are not established. No physical
 S3 completion decision or APK business outcome is claimed. GS-117 remains
 OnHold; TC-001 is 0/5 NOT_RUN and optical PIR is NOT_RUN.
+
+### 2026-10-29 — authorized Android live check and bounded service recovery
+
+At source commit `3ec7831450055bf4258e37b2759cfaaeadeaa6c9`, the owner-provided
+Windows ADB executable was used directly:
+`C:\Users\DELL\Downloads\platform-tools-latest-windows\platform-tools\adb.exe`.
+The authorized phone `ZA2237MRHN` was present and authorized. Existing
+`AndroidReady` passed for installed package
+`in.gharsajag.caregiver.discoverytest`, version
+`0.4.0-connected-lite-staging` / versionCode 3. A read-only ADB pull verified
+the installed `base.apk` SHA-256
+`0b240966255618ad3466e17e8dcca40d71efbe84b0096cb1063ba9f4855e2d76`, matching
+the preserved APK. The signer digest remains receipt-backed corroboration;
+formal `apksigner verify` was not run.
+
+The existing `AndroidVerify` observer passed against the in-memory current
+origin `https://192.168.1.6/` and Home `gs177-test-product`. The actual APK
+Settings showed `Backend API · CONNECTED`; Reports refreshed and showed the
+exact historical HOST_SIM EventKey
+`p15:test-c3-bedroomn7:bedrooms2026102801q1`, `Motion recorded`, bedroom and
+the original `28/10/2026, 8:46:55 am` timestamp. The refreshed screen reports
+139 durable event records and labels that event `TEST_ONLY` / `physical origin
+not verified`. Current backend logs at 02:57:03 UTC show HTTP 200 for the
+existing caregiver login, `/me` and Reports requests, with authenticated
+`/me` and Reports reads continuing on later refreshes. This is a live
+APK-to-backend check of an old software event, not a new physical event. The
+stale `.10` owner install receipt was not changed; `.10` received no request.
+Screenshot, accessibility tree, pulled APK and observation manifest are
+private under
+`~/.local/state/ghar-sajag/gs117-tc001/android-live-check-20261029T025526Z/`.
+
+The existing bounded GS-179 procedures were reused. Signed-time now listens on
+Windows `192.168.1.6:4468`; a host-generated GS68 TEST_ONLY proof matched its
+nonce and generation, its RSA-3072 signature verified, and the interval was
+valid. This is host proof only. The existing GS-179 runtime is active on WSL
+`172.17.152.10:8445` with PostgreSQL and its explicit TEST_ONLY trusted-time
+provider ready, but it reports `real_hub_authenticated=NO`; the ingress trace
+has zero receipts. The existing Windows `.6:8445 -> 172.17.152.10:8445` row is
+present, but Windows has no active `.6:8445` listener. The read-only proxy
+audit cannot read the firewall rule without Administrator. The registered
+`Ghar Sajag GS-179 Trusted Wi-Fi Reconnect` task covers caregiver port 443
+only. No alternate task can perform the physical-ingress action.
+
+`ADMIN_APPROVAL_REQUIRED`: run the existing
+`gs179-windows-lan-proxy.ps1 -Action Start -EndpointKind PhysicalHubIngress
+-WslAddress 172.17.152.10` once in an elevated PowerShell on the current
+trusted Private Wi-Fi. Its existing guards scope the rule to that Wi-Fi
+subnet, verify port ownership and fail closed on a conflicting firewall rule.
+No certificate, credential, endpoint identity, database record or hardware
+state was changed. The private bounded-service evidence is under
+`~/.local/state/ghar-sajag/gs117-tc001/services-live-20261029T025923Z/`.
+
+The existing GS-117 console page and `/api/status` return HTTP 200. Readiness
+still marks the owner-only fixture BLOCKED because its approved current
+identity/image fixture is absent; physical Run, TC-001, fresh S3 mTLS, Hub
+Morning Routine completion and APK decision observation remain NOT_RUN. No
+COM4/COM10 open, injection, reset, flash or enrollment operation occurred.
+Focused regression: `python3 code/tests/python/test_gs117_tc001_console.py`,
+60/60 PASS. Physical TC-001 stays 0/5 NOT_RUN; GS-117 remains OnHold.
+
+### 2026-10-29 03:09 UTC — live Android, TEST_ONLY ingress, and console route guard
+
+The live Android check above is current for this session: the authorized
+`ZA2237MRHN` APK authenticated to `https://192.168.1.6/`, reached
+`gs177-test-product`, and refreshed Reports. The exact displayed event is the
+historical HOST_SIM EventKey recorded above; it is not physical TC-001 evidence.
+The actual app showed backend CONNECTED and marked the event TEST_ONLY / physical
+origin not verified. APK bytes match the preserved hash; formal apksigner
+verification was not performed.
+
+**Existing implementation → gap → minimum change.** The GS-117 console already
+checked the WSL 8445 listen table and GS-179 already provided a read-only Windows
+proxy audit. The console treated a WSL-only socket as physical ingress readiness,
+even when Windows had no LAN listener. Changed only the existing readiness helper
+to require the current WSL listener, the exact `.6:8445 → current-WSL:8445`
+mapping, trusted Private/Domain Wi-Fi and a live Windows listener from that
+existing audit. It explicitly leaves Hub authentication and a fresh physical
+receipt `NOT_VERIFIED`. Classification: `TEST_INFRA_ONLY`; the change prevents
+misleading readiness, adds no transport or trust mechanism, and does not alter
+Run authorization.
+
+Live audit: WSL `172.17.152.10:8445` is listening; Windows Wi-Fi is trusted
+Private `Airtel_Agrim` at `192.168.1.6`, and the expected portproxy row exists,
+but the Windows listener count is zero. The console now reports
+`hub_ingress=BLOCKED`, `listener=WSL_ONLY`, reason
+`windows_physical_ingress_listener_missing`. Firewall-rule details remain
+unreadable without Administrator, and no S3 request/receipt exists. Signed-time
+UDP 4468 and a valid host-generated RSA-3072 proof were observed; this is not a
+physical Hub signed-time or CloudSync receipt. PostgreSQL/local HTTPS/LAN HTTPS
+and the live Android login/Home/Reports read passed in the checks above.
+
+The restarted console uses the existing `gs117-tc001-launch.sh`; `/api/status`
+returned HTTP 200 and reported the WSL-only 8445 route as BLOCKED. Current
+readiness reports USB descriptors for COM4/COM10 matching the recorded C3/S3
+identities without opening either port; board qualification remains PARTIAL.
+The owner-only fixture is absent, the authenticated Settings route returned
+403 to the controller, and the physical Run/TC-001 authorizations are absent.
+No physical event was generated.
+
+Focused validation after the readiness change: Python compilation PASS and
+`python3 code/tests/python/test_gs117_tc001_console.py` **63/63 PASS**, including
+active matching route, WSL-only/no-Windows-listener, untrusted-network and wrong
+mapping cases. A direct live invocation of the existing Windows Audit helper
+reported listener count zero and the expected BLOCKED result. No certificate,
+backend data, firmware, device state or credential changed.
+The private route observation is
+`~/.local/state/ghar-sajag/gs117-tc001/services-live-20261029T025923Z/readiness-console-ingress-20261029T0311Z.json`
+(mode 0600, SHA-256
+`2e079c03520b3fd80612c0803f4128a57a7d2414bfdf06c61e3d737fb928e63e`).
+
+Exact next action to make the LAN ingress route live: one elevated invocation of
+the existing guarded helper on the current trusted Private Wi-Fi:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File '\\wsl.localhost\Ubuntu\home\udaybhan\projects\Ghar_sajag_r1\code\tools\local\gs179-windows-lan-proxy.ps1' -Action Start -EndpointKind PhysicalHubIngress -WslAddress 172.17.152.10
+```
+
+Its existing Administrator, trusted-network, owned-port and firewall-scope
+guards must pass. Afterward, recheck the Windows listener and only regard a
+fresh authenticated receipt from the physical S3 as Hub authentication. The
+owner-only current-image fixture and independent one-run/five-run approvals
+remain required; TC-001 is **0/5 NOT_RUN**, Morning Routine decision is
+**NOT_RUN**, and optical PIR is **NOT_RUN**. GS-117 remains OnHold.

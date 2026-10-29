@@ -48,6 +48,62 @@ class TC001Test(unittest.TestCase):
         self.assertEqual(state["exit_code"], 1)
 
     @staticmethod
+    def _physical_ingress_audit(*, listener_count=1, network="Private",
+                                listen_address="192.168.1.6",
+                                target_address="172.17.152.10"):
+        return {
+            "Action": "Audit", "EndpointKind": "PhysicalHubIngress",
+            "ListenPort": 8445, "TargetPort": 8445,
+            "WifiAddress": "192.168.1.6", "NetworkCategory": network,
+            "WslAddress": "172.17.152.10",
+            "PortProxyRows": json.dumps([{
+                "ListenAddress": listen_address, "ListenPort": 8445,
+                "TargetAddress": target_address, "TargetPort": 8445,
+            }]),
+            "ListenerReadStatus": "READABLE_NETSTAT",
+            "ListenerCount": listener_count,
+        }
+
+    def _mock_live_ingress_checks(self, audit):
+        ss = SimpleNamespace(returncode=0,
+                             stdout="LISTEN 0 64 172.17.152.10:8445 0.0.0.0:*\n")
+        windows = SimpleNamespace(returncode=0, stdout=json.dumps(audit))
+        return (
+            patch.object(tc, "wsl_ipv4", return_value="172.17.152.10"),
+            patch.object(tc.subprocess, "check_output", return_value="C:\\proxy.ps1"),
+            patch.object(tc.subprocess, "run", side_effect=[ss, windows]),
+        )
+
+    def test_hub_ingress_requires_wsl_listener_and_active_windows_route(self):
+        patches = self._mock_live_ingress_checks(self._physical_ingress_audit())
+        with patches[0], patches[1], patches[2]:
+            result = tc.active_hub_ingress_listener()
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["listener"], "WSL_AND_WINDOWS_ACTIVE")
+        self.assertEqual(result["authenticated_hub"], "NOT_VERIFIED")
+        self.assertEqual(result["fresh_physical_receipt"], "NOT_VERIFIED")
+
+    def test_hub_ingress_blocks_wsl_socket_without_windows_listener(self):
+        patches = self._mock_live_ingress_checks(
+            self._physical_ingress_audit(listener_count=0))
+        with patches[0], patches[1], patches[2]:
+            result = tc.active_hub_ingress_listener()
+        self.assertEqual(result["status"], "BLOCKED")
+        self.assertEqual(result["listener"], "WSL_ONLY")
+        self.assertEqual(result["reason"], "windows_physical_ingress_listener_missing")
+
+    def test_hub_ingress_fails_closed_on_wrong_mapping_or_untrusted_wifi(self):
+        for audit in (
+                self._physical_ingress_audit(target_address="172.17.152.11"),
+                self._physical_ingress_audit(network="Public")):
+            patches = self._mock_live_ingress_checks(audit)
+            with self.subTest(audit=audit), patches[0], patches[1], patches[2]:
+                result = tc.active_hub_ingress_listener()
+            self.assertEqual(result["status"], "BLOCKED")
+            self.assertEqual(result["reason"],
+                             "windows_physical_ingress_mapping_or_trusted_network_mismatch")
+
+    @staticmethod
     def _morning_fixture():
         return {
             "home_id": "gs177-test-product", "hub_id": "test-hub-a",

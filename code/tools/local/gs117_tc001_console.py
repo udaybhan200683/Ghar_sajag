@@ -29,7 +29,7 @@ from ghar_sajag.identity_namespaces import (
     is_physical_hub_id,
     is_physical_node_id,
 )
-from gs179_verified_endpoint import verify_caregiver_origin_alias
+from gs179_verified_endpoint import verify_caregiver_origin_alias, wsl_ipv4
 
 STATE = Path.home() / ".local/state/ghar-sajag/gs117-tc001"
 FIXTURE = Path.home() / ".config/ghar-sajag/gs117-tc001/fixture.json"
@@ -397,16 +397,22 @@ def health() -> dict:
 
 
 def active_hub_ingress_listener() -> dict:
-    """Read the kernel listen table; do not connect to or probe the TLS socket."""
+    """Require the WSL socket and its existing Windows LAN route to be live.
+
+    This is listener readiness only. It does not establish Hub authentication or
+    a physical ingress receipt; those remain separately evidenced by the fixture.
+    """
     try:
         result = subprocess.run(["ss", "-H", "-ltn"], capture_output=True,
                                 text=True, timeout=3, check=False)
     except (OSError, subprocess.SubprocessError) as error:
         return {"status": "NOT_VERIFIED", "reason": type(error).__name__,
-                "persistent_service": "NOT_INFERRED"}
+                "persistent_service": "NOT_INFERRED",
+                "authenticated_hub": "NOT_VERIFIED"}
     if result.returncode != 0:
         return {"status": "NOT_VERIFIED", "reason": "listen_table_unavailable",
-                "persistent_service": "NOT_INFERRED"}
+                "persistent_service": "NOT_INFERRED",
+                "authenticated_hub": "NOT_VERIFIED"}
     listeners = []
     for line in result.stdout.splitlines():
         columns = line.split()
@@ -415,10 +421,72 @@ def active_hub_ingress_listener() -> dict:
         local = columns[3]
         if local.rsplit(":", 1)[-1] == "8445":
             listeners.append(local)
-    return {"status": "PASS" if listeners else "BLOCKED",
-            "listener": "ACTIVE" if listeners else "NOT_LISTENING",
-            "addresses": listeners,
-            "persistent_service": "NOT_INFERRED_FROM_ACTIVE_LISTENER"}
+    base = {"addresses": listeners,
+            "persistent_service": "NOT_INFERRED_FROM_ACTIVE_LISTENER",
+            "authenticated_hub": "NOT_VERIFIED",
+            "fresh_physical_receipt": "NOT_VERIFIED"}
+    if not listeners:
+        return {**base, "status": "BLOCKED", "listener": "NOT_LISTENING",
+                "reason": "wsl_physical_ingress_listener_not_listening"}
+
+    try:
+        current_wsl = wsl_ipv4()
+        listener_hosts = {address.rsplit(":", 1)[0].strip("[]") for address in listeners}
+        if not listener_hosts.intersection({current_wsl, "0.0.0.0"}):
+            return {**base, "status": "BLOCKED", "listener": "MISBOUND",
+                    "reason": "wsl_listener_not_bound_to_current_ipv4"}
+        script = subprocess.check_output(
+            ["wslpath", "-w", str(HERE / "gs179-windows-lan-proxy.ps1")],
+            text=True, timeout=5).strip()
+        audit_result = subprocess.run(
+            ["/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+             "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+             "-File", script, "-Action", "Audit", "-EndpointKind",
+             "PhysicalHubIngress", "-WslAddress", current_wsl],
+            capture_output=True, text=True, timeout=15, check=False)
+        if audit_result.returncode != 0:
+            raise ValueError("windows_physical_ingress_audit_failed")
+        audit = json.loads(audit_result.stdout.strip())
+        if not isinstance(audit, dict):
+            raise ValueError("windows_physical_ingress_audit_invalid")
+        rows_value = audit.get("PortProxyRows", "[]")
+        rows = json.loads(rows_value) if isinstance(rows_value, str) else rows_value
+        if isinstance(rows, dict):
+            rows = [rows]
+        wifi = audit.get("WifiAddress")
+        mapped = any(
+            isinstance(row, dict) and
+            row.get("ListenAddress") == wifi and
+            row.get("ListenPort") == 8445 and
+            row.get("TargetAddress") == current_wsl and
+            row.get("TargetPort") == 8445
+            for row in rows if isinstance(rows, list))
+        listener_count = audit.get("ListenerCount")
+        listener_readable = audit.get("ListenerReadStatus") in {
+            "READABLE", "READABLE_NETSTAT"}
+        route_valid = (
+            audit.get("Action") == "Audit" and
+            audit.get("EndpointKind") == "PhysicalHubIngress" and
+            audit.get("WslAddress") == current_wsl and
+            audit.get("NetworkCategory") in {"Private", "DomainAuthenticated"} and
+            audit.get("ListenPort") == 8445 and audit.get("TargetPort") == 8445 and
+            mapped and listener_readable and type(listener_count) is int and
+            listener_count > 0)
+        if not route_valid:
+            reason = ("windows_physical_ingress_listener_missing" if
+                      listener_readable and listener_count == 0 else
+                      "windows_physical_ingress_mapping_or_trusted_network_mismatch")
+            return {**base, "status": "BLOCKED", "listener": "WSL_ONLY",
+                    "wsl_address": current_wsl, "windows_audit": audit,
+                    "reason": reason}
+        return {**base, "status": "PASS", "listener": "WSL_AND_WINDOWS_ACTIVE",
+                "wsl_address": current_wsl, "windows_audit": audit,
+                "reason": "current_WSL_listener_and_trusted_Windows_ingress_route_active"}
+    except (OSError, ValueError, subprocess.SubprocessError, json.JSONDecodeError,
+            KeyError, TypeError) as error:
+        reason = str(error) if isinstance(error, ValueError) else type(error).__name__
+        return {**base, "status": "NOT_VERIFIED", "listener": "WSL_ONLY",
+                "reason": reason}
 
 
 def physical_key(lines: list[str]) -> tuple[int, int] | None:
