@@ -841,3 +841,29 @@ Private evidence:
 `~/.local/state/ghar-sajag/gs117-tc001/services-live-20261029T025923Z/console-ingress-readiness-20261029T033127Z.json`
 (mode 0600, SHA-256
 `72bcf73b862eebdbe69eba9bbb5d6b28c520808cd6a8a18709e6543517fa2be1`).
+
+
+### 2026-10-29 05:58 UTC — fresh physical S3 mTLS and durable backlog replay
+
+During owner-approved GS117 standing-readiness session 1 at source `9020204`,
+the existing bounded ingress/time services were restored with preserved scripts
+and trust. Verified `.6:8445` forwarding and UDP `.6:4468` were active. The
+actual physical S3 made authenticated authority-refresh requests (HTTP 200,
+first at 05:54:26.618 UTC) and CloudSync produced 201 COMMITTED for retained
+original C3 session 118 sequences 70–73. A separate PostgreSQL READ ONLY query
+confirmed one durable row each for physical Hub `hub-e072a1d38d34`, Home
+`gs177-test-product`, epoch 1. No controlled motion input or campaign occurred.
+This proves fresh S3 backend mTLS/authority and durable backlog delivery;
+it does not prove current C3 radio/rejoin, target liveness or new physical
+sensor acceptance. The target time-validation transcript was not retained.
+
+The readiness procedure stopped at `TC001_TARGET_READINESS_GUARD_FAILED`; its
+parent discarded the child's detailed failure transcript before persisting it.
+No retry occurred; the standing session failure latch remains set. See the
+GS117 EXECUTION.md 05:58 checkpoint for the exact evidence limitation and minimal
+logging correction required before a future reviewed observation. Runtime status
+fields `real_hub_authenticated=NO` and `hub_connected=NO` are hardcoded
+placeholders in `gs179_hub_ingress_runtime.py`, not contradictory live handshake
+results. No server/credential changes were made. GS179 remains In Progress;
+GS117 remains OnHold, TC001 0/5 NOT_RUN. Private evidence is under
+`~/.local/state/ghar-sajag/gs117-tc001/standing-activation-20261029T055250Z/`.

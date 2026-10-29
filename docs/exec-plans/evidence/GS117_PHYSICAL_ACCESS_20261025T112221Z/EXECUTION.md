@@ -3432,3 +3432,71 @@ not invoked. Full tooling acceptance is not claimed.
 Feature-coverage registry regression: 22/22 PASS. The prepared procedure also
 requires observed Wi-Fi address exactly `192.168.1.6` before loading existing
 credentials; a changed address fails closed even if another SAN is present.
+
+
+### 2026-10-29 05:58 UTC — standing policy activated; first session stopped at target guard
+
+The owner explicitly activated the exact reviewed policy from source commit
+`9020204b430dcc037135a933ff0e24da70b24d94`, including the first readiness
+session. The owner-only active manifest records
+`owner-chat-2026-10-29-standing-dev-readiness-9020204`; identities, Home `.6`
+endpoint, image/procedure pins, ten-session limit, one Bootstrap/session, zero
+retries and expiration `2026-11-05T00:00:00+00:00` are unchanged. No campaign
+consent was created. Context preflight and all policy/receipt hashes passed.
+
+Before serial access, PostgreSQL durability and verified local/LAN HTTPS passed;
+COM4 and COM10 descriptors matched exactly. Expired bounded host services were
+restored once using their existing provenance-verified scripts and preserved
+trust/configuration. Prior fixed-path logs were archived before restarting.
+WSL `172.17.152.10:8445`, the existing Windows `.6:8445` route/listener and
+UDP `.6:4468` passed; no elevation, certificate, credential, network rule or
+persistent startup change was required.
+
+The standard existing launcher `--hil-readiness` was executed once with a
+150-second outer timeout. Session 1 ran from 05:53:22.897Z to 05:54:34.358Z
+(about 71.5 seconds), with exactly one protected Bootstrap invocation and no
+retry. It exited 2 and latched on `TC001_TARGET_READINESS_GUARD_FAILED`:
+`BOOTSTRAP_FAILED_STAGE=encrypted_config_exchange TYPE=ValueError
+CODE=BOOTSTRAP_CHILD_TC001_TARGET_READINESS_GUARD_FAILED`. No motion input,
+campaign, readback, JEDEC, flash/erase or ownership/enrollment operation occurred.
+
+Evidence limitation / exact next software fix: the approved private protected
+parent parses the child's failure JSON and raises at lines 83–84, before writing
+`bootstrap-observation.json` at lines 85–86. Consequently the child target
+failure marker and C3/S3 transcript were discarded, although the serial helper
+attached its captured observation. There is no trustworthy way to reconstruct
+that lost target line from the surviving summary. Current C3↔S3 rejoin and
+runtime/sensing counter progression therefore remain NOT_VERIFIED, rather
+than proven failures or sensing defects. Do not reopen serial ports to recover
+logs. Preserve the running Hub and the failure latch. The minimal next fix is
+to preserve child output/observation before checking its return code, review the
+pinned-procedure implications, then determine the appropriate next observation;
+do not silently change the active pins or retry this session.
+
+Independent positive evidence did arrive after reconfiguration: the real mTLS
+listener received physical Hub `/v1/test/authority/refresh` HTTP 200 at
+05:54:26.618Z and later refreshes. This route requires CERT_REQUIRED and current
+certificate/Hub/Home/epoch authority verification. CloudSync then returned
+201 COMMITTED for retained original C3 session-118 sequences 70–73. A separate
+PostgreSQL READ ONLY query confirmed each has exactly one durable row, Hub
+`hub-e072a1d38d34`, ownership epoch 1. These are retained backlog replay, not
+new controlled inputs or TC-001 acceptance. Signed-time service request counts
+advanced, but the target's own time-acceptance transcript was lost; do not
+substitute a request counter for that proof. No fresh NodeHealth receipt was
+present in the preserved trace snapshot. `runtime.status()` still emits
+hardcoded `real_hub_authenticated=NO` / `hub_connected=NO`; those placeholders
+must not override the authenticated request/COMMITTED evidence. They are not
+live counters (see `gs179_hub_ingress_runtime.py` status implementation).
+
+Private evidence: `~/.local/state/ghar-sajag/gs117-tc001/standing-activation-20261029T055250Z/`
+and `standing-authorization/bootstrap-5099032e07c23efc9f89430e/` under the same
+private base. The ledger records one of ten sessions used and a failure latch;
+policy-status correctly returns BLOCKED/exit 2 afterward. No second hardware
+attempt was made. The policy remains activated, subject to that latch and its
+original expiry. No additional owner permission is requested for offline
+investigation. TC-001 remains 0/5 NOT_RUN; fixture/physical readiness remain
+BLOCKED; GS-117 remains OnHold. No APK observation or Morning Routine outcome
+is claimed. No source code changed and no regressions were rerun: the prior
+72/72 focused result remains historical source evidence, while this session's
+actual validations are policy/preflight, host connectivity, one failed hardware
+readiness attempt and read-only durable replay verification.
