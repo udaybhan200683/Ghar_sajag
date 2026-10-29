@@ -3337,3 +3337,98 @@ motion. No readback, JEDEC query, flash/erase, credential/enrollment change,
 or database mutation is included. The prior one-use session stopped at its
 failed readiness guard, so this is a new authorization. The five-run campaign
 remains separately unauthorized until readiness is established.
+
+
+### 2026-10-29 — proposed standing readiness authorization (inactive)
+
+OWNING_JIRA=GS-117. Affected components: local GS117 controller/launcher,
+Windows serial collector, registered controller tests; no firmware, backend API,
+rule, credential, or durability contract changed. Existing functionality → gap
+→ minimum change: exact fixture/USB/image checks, one-use observation/campaign
+consent, protected GS40 challenge bootstrap and Android observer already exist;
+consent is tied to historical one-use references; add a local owner-only consent
+reader and bounded session ledger around the existing procedure. Classification:
+TEST_INFRA_ONLY, authorized by the current standing-HIL implementation request.
+Existing one-use campaign/fixture/CSRF/authentication checks remain mandatory.
+
+Authorization audit: owner consent is distinct from technical USB, image,
+Home/epoch, TLS, time, rejoin, liveness and ingress guards. Old consumed approval
+files are not renewed. Windows elevation/serial exclusivity remain OS controls.
+The old bootstrap helper hash and consumed run-directory marker are historical
+execution restrictions, not device-security requirements. A prepared private
+copy reuses that procedure with the current reviewed helper hash, a private
+per-session output directory and an opt-in immediate target-failure stop check.
+The historical script is unchanged. `protected-bootstrap-standing-session.patch`
+records the small extension without committing protected configuration or keys.
+
+Implementation: `code/tools/local/gs117_hil_authorization.py` validates exact
+C3/S3/COM identities, Home `.6` environment, known installed-image receipts,
+reviewed procedure hashes, explicit owner reference, activation/expiry/revocation,
+operation lists and limits. It serializes standing sessions, reserves before
+hardware access and latches failure/interruption before a further attempt can
+occur. The durable private ledger and append audit are under
+`~/.local/state/ghar-sajag/gs117-tc001/standing-authorization/`; Bootstrap logs
+are retained in separate owner-only session directories. Approval is local
+operator trust, not cryptographic proof of owner consent: JSON alone does not
+grant permission and no browser/remote activation endpoint exists.
+
+The existing launcher accepts `--hil-policy-status` and `--hil-readiness`.
+Readiness checks backend HTTPS/PostgreSQL, actual physical-ingress forwarding,
+USB descriptors and pinned receipts before invoking only the existing protected
+Bootstrap once. It requires advancing C3 runtime/sensing counters in the same
+session and an S3 authenticated rejoin for that session, then reuses the existing
+exact fixture and fresh physical ingress/time/mTLS checks. A serial response or
+host listener cannot establish READY. Missing final fixture/receipt remains a
+failed guard; it is never synthesized. This is not a replacement for the existing
+five-event Run controller.
+
+`standing-authorization.proposed.json` is a reviewable INACTIVE proposal, not
+consent. Proposed scope: at most ten readiness sessions through 5 November 2026
+00:00 UTC; one bootstrap per session, zero retries, only the listed devices,
+Home, endpoint and image pair. It permits the expected COM10 app reset/encrypted
+config restoration and COM4 open/GET_STATE/log collection, including expected
+serial-open resets. No injection or campaign is authorized. Flash/erase,
+readback/JEDEC, credentials, enrollment/ownership, database mutations, security
+bypasses, new identities/environments and unreviewed recovery stay prohibited.
+Future motion campaigns require a separately approved scope; their current
+one-use controller guard is unchanged.
+
+Activation after explicit owner approval only: install the reviewed proposal as
+`~/.config/ghar-sajag/gs117-tc001/standing-authorization.json` mode 0600, set
+`active` and `owner_approved` true, record the exact real approval reference and
+activation time within the approved validity window. Do not change the approved
+scope, hashes or limits. Revocation: set `revoked` true, set `active` false or
+remove the active manifest. Expiration or any scope/hash/receipt mismatch denies
+access. A failed/crashed session stays latched; investigate and obtain applicable
+owner authorization before replacing its activation record. Do not delete the
+ledger to retry. Changed firmware, procedures or Home/endpoint require review
+and fresh applicable approval. Scope does not authorize security bypasses.
+
+Non-hardware results: console/ADB regression 72/72 PASS; framework 55/55 PASS;
+Python compilation and launcher shell syntax PASS. Both standard launcher policy
+status and readiness commands return exit 2/BLOCKED with the active manifest
+absent, before any serial operation. No active manifest was created, no bootstrap
+was invoked and no COM/ADB operation, reset, readback or injection occurred.
+Standing policy is implemented, activation awaits one consolidated owner consent.
+C3 current runtime/sensing and S3 current boot/rejoin/mTLS remain unverified.
+TC-001 remains 0/5 NOT_RUN; GS-117 remains OnHold at the hardware boundary.
+
+
+Broader affected tooling gate: `make -C code validation-tooling` exited 2 /
+SOFTWARE FAIL. Its Python stage ran 666 tests: 2 failures and 1 documented
+historical ESP32 layout skip. Failures in unchanged sources:
+`test_phase3a_performance.test_static_payload_and_collection_budgets`
+(static total 118556 > 114688 bytes; CSS 29576 > 18432), and
+`test_s3_fixture_commissioning.test_s3_option_is_opt_in_and_legacy_broad_hil_stays_rejected`
+(the unchanged target-build script contains the GS_HIL_COMMISSIONING string
+that the test forbids). These are retained as unresolved gate failures, not
+suppressed or repaired in this consent-only change. The registered GS117 stage
+passed 72/72, GS117 profile 4/4, GS179 endpoint 8/8 and framework 55/55; the
+final focused console run also passed 72/72 after source completion. Tooling
+report: `code/evidence/validation_framework/tooling-1793251941535021580/report.json`.
+No product/firmware sources changed, so target builds and physical gates were
+not invoked. Full tooling acceptance is not claimed.
+
+Feature-coverage registry regression: 22/22 PASS. The prepared procedure also
+requires observed Wi-Fi address exactly `192.168.1.6` before loading existing
+credentials; a changed address fails closed even if another SAN is present.

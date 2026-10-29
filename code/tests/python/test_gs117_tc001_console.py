@@ -26,6 +26,136 @@ import gs117_tc001_serial_windows as tc_serial
 import gs117_tc001_backend as tc_backend
 
 
+import gs117_hil_authorization as hil_auth
+
+
+class StandingAuthorizationTest(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.policy = self.root / 'policy.json'
+        source = Path(__file__).resolve().parents[3] / 'docs/exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/standing-authorization.proposed.json'
+        self.data = json.loads(source.read_text())
+        now = datetime.now(timezone.utc)
+        self.data.update(active=True, owner_approved=True, owner_approval_ref='unit-test-consent-only',
+                         activated_at=now.isoformat(),
+                         expires_at=(now + __import__('datetime').timedelta(hours=1)).isoformat())
+        for name in ('serial_helper', 'bootstrap_script'):
+            f = self.root / name
+            f.write_text('test double, never executable')
+            self.data[name] = {'path': str(f), 'sha256': hil_auth.digest(f)}
+        self.data['image_receipts'] = {}
+        for role in ('c3', 's3'):
+            f = self.root / (role + '-receipt.json')
+            f.write_text(json.dumps({'status': 'PASS', 'role': role,
+                'port': hil_auth.IDENTITY[role]['port'],
+                'expected_usb_serial': hil_auth.IDENTITY[role]['serial_number'],
+                'trusted_artifact_sha256': hil_auth.IMAGES[role],
+                'image_match': {'byte_for_byte_match': True}}))
+            self.data['image_receipts'][role] = {'path': str(f), 'sha256': hil_auth.digest(f)}
+        self.write()
+
+    def write(self):
+        self.policy.write_text(json.dumps(self.data)); self.policy.chmod(0o600)
+
+    def test_valid_repeatable_consent_does_not_grant_campaign(self):
+        for _ in range(2):
+            with hil_auth.session('protected_gs40_bootstrap', self.policy, self.root / 'audit') as (p, _):
+                self.assertFalse(p['motion_injection_authorized'])
+        with self.assertRaises(ValueError):
+            with hil_auth.session('motion_injection', self.policy, self.root / 'audit'): pass
+
+    def test_missing_expired_revoked_scope_and_privacy_denied(self):
+        original = dict(self.data)
+        for changes in ({'active': False}, {'revoked': True}, {'owner_approved': False},
+                        {'motion_injection_authorized': True}, {'max_retries': 1},
+                        {'expires_at': '2020-01-01T00:00:00+00:00'}, {'identity': {}},
+                        {'images': {}}, {'owner_approval_ref': ''}):
+            self.data = dict(original, **changes); self.write()
+            with self.assertRaises(ValueError): hil_auth.load(self.policy)
+        self.data = original; self.write(); self.policy.chmod(0o644)
+        with self.assertRaises(ValueError): hil_auth.load(self.policy)
+        self.policy.unlink()
+        with self.assertRaises(OSError): hil_auth.load(self.policy)
+
+    def test_changed_procedure_and_symlink_denied(self):
+        Path(self.data['bootstrap_script']['path']).write_text('changed')
+        with self.assertRaises(ValueError): hil_auth.load(self.policy)
+        link = self.root / 'link'; link.symlink_to(self.policy)
+        with self.assertRaises(ValueError): hil_auth.load(link)
+
+    def test_failure_latch_and_concurrent_session_denied(self):
+        with self.assertRaisesRegex(ValueError, 'technical_guard_failure'):
+            with hil_auth.session('protected_gs40_bootstrap', self.policy, self.root / 'audit'):
+                with self.assertRaises(BlockingIOError):
+                    with hil_auth.session('protected_gs40_bootstrap', self.policy, self.root / 'audit'): pass
+                raise ValueError('technical_guard_failure')
+        with self.assertRaisesRegex(ValueError, 'latched'):
+            with hil_auth.session('protected_gs40_bootstrap', self.policy, self.root / 'audit'): pass
+
+    def test_target_failure_stops_existing_collector(self):
+        tc_serial.readiness_guard({'stop_on_readiness_error': True}, [], ['normal startup'])
+        with self.assertRaisesRegex(ValueError, 'READINESS_GUARD_FAILED'):
+            tc_serial.readiness_guard({'stop_on_readiness_error': True}, [],
+                                     ['signed-time bootstrap unavailable'])
+
+    def test_image_receipt_tampering_denied(self):
+        Path(self.data['image_receipts']['c3']['path']).write_text('{}')
+        with self.assertRaises(ValueError): hil_auth.load(self.policy)
+
+    def test_session_limit(self):
+        self.data['max_sessions'] = 1; self.write()
+        with hil_auth.session('protected_gs40_bootstrap', self.policy, self.root / 'audit'): pass
+        with self.assertRaises(ValueError):
+            with hil_auth.session('protected_gs40_bootstrap', self.policy, self.root / 'audit'): pass
+
+    def test_readiness_retains_fixture_and_fresh_receipt_guards(self):
+        from contextlib import contextmanager
+        @contextmanager
+        def authorized(*args):
+            yield self.data, {'started_at': datetime.now(timezone.utc).isoformat()}
+        self.data['bootstrap_script']['path'] = str(self.root / 'bootstrap_script')
+        observation = {'c3': ['HIL_STATE role=c3 session=120 runtime_live=1 sensing_live=1',
+                              'HIL_STATE role=c3 session=120 runtime_live=2 sensing_live=2'],
+                       's3': ['Authenticated rejoin device=c3-146393c5d158 logical=bedroom session=120']}
+        receipt = self.root / 'receipt.json'
+        receipt.write_text(json.dumps({'observed_at': datetime.now(timezone.utc).isoformat()}))
+        with patch.object(hil_auth, 'session', side_effect=authorized), \
+             patch.object(hil_auth, 'STATE', self.root), \
+             patch.object(tc, 'health', return_value={'exit_code': 0}), \
+             patch.object(tc, 'active_hub_ingress_listener', return_value={'status': 'PASS'}), \
+             patch.object(tc, 'powershell', return_value=[dict(v, usb_hwid='USB VID:PID=303A:1001 SER='+v['serial_number']) for v in hil_auth.IDENTITY.values() if isinstance(v, dict)]), \
+             patch.object(tc.subprocess, 'run', return_value=SimpleNamespace(returncode=0, stdout=json.dumps(observation), stderr='')), \
+             patch.object(tc, 'exact_fixture', side_effect=ValueError('fixture_not_verified')) as fixture_fn:
+            with self.assertRaisesRegex(ValueError, 'fixture_not_verified'): tc.standing_readiness()
+            def fresh_fixture():
+                receipt.write_text(json.dumps({'observed_at': datetime.now(timezone.utc).isoformat()}))
+                return {'hub_ingress_receipt': str(receipt)}
+            fixture_fn.side_effect = fresh_fixture
+            with patch('builtins.print') as output:
+                tc.standing_readiness()
+                self.assertEqual(json.loads(output.call_args.args[0])['overall'], 'READY')
+            fixture_fn.side_effect = None
+            fixture_fn.return_value = {'hub_ingress_receipt': str(receipt)}
+            receipt.write_text(json.dumps({'observed_at': '2020-01-01T00:00:00+00:00'}))
+            with self.assertRaisesRegex(ValueError, 'new_physical_ingress_receipt'):
+                tc.standing_readiness()
+
+    def test_inactive_policy_prevents_all_hardware(self):
+        self.data['active'] = False; self.write()
+        from contextlib import contextmanager
+        original_session = hil_auth.session
+        @contextmanager
+        def scoped(*args):
+            with original_session('protected_gs40_bootstrap', self.policy, self.root / 'audit') as result:
+                yield result
+        with patch.object(hil_auth, 'session', side_effect=scoped), patch.object(tc, 'powershell') as hw:
+            with self.assertRaises(ValueError): tc.standing_readiness()
+            hw.assert_not_called()
+
+
+
 class TC001Test(unittest.TestCase):
     def test_health_preserves_lan_failure_reason_and_overall_exit(self):
         result = SimpleNamespace(

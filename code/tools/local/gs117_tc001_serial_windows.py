@@ -243,6 +243,20 @@ def commission_fixture(c3, s3, c3_lines, s3_lines, *, clock=time.monotonic,
             "node_public_key": public_key}
 
 
+def readiness_guard(config, c3_lines, s3_lines):
+    """Standing readiness stops collection/commands at the first target failure."""
+    if config.get("stop_on_readiness_error") is not True:
+        return
+    markers = ("failed closed", "startup refused", "Node recovery restore failed",
+               "Node recovery checkpoint failed", "Node rejoin failed", "Node security owner faulted",
+               "signed-time bootstrap unavailable", "time/authority refresh failed",
+               "authority bootstrap unavailable", "GS40T/1 REJECT", "panic", "assert failed")
+    if any(marker in line for line in c3_lines + s3_lines for marker in markers):
+        error = ValueError("TC001_TARGET_READINESS_GUARD_FAILED")
+        error.captured_observation = {"c3": c3_lines, "s3": s3_lines}
+        raise error
+
+
 def observe(config: dict, *, serial_factory=None, port_finder=None,
             clock=None, sleep=None, boot_reset=None, bootstrap_exchange=None,
             fixture_exchange=None) -> dict:
@@ -320,6 +334,7 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
         while clock() < deadline:
             c3_tail = collect(c3_stream, c3_tail, c3_lines)
             s3_tail = collect(s3_stream, s3_tail, s3_lines)
+            readiness_guard(config, c3_lines, s3_lines)
             sleep(0.02)
         c3_stream.write(b"GET_STATE\n")
         c3_stream.flush()
@@ -345,6 +360,7 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
         while clock() < deadline:
             c3_tail = collect(c3_stream, c3_tail, c3_lines)
             s3_tail = collect(s3_stream, s3_tail, s3_lines)
+            readiness_guard(config, c3_lines, s3_lines)
             if next_c3_status is not None and clock() >= next_c3_status:
                 c3_stream.write(b"GET_STATE\n")
                 c3_stream.flush()
@@ -376,6 +392,7 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
             while clock() < deadline:
                 c3_tail = collect(c3_stream, c3_tail, c3_lines)
                 s3_tail = collect(s3_stream, s3_tail, s3_lines)
+                readiness_guard(config, c3_lines, s3_lines)
                 sleep(0.02)
             result["s3"] = s3_lines
         return result
@@ -823,6 +840,8 @@ if __name__ == "__main__":
         print(json.dumps(value))
     except Exception as error:
         failure = {"error": str(error) if isinstance(error, ValueError) else type(error).__name__}
+        if hasattr(error, "captured_observation"):
+            failure["observation"] = error.captured_observation
         if hasattr(error, "bootstrap_timeline"):
             failure["bootstrap_timeline"] = error.bootstrap_timeline
         print(json.dumps(failure))

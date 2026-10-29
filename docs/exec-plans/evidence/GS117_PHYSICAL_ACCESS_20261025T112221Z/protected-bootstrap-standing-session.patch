@@ -1,0 +1,38 @@
+--- protected-bootstrap-current-network.py
++++ protected-bootstrap-current-network.py
+@@ -20,14 +20,25 @@
+ def main():
+     if os.environ.get('GS117_APPROVED_RECOVERY') != 'GS117-S3-RUNTIME-RECOVERY-ONE-ATTEMPT':
+         raise ValueError('EXPLICIT_S3_RECOVERY_APPROVAL_REQUIRED')
+-    if hashlib.sha256((ROOT / 'code/tools/local/gs117_tc001_serial_windows.py').read_bytes()).hexdigest() != '55da2f8f44e5f2cc294d28ca821a6c3c4cead21a48908068791e1808d30d2f88':
++    if hashlib.sha256((ROOT / 'code/tools/local/gs117_tc001_serial_windows.py').read_bytes()).hexdigest() != '56e89a10c744f44c47551ff20f6f6a7cc8c4235aad877142f6312ed8233b5a7f':
+         raise ValueError('REVIEWED_SERIAL_HELPER_CHANGED')
++    global state
++    if os.environ.get('GS117_RECOVERY_EVIDENCE_DIR'):
++        candidate = Path(os.environ['GS117_RECOVERY_EVIDENCE_DIR'])
++        allowed = Path.home() / '.local/state/ghar-sajag/gs117-tc001/standing-authorization'
++        if (candidate.is_symlink() or candidate.parent.resolve() != allowed.resolve()
++                or not candidate.name.startswith('bootstrap-') or not candidate.is_dir()
++                or candidate.stat().st_uid != os.getuid() or candidate.stat().st_mode & 0o077):
++            raise ValueError('PRIVATE_STANDING_SESSION_DIRECTORY_REQUIRED')
++        state = candidate
+     global stage
+     stage = 'network_preflight'
+     net = call(['powershell.exe', '-NoProfile', '-Command', "$p=Get-NetConnectionProfile -InterfaceAlias 'Wi-Fi'; if($p.Name -ne 'Airtel_Agrim' -or $p.NetworkCategory -ne 'Private'){exit 2}; (Get-NetIPAddress -InterfaceAlias 'Wi-Fi' -AddressFamily IPv4 | Where-Object AddressState -eq Preferred).IPAddress"])
+     address = net.stdout.strip()
+     import ipaddress
+     assert net.returncode == 0 and ipaddress.IPv4Address(address) in ipaddress.IPv4Network('192.168.0.0/16')
++    if address != '192.168.1.6':
++        raise ValueError('STANDING_POLICY_BACKEND_ENDPOINT_MISMATCH')
+     stage = 'server_certificate_check'
+     tls = Path.home() / '.local/share/ghar-sajag/gs179-laptop/tls/android'
+     cert = x509.load_pem_x509_certificate((tls / 'server.pem').read_bytes())
+@@ -45,7 +56,7 @@
+     stage = 'verified_port_enumeration'
+     listed = call([WINPY, HELPER, base64.b64encode(b'{"action":"List"}').decode()])
+     ports = json.loads(listed.stdout)
+-    config = {'action': 'Bootstrap', 'c3': next((p for p in ports if p['port'] == 'COM4')), 's3': next((p for p in ports if p['port'] == 'COM10')), 's3_boot_reset': True, 'query_s3_status': False, 'observation_seconds': 60, 'c3_status_interval_seconds': 10, 'expected_s3_boot': {'app_offset': '0x420000', 'app_version': '9bbc6d0-dirty', 'elf_sha256_prefix': 'c77483102'}}
++    config = {'action': 'Bootstrap', 'stop_on_readiness_error': True, 'c3': next((p for p in ports if p['port'] == 'COM4')), 's3': next((p for p in ports if p['port'] == 'COM10')), 's3_boot_reset': True, 'query_s3_status': False, 'observation_seconds': 60, 'c3_status_interval_seconds': 10, 'expected_s3_boot': {'app_offset': '0x420000', 'app_version': '9bbc6d0-dirty', 'elf_sha256_prefix': 'c77483102'}}
+     data = {1: b'Airtel_Agrim', 2: psk, 3: ('https://' + address + ':8445').encode(), 4: address.encode(), 5: (tls / 'ca.pem').read_bytes(), 6: address.encode(), 7: 4468 .to_bytes(2, 'big'), 8: public_der(load('physical-time-signing-private.pem')), 9: b'hub-e072a1d38d34', 10: (trust / 'physical-hub-client.pem').read_bytes(), 11: (trust / 'physical-hub-tls-private.pem').read_bytes(), 12: b'aa0b1eff16547ad67a790d122bae1d88fd0e8040a50901ed841464d77a7f2732', 13: 1 .to_bytes(8, 'big'), 14: int(time.time()).to_bytes(8, 'big'), 15: (int(time.time()) + 3600).to_bytes(8, 'big'), 16: public_der(load('physical-authority-signing-private.pem')), 21: b'gs177-test-product'}
+     stage = 'encrypted_config_exchange'
+     with (state / 'recovery-attempt.started.json').open('x') as marker:

@@ -1731,7 +1731,77 @@ document.getElementById('run').onclick=()=>post('/api/run',{});document.getEleme
 </script></html>"""
 
 
+def standing_readiness():
+    """Execute only the pinned existing Bootstrap, retaining all target guards."""
+    import gs117_hil_authorization as auth
+    with auth.session("protected_gs40_bootstrap") as (policy, audit):
+        if health().get("exit_code") != 0:
+            raise ValueError("standing_readiness_backend_preflight_failed")
+        if active_hub_ingress_listener().get("status") != "PASS":
+            raise ValueError("standing_readiness_physical_listener_not_ready")
+        visible = powershell("List")
+        if isinstance(visible, dict): visible = [visible]
+        for role in ("c3", "s3"):
+            wanted = policy["identity"][role]
+            if sum(item.get("port") == wanted["port"] and
+                   item.get("serial_number") == wanted["serial_number"] and
+                   item.get("usb_hwid", "").startswith("USB VID:PID=303A:1001 SER=" + wanted["serial_number"])
+                   for item in visible) != 1:
+                raise ValueError("TC001_VERIFIED_USB_INTERFACE_MISMATCH")
+        evidence = auth.STATE / ("bootstrap-" + secrets.token_hex(12))
+        evidence.mkdir(mode=0o700)
+        env = dict(os.environ, GS117_APPROVED_RECOVERY="GS117-S3-RUNTIME-RECOVERY-ONE-ATTEMPT",
+                   GS117_RECOVERY_EVIDENCE_DIR=str(evidence))
+        result = subprocess.run([sys.executable, policy["bootstrap_script"]["path"]],
+                                env=env, capture_output=True, text=True, timeout=150)
+        for name, content in (("stdout.json", result.stdout), ("stderr.log", result.stderr)):
+            fd = os.open(evidence / name, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            with os.fdopen(fd, "w") as out: out.write(content)
+        audit["evidence"] = str(evidence)
+        if result.returncode:
+            raise ValueError("standing_readiness_bootstrap_failed_see_private_evidence")
+        observed = json.loads(result.stdout)
+        c3 = "\n".join(observed.get("c3", []))
+        s3 = "\n".join(observed.get("s3", []))
+        if any(word in (s3 + c3).lower() for word in ("failed", "unavailable", "reject", "panic", "assert")):
+            raise ValueError("standing_readiness_s3_guard_failed_see_private_evidence")
+        states = [line for line in observed.get("c3", []) if "HIL_STATE role=c3" in line]
+        def fields(line):
+            return {key: int(value) for key, value in re.findall(
+                r"\b(session|runtime_live|sensing_live)=([0-9]+)\b", line)}
+        values = [fields(line) for line in states]
+        if len(values) < 2 or any(set(v) != {"session", "runtime_live", "sensing_live"} for v in values):
+            raise ValueError("standing_readiness_liveness_progress_not_observed")
+        last = values[-1]
+        prior = values[-2]
+        if (last["session"] != prior["session"] or
+            last["runtime_live"] <= prior["runtime_live"] or
+            last["sensing_live"] <= prior["sensing_live"] or
+            not re.search(r"Authenticated rejoin device=c3-146393c5d158 logical=bedroom session="
+                          + str(last["session"]) + r"\b", s3)):
+            raise ValueError("standing_readiness_authenticated_liveness_not_verified")
+        fixture = exact_fixture()  # Existing independent Home/epoch/time/mTLS/image/phone guards.
+        ingress = json.loads(Path(fixture["hub_ingress_receipt"]).read_text())
+        if datetime.fromisoformat(ingress["observed_at"]) < datetime.fromisoformat(audit["started_at"]):
+            raise ValueError("standing_readiness_requires_new_physical_ingress_receipt")
+        if active_hub_ingress_listener().get("status") != "PASS":
+            raise ValueError("standing_readiness_physical_listener_not_ready")
+        print(json.dumps({"overall": "READY", "evidence": str(evidence),
+                          "tc001_campaign": "NOT_AUTHORIZED"}))
+
+
 if __name__ == "__main__":
+    if "--hil-policy-status" in sys.argv:
+        import gs117_hil_authorization as auth
+        result = auth.status()
+        print(json.dumps(result))
+        raise SystemExit(0 if result["status"] == "ACTIVE" else 2)
+    if "--hil-readiness" in sys.argv:
+        try:
+            standing_readiness()
+        except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+            print(json.dumps({"overall": "BLOCKED", "reason": str(error)}))
+            raise SystemExit(2)
     if sys.argv[1:] == ["--observe-once"]:
         try:
             observation = CONTROLLER.observe_once()

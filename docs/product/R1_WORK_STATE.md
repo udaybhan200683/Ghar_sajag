@@ -9448,3 +9448,48 @@ mismatch, and exclude all motion injection. The previous session ended at its
 first failed readiness guard. No new code or tests were needed for this
 offline finding. TC-001 remains 0/5 NOT_RUN and GS-117 remains OnHold. See the
 [`offline authentication-gate investigation`](../exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md#2026-10-29-0516-utc--offline-c3-authentication-gate-diagnosis) for evidence and exact bounds.
+
+
+### 2026-10-29 — standing GS117 readiness consent implemented, activation pending
+
+Reused the GS117 console/launcher, exact fixture and serial helper, existing
+protected GS40 Bootstrap, and current image receipts. Added an owner-only standing
+consent reader and bounded session ledger; no new service, credentials, firmware,
+or product rule. The launcher supports `--hil-policy-status` / `--hil-readiness`.
+The reviewed draft is inactive: ten readiness sessions maximum, expires
+2026-11-05 00:00 UTC, one preserved-config Bootstrap per session, zero retries,
+exact COM4/COM10 devices/Home/endpoint/image pair; expected serial resets allowed.
+No motion injection or campaign is included. Missing/expired/revoked/inconsistent
+consent denies access. Procedure/receipt hashes, USB identity, backend/forwarding,
+rejoin, advancing liveness and independent fresh physical time/mTLS/fixture checks
+remain required. Failures/crashes latch further standing execution pending review.
+
+Console/ADB regression 72/72 PASS; framework 55/55 PASS; Python/shell syntax PASS.
+Inactive launcher status/readiness each return BLOCKED/exit 2 before hardware.
+The prepared private procedure copy and tracked patch preserve the historical
+original. No active owner manifest, hardware access, bootstrap, reset or input was
+performed. C3/S3 runtime authentication remains NOT_VERIFIED; TC-001 0/5 NOT_RUN.
+GS-117 remains OnHold pending one consolidated approval activating the exact draft
+and the first single readiness session. Motion campaign approval remains separate.
+Details, consent-versus-technical-guard audit, activation/revocation and limits:
+`docs/exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md`.
+
+
+Broader affected tooling gate: `make -C code validation-tooling` exited 2 /
+SOFTWARE FAIL. Its Python stage ran 666 tests: 2 failures and 1 documented
+historical ESP32 layout skip. Failures in unchanged sources:
+`test_phase3a_performance.test_static_payload_and_collection_budgets`
+(static total 118556 > 114688 bytes; CSS 29576 > 18432), and
+`test_s3_fixture_commissioning.test_s3_option_is_opt_in_and_legacy_broad_hil_stays_rejected`
+(the unchanged target-build script contains the GS_HIL_COMMISSIONING string
+that the test forbids). These are retained as unresolved gate failures, not
+suppressed or repaired in this consent-only change. The registered GS117 stage
+passed 72/72, GS117 profile 4/4, GS179 endpoint 8/8 and framework 55/55; the
+final focused console run also passed 72/72 after source completion. Tooling
+report: `code/evidence/validation_framework/tooling-1793251941535021580/report.json`.
+No product/firmware sources changed, so target builds and physical gates were
+not invoked. Full tooling acceptance is not claimed.
+
+Feature-coverage registry regression: 22/22 PASS. The prepared procedure also
+requires observed Wi-Fi address exactly `192.168.1.6` before loading existing
+credentials; a changed address fails closed even if another SAN is present.
