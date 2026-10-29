@@ -9412,3 +9412,39 @@ and GS-179 remains In Progress. Detailed command results and private evidence
 are in the existing
 [`GS-117 execution handoff`](../exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md#2026-10-29--authorized-android-live-check-and-bounded-service-recovery)
 and [`GS-179 ingress audit`](../exec-plans/evidence/GS179_CONTINUOUS_INGRESS_AUDIT_20261020.md#2026-10-29--current-android-connectivity-and-test_only-ingress-state).
+
+### 2026-10-29 05:16 UTC — C3 auth gate and S3 volatile-config diagnosis
+
+Offline source/log analysis only; no hardware or COM operation occurred. C3
+`owner_task()` waits for `NodeSecurityLink::ready()` before constructing and
+running normal NodeRuntime work. Rejoin retries continue at the security gate;
+an explicit fault exits with a fail-closed log. The HIL `GET_STATE` handler is
+separate, and runtime/sensing counters are incremented only after authenticated
+session establishment. Thus session 120's zero counters are consistent with
+an unestablished C3↔S3 association and do not establish a C3 sensing defect.
+Because the preserved GET_STATE JSON filters out full boot/security logs, it
+cannot distinguish a still-waiting owner task from a prior logged owner-task
+exit. Historical 26 October S3 logs do show an authenticated C3 rejoin and
+online liveness in session 118, but that is not current-session proof.
+
+The GS40 TEST_ONLY config receiver is entered during S3 app startup, emits a
+boot-scoped challenge, accepts the existing challenge-bound encrypted
+configuration for 60 seconds, and keeps accepted Wi-Fi/Hub/TLS material in
+RAM. The 29 October COM10 readback reset the S3; this config was not reapplied
+and S3 app startup was not observed afterward. A prior S3 bootstrap trace
+shows the Hub owner and enrolled peer working but signed-time/authority
+refresh failures kept rules/CloudSync fenced. C3↔S3 ESP-NOW authentication and
+S3↔backend mTLS/signed-time are separate gates. Latest saved host ingress state
+(05:03 UTC) has host services ready but no authenticated real Hub, connection,
+or fresh monitoring evidence.
+
+Next: request one new, readiness-only authorization for the existing protected
+GS40 Bootstrap on the exact S3/COM10 and an exact-identity-checked C3/COM4
+GET_STATE/log observation in the same bounded session. Its scope must allow
+the existing S3 rearm/reset and acknowledge COM4 serial-open reset risk; it
+must use only preserved config/trust material for Home `gs177-test-product`
+and endpoint `192.168.1.6`, stop at any image/identity/security/config/time
+mismatch, and exclude all motion injection. The previous session ended at its
+first failed readiness guard. No new code or tests were needed for this
+offline finding. TC-001 remains 0/5 NOT_RUN and GS-117 remains OnHold. See the
+[`offline authentication-gate investigation`](../exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md#2026-10-29-0516-utc--offline-c3-authentication-gate-diagnosis) for evidence and exact bounds.

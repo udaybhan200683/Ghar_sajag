@@ -3274,3 +3274,66 @@ preflight; existing readback artifact self-check; private helper syntax/static
 scope check; TLS-verified local/LAN readiness; PostgreSQL readiness. No new
 software PASS is claimed. The current session ended at the C3 liveness failure;
 further COM/Hub recovery or event injection needs a fresh bounded owner scope.
+
+### 2026-10-29 05:16 UTC — offline C3 authentication-gate diagnosis
+
+No COM port, device, credential, service, or database was accessed in this
+investigation. The source confirms that `owner_task()` initializes
+`NodeSecurityLink`, sends its initial rejoin, and stays in
+`while (!security_link.ready())` while processing authenticated rejoin frames
+and paced retries. It can remain there indefinitely if no acceptable S3
+response arrives. `sensing_liveness` and `runtime_liveness` are incremented
+only after that gate and the authenticated-channel check. Therefore the
+session-120 `GET_STATE` values of zero do not diagnose a sensing-loop defect.
+The task exits with explicit fail-closed log messages on initialization,
+security fault, failed channel retention, or session-allocation errors.
+
+The preserved 29 October C3 captures contain only `HIL_STATE` and
+`HIL_OK command=GET_STATE` lines, not the full boot/rejoin log. The HIL control
+task is started separately from the owner task, so its acknowledgements prove
+the HIL UART path is alive but cannot distinguish an owner still waiting for
+authentication from an owner that exited on one of those fail-closed paths.
+The current best diagnosis is an unestablished C3↔S3 authenticated association;
+the exact owner-task state remains unproven offline. No error log was present
+in the filtered capture, which is not evidence that no error was emitted.
+
+The existing 26 October GS40 bootstrap trace is useful historical evidence:
+for the then-running S3 app, it records `Authenticated Hub owner started
+enrolled=1`, followed by `Authenticated rejoin device=c3-146393c5d158
+logical=bedroom session=118` and Node liveness `online=1`. This proves that the
+existing C3↔S3 security path worked in that earlier session. The same trace
+records signed-time and authority-refresh failures with CloudSync/rules fenced;
+it does not prove S3↔backend mTLS. After the 29 October COM10 readback reset,
+the RAM-only GS40 config was not reapplied and no S3 application startup was
+observed. The latest saved ingress status (05:03 UTC) reports host listener,
+PostgreSQL and host trusted-time service ready, but
+`real_hub_authenticated=NO`, `hub_connected=NO`, and freshness `UNKNOWN`.
+Host readiness is not physical Hub authentication.
+
+The trusted recovery sequence is the existing guarded GS40 `Bootstrap`
+procedure: recheck exact USB identities and the expected active image; rearm
+the S3's existing TEST_ONLY app/config receiver; accept its live one-use
+challenge; construct and send the envelope using the preserved signing root
+and ephemeral key agreement/encryption; then observe the target's policy/TLS
+validation and startup. The receiver's challenge is boot-scoped and its input
+window is 60 seconds; the accepted Wi-Fi/GS40 material is held in RAM. Normal
+S3 startup then attempts the independent signed-time bootstrap before it
+allows CloudSync publication. C3↔S3 ESP-NOW rejoin is a separate security
+exchange and can be observed in the Hub log even when backend time/CloudSync
+is fenced. Fresh S3↔backend proof separately requires the target's current
+signed-time/authority state and an authenticated physical ingress receipt.
+
+**Next authorization boundary — one readiness-only session, not the campaign:**
+authorize one invocation of the existing reviewed protected-bootstrap
+procedure for `hub-e072a1d38d34` / COM10, using the preserved GS40 TEST_ONLY
+artifacts to rearm the current `9bbc6d0-dirty` app for
+`gs177-test-product` and endpoint `192.168.1.6`; in that same bounded session,
+allow exact-identity-checked COM4 `GET_STATE` plus existing serial-log
+observation long enough to classify the C3 owner gate and observe authenticated
+rejoin/liveness. A COM10 reset/reopen can clear RAM config; COM4 open can reset
+the C3. Stop on any identity, active-image, config-signature/policy/TLS,
+trusted-time, Hub-authentication, or communication mismatch, and do not inject
+motion. No readback, JEDEC query, flash/erase, credential/enrollment change,
+or database mutation is included. The prior one-use session stopped at its
+failed readiness guard, so this is a new authorization. The five-run campaign
+remains separately unauthorized until readiness is established.
