@@ -9039,3 +9039,28 @@ PASS. See the existing
 [`GS-179 ingress/recovery evidence`](../exec-plans/evidence/GS179_CONTINUOUS_INGRESS_AUDIT_20261020.md#2026-10-28--recovery-watcher-and-end-to-end-readiness-correction)
 for commands, root cause and limitations. Jira GS-179 remains In Progress;
 GS-117 remains OnHold for physical qualification.
+
+### 2026-10-29 — GS-179 scheduled recovery bug fixed
+
+Source `7604f5562fb506b520141626cf77de543f1cfa17` fixes the validation-order
+bug in the already registered elevated Windows watcher. It now recomputes the
+WSL RFC1918 validation after Watch discovers the current address and before
+Start validation; existing admin, trusted-network and owned-rule guards are
+unchanged. The focused regression is in the existing GS-179 security test
+module (24/24 PASS).
+
+The existing task was run without re-registering: manual run and a natural
+scheduled reconciliation after a controlled backend service restart both
+returned `0x0`. Windows reports one listener on `.6:443`; CA/SAN-verified
+HTTPS through `192.168.1.6` and the complete PostgreSQL/local/LAN health check
+PASS. Restarted backend retained `events=139` and `durable_event_commits=139`.
+No WSL shutdown was attempted.
+
+Android remains NOT_VERIFIED: the current ADB observer sees no authorized
+device, and the preserved install receipt has stale origin `.10`; no credentials
+were sent to that address. The current app/login cannot be checked until the
+phone enumerates in ADB with its approved current endpoint. Physical S3 ingress
+TCP 8445 and signed time UDP 4468 remain absent, so physical E2E, current S3
+authentication and Morning Routine remain NOT_RUN. GS-179 remains In Progress;
+GS-117 remains OnHold. See the dated GS-179 evidence section for exact live
+checks and limitations.

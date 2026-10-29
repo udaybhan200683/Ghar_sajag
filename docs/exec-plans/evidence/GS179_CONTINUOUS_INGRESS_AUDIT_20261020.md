@@ -688,3 +688,45 @@ committed and origin matches `c6efa7b4f347be408449fee56c7f8fb67b5d0842`; this
 evidence/work-state closeout follows as a documentation commit. Windows watcher
 registration, post-registration recovery, Android connection and fresh S3
 authentication remain unverified.
+
+### 2026-10-29 — Watch address-validation fix and scheduled recovery verified
+
+The owner registered the existing elevated GS-179 task. Its initial invocation
+failed with `current_wsl_nat_ipv4_required`: Watch discovered the current WSL
+address after `$wslPrivate` had already been calculated from the empty input.
+At source commit `7604f5562fb506b520141626cf77de543f1cfa17`, the helper now
+calculates the RFC1918 result from the final `WslAddress`, after Watch
+discovery and before the existing Start guard. Trusted Wi-Fi, administrator,
+port ownership and firewall-scope checks are unchanged. The focused ordering
+regression is part of `test_gs179_postgres_security.py`.
+
+The already registered task was invoked with `Start-ScheduledTask`; it finished
+with `LastTaskResult=0x0`. No registration was repeated. Windows audit then
+reported one listener on `192.168.1.6:443`, targeting the current WSL
+`172.17.152.10:8444`. A separate curl using the preserved CA and DNS
+certificate identity, resolved through `192.168.1.6`, returned the backend
+ready response. `gs179-laptop-server.sh health` reports PostgreSQL,
+local HTTPS, LAN TLS and `DEVELOPMENT_ENDPOINT_READY` PASS.
+
+After a controlled `systemctl --user restart gs179-laptop.service`, local
+PostgreSQL/HTTPS and certificate-verified LAN HTTPS recovered; Windows still
+reported one port-443 listener. A natural task reconciliation after that
+restart completed at 2026-10-29 06:41:11 +05:30 with result `0x0`. PostgreSQL
+`events` and `durable_event_commits` remained 139 each before and after. No
+database mutation, certificate change, hardware operation or WSL shutdown was
+performed.
+
+Focused validation: GS-179 PostgreSQL/security **24/24**; PowerShell parser,
+Python syntax and `git diff --check` PASS. The new regression asserts the order
+discovered WSL address → Watch-to-Start transition → RFC1918 revalidation →
+Start guard. The source commit is pushed; documentation closeout follows.
+
+Android remains NOT_VERIFIED in this current session: the existing observer
+still reports `TC001_APPROVED_ANDROID_DEVICE_NOT_AUTHORIZED_OR_CONNECTED`.
+The preserved install receipt still names the old `.10` origin, and no request
+was sent there. Previous Android-to-`.6` evidence is historical, not a fresh
+phone-side check. WSL TCP 8445 and UDP 4468 remain without listeners; no fresh
+physical S3 authentication or Morning Routine result is claimed. A full WSL
+shutdown/restart was not performed because it would terminate the active
+execution; only the bounded backend-service restart and scheduled recovery
+were verified.
