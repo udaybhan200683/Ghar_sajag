@@ -84,7 +84,8 @@ class QueryService:
             and (not kinds or event.kind in kinds)
             and (not payload_reasons or event.payload.get("reason") in payload_reasons)
         ]
-        events.sort(key=lambda item: (item.occurred_at, item.event_id), reverse=newest_first)
+        events.sort(key=lambda item: (item.occurred_at or item.server_received_at,
+                                      item.event_id), reverse=newest_first)
         return events if limit is None else events[:max(0, int(limit))]
 
     @traced("B07")

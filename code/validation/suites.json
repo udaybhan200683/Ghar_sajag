@@ -1622,7 +1622,11 @@
         "tests/python/test_node_health_status.py",
         "tests/python/test_node_health_config.py",
         "tests/python/test_durable_api.py",
-        "tests/python/test_backend.py"
+        "tests/python/test_backend.py",
+        "backend/ghar_sajag/sqlite_events.py",
+        "backend/ghar_sajag/queries.py",
+        "backend/migrations/015_effective_event_timeline_index.sql",
+        "tests/python/test_phase3b_projection_scale.py"
       ],
       "success": "Ran (\\d+) tests?",
       "timeout": 600,
@@ -2703,6 +2707,8 @@
         "backend/migrations/011_service_access.sql",
         "backend/migrations/012_node_health_latest.sql",
         "backend/migrations/013_hub_rule_decisions.sql",
+        "backend/migrations/015_effective_event_timeline_index.sql",
+        "backend/ghar_sajag/queries.py",
         "tools/sim/pwa/connected_lite.mjs"
       ],
       "success": "^GS179 POSTGRES E2E PASS tests=(\\d+) physical=NOT_RUN$",
@@ -2715,6 +2721,25 @@
       "fast": false,
       "release": false,
       "qualification_scope": "GS178_NODE_HUB_MTLS_DURABLE_POSTGRES_CAREGIVER_PRODUCTION_CODE_ON_EXPLICIT_LOCAL_TEST_DATABASE; NO_EXTERNAL_DEPLOYMENT_OR_PHYSICAL_QUALIFICATION"
+    },
+    {
+      "id": "gs179-reports-projection",
+      "components": ["backend", "pwa"],
+      "command": ["python3", "tests/python/test_phase3b_projection_scale.py"],
+      "inputs": [
+        "tests/python/test_phase3b_projection_scale.py",
+        "backend/ghar_sajag/queries.py",
+        "backend/ghar_sajag/sqlite_events.py",
+        "backend/migrations/015_effective_event_timeline_index.sql"
+      ],
+      "success": "Ran (\\d+) tests?",
+      "required_success": ["^OK$"],
+      "timeout": 120,
+      "count_kind": "tests",
+      "fast": true,
+      "release": true,
+      "pwa": true,
+      "qualification_scope": "BOUNDED_EFFECTIVE_TIME_CAREGIVER_REPORTS_PROJECTION; NO_PHYSICAL_OR_ANDROID_QUALIFICATION"
     },
     {
       "id": "gs75-notification-worker",

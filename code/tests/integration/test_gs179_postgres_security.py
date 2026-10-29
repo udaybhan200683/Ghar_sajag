@@ -18,7 +18,9 @@ from ghar_sajag.human_authentication import (
     CurrentSession, HumanAuthenticationBoundary, IssuerPolicy, VerifiedAssertion,
 )
 from ghar_sajag.http_api import JsonApi
+from ghar_sajag.model import CloudEvent
 from ghar_sajag.postgres_database import connect_postgres, initialize_postgres
+from ghar_sajag.sqlite_events import SQLiteEventMap
 from gs179_postgres_test_db import IsolatedPostgresSchema, local_verified_postgres_url
 
 CODE_ROOT = Path(__file__).resolve().parents[2]
@@ -114,6 +116,42 @@ class MorningRoutineConfigurationPostgres(unittest.TestCase):
         with self.assertRaisesRegex(ConfigurationConflict, "stale_desired"):
             repository.publish_desired(actor=actor, home_id=home_id, config=policy,
                                        expected_version=0, at=13)
+
+    def test_postgres_timeline_uses_effective_event_time_before_bounded_limit(self):
+        """The shared adapter must preserve SQLite ordering in the isolated PG schema."""
+        home_id = "gs179-timeline-" + os.urandom(8).hex()
+        self.db.execute(
+            "INSERT INTO households(home_id,display_name,timezone,created_at,updated_at) "
+            "VALUES(?,?,?,?,?)", (home_id, "Isolated timeline", "Etc/UTC", 1, 1),
+        )
+        index = self.db.execute(
+            "SELECT indexdef FROM pg_indexes WHERE schemaname=current_schema() "
+            "AND indexname=?", ("idx_events_home_effective_time",),
+        ).fetchone()
+        self.assertIsNotNone(index)
+        self.assertIn("COALESCE(NULLIF(occurred_at, 0), received_at)", index[0])
+        events = SQLiteEventMap(self.db)
+        for index in range(100):
+            event = CloudEvent(home_id, f"older-{index:03d}", "MOTION", "bedroom",
+                               1000 + index, 2000 + index, 2000 + index)
+            events[(home_id, event.event_id)] = event
+        expected = []
+        for sequence in range(70, 102):
+            event_id = f"c3-146393c5d158/bedroom/118/{sequence:03d}"
+            expected.append(event_id)
+            received = 9000 if sequence in {100, 101} else 5000 + sequence
+            event = CloudEvent(home_id, event_id, "MOTION", "bedroom", 0,
+                               received, received)
+            events[(home_id, event.event_id)] = event
+
+        timeline = events.home_events(home_id, include_test=False,
+                                       newest_first=True, limit=100)
+        identifiers = [event.event_id for event in timeline]
+        self.assertEqual(len(identifiers), 100)
+        self.assertTrue(set(expected).issubset(identifiers))
+        self.assertIn("c3-146393c5d158/bedroom/118/100", identifiers)
+        self.assertLess(identifiers.index(expected[-1]), identifiers.index(expected[-2]))
+        self.assertEqual(len(set(identifiers)), 100)
 
     def test_authorized_settings_to_hub_fetch_and_applied_status_api_on_isolated_postgres(self):
         suffix = os.urandom(8).hex()

@@ -136,7 +136,11 @@ class SQLiteEventMap(MutableMapping[tuple[str, str], CloudEvent]):
             clauses.append("json_extract(payload_json,'$.reason') IN (" + ",".join("?" for _ in reasons) + ")")
             values.extend(reasons)
         direction = "DESC" if newest_first else "ASC"
-        sql = "SELECT * FROM events WHERE " + " AND ".join(clauses) + f" ORDER BY occurred_at {direction},canonical_event_id {direction}"
+        # Match _row_to_event's effective event time before applying SQL LIMIT.
+        # Historical records can have occurred_at=0 while received_at is valid.
+        effective_time = "COALESCE(NULLIF(occurred_at,0),received_at)"
+        sql = ("SELECT * FROM events WHERE " + " AND ".join(clauses) +
+               f" ORDER BY {effective_time} {direction},canonical_event_id {direction}")
         if limit is not None:
             sql += " LIMIT ?"
             values.append(max(0, int(limit)))

@@ -54,13 +54,16 @@ class EventQueryIndexTest(unittest.TestCase):
             )
         }
         self.assertIn("occurred_at DESC, canonical_event_id DESC", indexes["idx_events_home_time"])
+        self.assertIn("COALESCE(NULLIF(occurred_at, 0), received_at)",
+                      indexes["idx_events_home_effective_time"])
         self.assertIn("idx_events_home_type_time", indexes)
         self.assertIn("idx_events_home_type_received", indexes)
 
         plans = {
             "timeline": self._plan(
                 "SELECT * FROM events WHERE home_id=? AND is_test=0 "
-                "ORDER BY occurred_at DESC,canonical_event_id DESC LIMIT ?",
+                "ORDER BY COALESCE(NULLIF(occurred_at,0),received_at) DESC,"
+                "canonical_event_id DESC LIMIT ?",
                 ("scale-home", 40),
             ),
             "activity": self._plan(
@@ -87,6 +90,7 @@ class EventQueryIndexTest(unittest.TestCase):
             self.assertNotIn("TEMP B-TREE", plan, f"{name}: {plan}")
         self.assertIn("idx_events_home_type_time", plans["single_type"])
         self.assertIn("idx_events_home_type_received", plans["latest_received"])
+        self.assertIn("idx_events_home_effective_time", plans["timeline"])
 
     def test_indexed_queries_preserve_tied_timestamp_order_and_counts(self):
         latest = self.events.home_events("scale-home", newest_first=True, limit=12)
@@ -102,8 +106,101 @@ class EventQueryIndexTest(unittest.TestCase):
         self.assertEqual(self.events.latest_home_received("scale-home", "MOTION").event_id, "event-095")
         self.assertEqual(self.events.home_event_counts("scale-home")["CALL_FAMILY"], 20)
 
+    def test_effective_timestamp_orders_before_limit_and_keeps_sequence_100(self):
+        expected_keys = []
+        for sequence in range(70, 102):
+            event_id = f"c3-146393c5d158/bedroom/118/{sequence:03d}"
+            expected_keys.append(event_id)
+            received_at = 5000 + sequence
+            if sequence in {100, 101}:
+                received_at = 9000
+            event = CloudEvent(
+                "scale-home", event_id, "MOTION", "bedroom", 0,
+                received_at, received_at, payload={},
+            )
+            original, duplicate = self.events.accept_once(event)
+            self.assertIs(original, event)
+            self.assertFalse(duplicate)
+
+        # Exact-key retry remains idempotent and cannot consume another timeline row.
+        retry = CloudEvent(
+            "scale-home", expected_keys[-2], "MOTION", "bedroom", 0,
+            99999, 99999, payload={"retry": True},
+        )
+        original, duplicate = self.events.accept_once(retry)
+        self.assertTrue(duplicate)
+        self.assertEqual(original.server_received_at, 9000)
+
+        # A later Home event must not leak into this Home's bounded timeline.
+        self.db.execute(
+            "INSERT INTO households(home_id,display_name,timezone,created_at,updated_at) "
+            "VALUES(?,?,?,?,?)", ("other-home", "Other", "UTC", 1, 1),
+        )
+        other = CloudEvent("other-home", "other/latest", "MOTION", "bedroom", 0,
+                           20000, 20000, payload={})
+        self.events[(other.home_id, other.event_id)] = other
+
+        timeline = self.events.home_events("scale-home", include_test=False,
+                                           newest_first=True, limit=100)
+        identifiers = [item.event_id for item in timeline]
+        self.assertEqual(len(identifiers), 100)
+        self.assertEqual(len(set(identifiers)), 100)
+        self.assertTrue(set(expected_keys).issubset(identifiers))
+        self.assertIn("c3-146393c5d158/bedroom/118/100", identifiers)
+        self.assertLess(identifiers.index(expected_keys[-1]),
+                        identifiers.index(expected_keys[-2]))
+        self.assertNotIn(other.event_id, identifiers)
+
+    def test_mixed_timestamp_ties_are_deterministic_and_limit_is_applied_in_sql(self):
+        # Include a TEST_ONLY row and an event from another Home in the source data;
+        # neither may displace authorized non-test rows from this Home's limit.
+        same_time = ["tie-b", "tie-a"]
+        for event_id, occurred_at, received_at in (
+            ("positive-time", 7000, 8000),
+            (same_time[0], 0, 9000),
+            (same_time[1], None, 9000),
+        ):
+            event = CloudEvent("scale-home", event_id, "MOTION", "bedroom",
+                               occurred_at, received_at, received_at, payload={})
+            self.events[(event.home_id, event.event_id)] = event
+        test_event = CloudEvent("scale-home", "test-newest", "MOTION", "bedroom",
+                                0, 10000, 10000, is_test=True, payload={})
+        self.events[(test_event.home_id, test_event.event_id)] = test_event
+
+        timeline = self.events.home_events("scale-home", include_test=False,
+                                           newest_first=True, limit=3)
+        self.assertEqual([item.event_id for item in timeline],
+                         ["tie-b", "tie-a", "positive-time"])
+        self.assertEqual([item.occurred_at for item in timeline], [9000, 9000, 7000])
+        self.assertEqual(len(timeline), 3)
+
+        plan = self._plan(
+            "SELECT * FROM events WHERE home_id=? AND is_test=0 "
+            "ORDER BY COALESCE(NULLIF(occurred_at,0),received_at) DESC,"
+            "canonical_event_id DESC LIMIT ?",
+            ("scale-home", 3),
+        )
+        self.assertIn("idx_events_home_effective_time", plan)
+        self.assertNotIn("TEMP B-TREE", plan)
+
 
 class CaregiverProjectionScaleTest(unittest.TestCase):
+    def test_in_memory_timeline_uses_received_time_when_generation_time_is_unavailable(self):
+        lab = Lab()
+        self.addCleanup(lab.close)
+        lab.service.store.events = {
+            ("scale-home", "received-later"): CloudEvent(
+                "scale-home", "received-later", "MOTION", "bedroom", 0, 0, 500,
+            ),
+            ("scale-home", "generated-earlier"): CloudEvent(
+                "scale-home", "generated-earlier", "MOTION", "bedroom", 300, 300, 700,
+            ),
+        }
+        latest = lab.service.queries._events(
+            "scale-home", include_test=False, newest_first=True, limit=1,
+        )
+        self.assertEqual([event.event_id for event in latest], ["received-later"])
+
     def test_historical_incidents_are_not_recursively_projected(self):
         lab = Lab()
         self.addCleanup(lab.close)

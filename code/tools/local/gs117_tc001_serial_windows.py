@@ -602,8 +602,16 @@ def ui_dump(adb: Path, serial_number: str) -> tuple[ET.Element, bytes]:
 
 
 def ui_texts(root: ET.Element) -> list[str]:
-    return [node.get("text", "").strip() for node in root.iter("node")
-            if node.get("text", "").strip()]
+    # Android exposes navigation and expandable controls as either visible text
+    # or an accessibility content description. Read both without weakening any
+    # Home, backend-origin, authentication, or exact-outcome checks.
+    values = []
+    for node in root.iter("node"):
+        for attribute in ("text", "content-desc"):
+            value = node.get(attribute, "").strip()
+            if value:
+                values.append(value)
+    return values
 
 
 def exact_key_in_ui(root: ET.Element, expected: dict) -> bool:
@@ -640,7 +648,9 @@ def canonical_https_origin(value: str) -> tuple[str, str, int] | None:
 
 def tap_text(adb: Path, serial_number: str, root: ET.Element,
              target: str, *, index: int = 0, call=adb_call) -> bool:
-    matches = [node for node in root.iter("node") if node.get("text", "").strip() == target]
+    matches = [node for node in root.iter("node")
+               if target in {node.get("text", "").strip(),
+                             node.get("content-desc", "").strip()}]
     if index >= len(matches):
         return False
     bounds = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]",
@@ -688,10 +698,24 @@ def android_verify_event(config: dict, *, adb_locator=find_adb,
             break
     if root is None:
         raise ValueError("TC001_ANDROID_APP_UI_NOT_AVAILABLE")
-    texts = ui_texts(root)
-    if not tap_text(adb, serial_number, root, "Settings", call=call):
-        if "App & connection" not in " ".join(texts):
-            raise ValueError("TC001_ANDROID_SETTINGS_NAVIGATION_NOT_FOUND")
+    # WebView accessibility can be empty briefly after the Activity is
+    # foregrounded even though the page subsequently renders normally. Keep
+    # polling the existing UI tree for a bounded interval before treating
+    # Settings as unavailable; never infer a tap or relax the checks below.
+    settings_reached = False
+    for attempt in range(20):
+        texts = ui_texts(root)
+        if "App & connection" in " ".join(texts):
+            settings_reached = True
+            break
+        if tap_text(adb, serial_number, root, "Settings", call=call):
+            settings_reached = True
+            break
+        if attempt < 19:
+            sleep(0.4)
+            root, raw = ui_dump(adb, serial_number)
+    if not settings_reached:
+        raise ValueError("TC001_ANDROID_SETTINGS_NAVIGATION_NOT_FOUND")
     for _ in range(20):
         sleep(0.4)
         root, raw = ui_dump(adb, serial_number)

@@ -946,27 +946,35 @@ class TC001Test(unittest.TestCase):
 
     def _android_tree(self, entries):
         root = tc_serial.ET.Element("hierarchy")
-        for text, bounds in entries:
-            tc_serial.ET.SubElement(root, "node", {"text": text, "bounds": bounds})
+        for entry in entries:
+            text, bounds = entry[:2]
+            attributes = {"text": text, "bounds": bounds}
+            if len(entry) == 3 and entry[2]:
+                attributes["content-desc"] = entry[2]
+            tc_serial.ET.SubElement(root, "node", attributes)
         raw = tc_serial.ET.tostring(root, encoding="utf-8")
         return tc_serial.ET.fromstring(raw), raw
 
     def _run_android_verification(self, *, event_key=None, visible_key=None,
                                   decision_id=None, visible_decision_id=None,
-                                  settings_origin="https://laptop.local"):
+                                  settings_origin="https://laptop.local",
+                                  accessible_navigation=False,
+                                  initial_blank_dumps=0):
         package = "in.gharsajag.caregiver.discoverytest"
         adb_serial = "ZA2237MRHN"
         expected_key = event_key or {"physical_device_id": "c3-146393c5d158",
                                      "logical_node_id": "bedroom",
                                      "origin_session_id": 82, "event_sequence": 9}
-        home = self._android_tree([("Home", "[0,0][80,80]"),
-                                   ("Settings", "[0,0][100,100]")])
+        settings_entry = ("", "[0,0][100,100]", "Settings") if accessible_navigation else \
+                         ("Settings", "[0,0][100,100]")
+        home = self._android_tree([("Home", "[0,0][80,80]"), settings_entry])
         settings = self._android_tree([
             ("Settings", "[0,0][100,100]"), ("App & connection", "[0,0][100,100]"),
             ("Authorized Home", "[0,0][100,100]"), ("gs177-test-product", "[0,0][100,100]"),
             ("Backend API · CONNECTED", "[0,0][100,100]"),
             (settings_origin, "[0,0][100,100]"),
-            ("Reports", "[0,0][100,100]")])
+            (("", "[0,0][100,100]", "Reports") if accessible_navigation else
+             ("Reports", "[0,0][100,100]"))])
         outcome_label = "Morning routine completed" if decision_id else "Motion recorded"
         details_label = "Decision details" if decision_id else "Event details"
         identity_label = ("Decision ID: " + (visible_decision_id or decision_id)
@@ -976,16 +984,26 @@ class TC001Test(unittest.TestCase):
             ("Reports", "[0,0][100,100]"), ("Latest recorded events", "[0,0][100,100]"),
             ("gs177-test-product", "[0,0][100,100]"),
             (outcome_label, "[0,0][100,100]"), ("Bedroom", "[0,0][100,100]"),
-            (details_label, "[0,0][100,100]")])
+            (("", "[0,0][100,100]", details_label) if accessible_navigation else
+             (details_label, "[0,0][100,100]"))])
         expanded = self._android_tree([
             ("Reports", "[0,0][100,100]"), ("Latest recorded events", "[0,0][100,100]"),
             ("gs177-test-product", "[0,0][100,100]"),
             (outcome_label, "[0,0][100,100]"), ("Bedroom", "[0,0][100,100]"),
-            (details_label, "[0,0][100,100]"),
-            (identity_label, "[0,0][100,100]")])
+            (("", "[0,0][100,100]", details_label) if accessible_navigation else
+             (details_label, "[0,0][100,100]")),
+            (("", "[0,0][100,100]", identity_label) if accessible_navigation else
+             (identity_label, "[0,0][100,100]"))])
         ui_sequence = iter((home, settings, settings, reports, reports, expanded))
         last = [reports]
+        blank = self._android_tree([])
+        dump_count = [0]
         def dump(_adb, _serial):
+            if dump_count[0] < initial_blank_dumps:
+                dump_count[0] += 1
+                last[0] = blank
+                return blank
+            dump_count[0] += 1
             try:
                 last[0] = next(ui_sequence)
             except StopIteration:
@@ -1036,6 +1054,20 @@ class TC001Test(unittest.TestCase):
                                 if i > home_index and args[:2] == ("shell", "monkey"))
         self.assertGreater(foreground_index, home_index)
         self.assertEqual(sum(args[:2] == ("shell", "monkey") for args in commands), 2)
+
+    def test_android_observer_uses_accessibility_labels_for_navigation_and_event_details(self):
+        result, _calls = self._run_android_verification(accessible_navigation=True)
+        self.assertEqual(result["observation"], "AUTOMATED_PASS")
+        self.assertTrue(result["event_details_open"])
+        self.assertEqual(result["event_key"]["event_sequence"], 9)
+
+    def test_android_observer_waits_for_delayed_webview_accessibility_tree(self):
+        # A blank WebView tree can outlast the initial foreground wait. The
+        # normal Settings/Reports hierarchy then appears without user action.
+        result, _calls = self._run_android_verification(initial_blank_dumps=12)
+        self.assertEqual(result["observation"], "AUTOMATED_PASS")
+        self.assertTrue(result["event_details_open"])
+        self.assertEqual(result["event_key"]["event_sequence"], 9)
 
     def test_android_verification_fails_when_exact_event_key_is_not_visible(self):
         with self.assertRaisesRegex(ValueError, "EXACT_EVENT_KEY_NOT_VISIBLE"):
