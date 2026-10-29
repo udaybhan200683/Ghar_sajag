@@ -1,3 +1,24 @@
+## Latest GS-117 offline S3 time/authority analysis — 2026-10-29
+
+OWNING_JIRA=GS-117
+BUG_CLASSIFICATION=INVESTIGATE_ONLY
+REQUIREMENT_SOURCE=existing GS117-TC001-01 trusted-time, current-authority, authenticated rejoin and liveness gates
+DECISION_IDS=NONE
+TASK_SCOPE=Offline source and preserved-log analysis only; no device, service, database or authorization-state operation.
+OUT_OF_SCOPE=No COM access, reset, bootstrap retry, latch/ledger change, injection, campaign, credential, firmware or database mutation.
+
+The exact target line from the one-session successor remains `TEST_ONLY time/authority refresh failed; publication fenced` at S3 uptime 51.951 s. The existing observer would stop on earlier `signed-time bootstrap unavailable` or `authority bootstrap unavailable` markers; neither appears in the preserved S3 observation before this generic periodic-refresh failure. The first failure therefore occurred in the later combined refresh loop, not as an observed initial-bootstrap failure. That loop short-circuits `gs40_test_only_refresh_time()` and `gs40_test_only_refresh_authority()` and emits one shared error, so the saved evidence cannot identify which operation or substage failed.
+
+The exact GSTQ/GSTP v1 wire layout, 45-byte challenge, 456-byte RSA-3072/SHA-256 proof, nonce/generation binding, validity interval, trusted-floor checks, and authority lease signature/binding checks align between the S3 implementation and existing host signer/verifier. Existing tests cover signed-time cryptography/replay, time-floor recovery/rollback/storage failure, and authority-lease validity/nonce/generation/expiry/binding; they do not exercise the target UDP refresh function or identify a runtime substage. No source defect was established.
+
+Read-only review of the already-preserved physical ingress trace adds later recovery evidence. In the same bounded service window, actual S3 authority-refresh requests returned authenticated HTTP 200 94 times from 07:03:40.550Z through 07:58:32.450Z. More decisively, the S3 later submitted 55 physical CloudSync event requests from 07:04:24.948Z through 07:57:38.350Z: 28 new session-118 sequence 74–101 EventKeys received `COMMITTED` (HTTP 201), and 27 retries for already committed keys received duplicate-safe `COMMITTED` (HTTP 200). These are historical retained C3 events, not a new TC-001 input. The production S3 CloudSync path requires current trusted time and an installed current authority lease before the authenticated event POST; therefore this trace proves those prerequisites became valid after the initial refresh guard. It does not prove the specific failed substage or current session-120 C3 application ACK.
+
+Conclusion: the first periodic time/authority refresh failed transiently and the existing S3 retry path later recovered without a new bootstrap or hardware intervention. There is no evidence of a persistent proof-format/key, envelope-expiry, authority-signature or service-availability defect. The exact first failed substage is **not established** because the current target firmware collapses both refresh results into one log line. No firmware correction or test change was made.
+
+Current gates: S3 trusted-time/current authority and physical CloudSync are evidenced as recovered later in that service window; current C3 session-120 authenticated rejoin/application ACK remains NOT_VERIFIED. The owner-only `fixture.json` remains absent. TC-001 remains 0/5 NOT_RUN; campaign authorization remains separate. Next product validation requires a qualified current fixture and a separately authorized physical input/run, then exact C3 application-ACK-to-Android correlation. Any attempt to isolate the historical one-shot refresh error more finely would require a target observation that records separate non-secret stage outcomes; no such operation was performed or authorized here.
+
+Repository checkpoint for this offline analysis: branch `feature/r1-commercial-baseline`, source HEAD `6943cf15c9f1155737b811430524c8b662c99ae6`, equal to origin before documentation edits. Pre-existing untracked files were preserved. No tests were run because no source/test code changed.
+
 ## Latest active checkpoint — GS-117 successor readiness stopped at S3 time/authority guard — 2026-10-29
 
 OWNING_JIRA=GS-117
