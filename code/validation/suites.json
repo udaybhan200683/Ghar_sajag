@@ -2600,6 +2600,7 @@
         "tests/python/test_gs117_tc001_console.py",
         "tools/local/gs117_tc001_console.py",
         "tools/local/gs117_hil_authorization.py",
+        "tools/local/gs117_bootstrap_evidence.py",
         "../docs/exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/standing-authorization.proposed.json",
         "tools/local/gs179_verified_endpoint.py",
         "tools/local/gs117_tc001_serial_windows.py",

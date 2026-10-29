@@ -27,6 +27,7 @@ import gs117_tc001_backend as tc_backend
 
 
 import gs117_hil_authorization as hil_auth
+import gs117_bootstrap_evidence as bootstrap_evidence
 
 
 class StandingAuthorizationTest(unittest.TestCase):
@@ -154,6 +155,156 @@ class StandingAuthorizationTest(unittest.TestCase):
             with self.assertRaises(ValueError): tc.standing_readiness()
             hw.assert_not_called()
 
+
+
+class BootstrapChildEvidenceTest(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.root.chmod(0o700)
+
+    class Child:
+        def __init__(self, stdout, stderr="", returncode=0, first_error=None,
+                     drain_stdout=None, drain_stderr=None):
+            self.stdout = stdout
+            self.stderr = stderr
+            self.returncode = returncode
+            self.first_error = first_error
+            self.drain_stdout = drain_stdout
+            self.drain_stderr = drain_stderr
+            self.calls = 0
+            self.killed = False
+
+        def communicate(self, timeout=None):
+            self.calls += 1
+            if self.first_error is not None and self.calls == 1:
+                raise self.first_error
+            if (self.calls > 1 or self.killed) and self.drain_stdout is not None:
+                return self.drain_stdout, self.drain_stderr or ""
+            return self.stdout, self.stderr
+
+        def poll(self):
+            return None if not self.killed and self.returncode is None else self.returncode
+
+        def kill(self):
+            self.killed = True
+            self.returncode = -9
+
+    def _evidence(self):
+        return json.loads((self.root / bootstrap_evidence.EVIDENCE_NAME).read_text())
+
+    def _run(self, child, *, timeout=85):
+        return bootstrap_evidence.wait_and_record_child(
+            child, self.root, stage="encrypted_config_exchange",
+            started_at="2026-10-29T06:00:00+00:00",
+            challenge_received_at="2026-10-29T06:00:01+00:00",
+            timeout_seconds=timeout,
+            challenge_line=json.dumps({"stage": "CONFIG_CHALLENGE",
+                                       "nonce": "n" * 64,
+                                       "public_key": "04" + "a" * 128}))
+
+    def test_child_success_is_durably_saved_before_return(self):
+        child = self.Child(json.dumps({
+            "stage": "OBSERVATION",
+            "c3": ["HIL_STATE role=c3 session=121 runtime_live=4 sensing_live=3"],
+            "s3": ["Authenticated rejoin device=c3-146393c5d158 logical=bedroom session=121"],
+            "c3_status_queries": 2,
+        }))
+        result = self._run(child)
+        evidence = self._evidence()
+        self.assertEqual(result["c3"], evidence["response"]["c3"])
+        self.assertEqual(evidence["child_exit_code"], 0)
+        self.assertEqual(evidence["response_status"], "VALID")
+        self.assertEqual(evidence["child_outcome"], "EXITED")
+        self.assertEqual(evidence["started_at"], "2026-10-29T06:00:00+00:00")
+        self.assertEqual(evidence["challenge_received_at"], "2026-10-29T06:00:01+00:00")
+        self.assertEqual(evidence["challenge"]["stage"], "CONFIG_CHALLENGE")
+        self.assertNotIn("nonce", json.dumps(evidence["challenge"]))
+        self.assertEqual((self.root / bootstrap_evidence.EVIDENCE_NAME).stat().st_mode & 0o777, 0o600)
+
+    def test_failed_target_guard_and_both_serial_observations_saved_before_raise(self):
+        child = self.Child(json.dumps({
+            "error": "TC001_TARGET_READINESS_GUARD_FAILED",
+            "observation": {
+                "c3": ["Node security owner faulted private_key=do-not-persist runtime_live=0 sensing_live=0"],
+                "s3": ["signed-time bootstrap unavailable"],
+            },
+        }), returncode=2)
+        with self.assertRaisesRegex(ValueError, "BOOTSTRAP_CHILD_TC001_TARGET_READINESS_GUARD_FAILED"):
+            self._run(child)
+        evidence = self._evidence()
+        self.assertEqual(evidence["child_exit_code"], 2)
+        self.assertEqual(evidence["child_error"], "TC001_TARGET_READINESS_GUARD_FAILED")
+        self.assertEqual(evidence["response"]["observation"]["c3"],
+                         ["Node security owner faulted private_key=[REDACTED] runtime_live=0 sensing_live=0"])
+        self.assertNotIn("do-not-persist", json.dumps(evidence))
+        self.assertEqual(evidence["response"]["observation"]["s3"],
+                         ["signed-time bootstrap unavailable"])
+
+    def test_malformed_child_response_records_digest_without_publishing_raw_text(self):
+        raw = "not-json password=do-not-retain-this-value"
+        child = self.Child(raw, stderr="credential=also-do-not-retain", returncode=2)
+        with self.assertRaisesRegex(ValueError, "BOOTSTRAP_CHILD_RESPONSE_MALFORMED"):
+            self._run(child)
+        evidence = self._evidence()
+        encoded = json.dumps(evidence)
+        self.assertEqual(evidence["response_status"], "MALFORMED")
+        self.assertEqual(evidence["child_exit_code"], 2)
+        self.assertEqual(evidence["stdout"]["bytes"], len(raw.encode()))
+        self.assertIsNone(evidence["response"])
+        self.assertNotIn("not-json", encoded)
+        self.assertNotIn("do-not-retain", encoded)
+        self.assertNotIn("also-do-not-retain", encoded)
+        self.assertTrue(evidence["stderr_safe_summary"])
+
+    def test_timeout_kills_once_and_persists_available_child_observation(self):
+        partial = json.dumps({
+            "error": "TC001_TARGET_READINESS_GUARD_FAILED",
+            "observation": {
+                "c3": ["HIL_STATE role=c3 session=121 runtime_live=0 sensing_live=0"],
+                "s3": ["Authenticated rejoin device=c3-146393c5d158 logical=bedroom session=121"],
+            },
+        })
+        child = self.Child("", returncode=None,
+                           first_error=subprocess.TimeoutExpired("helper", 85),
+                           drain_stdout=partial)
+        with self.assertRaisesRegex(ValueError, "BOOTSTRAP_CHILD_TIMEOUT"):
+            self._run(child)
+        evidence = self._evidence()
+        self.assertTrue(child.killed)
+        self.assertEqual(child.calls, 2)
+        self.assertEqual(evidence["child_outcome"], "INTERRUPTED")
+        self.assertEqual(evidence["interruption"], "timeout")
+        self.assertEqual(evidence["child_exit_code"], -9)
+        self.assertEqual(evidence["child_error"], "TC001_TARGET_READINESS_GUARD_FAILED")
+        self.assertEqual(evidence["response"]["observation"]["c3"],
+                         ["HIL_STATE role=c3 session=121 runtime_live=0 sensing_live=0"])
+
+    def test_parent_interruption_before_result_drains_child_and_records_stage(self):
+        child = self.Child("", returncode=None,
+                           drain_stdout=json.dumps({
+                               "error": "TC001_BOOTSTRAP_TARGET_CHALLENGE_NOT_OBSERVED",
+                               "bootstrap_timeline": [{"stage": "challenge_wait", "status": "failed",
+                                                       "elapsed_ms": 20000}],
+                           }))
+        path = bootstrap_evidence.record_interrupted_child(
+            child, self.root, stage="encrypted_config_exchange",
+            started_at="2026-10-29T06:00:00+00:00",
+            challenge_received_at=None,
+            parent_error=ValueError("BOUNDED_BOOTSTRAP_CHALLENGE_TIMEOUT"),
+            challenge_line=json.dumps({"error": "TC001_BOOTSTRAP_TARGET_CHALLENGE_NOT_OBSERVED",
+                                       "nonce": "n" * 64}))
+        evidence = json.loads(path.read_text())
+        self.assertTrue(child.killed)
+        self.assertEqual(child.calls, 1)
+        self.assertEqual(evidence["child_outcome"], "INTERRUPTED")
+        self.assertEqual(evidence["parent_failure_code"], "BOUNDED_BOOTSTRAP_CHALLENGE_TIMEOUT")
+        self.assertEqual(evidence["child_error"], "TC001_BOOTSTRAP_TARGET_CHALLENGE_NOT_OBSERVED")
+        self.assertEqual(evidence["challenge"]["error"],
+                         "TC001_BOOTSTRAP_TARGET_CHALLENGE_NOT_OBSERVED")
+        self.assertNotIn("nonce", json.dumps(evidence["challenge"]))
+        self.assertEqual(evidence["response"]["bootstrap_timeline"][0]["stage"], "challenge_wait")
 
 
 class TC001Test(unittest.TestCase):

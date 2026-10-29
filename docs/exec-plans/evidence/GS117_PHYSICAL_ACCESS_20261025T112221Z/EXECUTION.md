@@ -1,6 +1,6 @@
 # GS-117 physical access recovery — 2026-10-25
 
-Current reference: [working pipeline preservation and startup runbook](#working-pipeline-preservation-and-startup-runbook--2026-10-26).
+Current reference: [bootstrap failure evidence retention, offline-only closeout](#2026-10-29--bootstrap-failure-evidence-retention-offline-only).
 Earlier entries are dated historical checkpoints, not current blockers.
 
 Source HEAD: `30af100d2d5c84b56c7bd7abc99be031cd075cc6`. Canonical branch and context preflight PASS; no tracked changes on entry.
@@ -3500,3 +3500,99 @@ is claimed. No source code changed and no regressions were rerun: the prior
 72/72 focused result remains historical source evidence, while this session's
 actual validations are policy/preflight, host connectivity, one failed hardware
 readiness attempt and read-only durable replay verification.
+
+
+### 2026-10-29 — bootstrap failure evidence retention, offline only
+
+OWNING_JIRA=GS-117
+BUG_CLASSIFICATION=TEST_INFRA_ONLY
+REQUIREMENT_SOURCE=existing GS117-TC001-01 observation/failure-evidence contract
+DECISION_IDS=NONE
+TASK_SCOPE=Persist the existing protected GS40 child response before parent failure handling; keep failure and authorization latches intact.
+OUT_OF_SCOPE=No COM/ADB access, bootstrap, reset, service restart, input, campaign, database operation or policy mutation.
+
+**Reconciled child/parent behavior.** The prepared parent reads a single
+`CONFIG_CHALLENGE` from the child, sends the existing encrypted GS40 envelope,
+then calls `communicate(timeout=85)`. Its prior code parsed the child JSON and
+raised on a nonzero return code before saving `bootstrap-observation.json`; its
+exception cleanup killed/drained the child without retaining drained output.
+The Windows child already serializes an exact `error` plus the serial helper's
+`captured_observation` (`c3` and `s3` arrays). Thus the target guard existed;
+the loss was in the parent evidence order.
+
+**Minimal offline correction.** Added the tested
+`code/tools/local/gs117_bootstrap_evidence.py`, imported only by a separate
+private candidate. It records parent stage, child exit code, UTC start/challenge/
+finish times, elapsed duration, exact recognized error/guard code, relevant
+sanitized C3/S3 serial lines, bounded bootstrap timeline fields, and output byte
+counts/SHA-256. It filters the child JSON schema, redacts credential/private-key/
+nonce/token assignments and long tokens, never saves raw malformed stdout, and
+does not save configuration, challenge nonce/public key, envelope or private
+credentials. It writes `bootstrap-child-result.json` mode 0600 with exclusive
+creation, file+directory fsync, and refuses an insecure/non-owner session folder.
+On timeouts or earlier parent exceptions it kills/drains that one child, records
+available output and exit code before propagating; timeout remains failure and
+no retry is started. Existing 85-second child timeout, outer 150-second session,
+serial observation window, readiness guard, return codes, technical checks and
+failure latch are unchanged.
+
+Added five offline tests in existing `test_gs117_tc001_console.py`: child success,
+failed `TC001_TARGET_READINESS_GUARD_FAILED`, malformed child JSON with sensitive
+text redaction, child communication timeout, and parent interruption before a
+normal result. Traceability case `GS117-BOOTSTRAP-EVIDENCE-001` is registered on
+the existing GS117 tooling row; the existing `gs117-tc001-console` component
+stage includes the helper as an input.
+
+**Private evidence reconciliation.** The original failed session remains
+irrecoverable: `standing-authorization/bootstrap-5099032e07c23efc9f89430e/`
+contains only its attempt-start marker, generic parent stdout guard and empty
+stderr; it has no child observation artifact. Its summary records current
+C3 runtime/sensing, C3↔S3 rejoin and target signed-time acceptance as
+NOT_VERIFIED. Earlier session-120 GET_STATE logs did show both liveness values
+zero during that earlier bounded read; they do not reveal the later target
+guard's exact line. No output was reconstructed.
+
+Independent contemporaneous evidence remains distinct: the same readiness
+window's private mTLS ingress trace has physical S3 authority-refresh HTTP 200
+and CloudSync HTTP 201 COMMITTED for retained C3 session 118 sequences 70–73;
+PostgreSQL READ ONLY evidence shows one durable row for each. This proves S3
+backend communication/backlog replay, not new input, current C3 authentication,
+the target's accepted signed-time proof, TC-001 or Android acceptance. Signed-
+time request counts alone do not prove device validation.
+
+**Pins and activation.** The active policy file remains byte-for-byte unchanged
+with SHA-256
+`90cbf044f525fb907a87376707ef64d9d5f254f47a555e31bb0a8b792937fdb9`. The
+active private bootstrap remains unchanged at SHA-256
+`aca84ff3ebc4a507dcaca792a22167643cce32bd736fa3012e139af2c19d45ad`; its
+reviewed standing manifest still pins that original. A separate mode-0600,
+unexecuted candidate is at
+`~/.local/state/ghar-sajag/gs117-tc001/standing-readiness-prepared/gs117-protected-bootstrap-current-network-evidence-v5.py`
+with SHA-256 `b674461a46a14a4a5e3fd56902ffee04c60aca99c036efa8a892cb23c0f5d454`;
+it pins the tracked helper SHA-256
+`d3ab32c9217293ae54960ef11d03e6cd0237c74d2d779d0f070aed1116cc8f9d`. AST
+parse passed, but candidate was not executed. The original active manifest
+still reports `BLOCKED`/exit 2 from the failure latch. Old ledger and manifest
+were preserved; no counter/latch was reset, and v2–v4 private drafts remain
+preserved as unactivated artifacts.
+
+**Validation.** `python3 tests/python/test_gs117_tc001_console.py`: **77/77
+PASS**. `make validation-framework-test`: **55/55 PASS**. `make
+feature-coverage-test`: traceability validation **PASS** (226 features, 286
+modules, 27 physical cases) and **22/22 PASS**. Only the existing local Python
+tooling/test registry is affected; broader product/component gates and target
+builds were not run. No hardware, ADB, services, PostgreSQL or standing-policy
+state were touched by this correction.
+
+**Minimum next authorization.** The one readiness session used its authorized
+attempt and is failure-latched. A further observation needs explicit approval
+for a one-session successor policy whose only procedure-pin change is the
+reviewed candidate path/hash above and whose `max_sessions` is one. Retain the
+same device/Home/backend/image pins, helper/controller/validator pins, allowed/
+prohibited operations, one existing GS40 Bootstrap, zero retries, 150-second
+limit, 60-second observation and all stop guards; use a new owner approval ref.
+Keep the previous failed ledger intact. Activate the successor only through
+the existing consent mechanism. This would permit one fresh readiness attempt
+only; it does not authorize injection or the five-run campaign. No approval was
+requested or used in this offline correction. TC-001 remains 0/5 NOT_RUN and
+GS-117 remains OnHold.
