@@ -1,4 +1,81 @@
-## Latest active checkpoint — GS-117 C3 JEDEC/capacity verified; fixture remains partial — 2026-10-29
+## Latest active checkpoint — GS-117 physical E2E, one consolidated hardware approval required — 2026-10-29
+
+Resume base: canonical `feature/r1-commercial-baseline` at
+`8a8e0a082bb2556e3f19075ecc1e0476383046d2`; origin matched before this
+checkpoint. Context preflight PASS (`2026-10-28.001`). Tracked files were clean
+at the base; unrelated untracked Android, IDF and historical hardware evidence
+remain preserved.
+
+The owner-approved COM4 JEDEC/capacity query remains PASS: XMC 4 MB,
+manufacturer `0x46`, device `0x4016`, combined ID `0x164046`. It is not repeated.
+The command left C3 in ROM bootloader. C3 application execution and current
+installed-image provenance are not verified.
+
+At 2026-10-29 04:03Z the existing GS-117 console returned HTTP 200. PostgreSQL,
+caregiver HTTPS, development endpoint, certificate-verified laptop HTTPS at
+`192.168.1.6`, and the current Windows `192.168.1.6:8445` to WSL
+`172.17.152.10:8445` route passed. The previous bounded services expired at
+their one-hour limit. The first ingress restart exited before binding because
+the launch omitted the existing GS-179 bundled `libpq` path; its log is
+preserved. Reusing `gs179-laptop-server.sh`'s existing `PYTHONPATH` and
+`LD_LIBRARY_PATH` restored the bounded TEST_ONLY ingress. The existing signed-time
+launcher also restored UDP `192.168.1.6:4468`. No certificate, DB record, device
+port or credential was changed.
+
+These are host/listener results only. Current bounded ingress runtime reports
+`trusted_time_ready=YES` from its host TEST_ONLY provider but
+`real_hub_authenticated=NO`, `hub_connected=NO`, and
+`monitoring_freshness=UNKNOWN`; the current physical ingress trace is absent.
+The signed-time listener request count was zero after restart. No fresh S3
+mTLS/identity/time receipt or physical CloudSync receipt exists. The route's
+PASS is not a physical receipt.
+
+The S3 installed-image receipt observed 2026-10-26 is older than the fixture's
+24-hour limit. No fresh C3 image, active selector or partition-table receipt is
+available. The owner-only fixture and five-run approval files are absent. The
+current ADB list sees authorized phone `ZA2237MRHN`, but this pass made no new
+APK event observation; console APK readiness remains `NOT_VERIFIED` because the
+fixture is absent. TC-001 remains 0/5 NOT_RUN; physical PIR remains NOT_RUN.
+GS-117 stays OnHold and GS-179 stays In Progress.
+
+There is no tracked JEDEC helper in `code/tools/local` or `code/tests` to fix.
+The old helper is a mode-0600 one-off under private local state, outside
+supported source; it calls `flash_id()` before SPI attachment and is not reused.
+Its offline inspection also found broader eFuse/Jedec operations than the
+current scope. No code change or JEDEC test/query is warranted. Offline review
+of installed esptool 5.4.0 identified the least-invasive ROM exit candidate:
+`read-mac` with `--before no-reset --after hard-reset --no-stub` reads the
+expected eFuse MAC without SPI attachment/JEDEC access; common teardown then
+uses the RTS hard-reset path. This is a proposal only. It would need a single
+COM4 authorization, followed by the existing `GET_STATE` check; stop if the
+expected HIL application does not start.
+
+**Single owner approval needed before any new physical operation:** one bounded
+GS-117 TEST_ONLY session for the exact C3 `c3-146393c5d158` / COM4 /
+`14:63:93:C5:D1:58`, Hub `hub-e072a1d38d34` / COM10 /
+`E0:72:A1:D3:8D:34`, Home `gs177-test-product`, and the already authorized
+Android phone `ZA2237MRHN`. Permit (1) one C3 no-JEDEC `read-mac` plus controlled
+hard reset to the existing app and `GET_STATE`; (2) targeted read-only reads of
+only each board's partition table, OTA selector (`otadata`) and selected active
+app region to establish current image receipts; (3) one reapplication, only if
+COM10 readback/reset clears RAM-only Hub configuration, of the existing
+verified GS40 TEST_ONLY encrypted configuration targeting `192.168.1.6`; then
+(4) only after all fixture, fresh physical ingress, identity and backend gates
+pass, run the existing controller for at most five sequential C3
+`INJECT_MOTION` inputs, with COM4-open reset risk accepted, COM10 unopened
+during campaign runs, automatic exact-key verification through PostgreSQL/API
+and the installed APK, and stop at the first failure. Use only the existing
+one-use campaign approval guard after readiness passes.
+
+Explicit exclusions: no standalone JEDEC/capacity query; no flash write, erase,
+partition/NVS/outbox/credential read or mutation, credential issuance or
+replacement, enrollment/ownership/database change, firmware/security change,
+factory reset, additional reset/retry after failure, another Home, or PIR test.
+Before each port open, revalidate exact USB identity. Any identity, image,
+security, configuration or time mismatch stops the session. This single approval
+is the next owner action; it is not granted by this checkpoint.
+
+### Previous active checkpoint — GS-117 C3 JEDEC/capacity verified; fixture remains partial — 2026-10-29
 
 Resume base: canonical `feature/r1-commercial-baseline` at
 `6918ffcd4ba34bbcf082c9523720ff2df3385fdd`; origin matched. Context preflight

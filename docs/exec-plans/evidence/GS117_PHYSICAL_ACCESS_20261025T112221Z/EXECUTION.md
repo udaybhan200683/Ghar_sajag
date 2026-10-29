@@ -3135,3 +3135,68 @@ Private evidence is at
 log SHA-256
 `998df36cc3b5ec73722e485c41ba4e8d2c5e706ff6de5436412456780bdffb03`; files
 are mode 0600.
+
+### 2026-10-29 04:03 UTC — bounded service recheck; physical authorization package
+
+The current canonical head before this evidence update was
+`8a8e0a082bb2556e3f19075ecc1e0476383046d2` (origin equal; preflight PASS).
+No source/helper fix was needed: `git grep` finds no supported JEDEC helper in
+`code/tools/local` or `code/tests`. The private mode-0600 readback script is
+outside supported source, calls `flash_id()` before attach, and includes other
+eFuse/JEDEC reads, so it was neither changed nor run. Installed esptool 5.4.0
+source review found that `read-mac` does not attach SPI flash or query JEDEC;
+its `--after hard-reset` teardown uses RTS. This is the proposed one-shot path
+from ROM to the existing app, not an executed operation. Verify app startup with
+the existing `GET_STATE` helper and stop on failure.
+
+At 04:03 UTC, the existing GS-117 `/api/status` returned HTTP 200 and reported
+PostgreSQL, caregiver HTTPS, laptop LAN TLS, development endpoint and current
+Windows `.6:8445` to WSL `.10:8445` forwarding PASS. The bounded service window
+had expired; one launch attempt first exited before binding because the
+existing bundled libpq `LD_LIBRARY_PATH` was omitted. Its log is preserved. The
+second launch reused the paths from `gs179-laptop-server.sh` and restored the
+existing bounded GS179 TEST_ONLY listener on `172.17.152.10:8445`. The existing
+signed-time launcher restored UDP `192.168.1.6:4468`; Windows reports the
+listener bound. Runtime status still says `real_hub_authenticated=NO`,
+`hub_connected=NO`, `monitoring_freshness=UNKNOWN`; the trace file is absent and
+the restarted signed-time request count was zero. The runtime's
+`trusted_time_ready=YES` is host-generated readiness only. No physical S3
+identity, trusted-time or CloudSync receipt is established.
+
+The actual S3 installed-image receipt is from 2026-10-26 and is stale for the
+24-hour fixture gate. Current C3 app/partition evidence is also absent; C3 was
+last observed in ROM after the approved capacity query. The expected C3/S3 USB
+descriptors match without opening either port. Phone `ZA2237MRHN` appears as an
+authorized ADB device, but the current APK event was not re-observed. The
+owner-only fixture and campaign approval are absent; TC-001 remains 0/5
+NOT_RUN. No hardware or database operation occurred in this recheck.
+
+One consolidated approval is requested for a single bounded GS-117 TEST_ONLY
+session on exact C3 `c3-146393c5d158` / COM4 / serial
+`14:63:93:C5:D1:58`, S3 `hub-e072a1d38d34` / COM10 / serial
+`E0:72:A1:D3:8D:34`, Home `gs177-test-product`, and phone `ZA2237MRHN`:
+
+1. One read-only `read-mac` plus RTS hard reset to return the existing C3 app;
+   confirm expected app and HIL state with existing `GET_STATE`.
+2. Targeted read-only current-image provenance: partition table, OTA selector,
+   selected active app region only on C3 and S3. No NVS, outbox, credentials or
+   unrelated region access; no writes/erase and no standalone JEDEC query.
+3. If COM10 readback/reset clears RAM-only connectivity, one use of the existing
+   GS40 encrypted TEST_ONLY configuration recovery to endpoint `192.168.1.6`,
+   using the preserved verified artifacts only.
+4. After current fixture and fresh S3 mTLS/time/backend gates pass, run the
+   existing five-run controller once: at most five sequential C3
+   `INJECT_MOTION` inputs, accept COM4 serial-open reset risk, do not open COM10
+   during campaign runs, automatically verify each original EventKey through
+   authenticated S3 durable ACK, CloudSync, PostgreSQL, caregiver API and actual
+   installed APK, and stop on the first failure. The first successful run is
+   the end-to-end smoke result; remaining runs proceed only if it passes.
+
+No credential replacement, enrollment/ownership/database mutation, flashing,
+erase, firmware/security change, partition modification, factory reset, retry
+after a failed guard, PIR stimulus or additional hardware operation is included.
+Recheck USB identities immediately before every port open. The existing
+one-use campaign approval file is created only after genuine readiness passes.
+This approval request does not authorize execution. The 24-hour S3 receipt,
+current C3/S3 readbacks, fresh physical Hub receipt and owner-only fixture remain
+the exact gates before the first event.
