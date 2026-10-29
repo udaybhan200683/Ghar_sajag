@@ -9691,3 +9691,42 @@ Next: reconnect the authorized Android device for exact-key Reports/Event
 Details observation. The physical TC-001 run still requires current qualified
 target/fixture evidence, current S3 authentication/time readiness, the
 owner-only fixture, and separate campaign authorization.
+
+### 2026-10-29 12:55 UTC — Android exact-key backlog observation; TC-001 gates remain closed
+
+The authorized phone is connected to ADB as `ZA2237MRHN`; the installed
+`in.gharsajag.caregiver.discoverytest` APK remains version
+`0.4.0-connected-lite-staging` (versionCode 3), with no reinstall. In the real
+APK, Reports → Event Details shows exact C3 session-118 sequence 100 and 101
+for Bedroom/Home `gs177-test-product`; Settings reported backend origin
+`https://192.168.1.6/` and `CONNECTED`. Private screenshots and accessibility
+XML with hashes are preserved under
+`~/.local/state/ghar-sajag/gs117-tc001/android-session118-seq100-reverify-20261029T123356Z-cf60bf/`.
+The bounded automated exact-key scan still fails to find seq100 because it
+does not scroll the long Reports list; existing ADB UI helpers were used to
+scroll and independently confirm the actual record. The app labels these
+TEST_ONLY entries “physical origin not verified.” This confirms display of
+historical retained backlog only; displayed times are backend receipt-time
+fallbacks, not C3 generation times. It is not a fresh injection or optical
+PIR pass. The full 32-key authenticated API/PostgreSQL result remains the
+previously verified 12:08 UTC evidence; it was not repeated in this session.
+
+The owner-only fixture and five-run campaign approval are both absent. The
+current exact-fixture guard needs current per-board image receipts, including
+S3 16 MiB flash/8 MiB PSRAM, a current APK install receipt bound to Home/origin
+and trusted signer digest, and a structured fresh ingress receipt with
+authenticated Hub identity, trusted-time readiness and certificate digests.
+Reuse same-day C3/S3 app/partition readbacks and the prior JEDEC PASS; do not
+repeat them. Current raw ingress proves physical CloudSync receipts but lacks
+the complete structured trust/time fields. `--hil-policy-status` is BLOCKED
+on a standing-policy serial-helper fingerprint mismatch; its one-session
+failure ledger remains consumed and latched. The local GS-117 `/api/status`
+timed out after five seconds, and bounded 8445/4468 listeners were not active
+at observation. No COM, hardware, service restart or data mutation occurred.
+
+GS-117 remains OnHold, TC-001 0/5 NOT_RUN; GS-179 remains In Progress. The
+next action is to resolve the existing policy fingerprint/latch through its
+reviewed successor procedure, obtain only the genuinely missing current
+receipts and live readiness evidence, validate the owner-only fixture, then
+request separate campaign authorization. See the dated GS-117/GS-179 evidence
+sections for hashes, constraints and stage details.
