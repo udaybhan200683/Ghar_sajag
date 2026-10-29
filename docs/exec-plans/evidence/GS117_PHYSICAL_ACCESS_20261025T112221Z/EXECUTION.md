@@ -3029,3 +3029,57 @@ fresh authenticated receipt from the physical S3 as Hub authentication. The
 owner-only current-image fixture and independent one-run/five-run approvals
 remain required; TC-001 is **0/5 NOT_RUN**, Morning Routine decision is
 **NOT_RUN**, and optical PIR is **NOT_RUN**. GS-117 remains OnHold.
+
+### 2026-10-29 03:31 UTC — owner-restored physical-ingress route rechecked
+
+The owner completed the elevated Windows action for the existing
+`PhysicalHubIngress` forwarding rule. The current GS-117 console page and
+`/api/status` return HTTP 200. Its live read-only audit confirms trusted Private
+Wi-Fi `Airtel_Agrim` at `192.168.1.6`, current WSL `172.17.152.10`, the exact
+`.6:8445 -> .10:8445` mapping, one active Windows listener and the WSL listener.
+Console ingress route status is **PASS**. PostgreSQL, local caregiver HTTPS,
+LAN forwarding and certificate-verified laptop HTTPS also report PASS. No
+certificate work was repeated.
+
+Route readiness does not establish an S3 handshake. Current status still has
+`authenticated_hub=NOT_VERIFIED` and `fresh_physical_receipt=NOT_VERIFIED`;
+the bounded ingress trace is absent (zero receipts in the preserved
+post-restoration observation). No fresh physical Hub identity or signed-time
+proof is available. The earlier nonce/generation-bound host proof was a
+host-only test and is expired. The caregiver service's aggregate health field
+`HUB_INGRESS_READY=NOT_CONFIGURED` is its separate default-disabled ingress
+composition; it is not evidence that the active bounded TCP 8445 listener
+authenticated a Hub.
+
+The Settings 403 is the expected existing authorization result for the
+currently configured `CAREGIVER` / `FAMILY` account. Household Settings require
+the existing `ADMIN` plus durable `OWNER` or `PRIMARY` authority. An eligible
+account exists but no owner/primary credentials are configured for this
+observer; the Home has no desired/applied configuration row. No role, account,
+credential or household data was changed. Use the existing authenticated
+Settings flow with an authorized owner/primary administrator; do not bypass the
+guard or put credentials in this evidence.
+
+Current USB discovery reports the expected C3 COM4 and S3 COM10 descriptors
+only; neither port was opened. The last authorized C3 raw flash-ID attempt
+returned JEDEC `0xffffff`, manufacturer/device `0xff/0xffff`, with capacity
+unknown. It did not read app bytes, the partition table or selector. That
+one-attempt hardware approval is consumed. The owner-only fixture is absent;
+the separate physical-run/campaign approvals are absent. No injection, reset,
+flash or physical event occurred. TC-001 remains **0/5 NOT_RUN**; Morning
+Routine completion and physical APK observation remain NOT_RUN; optical PIR
+remains NOT_RUN.
+
+The first physical-fixture gate is a new, narrowly scoped owner authorization
+for one corrected, read-only COM4 JEDEC/capacity diagnostic using the existing
+reviewed procedure, with SPI flash attach performed before `flash_id()`. It
+must stop if identity/capacity is still unexpected; this approval would not
+permit firmware/partition reads, reset, injection or the campaign. After a
+valid JEDEC result, obtain separate current authorization for any remaining
+targeted readback/recovery. Only after all fixture, fresh-S3-authentication and
+identity gates pass should the independent five-run approval be requested.
+
+The current sanitized console observation is private at
+`~/.local/state/ghar-sajag/gs117-tc001/services-live-20261029T025923Z/console-ingress-readiness-20261029T033127Z.json`
+(mode 0600, SHA-256
+`72bcf73b862eebdbe69eba9bbb5d6b28c520808cd6a8a18709e6543517fa2be1`).

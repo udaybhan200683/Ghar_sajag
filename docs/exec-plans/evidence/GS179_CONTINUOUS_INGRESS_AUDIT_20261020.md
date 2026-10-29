@@ -806,3 +806,38 @@ next privileged operation remains the existing scoped `Start` action for
 `PhysicalHubIngress` on trusted Private Wi-Fi; after it succeeds, require a new
 actual S3 mTLS receipt. No credential, TLS certificate, firewall boundary,
 database row, COM port or hardware state was changed.
+
+### 2026-10-29 03:31 UTC — owner-restored ingress route and physical receipt status
+
+The owner completed the elevated existing GS-179 `PhysicalHubIngress` Start
+action. A fresh read-only audit now confirms the current trusted Private Wi-Fi
+(`Airtel_Agrim`, `192.168.1.6`), WSL address `172.17.152.10`, exact owned
+portproxy mapping and one active Windows listener; the WSL TCP 8445 listener is
+also active. GS-117 route status is PASS. PostgreSQL, local caregiver HTTPS,
+LAN forwarding and verified laptop TLS are PASS. This resolves the missing
+Windows listener from the prior checkpoint; it does not require a certificate
+or backend change.
+
+The bounded ingress runtime process is active, but no physical S3 request has
+arrived: the receipt trace is absent and current status remains
+`authenticated_hub=NOT_VERIFIED`, `fresh_physical_receipt=NOT_VERIFIED`,
+Hub/time identity unproven. The earlier host signed-time challenge is not a
+Hub challenge and its proof is expired. The separate caregiver service health
+field `HUB_INGRESS_READY=NOT_CONFIGURED` means its production/default-disabled
+ingress is not composed; it must not be confused with the live TEST_ONLY
+listener or used to infer a physical handshake. Firewall details are not
+independently readable from the current non-admin WSL audit; the owner supplied
+the successful elevated action and Windows connectivity result.
+
+The existing Settings endpoint returned 403 under the configured
+`CAREGIVER`/`FAMILY` account because Settings requires `ADMIN` and durable
+`OWNER`/`PRIMARY` authority. A qualifying account exists, but owner credentials
+are not configured in the observer; the TEST_ONLY Home has no desired/applied
+policy row. The existing authenticated flow remains the supported route. No
+authentication, role, credential, TLS, database or Hub identity was changed.
+No COM port was opened and no physical input was sent.
+
+Private evidence:
+`~/.local/state/ghar-sajag/gs117-tc001/services-live-20261029T025923Z/console-ingress-readiness-20261029T033127Z.json`
+(mode 0600, SHA-256
+`72bcf73b862eebdbe69eba9bbb5d6b28c520808cd6a8a18709e6543517fa2be1`).

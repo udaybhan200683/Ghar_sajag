@@ -1,4 +1,53 @@
-## Latest active checkpoint — GS-117 Android observation and ingress readiness — 2026-10-29
+## Latest active checkpoint — GS-117 ingress route restored; S3 and fixture still blocked — 2026-10-29
+
+Resume base is canonical `feature/r1-commercial-baseline` at
+`893a76f250fa8fb8dfce99fc7102e033682b1bcd`; origin matched before this
+evidence-only closeout. Context preflight PASS (`2026-10-28.001`). The owner
+completed the elevated action for the existing GS-179 physical-ingress route.
+The live GS-117 `/` and `/api/status` return HTTP 200. Read-only status confirms
+trusted Private Wi-Fi `.6`, current WSL `.10`, the exact owned `.6:8445 ->
+.10:8445` mapping, one Windows listener and the WSL listener. Route status is
+PASS. PostgreSQL, local caregiver HTTPS, LAN forwarding and certificate-verified
+laptop HTTPS are PASS. No TLS/certificate work was repeated.
+
+The route is not an authenticated Hub receipt: the bounded runtime trace remains
+absent/zero, `authenticated_hub` and `fresh_physical_receipt` remain
+`NOT_VERIFIED`, and no current physical Hub time proof exists. The previously
+verified host-generated signed-time proof was host-only and expired. The
+caregiver health script's `HUB_INGRESS_READY=NOT_CONFIGURED` describes its
+separate default-disabled ingress composition, not the active bounded
+TEST_ONLY listener. Evidence is private at
+`~/.local/state/ghar-sajag/gs117-tc001/services-live-20261029T025923Z/console-ingress-readiness-20261029T033127Z.json`
+(mode 0600; SHA-256
+`72bcf73b862eebdbe69eba9bbb5d6b28c520808cd6a8a18709e6543517fa2be1`).
+
+Settings remains BLOCKED with HTTP 403 because the configured observer account
+has `CAREGIVER`/`FAMILY`, while existing policy requires `ADMIN` and durable
+`OWNER`/`PRIMARY`. A qualifying account exists but its credentials are not
+configured for this observer; the Home has no desired/applied policy row. No
+account or configuration was changed. Use the existing authenticated Settings
+flow with an authorized owner/primary administrator; do not bypass the guard or
+share credentials in chat.
+
+USB discovery confirms only the expected C3 COM4 and S3 COM10 descriptors; no
+port was opened. The last authorized C3 flash-ID attempt returned JEDEC
+`0xffffff`, capacity unknown, and read no app/partition bytes. That one-attempt
+approval is consumed. The current owner-only fixture and independent run/five-
+run approvals are absent. The first physical-fixture action is a new narrowly
+scoped owner approval for one corrected read-only COM4 JEDEC/capacity attempt
+using the existing reviewed procedure (attach SPI flash before `flash_id()`);
+stop if the result remains unexpected. This does not authorize readback,
+recovery, injection or a campaign. After JEDEC succeeds, separately authorize
+any remaining targeted readback/recovery and then request the independent
+five-run campaign approval only after all current fixture and S3-authentication
+gates pass.
+
+TC-001 remains 0/5 NOT_RUN. No physical event, Hub routine decision or current
+Android business-outcome evidence was created. The last authorized Android
+observer evidence remains a live phone-to-backend check of historical HOST_SIM
+data, not a physical event. GS-117 remains OnHold; GS-179 remains In Progress.
+
+### Previous checkpoint — GS-117 Android observation and ingress readiness — 2026-10-29
 
 Resume base was canonical `feature/r1-commercial-baseline` at
 `3ec7831450055bf4258e37b2759cfaaeadeaa6c9`; origin matched. Context preflight
