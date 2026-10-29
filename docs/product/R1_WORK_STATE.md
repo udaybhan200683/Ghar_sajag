@@ -9647,3 +9647,47 @@ is claimed. No source code changed and no regressions were rerun: the prior
 72/72 focused result remains historical source evidence, while this session's
 actual validations are policy/preflight, host connectivity, one failed hardware
 readiness attempt and read-only durable replay verification.
+
+
+### 2026-10-29 12:08 UTC — GS-179 Reports window corrected; Android verification still pending
+
+The capped caregiver Reports timeline previously ordered on raw zero
+`occurred_at`, which excluded session-118 sequence 100 before the 100-row
+limit. Commit `36922a05aa1326a0e798f116f1866ab03172dced` orders by effective
+event time (`occurred_at`, falling back to `received_at`) before LIMIT, adds a
+matching bounded functional index, aligns the in-memory fallback and registers
+focused regressions.
+
+After one controlled restart of the existing GS-179 service, PostgreSQL
+TLS/durability, caregiver HTTPS and LAN forwarding passed; migration 015 was
+applied. An authenticated TEST_ONLY Reports API read and independent
+PostgreSQL READ ONLY query both returned all 32 unique C3 session-118 keys,
+sequences 70–101, once each (24 MOTION, 8 MOTION_SUMMARY). Preserved physical
+S3 ingress traces correlate all 32 HTTP 201 commits and 27 HTTP 200 duplicate
+retries to the same original keys. No rows or event timestamps were mutated.
+
+All raw C3 `occurred_at` and database `hub_received_at` values are zero.
+The API's displayed `occurred_at` is therefore the backend receipt-time
+fallback, not original motion-generation time. This is retained physical
+backlog evidence with unknown original stimulus; it is neither PIR qualification
+nor controlled TC-001 acceptance.
+
+Android observer now reads `content-desc` and waits a bounded additional
+interval for a temporarily empty WebView accessibility tree. The saved failed
+observer run has no hierarchy dump; a separate diagnostic supports, but does
+not prove, that transient cause. The authorized ADB path currently lists no
+device, so the owner's 32-entry Reports view is not independently reverified
+and no new exact-key screenshot is claimed.
+
+Validation: GS-179 PostgreSQL E2E 70/70; isolated PostgreSQL timeline
+regression 1/1; effective-time projection 8/8; GS-117 observer/controller
+79/79; validation framework 55/55; traceability 226 features / 287 modules /
+27 physical cases and 22/22 tests. Full release gates were not run. See
+`docs/exec-plans/evidence/GS179_CONTINUOUS_INGRESS_AUDIT_20261020.md` and
+`docs/exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md`.
+
+GS-179 remains In Progress; GS-117 remains OnHold and TC-001 0/5 NOT_RUN.
+Next: reconnect the authorized Android device for exact-key Reports/Event
+Details observation. The physical TC-001 run still requires current qualified
+target/fixture evidence, current S3 authentication/time readiness, the
+owner-only fixture, and separate campaign authorization.

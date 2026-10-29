@@ -3663,3 +3663,36 @@ The failure evidence is preserved privately in `~/.local/state/ghar-sajag/gs117-
 **Acceptance boundary.** These records are strong evidence of physical S3 mTLS CloudSync, PostgreSQL durable exactly-once storage and duplicate-safe replay for 32 C3-attributed session-118 keys. They do not show whether the initiating events came from optical PIR, USB HIL injection or another earlier physical stimulus, because no C3 generation log for sequences 70–101 was found. Do not classify this as `REAL_SENSOR_PASS` or controlled TC-001 acceptance. TC-001 remains 0/5 NOT_RUN; the owner-only fixture is absent; a fresh current ingress/time receipt and separate five-run campaign authorization remain required.
 
 **Next actions.** Fix and regression-test the GS-179 effective-time ordering before trusting the capped Reports projection; then verify all 32 exact keys through the API and actual APK. Separately satisfy current fixture/receipt gates and obtain the scoped campaign authorization before controlled input. Keep genuine optical PIR qualification separate. No source tests or hardware operation were performed for this read-only reconciliation.
+
+
+### 2026-10-29 12:08 UTC — Reports correction verified; physical acceptance unchanged
+
+GS-179's capped Reports ordering defect is corrected at commit
+`36922a05aa1326a0e798f116f1866ab03172dced`. The effective event timestamp is
+now selected before the bounded 100-row cap, with a matching database index and
+deterministic EventKey tie-breaker. The authenticated caregiver API and
+read-only PostgreSQL both return all 32 session-118 EventKeys (sequences
+70–101), once each: 24 MOTION and 8 MOTION_SUMMARY. Preserved physical Hub
+traces show 32 first COMMITTED receipts plus 27 duplicate-safe retries.
+
+Every stored C3 `occurred_at` and Hub `hub_received_at` remains zero. API
+`occurred_at` therefore reflects backend receipt time, not original motion
+generation time. The batch is retained backlog; stimulus origin is unknown.
+It is not PIR evidence, a controlled TC-001 input, or proof of a current C3
+application ACK.
+
+The observer now supports accessibility content descriptions and bounded
+retries while the WebView tree is temporarily empty. Its 79/79 software tests
+pass. ADB currently reports no connected device, so the prior owner-visible
+32-entry Reports view was not independently re-observed and no new APK
+screenshot/exact-key evidence was produced. Private API/DB/ingress correlation
+is recorded at `~/.local/state/ghar-sajag/gs179-reports-session118/`.
+
+Focused results: GS-179 PostgreSQL E2E 70/70; isolated PostgreSQL timeline
+regression 1/1; effective-time projection 8/8; GS-117 observer/controller
+79/79; validation framework 55/55; traceability 226 features / 287 modules /
+27 physical cases plus 22/22 tests. No hardware or database mutation occurred.
+GS-117 remains OnHold and TC-001 remains 0/5 NOT_RUN. Next: reconnect the
+already authorized Android device so ADB can observe exact keys, then satisfy
+current target-image, S3 authentication/time, owner-only fixture and separate
+campaign-authorization gates before fresh physical test input.
