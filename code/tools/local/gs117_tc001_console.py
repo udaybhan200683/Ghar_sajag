@@ -106,6 +106,22 @@ def read_only_observe_approval(path: Path) -> dict:
     return approval
 
 
+def development_input_trial(fixture):
+    if fixture.get('qualification_profile') != 'GS117_DEV_TEST_ONLY':
+        return False
+    import gs117_hil_authorization as auth
+    policy = auth.load_development()
+    identity = policy['identity']
+    if (fixture.get('home_id') != identity['home_id'] or
+        fixture.get('physical_device_id') != identity['c3']['device_id'] or
+        fixture.get('hub_id') != identity['s3']['device_id'] or
+        any(fixture.get(r, {}).get('port') != identity[r]['port'] or
+            fixture.get(r, {}).get('serial_number') != identity[r]['serial_number']
+            for r in ('c3','s3'))):
+        raise ValueError('development_input_trial_identity_mismatch')
+    return True
+
+
 def exact_fixture() -> dict:
     if not FIXTURE.is_file() or FIXTURE.stat().st_mode & 0o777 != 0o600:
         raise ValueError("owner_only_fixture_approval_and_identity_file_missing")
@@ -202,29 +218,35 @@ def exact_fixture() -> dict:
                 tls_dir / "ca.pem", tls_dir / "server.pem")
         except (ValueError, OSError):
             raise ValueError("installed_APK_backend_Home_or_signer_unverified") from None
-    if not fixture.get("hub_ingress_receipt"):
-        raise ValueError("authenticated_persistent_Hub_ingress_receipt_missing")
-    ingress = json.loads(Path(fixture["hub_ingress_receipt"]).read_text(encoding="utf-8"))
-    try:
-        ingress_observed = datetime.fromisoformat(ingress["observed_at"])
-        ingress_age = (datetime.now(timezone.utc) - ingress_observed).total_seconds()
-    except (KeyError, TypeError, ValueError):
-        raise ValueError("current_Hub_ingress_observation_time_missing") from None
-    if (ingress.get("profile") != "GS179_TEST_ONLY" or
-            ingress.get("home_id") != fixture["home_id"] or
-            ingress.get("hub_id") != fixture.get("hub_id") or
-            ingress.get("installation_epoch") != fixture.get("installation_epoch") or
-            ingress.get("node_device_id") != fixture["physical_device_id"] or
-            ingress.get("node_enrollment_verified") is not True or
-            not re.fullmatch(r"[0-9a-f]{64}", ingress.get("mtls_client_cert_sha256", "")) or
-            not re.fullmatch(r"[0-9a-f]{64}", ingress.get("server_cert_sha256", "")) or
-            ingress.get("authenticated_hub_identity") is not True or
-            ingress.get("trusted_time_ready") is not True or
-            not (ingress.get("persistent_listener_ready") is True or
-                 ingress.get("bounded_listener_ready") is True or
-                 ingress.get("listener_ready") is True) or
-            ingress_observed.tzinfo is None or not 0 <= ingress_age <= 86400):
-        raise ValueError("authenticated_Hub_ingress_Home_epoch_or_time_unverified")
+    if not development_input_trial(fixture):
+        if not fixture.get("hub_ingress_receipt"):
+            raise ValueError("authenticated_persistent_Hub_ingress_receipt_missing")
+        ingress = json.loads(Path(fixture["hub_ingress_receipt"]).read_text(encoding="utf-8"))
+        try:
+            ingress_observed = datetime.fromisoformat(ingress["observed_at"])
+            ingress_age = (datetime.now(timezone.utc) - ingress_observed).total_seconds()
+        except (KeyError, TypeError, ValueError):
+            raise ValueError("current_Hub_ingress_observation_time_missing") from None
+        if (ingress.get("profile") != "GS179_TEST_ONLY" or
+                ingress.get("home_id") != fixture["home_id"] or
+                ingress.get("hub_id") != fixture.get("hub_id") or
+                ingress.get("installation_epoch") != fixture.get("installation_epoch") or
+                ingress.get("node_device_id") != fixture["physical_device_id"] or
+                ingress.get("node_enrollment_verified") is not True or
+                not re.fullmatch(r"[0-9a-f]{64}", ingress.get("mtls_client_cert_sha256", "")) or
+                not re.fullmatch(r"[0-9a-f]{64}", ingress.get("server_cert_sha256", "")) or
+                ingress.get("authenticated_hub_identity") is not True or
+                ingress.get("trusted_time_ready") is not True or
+                not (ingress.get("persistent_listener_ready") is True or
+                     ingress.get("bounded_listener_ready") is True or
+                     ingress.get("listener_ready") is True) or
+                ingress_observed.tzinfo is None or not 0 <= ingress_age <= 86400):
+            raise ValueError("authenticated_Hub_ingress_Home_epoch_or_time_unverified")
+    else:
+        # DEV may attempt the first real input without prior event-delivery
+        # proof. Runtime ACK, current registry, mTLS/DB/API/APK verification
+        # still decide the outcome; this is not TC001_READY qualification.
+        fixture['target_trust_status'] = 'NOT_VERIFIED_BEFORE_DEV_INPUT'
     fixture["phone_receipt"] = {
         "adb_serial": adb_serial, "package": phone["package"],
         "version_name": phone.get("version_name") or phone.get("version"),
@@ -235,7 +257,19 @@ def exact_fixture() -> dict:
 
 
 def campaign_approval(path: Path, fixture: dict) -> dict:
-    """Validate the one-use owner approval for five reset-risk-aware C3 runs."""
+    """Validate isolated DEV consent or the existing one-use approval."""
+    import gs117_hil_authorization as auth
+    if auth.DEV_POLICY.exists():
+        policy = auth.load_development()
+        if (fixture.get("home_id") != policy['identity']['home_id'] or
+            fixture.get("physical_device_id") != policy['identity']['c3']['device_id'] or
+            fixture.get("hub_id") != policy['identity']['s3']['device_id'] or
+            any(fixture.get(role, {}).get('port') != policy['identity'][role]['port'] or
+                fixture.get(role, {}).get('serial_number') != policy['identity'][role]['serial_number']
+                for role in ('c3','s3'))):
+            raise ValueError('development_campaign_fixture_identity_mismatch')
+        return {'approval_ref': policy['owner_approval_ref'], 'development_authorization': True}
+
     try:
         info = path.lstat()
     except FileNotFoundError:
@@ -336,7 +370,7 @@ def morning_run_approval(path: Path, fixture: dict, policy_version: int) -> dict
 def powershell(action: str, fixture: dict | None = None) -> object:
     script = subprocess.check_output(["wslpath", "-w", str(SERIAL)], text=True, timeout=5).strip()
     payload = {"action": action}
-    if action in {"Run", "Observe"}:
+    if action in {"Run", "Observe", "ObserveNode"}:
         payload.update({name: {key: fixture[name][key] for key in
                                (("port", "usb_hwid", "serial_number", "hil_control", "hil_build",
                                  "physical_wake") if action == "Run" and name == "c3" else
@@ -350,6 +384,8 @@ def powershell(action: str, fixture: dict | None = None) -> object:
                         "backend_origin": fixture["phone_receipt"]["backend_origin"],
                         "event_key": fixture.get("event_key"),
                         "decision_id": fixture.get("decision_id")})
+    if action == "ObserveNode":
+        payload["observation_seconds"] = fixture.get("observation_seconds", 30)
     if action == "Observe":
         payload.update({"query_s3_status": True, "s3_boot_reset": False,
                         "observation_seconds": 10})
@@ -593,7 +629,7 @@ class Controller:
             android_status = {"status": "NOT_VERIFIED", "reason": "fixture_not_available"}
             try:
                 fixture = exact_fixture()
-                fixture_status = {"status": "PASS", "reason": "exact owner-only fixture and current receipts verified"}
+                fixture_status = {"status": "PASS", "qualification": ("DEV_INPUT_TRIAL" if fixture.get("target_trust_status") else "QUALIFIED_FIXTURE"), "reason": ("DEV input prerequisites verified; physical delivery must pass in this run" if fixture.get("target_trust_status") else "exact owner-only fixture and current receipts verified")}
                 try:
                     enrollment = backend({
                         "action": "baseline", "home_id": fixture["home_id"],
@@ -614,8 +650,8 @@ class Controller:
                         "reason": str(error) if isinstance(error, ValueError) else type(error).__name__,
                     }
                 try:
-                    campaign_approval(CAMPAIGN_APPROVAL, fixture)
-                    approval_status = {"status": "PASS", "reason": "one-use five-run approval present; not consumed"}
+                    approval = campaign_approval(CAMPAIGN_APPROVAL, fixture)
+                    approval_status = {"status": "PASS", "reason": ("active reusable DEV authorization" if approval.get("development_authorization") else "one-use five-run approval present; not consumed")}
                 except (ValueError, OSError) as error:
                     approval_status = {"status": "BLOCKED", "reason": str(error) if isinstance(error, ValueError) else type(error).__name__}
                 try:
@@ -1310,7 +1346,21 @@ class Controller:
         threading.Thread(target=self.execute_campaign, args=(campaign,), daemon=True).start()
         return campaign
 
-    def execute_campaign(self, campaign: dict) -> None:
+    def execute_campaign(self, campaign: dict, _development_reserved=False) -> None:
+        import gs117_hil_authorization as auth
+        if auth.DEV_POLICY.exists() and not _development_reserved:
+            try:
+                with auth.development_session('tc001_campaign'):
+                    self.execute_campaign(campaign, _development_reserved=True)
+                    if campaign.get('overall') != 'PASS':
+                        raise ValueError('development_campaign_' + campaign.get('overall', 'UNKNOWN'))
+            except (OSError, ValueError) as error:
+                if not _development_reserved and campaign.get('overall') not in ('PASS', 'FAIL', 'BLOCKED'):
+                    campaign['overall'] = 'BLOCKED'
+                    campaign['stop_reason'] = str(error)
+                    self.save(campaign)
+                    if self.lock.locked(): self.lock.release()
+            return
         approval_path = CAMPAIGN_APPROVAL
         consumed_path = None
         try:
@@ -1345,11 +1395,12 @@ class Controller:
                                   "TEST_ONLY fixture, current backend/Home, both USB identities, and ADB package ready; no board serial opened")
             # One-use approval is consumed only after all static readiness checks
             # pass and immediately before the first C3 serial operation.
-            consumed_path = approval_path.with_name(
-                approval_path.stem + ".consumed." +
-                datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ") + approval_path.suffix)
-            os.rename(approval_path, consumed_path)
-            os.chmod(consumed_path, 0o600)
+            if not approval.get('development_authorization'):
+                consumed_path = approval_path.with_name(
+                    approval_path.stem + ".consumed." +
+                    datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ") + approval_path.suffix)
+                os.rename(approval_path, consumed_path)
+                os.chmod(consumed_path, 0o600)
             campaign["approval_ref"] = approval["approval_ref"]
             campaign["approval_consumed_at"] = utc()
             campaign["reset_safe_uart_verified"] = False
@@ -1370,6 +1421,8 @@ class Controller:
                 campaign["runs"].append(run_report["run_id"])
                 self.save(run_report)
                 self.save(campaign)
+                if approval.get('development_authorization'):
+                    auth.load_development()  # Revocation is checked before every input.
                 self.execute(run_report, fixture_override=fixture, release_lock=False)
                 campaign["completed_runs"] = index
                 if run_report["overall"] == "PASS":
@@ -1722,10 +1775,10 @@ HTML = """<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewp
 const esc=s=>escape(s);const stageList=x=>'<ol>'+Object.entries(x.stages||{}).map(([k,v])=>{const value=typeof v==='string'?{status:v,reason:''}:v||{};return '<li>'+esc(k)+': <b>'+esc(value.status||'NOT_VERIFIED')+'</b> — '+esc(value.reason||'')+' <small>'+esc(value.at||'')+'</small></li>'}).join('')+'</ol>';
 function oneRun(x){if(!x)return '<p>No individual run started.</p>';let key=x.event_key?JSON.stringify(x.event_key):'not observed';let image=x.apk_evidence&&x.apk_evidence.screenshot_file&&/^TC001-[A-Za-z0-9_-]+-android\\.png$/.test(x.apk_evidence.screenshot_file)?'<p><img alt="Private Android APK event evidence" src="/evidence/'+esc(x.apk_evidence.screenshot_file)+'"></p>':'';return '<p><b>'+esc(x.run_id)+'</b> — '+esc(x.overall)+' — APK '+esc(x.apk_observation||'NOT_VERIFIED')+'</p><p>EventKey: <code>'+esc(key)+'</code></p><p>Duplicate durable rows: '+esc(x.duplicate_count??'NOT_VERIFIED')+'</p>'+stageList(x)+image}
 function campaign(x){if(!x)return 'No campaign yet.';let active=x.active_run;return '<p><b>'+esc(x.run_id)+'</b> — '+esc(x.overall)+' — '+esc(x.passed_runs||0)+'/'+esc(x.planned_runs||5)+' PASS; '+esc(x.completed_runs||0)+' completed.</p>'+stageList(x)+(active?'<h3>Active or latest individual run</h3>'+oneRun(active):'')+(x.not_run||[]).map(n=>'<p>'+esc(n.run_number)+': '+esc(n.status)+' — '+esc(n.reason)+'</p>').join('')}
-async function refresh(){let r=await fetch('/api/status',{cache:'no-store'}),d=await r.json();csrf=d.csrf;current=d.current;const readiness={backend:d.backend,caregiver_home:d.caregiver_home,physical_boards:d.physical_boards,fixture:d.fixture,campaign_approval:d.campaign_approval,hub_ingress:d.hub_ingress,android_apk:d.android_apk};document.getElementById('readiness').textContent=JSON.stringify(readiness,null,2);document.getElementById('power-mode').textContent='C3 power/HIL mode: '+(current&&current.active_run&&current.active_run.c3_power_mode||'HIL_AWAKE_TEST_ONLY profile receipt only; runtime checked before injection');const ready=d.backend&&d.backend.POSTGRES_READY==='PASS'&&d.backend.CAREGIVER_HTTPS_READY==='PASS'&&d.backend.DEVELOPMENT_ENDPOINT_READY==='PASS'&&d.caregiver_home&&d.caregiver_home.caregiver_home_ready===true&&d.physical_boards&&d.physical_boards.c3==='PASS'&&d.physical_boards.s3==='PASS'&&d.fixture&&d.fixture.status==='PASS'&&d.campaign_approval&&d.campaign_approval.status==='PASS'&&d.hub_ingress&&d.hub_ingress.status==='PASS'&&d.android_apk&&d.android_apk.status==='PASS';document.getElementById('run').disabled=!!d.running||!ready;document.getElementById('blocked').textContent=ready?'All software, fixture and device-readiness gates pass. Owner approval will be consumed once before the first COM4 operation.':(d.campaign_approval&&d.campaign_approval.reason)||'Readiness gates are not all PASS.';document.getElementById('current').innerHTML=campaign(current);document.getElementById('previous').innerHTML=d.previous.map(x=>'<details><summary>'+esc(x.run_id)+' — '+esc(x.overall)+'</summary>'+oneRun(x)+(x.runs||[]).map(id=>'<p>Run: '+esc(id)+'</p>').join('')+'</details>').join('')||'No saved runs yet.';}
+async function refresh(){let r=await fetch('/api/status',{cache:'no-store'}),d=await r.json();csrf=d.csrf;current=d.current;const readiness={backend:d.backend,caregiver_home:d.caregiver_home,physical_boards:d.physical_boards,fixture:d.fixture,campaign_approval:d.campaign_approval,hub_ingress:d.hub_ingress,android_apk:d.android_apk};document.getElementById('readiness').textContent=JSON.stringify(readiness,null,2);document.getElementById('power-mode').textContent='C3 power/HIL mode: '+(current&&current.active_run&&current.active_run.c3_power_mode||'HIL_AWAKE_TEST_ONLY profile receipt only; runtime checked before injection');const ready=d.backend&&d.backend.POSTGRES_READY==='PASS'&&d.backend.CAREGIVER_HTTPS_READY==='PASS'&&d.backend.DEVELOPMENT_ENDPOINT_READY==='PASS'&&d.caregiver_home&&d.caregiver_home.caregiver_home_ready===true&&d.physical_boards&&d.physical_boards.c3==='PASS'&&d.physical_boards.s3==='PASS'&&d.fixture&&d.fixture.status==='PASS'&&d.campaign_approval&&d.campaign_approval.status==='PASS'&&d.hub_ingress&&d.hub_ingress.status==='PASS'&&d.android_apk&&d.android_apk.status==='PASS';document.getElementById('run').disabled=!!d.running||!ready;document.getElementById('blocked').textContent=ready?(d.fixture.qualification==='DEV_INPUT_TRIAL'?'DEV input ready; actual device delivery and Android outcome must pass in this run.':'All software, fixture and device-readiness gates pass.'):(d.campaign_approval&&d.campaign_approval.reason)||'Readiness gates are not all PASS.';document.getElementById('current').innerHTML=campaign(current);document.getElementById('previous').innerHTML=d.previous.map(x=>'<details><summary>'+esc(x.run_id)+' — '+esc(x.overall)+'</summary>'+oneRun(x)+(x.runs||[]).map(id=>'<p>Run: '+esc(id)+'</p>').join('')+'</details>').join('')||'No saved runs yet.';}
 function morningStages(x){if(!x)return 'No Morning Routine attempt yet.';const nodeStages=x.node_event_stages||{};return '<p><b>'+esc(x.run_id)+'</b> — '+esc(x.overall)+'; acceptance '+esc(x.acceptance)+'</p><p>First blocked stage: <code>'+esc(x.first_failing_stage)+'</code></p><ol>'+Object.entries(x.stages||{}).map(([k,v])=>'<li>'+esc(k)+': <b>'+esc(v.status)+'</b> — '+esc(v.reason)+'</li>').join('')+'</ol><h4>Physical Node event path</h4><ol>'+Object.entries(nodeStages).map(([k,v])=>'<li>'+esc(k)+': <b>'+esc(v.status)+'</b> — '+esc(v.reason)+'</li>').join('')+'</ol><p>Physical operations: '+esc(JSON.stringify(x.physical_operations||[]))+'; EventKeys: '+esc(JSON.stringify(x.event_keys||[]))+'</p>'}
 function roomNames(steps,filter){if(!Array.isArray(steps))return 'Unavailable';return steps.filter(s=>s&&s.enabled===true&&(filter==='all'||s.required===(filter==='required'))).map(s=>s.location).join(', ')||'None'}
-async function refresh(){let r=await fetch('/api/status',{cache:'no-store'}),d=await r.json();csrf=d.csrf;current=d.current;const readiness={backend:d.backend,caregiver_home:d.caregiver_home,physical_boards:d.physical_boards,fixture:d.fixture,campaign_approval:d.campaign_approval,hub_ingress:d.hub_ingress,android_apk:d.android_apk};document.getElementById('readiness').textContent=JSON.stringify(readiness,null,2);document.getElementById('power-mode').textContent='C3 power/HIL mode: '+(current&&current.active_run&&current.active_run.c3_power_mode||'HIL_AWAKE_TEST_ONLY profile receipt only; runtime checked before injection');const ready=d.backend&&d.backend.POSTGRES_READY==='PASS'&&d.backend.CAREGIVER_HTTPS_READY==='PASS'&&d.backend.DEVELOPMENT_ENDPOINT_READY==='PASS'&&d.caregiver_home&&d.caregiver_home.caregiver_home_ready===true&&d.physical_boards&&d.physical_boards.c3==='PASS'&&d.physical_boards.s3==='PASS'&&d.fixture&&d.fixture.status==='PASS'&&d.campaign_approval&&d.campaign_approval.status==='PASS'&&d.hub_ingress&&d.hub_ingress.status==='PASS'&&d.android_apk&&d.android_apk.status==='PASS';document.getElementById('run').disabled=!!d.running||!ready;document.getElementById('blocked').textContent=ready?'All software, fixture and device-readiness gates pass. Owner approval will be consumed once before the first COM4 operation.':(d.campaign_approval&&d.campaign_approval.reason)||'Readiness gates are not all PASS.';document.getElementById('current').innerHTML=campaign(current);document.getElementById('previous').innerHTML=d.previous.map(x=>'<details><summary>'+esc(x.run_id)+' — '+esc(x.overall)+'</summary>'+oneRun(x)+(x.runs||[]).map(id=>'<p>Run: '+esc(id)+'</p>').join('')+'</details>').join('')||'No saved runs yet.';const mr=d.morning_readiness||{},policy=mr.applied_policy||{},display=policy.display_config||policy.applied_config||policy.desired_config||{},steps=display.activity_rules&&display.activity_rules.morning_steps;document.getElementById('morning-version').textContent=String(policy.desired_version??'Unavailable')+' / '+String(policy.applied_version??'Unavailable');document.getElementById('morning-included').textContent=roomNames(steps,'all');document.getElementById('morning-required').textContent=roomNames(steps,'required');document.getElementById('morning-optional').textContent=roomNames(steps,'optional');document.getElementById('morning-policy').textContent='Desired / applied household configuration: '+(policy.status||'BLOCKED')+' — '+(policy.reason||'unavailable');document.getElementById('morning-blocked').textContent='Caregiver LAN HTTPS: '+((d.backend&&d.backend.LAPTOP_LAN_ENDPOINT_TLS_READY)||'NOT_VERIFIED')+((d.backend&&d.backend.LAPTOP_LAN_ENDPOINT_TLS_READY_REASON)?' ('+d.backend.LAPTOP_LAN_ENDPOINT_TLS_READY_REASON+')':'')+'; '+(mr.room_fixtures&&mr.room_fixtures.reason||'Room fixture status unavailable')+'; '+(mr.hardware_authorization&&mr.hardware_authorization.reason||'hardware authorization unavailable')+'; '+(mr.physical_ingress&&mr.physical_ingress.reason||'physical ingress unavailable');const morningReady=d.backend&&d.backend.POSTGRES_READY==='PASS'&&d.backend.CAREGIVER_HTTPS_READY==='PASS'&&d.backend.DEVELOPMENT_ENDPOINT_READY==='PASS'&&d.caregiver_home&&d.caregiver_home.caregiver_home_ready===true&&d.android_apk&&d.android_apk.status==='PASS'&&d.hub_ingress&&d.hub_ingress.status==='PASS'&&mr.applied_policy&&mr.applied_policy.status==='PASS'&&mr.room_fixtures&&mr.room_fixtures.status==='PASS'&&mr.hardware_authorization&&mr.hardware_authorization.status==='PASS'&&mr.physical_ingress&&mr.physical_ingress.status==='PASS';document.getElementById('morning-run').disabled=!!d.running||!morningReady;document.getElementById('morning-current').innerHTML=morningStages(d.morning_routine);document.getElementById('morning-history').innerHTML=(d.morning_history||[]).map(x=>'<details><summary>'+esc(x.run_id)+' — '+esc(x.overall)+'</summary>'+morningStages(x)+'</details>').join('')||'No saved attempts.';}
+async function refresh(){let r=await fetch('/api/status',{cache:'no-store'}),d=await r.json();csrf=d.csrf;current=d.current;const readiness={backend:d.backend,caregiver_home:d.caregiver_home,physical_boards:d.physical_boards,fixture:d.fixture,campaign_approval:d.campaign_approval,hub_ingress:d.hub_ingress,android_apk:d.android_apk};document.getElementById('readiness').textContent=JSON.stringify(readiness,null,2);document.getElementById('power-mode').textContent='C3 power/HIL mode: '+(current&&current.active_run&&current.active_run.c3_power_mode||'HIL_AWAKE_TEST_ONLY profile receipt only; runtime checked before injection');const ready=d.backend&&d.backend.POSTGRES_READY==='PASS'&&d.backend.CAREGIVER_HTTPS_READY==='PASS'&&d.backend.DEVELOPMENT_ENDPOINT_READY==='PASS'&&d.caregiver_home&&d.caregiver_home.caregiver_home_ready===true&&d.physical_boards&&d.physical_boards.c3==='PASS'&&d.physical_boards.s3==='PASS'&&d.fixture&&d.fixture.status==='PASS'&&d.campaign_approval&&d.campaign_approval.status==='PASS'&&d.hub_ingress&&d.hub_ingress.status==='PASS'&&d.android_apk&&d.android_apk.status==='PASS';document.getElementById('run').disabled=!!d.running||!ready;document.getElementById('blocked').textContent=ready?(d.fixture.qualification==='DEV_INPUT_TRIAL'?'DEV input ready; actual device delivery and Android outcome must pass in this run.':'All software, fixture and device-readiness gates pass.'):(d.campaign_approval&&d.campaign_approval.reason)||'Readiness gates are not all PASS.';document.getElementById('current').innerHTML=campaign(current);document.getElementById('previous').innerHTML=d.previous.map(x=>'<details><summary>'+esc(x.run_id)+' — '+esc(x.overall)+'</summary>'+oneRun(x)+(x.runs||[]).map(id=>'<p>Run: '+esc(id)+'</p>').join('')+'</details>').join('')||'No saved runs yet.';const mr=d.morning_readiness||{},policy=mr.applied_policy||{},display=policy.display_config||policy.applied_config||policy.desired_config||{},steps=display.activity_rules&&display.activity_rules.morning_steps;document.getElementById('morning-version').textContent=String(policy.desired_version??'Unavailable')+' / '+String(policy.applied_version??'Unavailable');document.getElementById('morning-included').textContent=roomNames(steps,'all');document.getElementById('morning-required').textContent=roomNames(steps,'required');document.getElementById('morning-optional').textContent=roomNames(steps,'optional');document.getElementById('morning-policy').textContent='Desired / applied household configuration: '+(policy.status||'BLOCKED')+' — '+(policy.reason||'unavailable');document.getElementById('morning-blocked').textContent='Caregiver LAN HTTPS: '+((d.backend&&d.backend.LAPTOP_LAN_ENDPOINT_TLS_READY)||'NOT_VERIFIED')+((d.backend&&d.backend.LAPTOP_LAN_ENDPOINT_TLS_READY_REASON)?' ('+d.backend.LAPTOP_LAN_ENDPOINT_TLS_READY_REASON+')':'')+'; '+(mr.room_fixtures&&mr.room_fixtures.reason||'Room fixture status unavailable')+'; '+(mr.hardware_authorization&&mr.hardware_authorization.reason||'hardware authorization unavailable')+'; '+(mr.physical_ingress&&mr.physical_ingress.reason||'physical ingress unavailable');const morningReady=d.backend&&d.backend.POSTGRES_READY==='PASS'&&d.backend.CAREGIVER_HTTPS_READY==='PASS'&&d.backend.DEVELOPMENT_ENDPOINT_READY==='PASS'&&d.caregiver_home&&d.caregiver_home.caregiver_home_ready===true&&d.android_apk&&d.android_apk.status==='PASS'&&d.hub_ingress&&d.hub_ingress.status==='PASS'&&mr.applied_policy&&mr.applied_policy.status==='PASS'&&mr.room_fixtures&&mr.room_fixtures.status==='PASS'&&mr.hardware_authorization&&mr.hardware_authorization.status==='PASS'&&mr.physical_ingress&&mr.physical_ingress.status==='PASS';document.getElementById('morning-run').disabled=!!d.running||!morningReady;document.getElementById('morning-current').innerHTML=morningStages(d.morning_routine);document.getElementById('morning-history').innerHTML=(d.morning_history||[]).map(x=>'<details><summary>'+esc(x.run_id)+' — '+esc(x.overall)+'</summary>'+morningStages(x)+'</details>').join('')||'No saved attempts.';}
 async function post(path,payload){let r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(payload)});let data=await r.json();if(!r.ok)alert(data.error||'Request failed');if(path==='/api/scenarios/morning-routine/run'&&r.ok){document.getElementById('morning-current').innerHTML=morningStages(data)}await refresh()}
 document.getElementById('run').onclick=()=>post('/api/run',{});document.getElementById('morning-run').onclick=()=>post('/api/scenarios/morning-routine/run',{interval_seconds:Number(document.getElementById('stimulus-interval').value)});refresh();setInterval(refresh,2000);
 </script></html>"""
@@ -1789,10 +1842,12 @@ def save_readiness_result(directory, name, value):
     finally: os.close(fd)
 
 
-def standing_readiness():
+def standing_readiness(development=False):
     """Execute only the pinned existing Bootstrap, retaining all target guards."""
     import gs117_hil_authorization as auth
-    with auth.session("protected_gs40_bootstrap") as (policy, audit):
+    scope = (auth.development_session("protected_gs40_bootstrap") if development else
+             auth.session("protected_gs40_bootstrap"))
+    with scope as (policy, audit):
         if health().get("exit_code") != 0:
             raise ValueError("standing_readiness_backend_preflight_failed")
         if active_hub_ingress_listener().get("status") != "PASS":
@@ -1879,9 +1934,9 @@ if __name__ == "__main__":
         result = auth.status()
         print(json.dumps(result))
         raise SystemExit(0 if result["status"] == "ACTIVE" else 2)
-    if "--hil-readiness" in sys.argv:
+    if "--hil-readiness" in sys.argv or "--dev-readiness" in sys.argv:
         try:
-            standing_readiness()
+            standing_readiness(development="--dev-readiness" in sys.argv)
         except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
             print(json.dumps({"overall": "BLOCKED", "reason": str(error)}))
             raise SystemExit(2)

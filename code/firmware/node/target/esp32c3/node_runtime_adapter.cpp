@@ -549,7 +549,14 @@ bool send_rejoin_message(const NodeSecurityLink::Outbound& outbound,
         if (!gs::connectivity::IndiaWifiProfileV1::allows_channel(*channel) ||
             set_node_radio_channel(*channel) != ESP_OK) return false;
     }
-    return send_security_message(outbound, wait_for_callback, submitted_to_radio);
+    const bool delivered = send_security_message(outbound, wait_for_callback, submitted_to_radio);
+#if GS_HIL_CONTROL && !GS_HIL_BUILD && !GS_BAT_C8_PHYSICAL_WAKE
+    ESP_LOGI(kTag, "GS117_DEV_REJOIN kind=%u channel=%u delivered=%d challenge_pinned=%d",
+             static_cast<unsigned>(outbound.message.kind),
+             static_cast<unsigned>(g_radio_channel.load(std::memory_order_acquire)),
+             delivered, discovery.candidate_pinned());
+#endif
+    return delivered;
 }
 #endif
 

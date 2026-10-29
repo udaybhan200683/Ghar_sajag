@@ -338,20 +338,20 @@
         "code/tools/local/gs117_tc001_backend.py",
         "docs/validation/PHYSICAL_HIL_CATALOGUE.csv"
       ],
-      "dev_effective_config": "TEST_ONLY Home gs177-test-product; existing Bedroom C3/S3 identity; guarded USB/HIL tools only after scoped authorization",
-      "implementation_state": "BLOCKED",
-      "dev_effective_state": "BLOCKED",
+      "dev_effective_config": "GS117_DEV_TEST_ONLY qualification_profile, owner-only development-authorization.json; exact existing C3/S3/Home/.6; existing USB/HIL controller and separate revocable DEV audit.",
+      "implementation_state": "PARTIAL",
+      "dev_effective_state": "PARTIAL",
       "prod_readiness": "BLOCKED",
-      "deferred_or_missing": "Physical evidence is not a production-only deferral: the current DEV Run is blocked by fixture/image/authentication guards; TC-001 and optical PIR remain NOT_RUN.",
+      "deferred_or_missing": "Production/sensor qualification remains mandatory. DEV may attempt its first input without a prior delivery receipt; actual durable ACK, authenticated backend/API and Android results still decide PASS.",
       "test_identity_termination": "The TEST_ONLY Home is isolated; exact physical C3/S3 and room mapping stay under the existing fixture registry and authorization guard.",
-      "production_switch_over": "Resolve JEDEC/capacity and current image provenance, establish fresh authenticated physical S3 ingress and policy apply, then obtain separate one-run/campaign and optical-sensor approvals.",
+      "production_switch_over": "Production identities and qualification remain independent. Disable TEST_ONLY profiles and complete genuine sensing/recovery/security release gates.",
       "dependencies_and_approvals": [
-        "C3 raw JEDEC/capacity guard",
-        "current C3/S3 image provenance",
-        "fresh physical S3 mTLS receipt",
-        "separate current hardware and campaign authorization"
+        "current exact device/image identity",
+        "authenticated ESP-NOW and backend Hub/Home/epoch/enrollment",
+        "active reusable owner-approved DEV authorization",
+        "actual exact-key Android observation"
       ],
-      "security_rollback": "No COM access, flash, reset, enrollment or injection without separate exact approval; stop on any identity/image/security mismatch.",
+      "security_rollback": "Revoke active DEV consent to deny new operations; preserve old one-use approvals/ledgers. No authentication/TLS/durability bypass. Before erase preserve diagnostics and verify recovery/trust artifacts.",
       "required_tests": [
         "JEDEC/capacity and current image proof",
         "authenticated ESP-NOW and durable-before-ACK",
@@ -360,13 +360,13 @@
         "separate real AM312 PIR path"
       ],
       "acceptance": "Authorized actual C3 input produces its own EventKey and actual S3 decision through real authenticated radio, durable Hub, CloudSync, PostgreSQL/API and installed APK; optical PIR independently qualifies.",
-      "evidence": "Historical HOST_SIM-to-APK and old physical events are not current physical TC-001 or PIR acceptance.",
+      "evidence": "GS117 EXECUTION.md latest autonomous-development section; private boot capacity, app-only flash, session122 liveness and Android Home/origin/byte-identity receipts. No real sensor PASS.",
       "release_blocking": true,
       "gate_status": "BLOCKED",
       "accountable_reviewer": "GS-117 physical owner; GS-116/130 evidence; GS-173 release",
-      "owner_security_approval": "No current COM/USB, reset, injection or physical campaign authorization in this task",
+      "owner_security_approval": "Owner current-chat explicit reusable DEV authorization includes identified TEST boards, routine resets/app flash, bounded web HIL input and isolated recovery; excludes eFuse/permanent security/production/unknown hardware.",
       "last_verified_commit": "732b848df157859cffaf813332d8ab1e0058ad7a",
-      "dev_state_detail": "C3 JEDEC is 0xffffff/capacity unknown; current image and fresh S3 auth unverified"
+      "dev_state_detail": "C3 XMC4MiB and S3 boot16MiB/8MiB established; app-only C3 diagnostic flash, unchanged partition layout, session122 advancing runtime; DEV input trial prerequisites pass. No fresh controlled input executed yet."
     },
     {
       "gate_id": "DTP-009",
@@ -408,9 +408,9 @@
       "release_blocking": true,
       "gate_status": "NOT_RUN",
       "accountable_reviewer": "GS-117/177 Android owner; GS-173 release",
-      "owner_security_approval": "Android observation only under existing authorization; no physical event generation authorized",
+      "owner_security_approval": "Current owner authorizes existing APK/ADB observation and controlled TEST-board event generation under reusable DEV scope; no APK reinstall or credential replacement performed.",
       "last_verified_commit": "d6a37dc113ead8fe5559a990dcce2974d271e182",
-      "dev_state_detail": "Historical HOST_SIM-to-APK PASS; exact physical Hub-decision observer implemented and host-mocked; physical S3 decision and APK outcome unverified"
+      "dev_state_detail": "Actual APK Home gs177-test-product/.6/CONNECTED and trusted byte identity reverified; fresh controlled exact-event and physical Hub decision remain unexecuted at this checkpoint."
     },
     {
       "gate_id": "DTP-010",

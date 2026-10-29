@@ -36,7 +36,7 @@ def collect(stream, pending: str, lines: list[str]) -> str:
     fragments = pending.split("\n")
     for line in fragments[:-1]:
         safe = "".join(c for c in line if 32 <= ord(c) < 127).strip()
-        if re.search(r"HIL_(?:READY|STATE|OK|ERROR|FIXTURE)|GS117_TEST_ONLY|GS40T/1|PIR -> NodeRuntime|NodeMessage sent|Application ACK|authenticated|durable|CloudSync|COMMITTED|HubRuntime|HubSecurity|gs_hub_product|gs_hub_runtime|ESP-NOW|outbox|storage|mount|Wi-Fi|STA_START|firmware|image|boot:|ESP-ROM|rst:|panic|abort\(\)|Backtrace|app_init:|esp_psram|octal_psram|spiram|assert failed:|Guru Meditation Error|Stack canary|stack overflow", safe, re.I):
+        if re.search(r"HIL_(?:READY|STATE|OK|ERROR|FIXTURE)|GS117_TEST_ONLY|GS117_DEV_REJOIN|GS40T/1|PIR -> NodeRuntime|NodeMessage sent|Application ACK|authenticated|durable|CloudSync|COMMITTED|HubRuntime|HubSecurity|gs_hub_product|gs_hub_runtime|ESP-NOW|outbox|storage|mount|Wi-Fi|STA_START|firmware|image|boot:|ESP-ROM|rst:|panic|abort\(\)|Backtrace|app_init:|SPI\s+Flash(?:\s+Size)?\s*[:=]|esp_psram|octal_psram|spiram|assert failed:|Guru Meditation Error|Stack canary|stack overflow", safe, re.I):
             safe = re.sub(r"(?i)(credential|secret|private.key|session.key|installer.code|wifi_psk|password|token|authorization|ssid|certificate)\s*[:=]\s*\S+",
                           r"\1=[REDACTED]", safe)
             if len(lines) < 300:
@@ -326,6 +326,8 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
     s3_boot_reset = config.get("s3_boot_reset", False)
     if type(s3_boot_reset) is not bool:
         raise ValueError("TC001_S3_BOOT_RESET_FLAG_MUST_BE_BOOLEAN")
+    if type(config.get("c3_boot_reset", False)) is not bool:
+        raise ValueError("TC001_C3_BOOT_RESET_FLAG_MUST_BE_BOOLEAN")
     require_s3_memory_profile = config.get("require_s3_memory_profile", False)
     if type(require_s3_memory_profile) is not bool:
         raise ValueError("TC001_S3_MEMORY_PROFILE_FLAG_MUST_BE_BOOLEAN")
@@ -393,6 +395,9 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
             raise
         bootstrap_exchange_ms = (max(0, int((clock() - bootstrap_started) * 1000))
                                  if bootstrap_tx_bytes is not None else None)
+        if config.get("c3_boot_reset"):
+            from esptool.reset import HardReset
+            HardReset(c3_stream, uses_usb=True).reset()
         c3_lines: list[str] = []
         s3_lines: list[str] = []
         c3_tail = s3_tail = ""
@@ -478,6 +483,32 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
         for stream in reversed(streams):
             if stream.is_open:
                 stream.close()
+
+
+def observe_node(config: dict) -> dict:
+    """Bounded existing GET_STATE observation; S3 stays metadata-only."""
+    c3, s3 = config['c3'], config['s3']
+    if (c3.get('port') != 'COM4' or c3.get('serial_number') != '14:63:93:C5:D1:58' or
+        s3.get('port') != 'COM10' or s3.get('serial_number') != 'E0:72:A1:D3:8D:34' or
+        not all(exact_port(board, ports()) for board in (c3,s3))):
+        raise ValueError('TC001_VERIFIED_USB_INTERFACE_MISMATCH')
+    duration = config.get('observation_seconds', 30)
+    if type(duration) is not int or not 10 <= duration <= 60:
+        raise ValueError('TC001_OBSERVATION_SECONDS_OUT_OF_RANGE')
+    stream = serial.Serial();stream.port=c3['port'];stream.baudrate=115200
+    stream.timeout=.1;stream.write_timeout=1;stream.dtr=False;stream.rts=False
+    lines=[];pending=''
+    try:
+        stream.open();deadline=time.monotonic()+duration;query=0
+        while time.monotonic()<deadline:
+            pending=collect(stream,pending,lines)
+            readiness_guard({'stop_on_readiness_error':True},lines,[])
+            if time.monotonic()>=query:
+                stream.write(b'GET_STATE\n');stream.flush();query=time.monotonic()+10
+            time.sleep(.02)
+        return {'c3':lines,'s3_serial_opened':False,'motion_injection':False}
+    finally:
+        if stream.is_open:stream.close()
 
 
 def run(config: dict) -> dict:
@@ -1059,6 +1090,8 @@ if __name__ == "__main__":
         action = config.get("action")
         if action == "List":
             value = ports()
+        elif action == "ObserveNode":
+            value = observe_node(config)
         elif action == "Observe":
             value = observe(config)
         elif action == "CommissionFixture":

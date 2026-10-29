@@ -30,7 +30,7 @@ source default is not evidence of the effective built or deployed value.
 | DTP-005 | Signed firmware and device root of trust | PARTIAL | MANDATORY_R1 | TEST_ONLY profile; commercial qualification absent | BLOCKED | Yes |
 | DTP-006 | Hosting, PostgreSQL operations and recovery | PARTIAL | MANDATORY_R1 | Local development service/profile | NOT_VERIFIED | Yes |
 | DTP-007 | Notifications, calls and WAN delivery | BLOCKED | SCOPE_PENDING | Caregiver projection only; external delivery unverified | NOT_VERIFIED | Yes |
-| DTP-008 | Physical C3/S3 fixture and sensor qualification | BLOCKED | MANDATORY_R1 | BLOCKED by fixture/image/authentication guards | BLOCKED | Yes |
+| DTP-008 | Physical C3/S3 fixture and sensor qualification | PARTIAL | MANDATORY_R1 | Explicit reusable DEV input trial; real event outcome still required | BLOCKED | Yes |
 | DTP-009 | Installed Android business outcome | PARTIAL | MANDATORY_R1 | Historical HOST_SIM-to-APK; exact Hub-decision observer host-mocked, physical outcome unverified | NOT_VERIFIED | Yes |
 | DTP-010 | TEST_ONLY build isolation | IMPLEMENTED_DISABLED | MANDATORY_R1 | Production target cache/root guard PASS; TEST_ONLY profile remains opt-in and isolated | QUALIFIED (profile isolation only) | Yes |
 
@@ -84,3 +84,6 @@ Current dev work may reuse the existing TEST_ONLY stack without waiting for
 commercial issuer/hosting activation, but physical USB/HIL use remains subject
 to its independent fixture and operation approvals. See GS-117/179 for current
 Morning Routine readiness and GS-173 for release adjudication.
+
+
+2026-10-29 development update: owner-approved revocable DEV authorization now covers the known TEST boards/Home/.6 and bounded HIL event cycles, independently of production activation. DEV input trial retains identity/images/enrollment/TLS and actual ACK/backend/API/APK acceptance, while prior delivery receipts are not required to attempt the first input. S3 boot capacity and current C3 app/liveness are observed; fresh controlled event and optical acceptance remain pending at this checkpoint. Production gate statuses and TEST_ONLY release isolation requirements are unchanged.

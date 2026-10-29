@@ -78,9 +78,9 @@ def load(path=POLICY, now=None):
     return p
 
 @contextmanager
-def session(procedure, path=POLICY, state=STATE):
+def session(procedure, path=POLICY, state=STATE, *, _development=False):
     """Serialize processes, reserve before access, latch failures/crashes; no automatic retry."""
-    p = load(path)
+    p = load_development(path) if _development else load(path)
     if procedure not in p['procedures']:
         raise ValueError('standing_policy_operation_not_authorized')
     state = Path(state)
@@ -92,7 +92,8 @@ def session(procedure, path=POLICY, state=STATE):
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         ledger = state / (digest(path) + '.json')
         data = json.loads(ledger.read_text()) if ledger.exists() else {'sessions': 0, 'blocked': False}
-        if data['blocked'] or data['sessions'] >= p['max_sessions']:
+        if ((data['blocked'] and not _development) or data['sessions'] >= p['max_sessions'] or
+                (_development and data.get('consecutive_failures', 0) >= 3)):
             raise ValueError('standing_policy_failure_latched_or_limit_reached')
         data.update(sessions=data['sessions'] + 1, blocked=True, procedure=procedure,
                     started_at=datetime.now(timezone.utc).isoformat(), approval_ref=p['owner_approval_ref'])
@@ -110,10 +111,11 @@ def session(procedure, path=POLICY, state=STATE):
             yield p, data
         except BaseException as error:
             data['failure'] = type(error).__name__
+            data['consecutive_failures'] = data.get('consecutive_failures', 0) + 1
             save()
             raise
         else:
-            data.update(blocked=False, completed_at=datetime.now(timezone.utc).isoformat())
+            data.update(blocked=False, consecutive_failures=0, completed_at=datetime.now(timezone.utc).isoformat())
             save()
 
 def status():
@@ -127,3 +129,51 @@ def status():
                 'procedures': p['procedures'], 'motion_injection_authorized': False}
     except (OSError, ValueError, KeyError, TypeError) as error:
         return {'status': 'BLOCKED', 'reason': str(error)}
+
+
+# DEV consent is separate from one-use readiness and all production authority.
+DEV_POLICY = POLICY.with_name('development-authorization.json')
+DEV_STATE = STATE.with_name('development-authorization')
+DEV_OPERATIONS = ['protected_gs40_bootstrap', 'tc001_campaign', 'observe',
+                  'application_flash', 'test_data_erase', 'development_reprovision']
+DEV_PROHIBITED = ['efuse', 'permanent_security_change', 'production_credentials',
+                  'unknown_hardware', 'non_test_data', 'erase_irreplaceable_trust']
+
+
+def load_development(path=None):
+    path = Path(path or DEV_POLICY)
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        raise ValueError('development_consent_requires_owner_only_file')
+    p = json.loads(path.read_text())
+    if (p.get('schema_version') != 1 or p.get('profile') != 'GS117_DEV_TEST_ONLY' or
+        p.get('active') is not True or p.get('revoked') is not False or
+        p.get('owner_approved') is not True or not p.get('owner_approval_ref') or
+        str(p['owner_approval_ref']).startswith('PENDING') or p.get('identity') != IDENTITY or
+        p.get('procedures') != DEV_OPERATIONS or p.get('allowed_operations') != DEV_OPERATIONS or
+        p.get('prohibited_operations') != DEV_PROHIBITED or
+        p.get('serial_reset_risk_accepted') is not True or
+        p.get('max_sessions') != 1000 or p.get('motion_injection_authorized') is not True):
+        raise ValueError('development_consent_scope_mismatch')
+    activated = datetime.fromisoformat(p['activated_at'])
+    if activated.tzinfo is None or activated > datetime.now(timezone.utc):
+        raise ValueError('development_consent_invalid_time')
+    for name in ('serial_helper', 'bootstrap_script', 'bootstrap_evidence_helper', 'controller', 'validator'):
+        q = p[name]; target = Path(q['path'])
+        if not target.is_absolute() or target.is_symlink() or digest(target) != q['sha256']:
+            raise ValueError('development_reviewed_procedure_changed')
+    return p
+
+
+def development_session(procedure):
+    p = load_development()
+    if procedure in ('application_flash', 'test_data_erase', 'development_reprovision'):
+        artifacts = p.get('recovery_artifacts', [])
+        if not artifacts or any(Path(q['path']).is_symlink() or digest(q['path']) != q['sha256']
+                                for q in artifacts):
+            raise ValueError('development_recovery_artifacts_not_verified')
+        if procedure == 'test_data_erase':
+            value = p.get('pre_erase_evidence')
+            if not value or not Path(value).is_absolute() or Path(value).is_symlink() or not Path(value).is_dir():
+                raise ValueError('development_pre_erase_evidence_missing')
+    return session(procedure, DEV_POLICY, DEV_STATE, _development=True)

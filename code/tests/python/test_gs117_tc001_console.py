@@ -39,6 +39,7 @@ class StandingAuthorizationTest(unittest.TestCase):
         source = Path(__file__).resolve().parents[3] / 'docs/exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/standing-authorization.proposed.json'
         self.data = json.loads(source.read_text())
         self.data['controller'] = {'path': str(Path(tc.__file__)), 'sha256': hil_auth.digest(tc.__file__)}
+        self.data['validator'] = {'path': str(Path(hil_auth.__file__)), 'sha256': hil_auth.digest(hil_auth.__file__)}
         now = datetime.now(timezone.utc)
         self.data.update(active=True, owner_approved=True, owner_approval_ref='unit-test-consent-only',
                          activated_at=now.isoformat(),
@@ -60,6 +61,36 @@ class StandingAuthorizationTest(unittest.TestCase):
 
     def write(self):
         self.policy.write_text(json.dumps(self.data)); self.policy.chmod(0o600)
+
+    def development_policy(self):
+        p = dict(self.data, profile='GS117_DEV_TEST_ONLY', procedures=hil_auth.DEV_OPERATIONS,
+                 allowed_operations=hil_auth.DEV_OPERATIONS,
+                 prohibited_operations=hil_auth.DEV_PROHIBITED, max_sessions=1000,
+                 motion_injection_authorized=True)
+        p['bootstrap_evidence_helper'] = {'path': str(Path(bootstrap_evidence.__file__)),
+                                        'sha256': hil_auth.digest(bootstrap_evidence.__file__)}
+        path = self.root / 'dev-policy.json'; path.write_text(json.dumps(p)); path.chmod(0o600)
+        return path, p
+
+    def test_dev_consent_revocation_identity_and_procedure_guards(self):
+        path, p = self.development_policy()
+        self.assertEqual(hil_auth.load_development(path)['identity'], hil_auth.IDENTITY)
+        for change in ({'revoked': True}, {'active': False}, {'identity': {}},
+                       {'profile': 'PRODUCTION'}, {'owner_approved': False},
+                       {'procedures': hil_auth.DEV_OPERATIONS + ['efuse']}):
+            path.write_text(json.dumps(dict(p, **change)))
+            with self.assertRaises(ValueError): hil_auth.load_development(path)
+
+    def test_dev_failures_are_preserved_and_bounded_without_one_use_latch(self):
+        path, _p = self.development_policy()
+        state = self.root / 'dev-audit'
+        for _ in range(3):
+            with self.assertRaisesRegex(ValueError, 'diagnosed_test_failure'):
+                with hil_auth.session('observe', path, state, _development=True):
+                    raise ValueError('diagnosed_test_failure')
+        with self.assertRaisesRegex(ValueError, 'limit_reached'):
+            with hil_auth.session('observe', path, state, _development=True): pass
+        self.assertEqual(len((state/'audit.jsonl').read_text().splitlines()), 6)
 
     def test_valid_repeatable_consent_does_not_grant_campaign(self):
         for _ in range(2):
@@ -367,6 +398,69 @@ class BootstrapChildEvidenceTest(unittest.TestCase):
 
 
 class TC001Test(unittest.TestCase):
+    def setUp(self):
+        self.dev_temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.dev_temp.cleanup)
+        guard = patch.object(hil_auth, 'DEV_POLICY', Path(self.dev_temp.name) / 'absent.json')
+        guard.start(); self.addCleanup(guard.stop)
+
+    def test_dev_input_trial_is_explicit_consented_and_exact_identity_only(self):
+        fixture = {'qualification_profile':'GS117_DEV_TEST_ONLY', 'home_id':hil_auth.IDENTITY['home_id'],
+            'hub_id':hil_auth.IDENTITY['s3']['device_id'], 'physical_device_id':hil_auth.IDENTITY['c3']['device_id'],
+            **{r:dict(hil_auth.IDENTITY[r]) for r in ('c3','s3')}}
+        self.assertFalse(tc.development_input_trial({}))
+        with patch.object(hil_auth, 'load_development', side_effect=ValueError('revoked')):
+            with self.assertRaisesRegex(ValueError, 'revoked'):tc.development_input_trial(fixture)
+        with patch.object(hil_auth, 'load_development', return_value={'identity':hil_auth.IDENTITY}):
+            self.assertTrue(tc.development_input_trial(fixture))
+            fixture['c3']['serial_number']='unknown'
+            with self.assertRaisesRegex(ValueError, 'identity_mismatch'):tc.development_input_trial(fixture)
+
+    def test_reusable_dev_campaign_consent_preserves_identity_checks(self):
+        policy = {'identity': hil_auth.IDENTITY, 'owner_approval_ref': 'unit-dev-consent'}
+        fixture = {'home_id': hil_auth.IDENTITY['home_id'], 'physical_device_id': hil_auth.IDENTITY['c3']['device_id'],
+            'hub_id': hil_auth.IDENTITY['s3']['device_id'],
+            **{r: dict(hil_auth.IDENTITY[r]) for r in ('c3','s3')}}
+        with patch.object(hil_auth, 'load_development', return_value=policy), \
+             patch.object(Path, 'exists', return_value=True):
+            for _ in range(2):
+                self.assertTrue(tc.campaign_approval(Path('/unused'), fixture)['development_authorization'])
+            fixture['home_id'] = 'other-home'
+            with self.assertRaisesRegex(ValueError, 'identity_mismatch'):
+                tc.campaign_approval(Path('/unused'), fixture)
+
+    def test_node_only_payload_keeps_both_identities_and_bounded_duration(self):
+        fixture = {r: {'port': port, 'usb_hwid': 'test-hwid', 'serial_number': serial}
+                   for r, port, serial in [('c3','COM4','14:63:93:C5:D1:58'),
+                                           ('s3','COM10','E0:72:A1:D3:8D:34')]}
+        fixture['observation_seconds'] = 30
+        with patch.object(tc.subprocess, 'check_output', return_value='C:\\observer.py'), \
+             patch.object(tc.subprocess, 'run', return_value=SimpleNamespace(stdout='{}')) as run:
+            tc.powershell('ObserveNode', fixture)
+        encoded = run.call_args.args[0][-1].split('"')[-2]
+        payload = json.loads(base64.b64decode(encoded))
+        self.assertEqual(payload['c3']['port'], 'COM4')
+        self.assertEqual(payload['s3']['serial_number'], 'E0:72:A1:D3:8D:34')
+        self.assertEqual(payload['observation_seconds'], 30)
+
+    def test_node_only_observer_rejects_unknown_usb_before_serial_open(self):
+        with patch.object(tc_serial, 'ports', return_value=[]), patch.object(tc_serial.serial, 'Serial') as opened:
+            with self.assertRaisesRegex(ValueError, 'USB_INTERFACE_MISMATCH'):
+                tc_serial.observe_node({'c3': {'port':'COM4','serial_number':'14:63:93:C5:D1:58'},
+                    's3': {'port':'COM10','serial_number':'E0:72:A1:D3:8D:34'}})
+            opened.assert_not_called()
+
+    def test_spi_flash_log_without_plain_boot_tag_is_retained(self):
+        class Stream:
+            data = b'I (400) boot.esp32s3: SPI Flash Size : 16MB\n'
+            in_waiting = len(data)
+            def read(self, count):
+                value = self.data; self.data = b''; self.in_waiting = 0; return value
+        lines = []
+        tc_serial.collect(Stream(), '', lines)
+        self.assertEqual(tc_serial.s3_memory_capacity(lines)['flash_size_bytes'], 16777216)
+
+
     def test_health_preserves_lan_failure_reason_and_overall_exit(self):
         result = SimpleNamespace(
             returncode=1,

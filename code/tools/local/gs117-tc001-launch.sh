@@ -2,7 +2,7 @@
 set -euo pipefail
 REPO_ROOT=/home/udaybhan/projects/Ghar_sajag_r1
 cd "$REPO_ROOT"
-if [[ "${1:-}" == --hil-policy-status || "${1:-}" == --hil-readiness ]]; then
+if [[ "${1:-}" == --hil-policy-status || "${1:-}" == --hil-readiness || "${1:-}" == --dev-readiness ]]; then
     exec python3 code/tools/local/gs117_tc001_console.py "$@"
 fi
 GS179="$REPO_ROOT/code/tools/local/gs179-laptop-server.sh"

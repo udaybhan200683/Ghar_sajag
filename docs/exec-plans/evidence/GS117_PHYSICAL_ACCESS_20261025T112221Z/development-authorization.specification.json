@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "active": false,
+  "revoked": false,
+  "owner_approved": false,
+  "owner_approval_ref": "REQUIRES_EXPLICIT_OWNER_CONSENT",
+  "activated_at": null,
+  "identity": {
+    "home_id": "gs177-test-product",
+    "backend": "192.168.1.6",
+    "c3": {
+      "device_id": "c3-146393c5d158",
+      "port": "COM4",
+      "serial_number": "14:63:93:C5:D1:58"
+    },
+    "s3": {
+      "device_id": "hub-e072a1d38d34",
+      "port": "COM10",
+      "serial_number": "E0:72:A1:D3:8D:34"
+    }
+  },
+  "images": {
+    "c3": "589dc9f98ef78fed97709e2ffb845b0a0eb6ccf5babfd9cc149743539932acb7",
+    "s3": "c26b6241a40bf5e7bd14f68351c71ed4ac158b97fd7c4af78c8c7edb9c0a7e16"
+  },
+  "procedures": [
+    "protected_gs40_bootstrap",
+    "tc001_campaign",
+    "observe",
+    "application_flash",
+    "test_data_erase",
+    "development_reprovision"
+  ],
+  "motion_injection_authorized": true,
+  "serial_reset_risk_accepted": true,
+  "max_sessions": 1000,
+  "serial_helper": {
+    "path": "/home/udaybhan/projects/Ghar_sajag_r1/code/tools/local/gs117_tc001_serial_windows.py",
+    "sha256": "82fa16c14eaf761785aed1c5a0522fd4a17af306df26854302a6988f85142692"
+  },
+  "bootstrap_script": {
+    "path": "/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/standing-readiness-prepared/gs117-protected-bootstrap-development-v10.py",
+    "sha256": "1ede374bc927d33d621d720ad0796703c3724febac1d143b4fd596b879d54fec"
+  },
+  "bootstrap_evidence_helper": {
+    "path": "/home/udaybhan/projects/Ghar_sajag_r1/code/tools/local/gs117_bootstrap_evidence.py",
+    "sha256": "b34c3969165bf4213d27c0d7edb808486ff5d627dda3e50f83847af9b0c9480c"
+  },
+  "allowed_operations": [
+    "protected_gs40_bootstrap",
+    "tc001_campaign",
+    "observe",
+    "application_flash",
+    "test_data_erase",
+    "development_reprovision"
+  ],
+  "prohibited_operations": [
+    "efuse",
+    "permanent_security_change",
+    "production_credentials",
+    "unknown_hardware",
+    "non_test_data",
+    "erase_irreplaceable_trust"
+  ],
+  "image_receipts": {
+    "c3": {
+      "path": "/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/development-fixture/c3-current-image.json",
+      "sha256": "2cdf4975c25d95b1b69e46a59a323ae4e2bad03c2e4d6b78210a508ff6a7dcd0"
+    },
+    "s3": {
+      "path": "/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/development-fixture/s3-current-image.json",
+      "sha256": "b4c4254271cf18e20f38f09c2e44ffc1154cf648904c52a45c15f7ce482b3170"
+    }
+  },
+  "evidence_directory": "/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/standing-authorization",
+  "controller": {
+    "path": "/home/udaybhan/projects/Ghar_sajag_r1/code/tools/local/gs117_tc001_console.py",
+    "sha256": "5662eebef81272d9a4f3f043f8989a371842c64687047abf050547e7f7936616"
+  },
+  "validator": {
+    "path": "/home/udaybhan/projects/Ghar_sajag_r1/code/tools/local/gs117_hil_authorization.py",
+    "sha256": "d6ab3f21ab70eca839f14f9edefb286184491bb456b2cf1b3b1d2632ea586a24"
+  },
+  "expected_s3_memory_profile": {
+    "flash_size_bytes": 16777216,
+    "psram_size_bytes": 8388608
+  },
+  "activation_note": "Reusable development consent from explicit current owner direction. Exact TEST hardware/Home/backend only. Revocable via active=false or revoked=true. Old policies/ledgers untouched. Essential technical guards remain; no eFuse/permanent security/production or unknown-device operations. Before erase require preserved diagnostics and verified recovery artifacts; prefer app-only flash. Stop after three consecutive failed attempts.",
+  "profile": "GS117_DEV_TEST_ONLY",
+  "recovery_artifacts": [
+    {
+      "path": "/home/udaybhan/projects/Ghar_sajag_r1/code/build/gs117_dev_rejoin_20261029/c3/gs_hw_m1_node.bin",
+      "sha256": "589dc9f98ef78fed97709e2ffb845b0a0eb6ccf5babfd9cc149743539932acb7"
+    },
+    {
+      "path": "/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/readback-approved-20261029T0435Z/c3/c3-active-app-slot.bin",
+      "sha256": "591e9016c4ed8123314bf115482cce4a7ff3ddf0ebfc66842578e9003c8aa6ea"
+    },
+    {
+      "path": "/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/readback-approved-20261029T0435Z/c3/c3-partition-table.bin",
+      "sha256": "219614d3586ae564ce51dfc462e6e7773b590abe41048a10bc513e1a7d799469"
+    }
+  ],
+  "prior_image_receipts": {
+    "c3": {
+      "path": "/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/readback-approved-20261029T0435Z/c3/c3-readback.json",
+      "sha256": "1ff4a3e877a2ad5882d6403b183da0f3ffde32e40f9283c2c27a2de6cdbb8943"
+    },
+    "s3": {
+      "path": "/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/readback-approved-20261029T0435Z/s3/s3-readback.json",
+      "sha256": "ec930ec12de50e563b4607d33359becef562c5cdc1e3687060cca2b97f845a98"
+    }
+  },
+  "authorization_audit_directory": "/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/development-authorization"
+}
