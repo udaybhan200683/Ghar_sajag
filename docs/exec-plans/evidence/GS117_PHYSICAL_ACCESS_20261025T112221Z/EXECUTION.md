@@ -3176,14 +3176,15 @@ session on exact C3 `c3-146393c5d158` / COM4 / serial
 `14:63:93:C5:D1:58`, S3 `hub-e072a1d38d34` / COM10 / serial
 `E0:72:A1:D3:8D:34`, Home `gs177-test-product`, and phone `ZA2237MRHN`:
 
-1. One read-only `read-mac` plus RTS hard reset to return the existing C3 app;
-   confirm expected app and HIL state with existing `GET_STATE`.
-2. Targeted read-only current-image provenance: partition table, OTA selector,
-   selected active app region only on C3 and S3. No NVS, outbox, credentials or
-   unrelated region access; no writes/erase and no standalone JEDEC query.
-3. If COM10 readback/reset clears RAM-only connectivity, one use of the existing
+1. Targeted read-only current-image provenance: partition table, OTA selector,
+   selected active app region only on C3 and S3, starting with the C3 already in
+   ROM. No NVS, outbox, credentials or unrelated region access; no writes/erase
+   and no standalone JEDEC query.
+2. If COM10 readback/reset clears RAM-only connectivity, one use of the existing
    GS40 encrypted TEST_ONLY configuration recovery to endpoint `192.168.1.6`,
    using the preserved verified artifacts only.
+3. After readback, one read-only `read-mac` plus RTS hard reset to return the
+   existing C3 app; confirm expected app and HIL state with existing `GET_STATE`.
 4. After current fixture and fresh S3 mTLS/time/backend gates pass, run the
    existing five-run controller once: at most five sequential C3
    `INJECT_MOTION` inputs, accept COM4 serial-open reset risk, do not open COM10

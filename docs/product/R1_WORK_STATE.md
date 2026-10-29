@@ -54,14 +54,15 @@ expected HIL application does not start.
 GS-117 TEST_ONLY session for the exact C3 `c3-146393c5d158` / COM4 /
 `14:63:93:C5:D1:58`, Hub `hub-e072a1d38d34` / COM10 /
 `E0:72:A1:D3:8D:34`, Home `gs177-test-product`, and the already authorized
-Android phone `ZA2237MRHN`. Permit (1) one C3 no-JEDEC `read-mac` plus controlled
-hard reset to the existing app and `GET_STATE`; (2) targeted read-only reads of
-only each board's partition table, OTA selector (`otadata`) and selected active
-app region to establish current image receipts; (3) one reapplication, only if
-COM10 readback/reset clears RAM-only Hub configuration, of the existing
-verified GS40 TEST_ONLY encrypted configuration targeting `192.168.1.6`; then
-(4) only after all fixture, fresh physical ingress, identity and backend gates
-pass, run the existing controller for at most five sequential C3
+Android phone `ZA2237MRHN`. Permit (1) targeted read-only reads of only each
+board's partition table, OTA selector (`otadata`) and selected active app region
+to establish current image receipts, starting with C3 while it remains in ROM;
+(2) one reapplication, only if COM10 readback/reset clears RAM-only Hub
+configuration, of the existing verified GS40 TEST_ONLY encrypted configuration
+targeting `192.168.1.6`; (3) after readback, one C3 no-JEDEC `read-mac` plus
+controlled hard reset to the existing app and `GET_STATE`; then (4) only after
+all fixture, fresh physical ingress, identity and backend gates pass, run the
+existing controller for at most five sequential C3
 `INJECT_MOTION` inputs, with COM4-open reset risk accepted, COM10 unopened
 during campaign runs, automatic exact-key verification through PostgreSQL/API
 and the installed APK, and stop at the first failure. Use only the existing
