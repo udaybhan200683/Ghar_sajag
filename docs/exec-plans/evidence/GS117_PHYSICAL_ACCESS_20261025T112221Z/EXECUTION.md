@@ -3201,3 +3201,76 @@ one-use campaign approval file is created only after genuine readiness passes.
 This approval request does not authorize execution. The 24-hour S3 receipt,
 current C3/S3 readbacks, fresh physical Hub receipt and owner-only fixture remain
 the exact gates before the first event.
+
+### 2026-10-29 04:42 UTC — approved readbacks passed; session stopped at C3 liveness guard
+
+The owner approved one exact-device GS-117 TEST_ONLY session covering targeted
+read-only C3/S3 partition-table, OTA-selector and selected-app readback; the
+existing no-JEDEC C3 `read-mac`/RTS hard reset and `GET_STATE`; conditional reuse
+of the existing encrypted GS40 configuration to `192.168.1.6`; then at most one
+five-run TC-001 campaign, stopping at the first failed guard/run.
+
+Preflight was PASS at source `ddf3ff4d866213716462f000db7534252f74e64c`; the
+origin matched. The existing private readback script passed its non-hardware
+artifact self-check. Because its normal read path re-queries JEDEC, a private
+one-session copy retained its USB/MAC/chip/security, partition-layout, OTA
+selector CRC/state, trusted artifact/version/ELF, and byte-match guards while
+removing `detect_flash_size()` and the wrapper that invokes it. It read only
+partition table at `0x8000`/`0x1000`, `otadata` at `0xF000`/`0x2000`, and the
+expected image byte length at the selected app offset. It did not query JEDEC,
+write/erase flash, access NVS/outbox or read unrelated partitions. Its artifact
+self-check and static no-write/no-JEDEC checks passed.
+
+Both current readbacks passed against their preserved trusted artifacts:
+
+| Target | USB identity / MAC | OTA selector | Active app evidence |
+| --- | --- | --- | --- |
+| C3 | COM4 / `14:63:93:C5:D1:58` / `146393c5d158` | valid selector copy 0, sequence 7; `ota_0`, offset `0x20000` | `8cbda4b-dirty`, 958,832 bytes; SHA-256 `591e9016c4ed8123314bf115482cce4a7ff3ddf0ebfc66842578e9003c8aa6ea`, byte-for-byte match |
+| S3 | COM10 / `E0:72:A1:D3:8D:34` / `e072a1d38d34` | valid selector copy 1, sequence 30; `ota_1`, offset `0x420000` | `9bbc6d0-dirty`, 2,273,344 bytes; SHA-256 `c26b6241a40bf5e7bd14f68351c71ed4ac158b97fd7c4af78c8c7edb9c0a7e16`, byte-for-byte match |
+
+Partition-table SHA-256: C3 `219614d3586ae564ce51dfc462e6e7773b590abe41048a10bc513e1a7d799469`; S3 `338f4a83ba90609b4ed0a04514f6378dc90b5d21769e186f49dc3086fd9feabc`.
+Both selectors had a valid CRC. Security status from esptool's target detection
+was read-only and reported secure boot off, flash encryption counter 0, and
+secure-download off. Flash capacity was not re-queried; the prior C3 XMC 4 MB
+JEDEC result stands and was not repeated.
+
+After both readbacks, the authorized Windows esptool 5.4.0 command
+`--chip esp32c3 --port COM4 --baud 115200 --before no-reset --after hard-reset
+--connect-attempts 1 --no-stub read-mac` exited 0, returned
+`14:63:93:c5:d1:58`, and issued “Hard resetting via RTS pin.” A subsequent C3
+read-only `GET_STATE` returned the expected `HIL_AWAKE_TEST_ONLY` profile,
+`hil_build=0`, `hil_control=1`, `physical_wake=0`, and empty retained,
+in-flight, and pending state. The complete existing liveness predicate did not
+pass: after repeated GET_STATE ACKs over 30 seconds and a final boot uptime of
+112,302 ms, `runtime_live=0` and `sensing_live=0`. Current source increments
+these values only inside the NodeRuntime owner loop. The HIL UART-control task
+works; why the owner loop did not advance remains undiagnosed. The initial
+short sample was not treated as the final result; the full bounded poll is the
+failed guard.
+
+The approved scope requires stopping at that guard. No S3 configuration
+reapplication, C3 motion injection, event DB write, five-run campaign, Android
+event observation or PIR test occurred. The COM10 readback used default-reset
+bootloader entry and the volatile stub path; S3 RAM-only TEST_ONLY configuration
+may have been cleared and was not restored. The S3 was not observed booting its
+application after readback. The current owner-only fixture and campaign
+approval remain absent; TC-001 remains 0/5 NOT_RUN.
+
+Current non-invasive environment evidence: local WSL TLS and LAN HTTPS at
+`https://192.168.1.6/readyz` both returned HTTP 200 with the preserved CA and
+reported PostgreSQL reachable. Existing Windows TCP 8445 and UDP 4468 listeners
+and the WSL TCP 8445 listener were present. These are route/service checks only;
+no fresh physical S3 mTLS, identity, signed-time, or CloudSync receipt was
+observed. GS-117 console root returned HTTP 200; its `/api/status` request did
+not complete within the bounded request. The supplied Windows ADB executable
+now lists no attached device, so no current APK observation was possible.
+
+Private evidence (owner-only, mode 0600) is at
+`~/.local/state/ghar-sajag/gs117-tc001/readback-approved-20261029T0435Z/`;
+the C3/S3 JSON manifests, binary readbacks, esptool logs and GET_STATE captures
+are retained there. No repository firmware/source changes occurred and no
+regression tests were rerun. Focused non-hardware checks passed: context
+preflight; existing readback artifact self-check; private helper syntax/static
+scope check; TLS-verified local/LAN readiness; PostgreSQL readiness. No new
+software PASS is claimed. The current session ended at the C3 liveness failure;
+further COM/Hub recovery or event injection needs a fresh bounded owner scope.

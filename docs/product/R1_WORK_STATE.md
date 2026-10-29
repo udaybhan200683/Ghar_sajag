@@ -1,4 +1,60 @@
-## Latest active checkpoint — GS-117 physical E2E, one consolidated hardware approval required — 2026-10-29
+## Latest active checkpoint — GS-117 consolidated physical session stopped at C3 runtime liveness guard — 2026-10-29 04:42 UTC
+
+Physical operations used source commit `ddf3ff4d866213716462f000db7534252f74e64c` on
+`feature/r1-commercial-baseline`; origin matched and context preflight passed.
+The owner approved one exact-device GS-117 TEST_ONLY readback, C3 return/GET_STATE,
+conditional existing S3 GS40 config recovery, and up-to-five-run TC-001 session.
+The authorization ends at the first failed physical readiness guard; the campaign
+and recovery were not started.
+
+Read-only USB enumeration matched C3 COM4 / `14:63:93:C5:D1:58` and S3 COM10 /
+`E0:72:A1:D3:8D:34`, VID/PID `303A:1001`. The existing private image-readback
+procedure passed its non-hardware artifact check. Its one-session variant omitted
+flash-capacity/JEDEC queries and read only the partition table, `otadata`, and the
+trusted-image-length bytes from the selected application slot. Both boards passed:
+C3 MAC `146393c5d158`, selector `ota_0` at `0x20000`, image SHA-256
+`591e9016c4ed8123314bf115482cce4a7ff3ddf0ebfc66842578e9003c8aa6ea`; S3 MAC
+`e072a1d38d34`, selector `ota_1` at `0x420000`, image SHA-256
+`c26b6241a40bf5e7bd14f68351c71ed4ac158b97fd7c4af78c8c7edb9c0a7e16`. Each
+partition-table hash and selector CRC were verified. No JEDEC/capacity query,
+flash write, erase, NVS/outbox read or credential-partition access occurred.
+Private raw readback and logs are mode 0600 under
+`~/.local/state/ghar-sajag/gs117-tc001/readback-approved-20261029T0435Z/`.
+
+After readback, the approved C3 `read-mac` command exited 0, returned the expected
+MAC and issued the RTS hard reset. The C3 application answered `GET_STATE` with
+the expected `HIL_AWAKE_TEST_ONLY` profile and empty retained/in-flight/pending
+state. However, a full 30-second bounded observation, with samples through
+112.3 seconds after boot, kept `runtime_live=0` and `sensing_live=0`. The UART
+control task acknowledged every `GET_STATE`, but the NodeRuntime liveness gate
+failed. Source increments these counters inside the NodeRuntime owner loop
+(`node_runtime_adapter.cpp`); the underlying startup stall is not yet identified.
+This is the first failed guard. No S3 config reapplication, motion injection,
+TC-001 campaign or further hardware operation followed. The S3 readback entered
+the bootloader/stub path and may have cleared RAM-only TEST_ONLY configuration;
+it was not restored after the stop.
+
+Non-invasive service checks passed: local and LAN HTTPS `/readyz` returned HTTP
+200 with certificate verification and reported PostgreSQL reachable; PostgreSQL
+and the caregiver service remain active. Windows listeners are present at
+`192.168.1.6:8445` and UDP `192.168.1.6:4468`; the WSL 8445 ingress listener is
+active. These host/listener checks do not prove fresh S3 mTLS or signed-time
+acceptance. The existing GS-117 page returned HTTP 200; `/api/status` did not
+return within the attempted bounded request. Windows ADB currently lists no
+device, so there is no fresh APK observation. Owner-only fixture and campaign
+approval remain absent; no database event was written. TC-001 remains 0/5
+NOT_RUN, Morning Routine completion and real PIR remain NOT_RUN, and GS-117
+remains OnHold.
+
+Next: investigate the C3 owner-loop startup failure from current source and
+preserved image/build records without touching hardware. Further serial/runtime
+diagnostics and physical continuation require a new bounded owner scope because
+the approved session ended on this failed guard. Do not re-run JEDEC or resume
+the campaign. Pre-change local and remote HEAD were both
+`ddf3ff4d866213716462f000db7534252f74e64c`; unrelated untracked Android and
+historical HIL evidence remains preserved.
+
+## Prior checkpoint — GS-117 physical E2E, one consolidated hardware approval pending — 2026-10-29
 
 Resume base: canonical `feature/r1-commercial-baseline` at
 `8a8e0a082bb2556e3f19075ecc1e0476383046d2`; origin matched before this
