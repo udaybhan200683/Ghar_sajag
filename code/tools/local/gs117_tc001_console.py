@@ -1731,6 +1731,64 @@ document.getElementById('run').onclick=()=>post('/api/run',{});document.getEleme
 </script></html>"""
 
 
+def observation_refresh_guard(observed, recovery=None, *, started_at):
+    """A refresh warning is recoverable only with bound, verified target evidence.
+
+    The optional owner-only ingress receipt is evidence, never an HTTP status
+    shortcut. Missing recovery evidence cannot clear an observed target failure.
+    """
+    from gs117_tc001_serial_windows import readiness_guard, READINESS_TRANSIENT_MARKERS
+    c3, s3 = observed.get("c3", []), observed.get("s3", [])
+    readiness_guard({"stop_on_readiness_error": True,
+                     "defer_transient_refresh_failure": True}, c3, s3)
+    transient = any(m in line.lower() for line in c3 + s3
+                    for m in READINESS_TRANSIENT_MARKERS)
+    if not transient:
+        return "NO_REFRESH_FAILURE_OBSERVED"
+    digest = hashlib.sha256(json.dumps(observed, sort_keys=True).encode()).hexdigest()
+    try:
+        valid = (recovery["profile"] == "GS179_TEST_ONLY" and
+            recovery["home_id"] == "gs177-test-product" and
+            recovery["hub_id"] == "hub-e072a1d38d34" and
+            recovery["installation_epoch"] == 1 and
+            recovery["authenticated_hub_identity"] is True and
+            recovery["trusted_time_ready"] is True and
+            recovery["authority_lease_installed"] is True and
+            recovery["target_observation_sha256"] == digest and
+            recovery["recovery_proof"] == "VERIFIED_TARGET_TIME_AUTHORITY_AND_AUTHENTICATED_CLOUDSYNC" and
+            all(re.fullmatch(r"[0-9a-f]{64}", recovery[k]) for k in
+                ("mtls_client_cert_sha256", "server_cert_sha256")) and
+            datetime.now(timezone.utc) >= datetime.fromisoformat(recovery["observed_at"]) >=
+                datetime.fromisoformat(recovery["recovered_at"]) >= datetime.fromisoformat(started_at))
+    except (KeyError, TypeError, ValueError):
+        valid = False
+    if not valid:
+        raise ValueError("standing_readiness_refresh_recovery_not_verified")
+    return "RECOVERED_WITH_BOUND_AUTHENTICATED_TARGET_EVIDENCE"
+
+
+def readiness_fixture_status(started_at):
+    """Fixture acceptance is independent of a completed target observation."""
+    try:
+        fixture = exact_fixture()
+        ingress = json.loads(Path(fixture["hub_ingress_receipt"]).read_text())
+        if datetime.fromisoformat(ingress["observed_at"]) < datetime.fromisoformat(started_at):
+            raise ValueError("standing_readiness_requires_new_physical_ingress_receipt")
+        return {"overall": "TC001_READY", "fixture": "PASS"}
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        return {"overall": "FIXTURE_PENDING", "fixture": "BLOCKED",
+                "fixture_reason": str(error) if isinstance(error, ValueError) else type(error).__name__}
+
+
+def save_readiness_result(directory, name, value):
+    fd = os.open(Path(directory) / name, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    with os.fdopen(fd, "w") as out:
+        json.dump(value, out); out.flush(); os.fsync(out.fileno())
+    fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+    try: os.fsync(fd)
+    finally: os.close(fd)
+
+
 def standing_readiness():
     """Execute only the pinned existing Bootstrap, retaining all target guards."""
     import gs117_hil_authorization as auth
@@ -1756,15 +1814,28 @@ def standing_readiness():
                                 env=env, capture_output=True, text=True, timeout=150)
         for name, content in (("stdout.json", result.stdout), ("stderr.log", result.stderr)):
             fd = os.open(evidence / name, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-            with os.fdopen(fd, "w") as out: out.write(content)
+            with os.fdopen(fd, "w") as out:
+                out.write(content); out.flush(); os.fsync(out.fileno())
         audit["evidence"] = str(evidence)
         if result.returncode:
             raise ValueError("standing_readiness_bootstrap_failed_see_private_evidence")
         observed = json.loads(result.stdout)
         c3 = "\n".join(observed.get("c3", []))
         s3 = "\n".join(observed.get("s3", []))
-        if any(word in (s3 + c3).lower() for word in ("failed", "unavailable", "reject", "panic", "assert")):
-            raise ValueError("standing_readiness_s3_guard_failed_see_private_evidence")
+        recovery = None
+        receipt_path = policy.get("observation_ingress_receipt")
+        if receipt_path and Path(receipt_path).exists():
+            path = Path(receipt_path)
+            info = path.lstat()
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077):
+                raise ValueError("standing_readiness_ingress_receipt_not_private")
+            recovery = json.loads(path.read_text())
+            save_readiness_result(evidence, "ingress-receipt.json", {
+                k: recovery[k] for k in ("profile", "home_id", "hub_id", "installation_epoch",
+                    "authenticated_hub_identity", "trusted_time_ready", "authority_lease_installed",
+                    "target_observation_sha256", "recovery_proof", "mtls_client_cert_sha256",
+                    "server_cert_sha256", "observed_at", "recovered_at") if k in recovery})
+        refresh = observation_refresh_guard(observed, recovery, started_at=audit["started_at"])
         states = [line for line in observed.get("c3", []) if "HIL_STATE role=c3" in line]
         def fields(line):
             return {key: int(value) for key, value in re.findall(
@@ -1780,14 +1851,26 @@ def standing_readiness():
             not re.search(r"Authenticated rejoin device=c3-146393c5d158 logical=bedroom session="
                           + str(last["session"]) + r"\b", s3)):
             raise ValueError("standing_readiness_authenticated_liveness_not_verified")
-        fixture = exact_fixture()  # Existing independent Home/epoch/time/mTLS/image/phone guards.
-        ingress = json.loads(Path(fixture["hub_ingress_receipt"]).read_text())
-        if datetime.fromisoformat(ingress["observed_at"]) < datetime.fromisoformat(audit["started_at"]):
-            raise ValueError("standing_readiness_requires_new_physical_ingress_receipt")
+        memory = observed.get("s3_memory_capacity", {})
+        if (memory.get("status") != "PASS" or memory.get("flash_size_bytes") != 16777216 or
+                memory.get("psram_size_bytes") != 8388608):
+            raise ValueError("standing_readiness_s3_capacity_not_verified")
         if active_hub_ingress_listener().get("status") != "PASS":
             raise ValueError("standing_readiness_physical_listener_not_ready")
-        print(json.dumps({"overall": "READY", "evidence": str(evidence),
-                          "tc001_campaign": "NOT_AUTHORIZED"}))
+        target = {"target_observation": "TARGET_OBSERVATION_PASS", "refresh": refresh,
+                  "evidence": str(evidence), "tc001_campaign": "NOT_AUTHORIZED",
+                  "trusted_time_authority": "VERIFIED_RECOVERY" if refresh.startswith("RECOVERED") else "FIXTURE_EVIDENCE_REQUIRED",
+                  "s3_memory_capacity": memory, "c3_liveness": {"prior": prior, "last": last},
+                  "authenticated_rejoin": "PASS",
+                  "structured_ingress_evidence": "RETAINED" if recovery else "MISSING"}
+        save_readiness_result(evidence, "target-observation-result.json", target)
+        audit["target_observation"] = "TARGET_OBSERVATION_PASS"
+    # Missing/expired fixture material cannot retroactively fail a verified
+    # observation or latch its authorization. All target errors remain above.
+    result = {**target, **readiness_fixture_status(audit["started_at"])}
+    save_readiness_result(evidence, "readiness-result.json", result)
+    print(json.dumps(result))
+
 
 
 if __name__ == "__main__":

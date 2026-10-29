@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "active": false,
+  "revoked": false,
+  "owner_approved": false,
+  "owner_approval_ref": "PENDING_EXPLICIT_OWNER_APPROVAL",
+  "activated_at": null,
+  "expires_at": "2026-11-05T00:00:00+00:00",
+  "identity": {
+    "home_id": "gs177-test-product",
+    "backend": "192.168.1.6",
+    "c3": {
+      "device_id": "c3-146393c5d158",
+      "port": "COM4",
+      "serial_number": "14:63:93:C5:D1:58"
+    },
+    "s3": {
+      "device_id": "hub-e072a1d38d34",
+      "port": "COM10",
+      "serial_number": "E0:72:A1:D3:8D:34"
+    }
+  },
+  "images": {
+    "c3": "591e9016c4ed8123314bf115482cce4a7ff3ddf0ebfc66842578e9003c8aa6ea",
+    "s3": "c26b6241a40bf5e7bd14f68351c71ed4ac158b97fd7c4af78c8c7edb9c0a7e16"
+  },
+  "procedures": [
+    "protected_gs40_bootstrap"
+  ],
+  "motion_injection_authorized": false,
+  "serial_reset_risk_accepted": true,
+  "max_bootstraps_per_session": 1,
+  "max_retries": 0,
+  "max_sessions": 1,
+  "serial_helper": {
+    "path": "/home/udaybhan/projects/Ghar_sajag_r1/code/tools/local/gs117_tc001_serial_windows.py",
+    "sha256": "43a6461b4bc95d2975cfde27805f48d52b4f19f477a18103de565f52674a3afc"
+  },
+  "bootstrap_script": {
+    "path": "/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/standing-readiness-prepared/gs117-protected-bootstrap-current-network-evidence-v7.py",
+    "sha256": "7ea9c42ee442cc00066b9bef71ddd96af948653ffb80532a3d9fff14a06805b6"
+  },
+  "bootstrap_evidence_helper": {
+    "path": "/home/udaybhan/projects/Ghar_sajag_r1/code/tools/local/gs117_bootstrap_evidence.py",
+    "sha256": "b34c3969165bf4213d27c0d7edb808486ff5d627dda3e50f83847af9b0c9480c"
+  },
+  "allowed_operations": [
+    "usb_identity",
+    "serial_open_close",
+    "expected_serial_reset",
+    "get_state",
+    "bounded_logs",
+    "existing_encrypted_gs40_bootstrap",
+    "authenticated_rejoin",
+    "read_only_backend_api_postgres_android_verification"
+  ],
+  "prohibited_operations": [
+    "injection",
+    "campaign",
+    "flash",
+    "erase",
+    "readback",
+    "jedec",
+    "credentials",
+    "enrollment",
+    "ownership",
+    "database_mutation",
+    "security_bypass",
+    "new_identity_home_or_endpoint",
+    "unreviewed_recovery"
+  ],
+  "required_preflight": [
+    "owner_consent",
+    "policy_validity",
+    "procedure_fingerprints",
+    "exact_usb_identity",
+    "preserved_image_receipts",
+    "backend_https_postgres",
+    "physical_ingress_route",
+    "target_boot_config_validation",
+    "authenticated_rejoin_liveness_progress",
+    "fresh_physical_time_mtls_receipt"
+  ],
+  "image_receipts": {
+    "c3": {
+      "path": "/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/readback-approved-20261029T0435Z/c3/c3-readback.json",
+      "sha256": "1ff4a3e877a2ad5882d6403b183da0f3ffde32e40f9283c2c27a2de6cdbb8943"
+    },
+    "s3": {
+      "path": "/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/readback-approved-20261029T0435Z/s3/s3-readback.json",
+      "sha256": "ec930ec12de50e563b4607d33359becef562c5cdc1e3687060cca2b97f845a98"
+    }
+  },
+  "max_session_seconds": 150,
+  "observation_seconds": 60,
+  "evidence_directory": "/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/standing-authorization",
+  "controller": {
+    "path": "/home/udaybhan/projects/Ghar_sajag_r1/code/tools/local/gs117_tc001_console.py",
+    "sha256": "fcd26a58538bfddb697314aabf6bfbcc835c27650d41fd9ba2a9279eb7a0da33"
+  },
+  "validator": {
+    "path": "/home/udaybhan/projects/Ghar_sajag_r1/code/tools/local/gs117_hil_authorization.py",
+    "sha256": "2febf4aa94ed725b4dbd21aef475b422c93157c8883d007f85ae869066a22c98"
+  },
+  "expected_s3_memory_profile": {
+    "flash_size_bytes": 16777216,
+    "psram_size_bytes": 8388608
+  },
+  "activation_note": "Inactive revised proposal. Explicit new owner consent required. Preserve every prior policy and ledger. One readiness observation only; target/authentication/identity/capacity/security failures latch. Recoverable refresh warnings are collected within the existing timeout and require later verified target-bound authenticated evidence; HTTP 200 does not establish recovery. A completed target observation is saved separately; missing fixture/ingress evidence reports FIXTURE_PENDING without failure-latching it. TC001_READY still requires the unchanged exact_fixture contract. No fixture or recovery receipt is fabricated. No campaign permission."
+}

@@ -38,6 +38,7 @@ class StandingAuthorizationTest(unittest.TestCase):
         self.policy = self.root / 'policy.json'
         source = Path(__file__).resolve().parents[3] / 'docs/exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/standing-authorization.proposed.json'
         self.data = json.loads(source.read_text())
+        self.data['controller'] = {'path': str(Path(tc.__file__)), 'sha256': hil_auth.digest(tc.__file__)}
         now = datetime.now(timezone.utc)
         self.data.update(active=True, owner_approved=True, owner_approval_ref='unit-test-consent-only',
                          activated_at=now.isoformat(),
@@ -113,11 +114,15 @@ class StandingAuthorizationTest(unittest.TestCase):
 
     def test_readiness_retains_fixture_and_fresh_receipt_guards(self):
         from contextlib import contextmanager
+        original_session = hil_auth.session
         @contextmanager
         def authorized(*args):
-            yield self.data, {'started_at': datetime.now(timezone.utc).isoformat()}
+            with original_session('protected_gs40_bootstrap', self.policy, self.root / 'audit') as result:
+                yield result
         self.data['bootstrap_script']['path'] = str(self.root / 'bootstrap_script')
-        observation = {'c3': ['HIL_STATE role=c3 session=120 runtime_live=1 sensing_live=1',
+        self.data['evidence_directory'] = str(self.root)
+        self.write()
+        observation = {'s3_memory_capacity': {'status': 'PASS', 'flash_size_bytes': 16777216, 'psram_size_bytes': 8388608}, 'c3': ['HIL_STATE role=c3 session=120 runtime_live=1 sensing_live=1',
                               'HIL_STATE role=c3 session=120 runtime_live=2 sensing_live=2'],
                        's3': ['Authenticated rejoin device=c3-146393c5d158 logical=bedroom session=120']}
         receipt = self.root / 'receipt.json'
@@ -129,19 +134,63 @@ class StandingAuthorizationTest(unittest.TestCase):
              patch.object(tc, 'powershell', return_value=[dict(v, usb_hwid='USB VID:PID=303A:1001 SER='+v['serial_number']) for v in hil_auth.IDENTITY.values() if isinstance(v, dict)]), \
              patch.object(tc.subprocess, 'run', return_value=SimpleNamespace(returncode=0, stdout=json.dumps(observation), stderr='')), \
              patch.object(tc, 'exact_fixture', side_effect=ValueError('fixture_not_verified')) as fixture_fn:
-            with self.assertRaisesRegex(ValueError, 'fixture_not_verified'): tc.standing_readiness()
+            with patch('builtins.print') as output:
+                tc.standing_readiness()
+                self.assertEqual(json.loads(output.call_args.args[0])['overall'], 'FIXTURE_PENDING')
+            ledger = self.root / 'audit' / (hil_auth.digest(self.policy) + '.json')
+            self.assertFalse(json.loads(ledger.read_text())['blocked'])
             def fresh_fixture():
                 receipt.write_text(json.dumps({'observed_at': datetime.now(timezone.utc).isoformat()}))
                 return {'hub_ingress_receipt': str(receipt)}
             fixture_fn.side_effect = fresh_fixture
             with patch('builtins.print') as output:
                 tc.standing_readiness()
-                self.assertEqual(json.loads(output.call_args.args[0])['overall'], 'READY')
+                self.assertEqual(json.loads(output.call_args.args[0])['overall'], 'TC001_READY')
             fixture_fn.side_effect = None
             fixture_fn.return_value = {'hub_ingress_receipt': str(receipt)}
             receipt.write_text(json.dumps({'observed_at': '2020-01-01T00:00:00+00:00'}))
-            with self.assertRaisesRegex(ValueError, 'new_physical_ingress_receipt'):
+            with patch('builtins.print') as output:
                 tc.standing_readiness()
+                self.assertEqual(json.loads(output.call_args.args[0])['overall'], 'FIXTURE_PENDING')
+            with patch.object(tc.subprocess, 'run', return_value=SimpleNamespace(returncode=2, stdout='{}', stderr='')):
+                with self.assertRaisesRegex(ValueError, 'bootstrap_failed'):
+                    tc.standing_readiness()
+            self.assertTrue(json.loads(ledger.read_text())['blocked'])
+
+    def test_missing_ingress_receipt_is_fixture_pending(self):
+        with patch.object(tc, 'exact_fixture', return_value={
+                'hub_ingress_receipt': str(self.root / 'does-not-exist.json')}):
+            result = tc.readiness_fixture_status(datetime.now(timezone.utc).isoformat())
+        self.assertEqual(result['overall'], 'FIXTURE_PENDING')
+        self.assertEqual(result['fixture_reason'], 'FileNotFoundError')
+
+    def test_refresh_failure_needs_target_bound_authenticated_recovery(self):
+        observed = {"c3": [], "s3": ["TEST_ONLY time/authority refresh failed; publication fenced"]}
+        start = "2026-10-29T00:00:00+00:00"
+        for receipt in (None, {"http_status": 200}):
+            with self.assertRaisesRegex(ValueError, "recovery_not_verified"):
+                tc.observation_refresh_guard(observed, receipt, started_at=start)
+        receipt = {"profile": "GS179_TEST_ONLY", "home_id": "gs177-test-product",
+            "hub_id": "hub-e072a1d38d34", "installation_epoch": 1,
+            "authenticated_hub_identity": True, "trusted_time_ready": True,
+            "authority_lease_installed": True,
+            "target_observation_sha256": hashlib.sha256(json.dumps(observed, sort_keys=True).encode()).hexdigest(),
+            "recovery_proof": "VERIFIED_TARGET_TIME_AUTHORITY_AND_AUTHENTICATED_CLOUDSYNC",
+            "mtls_client_cert_sha256": "a"*64, "server_cert_sha256": "b"*64,
+            "observed_at": start, "recovered_at": start}
+        self.assertIn("RECOVERED", tc.observation_refresh_guard(observed, receipt, started_at=start))
+        for field in ("trusted_time_ready", "authority_lease_installed", "authenticated_hub_identity"):
+            bad = dict(receipt, **{field: False})
+            with self.assertRaises(ValueError): tc.observation_refresh_guard(observed, bad, started_at=start)
+        observed["s3"].append("GS40T/1 REJECT stage=signature")
+        with self.assertRaisesRegex(ValueError, "TARGET_READINESS_GUARD_FAILED"):
+            tc.observation_refresh_guard(observed, receipt, started_at=start)
+
+    def test_transient_collection_opt_in_preserves_fatal_latch(self):
+        config = {"stop_on_readiness_error": True, "defer_transient_refresh_failure": True}
+        tc_serial.readiness_guard(config, [], ["time/authority refresh failed"])
+        with self.assertRaises(ValueError):
+            tc_serial.readiness_guard(config, [], ["panic: security fault"])
 
     def test_inactive_policy_prevents_all_hardware(self):
         self.data['active'] = False; self.write()

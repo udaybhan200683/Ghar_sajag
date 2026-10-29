@@ -259,6 +259,10 @@ def commission_fixture(c3, s3, c3_lines, s3_lines, *, clock=time.monotonic,
             "node_public_key": public_key}
 
 
+READINESS_TRANSIENT_MARKERS = ("signed-time bootstrap unavailable",
+    "time/authority refresh failed", "authority bootstrap unavailable")
+
+
 def readiness_guard(config, c3_lines, s3_lines):
     """Standing readiness stops collection/commands at the first target failure."""
     if config.get("stop_on_readiness_error") is not True:
@@ -266,8 +270,11 @@ def readiness_guard(config, c3_lines, s3_lines):
     markers = ("failed closed", "startup refused", "Node recovery restore failed",
                "Node recovery checkpoint failed", "Node rejoin failed", "Node security owner faulted",
                "signed-time bootstrap unavailable", "time/authority refresh failed",
-               "authority bootstrap unavailable", "GS40T/1 REJECT", "panic", "assert failed")
-    if any(marker in line for line in c3_lines + s3_lines for marker in markers):
+               "authority bootstrap unavailable", "GS40T/1 REJECT", "panic", "assert failed",
+               "TLS validation=end valid=0", "signature verification failed", "identity mismatch")
+    if config.get("defer_transient_refresh_failure") is True:
+        markers = tuple(m for m in markers if m not in READINESS_TRANSIENT_MARKERS)
+    if any(marker.lower() in line.lower() for line in c3_lines + s3_lines for marker in markers):
         error = ValueError("TC001_TARGET_READINESS_GUARD_FAILED")
         error.captured_observation = {"c3": c3_lines, "s3": s3_lines}
         raise error
