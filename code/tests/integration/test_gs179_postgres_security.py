@@ -493,6 +493,17 @@ class LaptopServiceLifecycleBoundary(unittest.TestCase):
         self.assertIn("elif ! wait_for_local_backend; then", source)
         self.assertIn("LAN_FORWARDING_READY=FAIL", source)
 
+    def test_watch_revalidates_discovered_wsl_ip_before_start_guard(self):
+        proxy = WINDOWS_PROXY.read_text(encoding="utf-8")
+        discovery = proxy.index('$WslAddress = $wslMatch.Groups["address"].Value')
+        watch_start = proxy.index('$Action = "Start"', discovery)
+        revalidation = proxy.index('$wslPrivate = Is-Rfc1918 $WslAddress', watch_start)
+        start_guard = proxy.index(
+            'if (-not $wslPrivate -or $WslAddress -notmatch', revalidation)
+        self.assertLess(discovery, watch_start)
+        self.assertLess(watch_start, revalidation)
+        self.assertLess(revalidation, start_guard)
+
     def test_gs117_entrypoint_starts_local_service_and_waits_for_controller_page(self):
         launcher = (CODE_ROOT / "tools" / "local" / "gs117-tc001-launch.sh").read_text(encoding="utf-8")
         windows_launcher = (CODE_ROOT / "tools" / "local" / "GS117-TC001-Console.cmd").read_text(encoding="utf-8")

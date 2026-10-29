@@ -239,7 +239,6 @@ $profile = $wifiState.Profile
 $ipInfo = $wifiState.IpInfo
 $actualAddress = $ipInfo.IPAddress
 $wifiPrivate = Is-Rfc1918 $actualAddress
-$wslPrivate = Is-Rfc1918 $WslAddress
 $scope = Get-Ipv4Network $actualAddress $ipInfo.PrefixLength
 $networkCategory = Get-NetworkCategoryName $profile.NetworkCategory
 $firewallProfile = if ($networkCategory -eq "DomainAuthenticated") { "Domain" } else { $networkCategory }
@@ -326,6 +325,11 @@ if ($wasWatch) {
     $WslAddress = $wslMatch.Groups["address"].Value
     $Action = "Start"
 }
+
+# Watch discovers the current WSL address after entering this script. Always
+# validate the final address value (including that newly discovered value)
+# before Start can mutate Windows forwarding or firewall state.
+$wslPrivate = Is-Rfc1918 $WslAddress
 
 $existingRule = Get-ExactFirewallRule
 $mapRows = @(Get-PortProxyRows | Where-Object {
