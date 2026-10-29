@@ -1,4 +1,23 @@
-## Latest active checkpoint — GS-117 bootstrap failure evidence retention, offline only — 2026-10-29
+## Latest active checkpoint — GS-117 successor readiness stopped at S3 time/authority guard — 2026-10-29
+
+OWNING_JIRA=GS-117
+BUG_CLASSIFICATION=TEST_INFRA_ONLY
+REQUIREMENT_SOURCE=existing GS117-TC001-01 target trusted-time, authenticated C3↔S3 rejoin and liveness readiness contract
+DECISION_IDS=NONE
+TASK_SCOPE=Execute the explicitly approved one-session successor using the corrected protected-bootstrap evidence parent; verify and report genuine target readiness.
+OUT_OF_SCOPE=No retry, injection/campaign, flash/erase/readback/JEDEC, credential/enrollment/ownership change, database edit, Android action or new authorization framework.
+
+Owner-approved one-session successor was activated using the existing owner-only manifest/consent mechanism. Candidate parent SHA-256 `b674461a46a14a4a5e3fd56902ffee04c60aca99c036efa8a892cb23c0f5d454`; evidence helper SHA-256 `d3ab32c9217293ae54960ef11d03e6cd0237c74d2d779d0f070aed1116cc8f9d`. Successor policy hash `9ed966b535ed83ac5ac8d2f25f80af7231d90d56c71a427382fdcd9c836f94f9`, `max_sessions=1`, approved until `2026-11-05T00:00:00Z`. Original policy hash `90cbf044f525fb907a87376707ef64d9d5f254f47a555e31bb0a8b792937fdb9` was archived byte-for-byte; its session 1/10 failed ledger remains unchanged and latched. Successor now records its single session used and is failure-latched; no retry is permitted under this approval.
+
+The trusted Private Wi-Fi, .6 endpoint/certificate SAN, backend HTTPS/PostgreSQL, current WSL `.10` ingress route/listener, Windows `.6:8445` mapping/listener, `.6:4468` signed-time listener, exact COM4/COM10 USB identities and pinned image receipts passed non-invasive preflight. The missing bounded ingress/signed-time processes were started once from the preserved scripts in owner-private run directory `~/.local/state/ghar-sajag/gs117-tc001/successor-readiness-20261029T065850Z/`; both run with a one-hour bound. The existing owner-only `fixture.json` is absent and was not fabricated.
+
+Exactly one `python3 code/tools/local/gs117_tc001_console.py --hil-readiness` call ran. Child-result evidence is in `~/.local/state/ghar-sajag/gs117-tc001/standing-authorization/bootstrap-e8768f01e42e8f01a160e2dd/bootstrap-child-result.json` (owner-only). First failed target guard: S3 logged `TEST_ONLY time/authority refresh failed; publication fenced`; child error was `TC001_TARGET_READINESS_GUARD_FAILED`, exit 2, stage `encrypted_config_exchange`. The S3 TLS identity validation reported `valid=1`, expected Hub/Home and enrollment/epoch were observed. Real backend mTLS authority-refresh returned HTTP 200 at 07:03:40.550Z and 07:04:04.416Z; signed-time host request count reached four, but target trusted-time acceptance was not demonstrated. No authenticated C3 rejoin line was captured.
+
+C3 NodeRuntime started. In session 120, five GET_STATE samples advanced both `runtime_live` and `sensing_live` from 204790 to 206807. A retained seq3 `NodeMessage sent` appeared, but no application ACK or controlled input was observed; this is not TC-001 evidence. Overall readiness **BLOCKED** at S3 time/authority refresh, with target trusted-time acceptance and C3↔S3 authenticated rejoin NOT_VERIFIED. TC-001 remains 0/5 NOT_RUN; no Android or Morning Routine outcome is claimed. No database was manually modified; no flash, erase, readback, JEDEC, credential, enrollment or ownership operation occurred. Existing normal service/CloudSync retries may continue until the bounded services expire.
+
+Canonical source at this execution's start was branch `feature/r1-commercial-baseline`, local and remote HEAD `2bb45c0d9e2f89c85bddb4b9edeed4549daf2a85`; context preflight PASS. This checkpoint's evidence/work-state documentation is being closed from that source. Unrelated pre-existing untracked files remain preserved. Next action: offline diagnosis of the S3 time/authority refresh failure using current source and saved target evidence; request new hardware authorization before any further port/bootstrap observation. The campaign remains separately unauthorized.
+
+## Previous checkpoint — GS-117 bootstrap failure evidence retention, offline only — 2026-10-29
 
 OWNING_JIRA=GS-117
 BUG_CLASSIFICATION=TEST_INFRA_ONLY
