@@ -210,6 +210,11 @@ class BootstrapChildEvidenceTest(unittest.TestCase):
             "c3": ["HIL_STATE role=c3 session=121 runtime_live=4 sensing_live=3"],
             "s3": ["Authenticated rejoin device=c3-146393c5d158 logical=bedroom session=121"],
             "c3_status_queries": 2,
+            "bootstrap_timeline": {"s3_memory_capacity": {
+                "status": "PASS", "flash_size_bytes": 16777216,
+                "psram_size_bytes": 8388608,
+                "evidence_lines": ["SPI Flash size: 16MB", "Found 8MB PSRAM device"],
+            }, "nonce": "must-not-persist"},
         }))
         result = self._run(child)
         evidence = self._evidence()
@@ -221,6 +226,11 @@ class BootstrapChildEvidenceTest(unittest.TestCase):
         self.assertEqual(evidence["challenge_received_at"], "2026-10-29T06:00:01+00:00")
         self.assertEqual(evidence["challenge"]["stage"], "CONFIG_CHALLENGE")
         self.assertNotIn("nonce", json.dumps(evidence["challenge"]))
+        memory = evidence["response"]["bootstrap_timeline"]["s3_memory_capacity"]
+        self.assertEqual(memory["status"], "PASS")
+        self.assertEqual(memory["flash_size_bytes"], 16777216)
+        self.assertEqual(memory["psram_size_bytes"], 8388608)
+        self.assertNotIn("must-not-persist", json.dumps(evidence))
         self.assertEqual((self.root / bootstrap_evidence.EVIDENCE_NAME).stat().st_mode & 0o777, 0o600)
 
     def test_failed_target_guard_and_both_serial_observations_saved_before_raise(self):
@@ -949,17 +959,64 @@ class TC001Test(unittest.TestCase):
         for entry in entries:
             text, bounds = entry[:2]
             attributes = {"text": text, "bounds": bounds}
-            if len(entry) == 3 and entry[2]:
+            if len(entry) >= 3 and entry[2]:
                 attributes["content-desc"] = entry[2]
+            if len(entry) >= 4:
+                attributes.update(entry[3])
             tc_serial.ET.SubElement(root, "node", attributes)
         raw = tc_serial.ET.tostring(root, encoding="utf-8")
         return tc_serial.ET.fromstring(raw), raw
+
+    def _reports_tree(self, *, event_key, decision_id=None, expanded=False,
+                      accessible_navigation=False, page_marker="page-0",
+                      home_id="gs177-test-product"):
+        package = "in.gharsajag.caregiver.discoverytest"
+        details_label = "Decision details" if decision_id else "Event details"
+        detail_text = "" if accessible_navigation else details_label
+        detail_description = details_label if accessible_navigation else None
+        entries = [
+            ("", "[0,0][1000,2000]", None,
+             {"class": "android.webkit.WebView", "scrollable": "true",
+              "package": package}),
+            ("Reports", "[20,20][400,70]", None,
+             {"class": "android.widget.TextView", "package": package}),
+            (f"TEST_ONLY authenticated caregiver data · {home_id} · AUTHENTICATED_GS148_TEST_ONLY",
+             "[30,128][1189,128]", None,
+             {"class": "android.widget.TextView", "package": package}),
+            ("Latest recorded events", "[20,120][900,180]", None,
+             {"class": "android.widget.TextView", "package": package}),
+            (page_marker, "[20,260][500,295]", None,
+             {"class": "android.widget.TextView", "package": package}),
+            (("Morning routine completed" if decision_id else "Motion recorded"),
+             "[200,310][800,355]", None,
+             {"class": "android.widget.TextView", "package": package}),
+            ("Bedroom", "[200,360][800,400]", None,
+             {"class": "android.widget.TextView", "package": package}),
+            (detail_text, "[200,420][800,460]", detail_description,
+             {"class": "android.view.View", "clickable": "true", "package": package}),
+        ]
+        if expanded:
+            identity = ("Decision ID: " + decision_id if decision_id else
+                        "EventKey: " + json.dumps(event_key, separators=(",", ":")))
+            entries.append((identity, "[200,470][900,560]", None,
+                            {"class": "android.view.View", "package": package}))
+        for label, bounds in (("Home", "[0,1900][250,2000]"),
+                              ("Devices", "[250,1900][500,2000]"),
+                              ("Reports", "[500,1900][750,2000]"),
+                              ("Settings", "[750,1900][1000,2000]")):
+            entries.append((label, bounds, None,
+                            {"class": "android.widget.Button", "clickable": "true",
+                             "package": package}))
+        return self._android_tree(entries)
 
     def _run_android_verification(self, *, event_key=None, visible_key=None,
                                   decision_id=None, visible_decision_id=None,
                                   settings_origin="https://laptop.local",
                                   accessible_navigation=False,
-                                  initial_blank_dumps=0):
+                                  initial_blank_dumps=0,
+                                  report_scan_keys=None,
+                                  report_scan_decisions=None,
+                                  report_scan_homes=None):
         package = "in.gharsajag.caregiver.discoverytest"
         adb_serial = "ZA2237MRHN"
         expected_key = event_key or {"physical_device_id": "c3-146393c5d158",
@@ -975,26 +1032,27 @@ class TC001Test(unittest.TestCase):
             (settings_origin, "[0,0][100,100]"),
             (("", "[0,0][100,100]", "Reports") if accessible_navigation else
              ("Reports", "[0,0][100,100]"))])
-        outcome_label = "Morning routine completed" if decision_id else "Motion recorded"
-        details_label = "Decision details" if decision_id else "Event details"
-        identity_label = ("Decision ID: " + (visible_decision_id or decision_id)
-                          if decision_id else
-                          "EventKey: " + json.dumps(visible_key or expected_key))
-        reports = self._android_tree([
-            ("Reports", "[0,0][100,100]"), ("Latest recorded events", "[0,0][100,100]"),
-            ("gs177-test-product", "[0,0][100,100]"),
-            (outcome_label, "[0,0][100,100]"), ("Bedroom", "[0,0][100,100]"),
-            (("", "[0,0][100,100]", details_label) if accessible_navigation else
-             (details_label, "[0,0][100,100]"))])
-        expanded = self._android_tree([
-            ("Reports", "[0,0][100,100]"), ("Latest recorded events", "[0,0][100,100]"),
-            ("gs177-test-product", "[0,0][100,100]"),
-            (outcome_label, "[0,0][100,100]"), ("Bedroom", "[0,0][100,100]"),
-            (("", "[0,0][100,100]", details_label) if accessible_navigation else
-             (details_label, "[0,0][100,100]")),
-            (("", "[0,0][100,100]", identity_label) if accessible_navigation else
-             (identity_label, "[0,0][100,100]"))])
-        ui_sequence = iter((home, settings, settings, reports, reports, expanded))
+        scan_keys = report_scan_keys or [visible_key or expected_key]
+        scan_decisions = report_scan_decisions or [visible_decision_id or decision_id]
+        scan_homes = report_scan_homes or ["gs177-test-product"]
+        report_pages = []
+        for index in range(max(len(scan_keys), len(scan_decisions), len(scan_homes))):
+            key = scan_keys[min(index, len(scan_keys) - 1)] if scan_keys else None
+            decision = (scan_decisions[min(index, len(scan_decisions) - 1)]
+                        if scan_decisions else None)
+            home_id = scan_homes[min(index, len(scan_homes) - 1)] if scan_homes else ""
+            marker = f"report-row-{index}"
+            report_pages.append((
+                self._reports_tree(event_key=key, decision_id=decision,
+                                   accessible_navigation=accessible_navigation,
+                                   page_marker=marker, home_id=home_id),
+                self._reports_tree(event_key=key, decision_id=decision, expanded=True,
+                                   accessible_navigation=accessible_navigation,
+                                   page_marker=marker, home_id=home_id)))
+        reports = report_pages[0][0]
+        ui_sequence = iter((home, settings, settings, reports))
+        state = {"page": 0, "expanded": False, "scan_started": False,
+                 "monkey_count": 0}
         last = [reports]
         blank = self._android_tree([])
         dump_count = [0]
@@ -1007,12 +1065,23 @@ class TC001Test(unittest.TestCase):
             try:
                 last[0] = next(ui_sequence)
             except StopIteration:
-                pass
+                page = min(state["page"], len(report_pages) - 1)
+                last[0] = report_pages[page][1 if state["expanded"] else 0]
             return last[0]
 
         calls = []
         def adb_call(_adb, serial_number, *args, **kwargs):
             calls.append((serial_number, args))
+            if args[:2] == ("shell", "monkey"):
+                state["monkey_count"] += 1
+                if state["monkey_count"] >= 2:
+                    state["scan_started"] = True
+            if state["scan_started"] and args[:3] == ("shell", "input", "tap") and \
+                    args[-2:] == ("500", "440"):
+                state["expanded"] = True
+            if state["scan_started"] and args[:3] == ("shell", "input", "swipe"):
+                state["page"] = min(state["page"] + 1, len(report_pages) - 1)
+                state["expanded"] = False
             if args[:3] == ("shell", "pm", "path"):
                 return ("package:/data/app/" + package + "/base.apk").encode()
             if args[:3] == ("shell", "dumpsys", "package"):
@@ -1046,6 +1115,7 @@ class TC001Test(unittest.TestCase):
         self.assertEqual(result["reports_view"], "Latest recorded events")
         self.assertTrue(result["event_details_open"])
         self.assertEqual(result["event_key"]["event_sequence"], 9)
+        self.assertEqual(result["reports_scrolls"], 0)
         self.assertTrue(result["ui_hierarchy_xml_b64"])
         self.assertTrue(result["screenshot_png_b64"])
         commands = [args for _serial, args in calls]
@@ -1070,12 +1140,88 @@ class TC001Test(unittest.TestCase):
         self.assertEqual(result["event_key"]["event_sequence"], 9)
 
     def test_android_verification_fails_when_exact_event_key_is_not_visible(self):
-        with self.assertRaisesRegex(ValueError, "EXACT_EVENT_KEY_NOT_VISIBLE"):
+        with patch.object(tc_serial, "scroll_reports", wraps=tc_serial.scroll_reports) as scroll:
+            with self.assertRaisesRegex(ValueError, "TC001_EXACT_EVENT_KEY_NOT_VISIBLE"):
+                self._run_android_verification(
+                    event_key={"physical_device_id": "c3-146393c5d158", "logical_node_id": "bedroom",
+                               "origin_session_id": 82, "event_sequence": 10},
+                    visible_key={"physical_device_id": "c3-146393c5d158", "logical_node_id": "bedroom",
+                                 "origin_session_id": 82, "event_sequence": 9})
+            self.assertEqual(scroll.call_count, tc_serial.ANDROID_REPORTS_END_NO_PROGRESS)
+
+    def test_android_observer_scrolls_to_exact_key_on_later_reports_page(self):
+        expected = {"physical_device_id": "c3-146393c5d158", "logical_node_id": "bedroom",
+                    "origin_session_id": 118, "event_sequence": 100}
+        earlier = {**expected, "event_sequence": 99}
+        result, calls = self._run_android_verification(
+            event_key=expected, report_scan_keys=[earlier, expected])
+        self.assertEqual(result["observation"], "AUTOMATED_PASS")
+        self.assertEqual(result["event_key"], expected)
+        self.assertEqual(result["reports_scrolls"], 1)
+        swipes = [args for _serial, args in calls if args[:3] == ("shell", "input", "swipe")]
+        self.assertEqual(len(swipes), 1)
+        # Both gesture endpoints are inside the WebView list and above the
+        # fixed bottom navigation (whose top is y=1900 in this fixture).
+        self.assertLess(int(swipes[0][4]), 1900)
+        self.assertLess(int(swipes[0][6]), 1900)
+
+    def test_reports_scroll_region_keeps_top_event_visible_when_header_is_collapsed(self):
+        expected = {"physical_device_id": "c3-146393c5d158", "logical_node_id": "bedroom",
+                    "origin_session_id": 118, "event_sequence": 100}
+        root, _raw = self._android_tree([
+            ("", "[0,128][1220,2577]", None,
+             {"class": "android.webkit.WebView", "scrollable": "true",
+              "package": "in.gharsajag.caregiver.discoverytest"}),
+            ("Latest recorded events", "[770,128][1181,128]", None,
+             {"class": "android.widget.TextView",
+              "package": "in.gharsajag.caregiver.discoverytest"}),
+            ("TEST_ONLY authenticated caregiver data · gs177-test-product · AUTHENTICATED_GS148_TEST_ONLY",
+             "[30,128][1189,128]", None,
+             {"class": "android.widget.TextView",
+              "package": "in.gharsajag.caregiver.discoverytest"}),
+            ("EventKey: " + json.dumps(expected, separators=(",", ":")),
+             "[444,128][1147,206]", None,
+             {"class": "android.view.View",
+              "package": "in.gharsajag.caregiver.discoverytest"}),
+            ("Reports", "[607,2420][916,2577]", None,
+             {"class": "android.widget.Button", "clickable": "true",
+              "package": "in.gharsajag.caregiver.discoverytest"}),
+            ("Home", "[0,2420][306,2577]", None,
+             {"class": "android.widget.Button", "clickable": "true",
+              "package": "in.gharsajag.caregiver.discoverytest"}),
+        ])
+        viewport = tc_serial.reports_scroll_region(root)
+        self.assertEqual(viewport[1], 128)
+        self.assertTrue(tc_serial.exact_key_in_ui(root, expected, visible_bounds=viewport))
+
+    def test_android_observer_stops_at_bounded_reports_scroll_limit(self):
+        expected = {"physical_device_id": "c3-146393c5d158", "logical_node_id": "bedroom",
+                    "origin_session_id": 118, "event_sequence": 999}
+        pages = [{**expected, "event_sequence": sequence} for sequence in (1, 2, 3, 4)]
+        with patch.object(tc_serial, "ANDROID_REPORTS_MAX_SCROLLS", 2), \
+                patch.object(tc_serial, "scroll_reports", wraps=tc_serial.scroll_reports) as scroll:
+            with self.assertRaisesRegex(ValueError, "REPORTS_SCROLL_LIMIT_REACHED"):
+                self._run_android_verification(event_key=expected, report_scan_keys=pages)
+            self.assertEqual(scroll.call_count, 2)
+
+    def test_android_observer_fails_explicitly_when_key_is_absent_at_reports_end(self):
+        expected = {"physical_device_id": "c3-146393c5d158", "logical_node_id": "bedroom",
+                    "origin_session_id": 118, "event_sequence": 100}
+        visible = {**expected, "event_sequence": 99}
+        with patch.object(tc_serial, "scroll_reports", wraps=tc_serial.scroll_reports) as scroll:
+            with self.assertRaisesRegex(ValueError,
+                                        "TC001_EXACT_EVENT_KEY_NOT_VISIBLE_IN_ANDROID_EVENT_DETAILS"):
+                self._run_android_verification(event_key=expected, report_scan_keys=[visible])
+            self.assertEqual(scroll.call_count, tc_serial.ANDROID_REPORTS_END_NO_PROGRESS)
+
+    def test_android_observer_rechecks_home_while_scrolling_reports(self):
+        expected = {"physical_device_id": "c3-146393c5d158", "logical_node_id": "bedroom",
+                    "origin_session_id": 118, "event_sequence": 100}
+        earlier = {**expected, "event_sequence": 99}
+        with self.assertRaisesRegex(ValueError, "REPORTS_HOME_CHANGED_DURING_SCROLL"):
             self._run_android_verification(
-                event_key={"physical_device_id": "c3-146393c5d158", "logical_node_id": "bedroom",
-                           "origin_session_id": 82, "event_sequence": 10},
-                visible_key={"physical_device_id": "c3-146393c5d158", "logical_node_id": "bedroom",
-                             "origin_session_id": 82, "event_sequence": 9})
+                event_key=expected, report_scan_keys=[earlier, expected],
+                report_scan_homes=["gs177-test-product", "different-test-home"])
 
     def test_android_verification_refreshes_and_matches_exact_hub_morning_decision(self):
         decision_id = "morning-complete:p15:test-c3-bedroomn7:bedrooms82q9"
@@ -1320,6 +1466,27 @@ class TC001Test(unittest.TestCase):
         self.assertEqual(report["stages"]["hub_cloudsync"]["status"], "NOT_VERIFIED")
         self.assertEqual(report["overall"], "FAIL")
 
+    def test_s3_memory_capacity_parser_requires_consistent_flash_and_psram(self):
+        complete = tc_serial.s3_memory_capacity([
+            "I (692) boot: SPI Flash size: 16MB",
+            "I (693) esp_psram: Found 8MB PSRAM device",
+        ])
+        self.assertEqual(complete["status"], "PASS")
+        self.assertEqual(complete["flash_size_bytes"], 16 * 1024 * 1024)
+        self.assertEqual(complete["psram_size_bytes"], 8 * 1024 * 1024)
+
+        incomplete = tc_serial.s3_memory_capacity(["I (692) boot: SPI Flash size: 16MB"])
+        self.assertEqual(incomplete["status"], "INCOMPLETE")
+        self.assertIsNone(incomplete["psram_size_bytes"])
+
+        conflict = tc_serial.s3_memory_capacity([
+            "I (692) boot: SPI Flash size: 16MB",
+            "I (693) boot: SPI Flash size: 8MB",
+            "I (694) esp_psram: Found 8MB PSRAM device",
+        ])
+        self.assertEqual(conflict["status"], "CONFLICT")
+        self.assertIsNone(conflict["flash_size_bytes"])
+
     def test_reset_aware_observer_queries_status_without_motion_injection(self):
         class FakeSerial:
             def __init__(self):
@@ -1459,6 +1626,58 @@ class TC001Test(unittest.TestCase):
                          [b"GET_STATE\n"] * result["c3_status_queries"])
         self.assertTrue(all(not stream.is_open for stream in fake_streams))
 
+    def test_observer_fails_closed_when_current_s3_memory_profile_is_missing(self):
+        class MemorySerial:
+            def __init__(self):
+                self.port = ""
+                self.timeout = None
+                self.write_timeout = None
+                self.dtr = False
+                self.rts = False
+                self.is_open = False
+                self.buffer = bytearray()
+                self.writes = []
+            @property
+            def in_waiting(self): return len(self.buffer)
+            def open(self):
+                self.is_open = True
+                if self.port == "COM10":
+                    self.buffer.extend(("I (1) boot: SPI Flash size: 16MB\n"
+                                        "I (2) HIL_FIXTURE_READY protocol=1 commands=FIXTURE_STATUS\n").encode())
+            def write(self, value):
+                self.writes.append(value)
+                if value == b"GET_STATE\n":
+                    self.buffer.extend(b"HIL_STATE role=c3 power_mode=HIL_AWAKE_TEST_ONLY "
+                                       b"hil_build=0 hil_control=1 physical_wake=0\n")
+                return len(value)
+            def flush(self): pass
+            def reset_input_buffer(self): self.buffer.clear()
+            def read(self, count):
+                value = bytes(self.buffer[:count]); del self.buffer[:count]; return value
+            def close(self): self.is_open = False
+
+        boards = {
+            "c3": {"port": "COM4", "serial_number": "14:63:93:C5:D1:58",
+                   "usb_hwid": "USB VID:PID=303A:1001 SER=14:63:93:C5:D1:58"},
+            "s3": {"port": "COM10", "serial_number": "E0:72:A1:D3:8D:34",
+                   "usb_hwid": "USB VID:PID=303A:1001 SER=E0:72:A1:D3:8D:34"},
+        }
+        streams = iter((MemorySerial(), MemorySerial()))
+        config = {"c3": boards["c3"], "s3": boards["s3"],
+                  "require_s3_memory_profile": True,
+                  "expected_s3_memory_profile": {"flash_size_bytes": 16 * 1024 * 1024,
+                                                 "psram_size_bytes": 8 * 1024 * 1024}}
+        ticks = [0.0]
+        def clock():
+            ticks[0] += 0.1
+            return ticks[0]
+        with self.assertRaisesRegex(ValueError, "TC001_S3_MEMORY_PROFILE_NOT_VERIFIED") as raised:
+            tc_serial.observe(config, serial_factory=lambda: next(streams),
+                              port_finder=lambda: [*boards.values()],
+                              clock=clock, sleep=lambda _seconds: None)
+        self.assertEqual(raised.exception.captured_observation["s3_memory_capacity"]["status"],
+                         "INCOMPLETE")
+
     def test_observer_skips_status_command_during_secure_config_receive(self):
         """GS117-S3-STATUS-GATE-001: do not feed CLI text to GS40 envelope RX."""
         class FakeSerial:
@@ -1530,6 +1749,8 @@ class TC001Test(unittest.TestCase):
         class Stream:
             data = (state + "\nI (1) gs_hub_product: Starting product composition\n"
                     "I (2) app_init: App version: current\n"
+                    "I (3) boot: SPI Flash size: 16MB\n"
+                    "I (4) esp_psram: Found 8MB PSRAM device\n"
                     "abort() was called at PC 0x40370000\n"
                     "assert failed: xQueueSemaphoreTake queue.c:1713 (pxQueue->uxItemSize == 0)\n"
                     "Guru Meditation Error: Core 0 panic'ed (Stack protection fault).\n"
@@ -1542,12 +1763,14 @@ class TC001Test(unittest.TestCase):
 
         lines = []
         self.assertEqual(tc_serial.collect(Stream(), "", lines), "")
-        self.assertEqual(len(lines), 7)
+        self.assertEqual(len(lines), 9)
         self.assertIn("physical_wake=0", lines[0])
         self.assertNotIn("private", "\n".join(lines))
-        self.assertIn("abort()", lines[3])
-        self.assertIn("assert failed:", lines[4])
-        self.assertIn("Guru Meditation Error", lines[5])
+        self.assertIn("SPI Flash size: 16MB", "\n".join(lines))
+        self.assertIn("Found 8MB PSRAM device", "\n".join(lines))
+        self.assertIn("abort()", lines[5])
+        self.assertIn("assert failed:", lines[6])
+        self.assertIn("Guru Meditation Error", lines[7])
         self.assertNotIn("raw_stack_bytes", "\n".join(lines))
 
     def test_status_query_rejects_non_boolean_before_open(self):
@@ -1623,6 +1846,8 @@ class TC001Test(unittest.TestCase):
             return (f"GS40T/1 CHALLENGE nonce={value.hex()} public_key={public} "
                     "max_envelope=24576\n")
         boot = ("ESP-ROM:esp32s3-20210327\n"
+                "I (692) boot: SPI Flash size: 16MB\n"
+                "I (692) esp_psram: Found 8MB PSRAM device\n"
                 "I (693) boot: Loaded app from partition at offset 0x20000\n"
                 "I (1493) app_init: App version: d0e5f84\n"
                 "I (1493) app_init: ELF file SHA256: b576c52f5...\n")
@@ -1653,6 +1878,9 @@ class TC001Test(unittest.TestCase):
         self.assertTrue(evidence["post_reset_boot_verified"])
         self.assertEqual(evidence["ignored_pre_boot_challenges"], 1)
         self.assertEqual(evidence["boot"], expected)
+        self.assertEqual(evidence["s3_memory_capacity"]["status"], "PASS")
+        self.assertEqual(evidence["s3_memory_capacity"]["flash_size_bytes"], 16 * 1024 * 1024)
+        self.assertEqual(evidence["s3_memory_capacity"]["psram_size_bytes"], 8 * 1024 * 1024)
 
         stream = Stream(boot + challenge(nonce))
         with self.assertRaisesRegex(ValueError, "USB_INTERFACE_MISMATCH"):

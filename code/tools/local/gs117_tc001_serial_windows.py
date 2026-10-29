@@ -20,6 +20,10 @@ from urllib.parse import urlsplit
 import serial
 from serial.tools import list_ports
 
+ANDROID_REPORTS_MAX_SCROLLS = 55
+ANDROID_REPORTS_END_NO_PROGRESS = 2
+ANDROID_REPORTS_SCROLL_POLL_ATTEMPTS = 2
+
 
 def ports() -> list[dict[str, str]]:
     return [{"port": item.device, "usb_hwid": item.hwid or "",
@@ -32,7 +36,7 @@ def collect(stream, pending: str, lines: list[str]) -> str:
     fragments = pending.split("\n")
     for line in fragments[:-1]:
         safe = "".join(c for c in line if 32 <= ord(c) < 127).strip()
-        if re.search(r"HIL_(?:READY|STATE|OK|ERROR|FIXTURE)|GS117_TEST_ONLY|GS40T/1|PIR -> NodeRuntime|NodeMessage sent|Application ACK|authenticated|durable|CloudSync|COMMITTED|HubRuntime|HubSecurity|gs_hub_product|gs_hub_runtime|ESP-NOW|outbox|storage|mount|Wi-Fi|STA_START|firmware|image|boot:|ESP-ROM|rst:|panic|abort\(\)|Backtrace|app_init:|assert failed:|Guru Meditation Error|Stack canary|stack overflow", safe, re.I):
+        if re.search(r"HIL_(?:READY|STATE|OK|ERROR|FIXTURE)|GS117_TEST_ONLY|GS40T/1|PIR -> NodeRuntime|NodeMessage sent|Application ACK|authenticated|durable|CloudSync|COMMITTED|HubRuntime|HubSecurity|gs_hub_product|gs_hub_runtime|ESP-NOW|outbox|storage|mount|Wi-Fi|STA_START|firmware|image|boot:|ESP-ROM|rst:|panic|abort\(\)|Backtrace|app_init:|esp_psram|octal_psram|spiram|assert failed:|Guru Meditation Error|Stack canary|stack overflow", safe, re.I):
             safe = re.sub(r"(?i)(credential|secret|private.key|session.key|installer.code|wifi_psk|password|token|authorization|ssid|certificate)\s*[:=]\s*\S+",
                           r"\1=[REDACTED]", safe)
             if len(lines) < 300:
@@ -70,10 +74,15 @@ def bootstrap_config(stream, *, incoming=None, outgoing=None, clock=None,
     boot_seen = False
     boot = {}
     stale_challenges = 0
+    memory_evidence_lines = []
     while clock() < deadline and challenge is None:
         lines = []
         pending = collect(stream, pending, lines)
         for line in lines:
+            if (re.search(r"\bSPI\s+Flash(?:\s+Size)?\s*[:=]", line, re.I) or
+                    re.search(r"\bFound\s+[0-9]+\s*(?:B|KB|MB|GB|KiB|MiB|GiB)\s+PSRAM\b", line, re.I) or
+                    re.search(r"\bpsram_size\s*[:=]", line, re.I)):
+                memory_evidence_lines.append(line)
             if re.search(r"ESP-ROM:|rst:0x|boot: ESP-IDF", line):
                 boot_seen = True
                 boot = {}
@@ -98,6 +107,7 @@ def bootstrap_config(stream, *, incoming=None, outgoing=None, clock=None,
             time.sleep(0.01)
     evidence.update({"boot": boot, "post_reset_boot_verified": require_boot and boot_seen,
                      "ignored_pre_boot_challenges": stale_challenges})
+    evidence["s3_memory_capacity"] = s3_memory_capacity(memory_evidence_lines)
     if challenge is None or not any(bytes.fromhex(challenge[1])):
         raise ValueError("TC001_BOOTSTRAP_TARGET_CHALLENGE_NOT_OBSERVED")
     if expected_boot is not None and boot != expected_boot:
@@ -152,6 +162,11 @@ def bootstrap_config(stream, *, incoming=None, outgoing=None, clock=None,
         if any(re.search(r"ESP-ROM:|rst:0x|boot: ESP-IDF|GS40T/1 (?:CHALLENGE|RX status=timeout)",
                          line) for line in later_lines):
             raise ValueError("TC001_BOOTSTRAP_TARGET_RESTARTED_OR_EXPIRED")
+        memory_evidence_lines.extend(
+            line for line in later_lines
+            if (re.search(r"\bSPI\s+Flash(?:\s+Size)?\s*[:=]", line, re.I) or
+                re.search(r"\bFound\s+[0-9]+\s*(?:B|KB|MB|GB|KiB|MiB|GiB)\s+PSRAM\b", line, re.I) or
+                re.search(r"\bpsram_size\s*[:=]", line, re.I)))
     # Send the challenge-bound, length-prefixed envelope as one bounded host
     # write. A successful pyserial write proves host-side acceptance only;
     # target receipt must be confirmed independently in the S3 receive log.
@@ -160,6 +175,7 @@ def bootstrap_config(stream, *, incoming=None, outgoing=None, clock=None,
     stream.flush()
     evidence.update({"response_generation_ms": int((response_at - challenge_at) * 1000),
                      "host_write_ms": int((clock() - response_at) * 1000)})
+    evidence["s3_memory_capacity"] = s3_memory_capacity(memory_evidence_lines)
     return len(frame)
 
 
@@ -257,6 +273,41 @@ def readiness_guard(config, c3_lines, s3_lines):
         raise error
 
 
+def s3_memory_capacity(lines: list[str]) -> dict:
+    """Extract only explicit ESP-IDF flash/PSRAM startup capacity evidence."""
+    multipliers = {"B": 1, "KB": 1024, "MB": 1024 ** 2, "GB": 1024 ** 3,
+                   "KIB": 1024, "MIB": 1024 ** 2, "GIB": 1024 ** 3}
+    flash_values = []
+    psram_values = []
+    matched_lines = []
+    flash_pattern = re.compile(
+        r"\bSPI\s+Flash(?:\s+Size)?\s*[:=]\s*([0-9]+)\s*(B|KB|MB|GB|KiB|MiB|GiB)\b", re.I)
+    psram_found_pattern = re.compile(
+        r"\bFound\s+([0-9]+)\s*(B|KB|MB|GB|KiB|MiB|GiB)\s+PSRAM\b", re.I)
+    psram_bytes_pattern = re.compile(r"\bpsram_size\s*[:=]\s*([0-9]+)\b", re.I)
+    for line in lines:
+        flash = flash_pattern.search(line)
+        psram = psram_found_pattern.search(line)
+        psram_bytes = psram_bytes_pattern.search(line)
+        if flash:
+            flash_values.append(int(flash[1]) * multipliers[flash[2].upper()])
+            matched_lines.append(line)
+        if psram:
+            psram_values.append(int(psram[1]) * multipliers[psram[2].upper()])
+            matched_lines.append(line)
+        elif psram_bytes:
+            psram_values.append(int(psram_bytes[1]))
+            matched_lines.append(line)
+    flash_unique = set(flash_values)
+    psram_unique = set(psram_values)
+    status = ("CONFLICT" if len(flash_unique) > 1 or len(psram_unique) > 1 else
+              "PASS" if flash_unique and psram_unique else "INCOMPLETE")
+    return {"status": status,
+            "flash_size_bytes": next(iter(flash_unique)) if len(flash_unique) == 1 else None,
+            "psram_size_bytes": next(iter(psram_unique)) if len(psram_unique) == 1 else None,
+            "evidence_lines": matched_lines}
+
+
 def observe(config: dict, *, serial_factory=None, port_finder=None,
             clock=None, sleep=None, boot_reset=None, bootstrap_exchange=None,
             fixture_exchange=None) -> dict:
@@ -268,6 +319,14 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
     s3_boot_reset = config.get("s3_boot_reset", False)
     if type(s3_boot_reset) is not bool:
         raise ValueError("TC001_S3_BOOT_RESET_FLAG_MUST_BE_BOOLEAN")
+    require_s3_memory_profile = config.get("require_s3_memory_profile", False)
+    if type(require_s3_memory_profile) is not bool:
+        raise ValueError("TC001_S3_MEMORY_PROFILE_FLAG_MUST_BE_BOOLEAN")
+    expected_s3_memory_profile = config.get("expected_s3_memory_profile")
+    if require_s3_memory_profile and expected_s3_memory_profile != {
+            "flash_size_bytes": 16 * 1024 * 1024,
+            "psram_size_bytes": 8 * 1024 * 1024}:
+        raise ValueError("TC001_S3_MEMORY_PROFILE_EXPECTATION_INVALID")
     observation_seconds = config.get("observation_seconds", 10)
     if type(observation_seconds) is not int or not 10 <= observation_seconds <= 60:
         raise ValueError("TC001_OBSERVATION_SECONDS_OUT_OF_RANGE")
@@ -395,6 +454,18 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
                 readiness_guard(config, c3_lines, s3_lines)
                 sleep(0.02)
             result["s3"] = s3_lines
+        bootstrap_memory = bootstrap_evidence.get("s3_memory_capacity", {})
+        memory_lines = list(bootstrap_memory.get("evidence_lines", [])) + s3_lines
+        memory = s3_memory_capacity(memory_lines)
+        if require_s3_memory_profile and (
+                memory["status"] != "PASS" or
+                memory["flash_size_bytes"] != expected_s3_memory_profile["flash_size_bytes"] or
+                memory["psram_size_bytes"] != expected_s3_memory_profile["psram_size_bytes"]):
+            error = ValueError("TC001_S3_MEMORY_PROFILE_NOT_VERIFIED")
+            error.captured_observation = {
+                "c3": c3_lines, "s3": s3_lines, "s3_memory_capacity": memory}
+            raise error
+        result["s3_memory_capacity"] = memory
         return result
     finally:
         for stream in reversed(streams):
@@ -614,9 +685,40 @@ def ui_texts(root: ET.Element) -> list[str]:
     return values
 
 
-def exact_key_in_ui(root: ET.Element, expected: dict) -> bool:
-    texts = ui_texts(root)
-    for text in texts:
+def ui_node_bounds(node: ET.Element) -> tuple[int, int, int, int] | None:
+    match = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]",
+                         node.get("bounds", ""))
+    if not match:
+        return None
+    bounds = tuple(map(int, match.groups()))
+    return bounds if bounds[2] > bounds[0] and bounds[3] > bounds[1] else None
+
+
+def bounds_intersect(bounds: tuple[int, int, int, int] | None,
+                     clip: tuple[int, int, int, int]) -> bool:
+    if bounds is None:
+        return False
+    left, top, right, bottom = bounds
+    clip_left, clip_top, clip_right, clip_bottom = clip
+    return left < clip_right and right > clip_left and top < clip_bottom and bottom > clip_top
+
+
+def bounds_contained(bounds: tuple[int, int, int, int] | None,
+                     clip: tuple[int, int, int, int]) -> bool:
+    if bounds is None:
+        return False
+    left, top, right, bottom = bounds
+    clip_left, clip_top, clip_right, clip_bottom = clip
+    return (clip_left <= left < right <= clip_right and
+            clip_top <= top < bottom <= clip_bottom)
+
+
+def exact_key_in_ui(root: ET.Element, expected: dict, *,
+                    visible_bounds: tuple[int, int, int, int] | None = None) -> bool:
+    for node in root.iter("node"):
+        if visible_bounds is not None and not bounds_contained(ui_node_bounds(node), visible_bounds):
+            continue
+        text = node.get("text", "").strip() or node.get("content-desc", "").strip()
         if not text.startswith("EventKey:"):
             continue
         raw = text.partition(":")[2].strip()
@@ -629,9 +731,13 @@ def exact_key_in_ui(root: ET.Element, expected: dict) -> bool:
     return False
 
 
-def exact_decision_in_ui(root: ET.Element, expected: str) -> bool:
+def exact_decision_in_ui(root: ET.Element, expected: str, *,
+                         visible_bounds: tuple[int, int, int, int] | None = None) -> bool:
     """Match a Hub-owned decision identity, never a Node EventKey."""
-    return any(text == "Decision ID: " + expected for text in ui_texts(root))
+    return any((visible_bounds is None or bounds_contained(ui_node_bounds(node), visible_bounds)) and
+               (node.get("text", "").strip() == "Decision ID: " + expected or
+                node.get("content-desc", "").strip() == "Decision ID: " + expected)
+               for node in root.iter("node"))
 
 
 def canonical_https_origin(value: str) -> tuple[str, str, int] | None:
@@ -647,20 +753,93 @@ def canonical_https_origin(value: str) -> tuple[str, str, int] | None:
 
 
 def tap_text(adb: Path, serial_number: str, root: ET.Element,
-             target: str, *, index: int = 0, call=adb_call) -> bool:
+             target: str, *, index: int = 0, call=adb_call,
+             visible_bounds: tuple[int, int, int, int] | None = None) -> bool:
     matches = [node for node in root.iter("node")
                if target in {node.get("text", "").strip(),
-                             node.get("content-desc", "").strip()}]
+                             node.get("content-desc", "").strip()} and
+               (visible_bounds is None or
+                bounds_contained(ui_node_bounds(node), visible_bounds))]
     if index >= len(matches):
         return False
-    bounds = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]",
-                          matches[index].get("bounds", ""))
-    if not bounds:
+    bounds = ui_node_bounds(matches[index])
+    if bounds is None:
         return False
-    x1, y1, x2, y2 = map(int, bounds.groups())
+    x1, y1, x2, y2 = bounds
     call(adb, serial_number, "shell", "input", "tap",
          str((x1 + x2) // 2), str((y1 + y2) // 2), timeout_seconds=5)
     return True
+
+
+def reports_scroll_region(root: ET.Element) -> tuple[int, int, int, int]:
+    """Find a bounded gesture area inside the Reports WebView, above its tabs."""
+    reports_tab = any(node.get("clickable") == "true" and
+                      "Reports" in {node.get("text", "").strip(),
+                                    node.get("content-desc", "").strip()}
+                      for node in root.iter("node"))
+    if not reports_tab:
+        raise ValueError("TC001_ANDROID_REPORTS_TAB_NOT_CONFIRMED_FOR_SCROLL")
+    webviews = [node for node in root.iter("node")
+                if node.get("class") == "android.webkit.WebView" and
+                node.get("scrollable") == "true"]
+    if len(webviews) != 1:
+        raise ValueError("TC001_ANDROID_REPORTS_SCROLL_CONTAINER_UNAVAILABLE")
+    web = ui_node_bounds(webviews[0])
+    if web is None:
+        raise ValueError("TC001_ANDROID_REPORTS_SCROLL_BOUNDS_INVALID")
+    web_left, web_top, web_right, web_bottom = web
+    nav_labels = {"Home", "Devices", "Reports", "Settings"}
+    nav_tops = [bounds[1] for node in root.iter("node")
+                if node.get("clickable") == "true" and
+                ({node.get("text", "").strip(), node.get("content-desc", "").strip()} & nav_labels) and
+                (bounds := ui_node_bounds(node)) is not None and
+                bounds[1] > web_top + (web_bottom - web_top) // 2]
+    if not nav_tops:
+        raise ValueError("TC001_ANDROID_REPORTS_BOTTOM_NAV_BOUNDS_MISSING")
+    clip_bottom = min(web_bottom, min(nav_tops) - 16)
+    header_bounds = [ui_node_bounds(node) for node in root.iter("node")
+                     if "Latest recorded events" in
+                     {node.get("text", "").strip(), node.get("content-desc", "").strip()}]
+    visible_header_bottoms = [b[3] for b in header_bounds if b is not None and
+                              web_top <= b[1] < clip_bottom]
+    if visible_header_bottoms:
+        clip_top = max(web_top + 24, max(visible_header_bottoms) + 16)
+    else:
+        # Once Reports has scrolled, the section heading may remain in the
+        # accessibility tree with zero-height bounds while event details are
+        # visible at the top of the WebView. Do not clip those real cards using
+        # a guessed one-third offset.
+        clip_top = web_top
+    if clip_bottom - clip_top < 240:
+        raise ValueError("TC001_ANDROID_REPORTS_SCROLL_VIEWPORT_TOO_SMALL")
+    return web_left + 8, clip_top, web_right - 8, clip_bottom
+
+
+def reports_page_fingerprint(root: ET.Element,
+                             viewport: tuple[int, int, int, int]) -> tuple[tuple[str, str, tuple[int, int, int, int]], ...]:
+    values = []
+    for node in root.iter("node"):
+        bounds = ui_node_bounds(node)
+        if not bounds_intersect(bounds, viewport):
+            continue
+        text = node.get("text", "").strip() or node.get("content-desc", "").strip()
+        if text and not text.startswith(("EventKey:", "Decision ID:")):
+            values.append((node.get("class", ""), text, bounds))
+    return tuple(values)
+
+
+def scroll_reports(adb: Path, serial_number: str, root: ET.Element, *,
+                   call=adb_call) -> tuple[int, int, int, int]:
+    if "Reports" not in ui_texts(root):
+        raise ValueError("TC001_ANDROID_REPORTS_VIEW_NOT_CONFIRMED_FOR_SCROLL")
+    viewport = reports_scroll_region(root)
+    left, top, right, bottom = viewport
+    x = (left + right) // 2
+    # Swipe within the WebView's event-list body; the bottom navigation is
+    # excluded from the gesture region and never receives a tap.
+    call(adb, serial_number, "shell", "input", "swipe", str(x), str(bottom - 32),
+         str(x), str(top + max(48, (bottom - top) // 5)), "350", timeout_seconds=5)
+    return viewport
 
 
 def android_verify_event(config: dict, *, adb_locator=find_adb,
@@ -768,17 +947,28 @@ def android_verify_event(config: dict, *, adb_locator=find_adb,
     if package not in resumed:
         raise ValueError("TC001_APPROVED_ANDROID_APP_NOT_FOREGROUNDED_AFTER_REFRESH")
 
-    # Poll for at most 30 seconds. The view may need to finish its authenticated
-    # request; details are expanded sequentially until the exact Node EventKey
-    # or separately identified Hub decision appears in accessibility output.
-    for _ in range(60):
-        sleep(0.5)
+    # Reports may contain more cards than fit on screen. Expand only visible
+    # controls, then move through the verified WebView in bounded swipes. The
+    # bottom tabs are excluded from the gesture region; off-screen controls
+    # with clamped/zero-height bounds are never tapped.
+    scrolls = 0
+    stalled_swipes = 0
+    while True:
+        sleep(0.25)
         root, raw = ui_dump(adb, serial_number)
         joined = "\n".join(ui_texts(root))
         if "Latest recorded events" not in joined or home_id not in joined:
             raise ValueError("TC001_ANDROID_REPORTS_HOME_CHANGED_DURING_REFRESH")
-        exact_outcome = (exact_decision_in_ui(root, expected_decision) if decision_mode
-                         else exact_key_in_ui(root, expected_key))
+        viewport = reports_scroll_region(root)
+        visible_texts = [node.get("text", "").strip() or
+                         node.get("content-desc", "").strip()
+                         for node in root.iter("node")
+                         if bounds_contained(ui_node_bounds(node), viewport)]
+        visible_joined = "\n".join(visible_texts)
+        exact_outcome = (exact_decision_in_ui(root, expected_decision,
+                                              visible_bounds=viewport) if decision_mode
+                         else exact_key_in_ui(root, expected_key,
+                                              visible_bounds=viewport))
         if exact_outcome:
             screenshot = call(adb, serial_number, "exec-out", "screencap", "-p",
                               timeout_seconds=12)
@@ -786,9 +976,9 @@ def android_verify_event(config: dict, *, adb_locator=find_adb,
                     len(screenshot) > 8 * 1024 * 1024):
                 raise ValueError("TC001_ANDROID_SCREENSHOT_CAPTURE_INVALID")
             expected_label = ("Morning routine completed" if decision_mode else "Motion recorded")
-            if expected_label.casefold() not in joined.casefold():
+            if expected_label.casefold() not in visible_joined.casefold():
                 raise ValueError("TC001_ANDROID_EXACT_OUTCOME_LABEL_MISMATCH")
-            if not decision_mode and "bedroom" not in joined.casefold():
+            if not decision_mode and "bedroom" not in visible_joined.casefold():
                 raise ValueError("TC001_ANDROID_EXACT_KEY_NOT_ASSOCIATED_WITH_BEDROOM_MOTION")
             result = {"status": "PASS", "observation": "AUTOMATED_PASS",
                     "package": package, "device_serial": serial_number,
@@ -799,6 +989,7 @@ def android_verify_event(config: dict, *, adb_locator=find_adb,
                     "reports_view": "Latest recorded events",
                     "outcome_details_open": True,
                     "event_label": expected_label,
+                    "reports_scrolls": scrolls,
                     "ui_dump_sha256": hashlib.sha256(raw).hexdigest(),
                     "ui_hierarchy_xml_b64": base64.b64encode(raw).decode("ascii"),
                     "screenshot_png_b64": base64.b64encode(screenshot).decode("ascii")}
@@ -810,19 +1001,49 @@ def android_verify_event(config: dict, *, adb_locator=find_adb,
                 result["event_details_open"] = True
                 result["logical_node_id"] = "bedroom"
             return result
+
         details_label = "Decision details" if decision_mode else "Event details"
         identity_prefix = "Decision ID:" if decision_mode else "EventKey:"
         summaries = [node for node in root.iter("node")
-                     if node.get("text", "").strip() == details_label]
-        expanded = sum(1 for text in ui_texts(root) if text.startswith(identity_prefix))
-        if summaries and expanded < len(summaries):
+                     if details_label in {node.get("text", "").strip(),
+                                          node.get("content-desc", "").strip()} and
+                     node.get("clickable") == "true" and
+                     bounds_intersect(ui_node_bounds(node), viewport)]
+        expanded = sum(1 for node in root.iter("node")
+                       if (node.get("text", "").strip().startswith(identity_prefix) or
+                           node.get("content-desc", "").strip().startswith(identity_prefix)) and
+                       bounds_intersect(ui_node_bounds(node), viewport))
+        if expanded < len(summaries):
             if not tap_text(adb, serial_number, root, details_label,
-                            index=expanded, call=call):
+                            index=expanded, call=call, visible_bounds=viewport):
                 raise ValueError("TC001_ANDROID_OUTCOME_DETAILS_CONTROL_UNAVAILABLE")
             sleep(0.25)
-    if decision_mode:
-        raise ValueError("TC001_EXACT_HUB_DECISION_NOT_VISIBLE_IN_ANDROID_REPORTS")
-    raise ValueError("TC001_EXACT_EVENT_KEY_NOT_VISIBLE_IN_ANDROID_EVENT_DETAILS")
+            continue
+
+        if scrolls >= ANDROID_REPORTS_MAX_SCROLLS:
+            raise ValueError("TC001_ANDROID_REPORTS_SCROLL_LIMIT_REACHED_BEFORE_EXACT_OUTCOME")
+        before = reports_page_fingerprint(root, viewport)
+        scroll_reports(adb, serial_number, root, call=call)
+        scrolls += 1
+        advanced = False
+        for _ in range(ANDROID_REPORTS_SCROLL_POLL_ATTEMPTS):
+            sleep(0.25)
+            next_root, next_raw = ui_dump(adb, serial_number)
+            next_joined = "\n".join(ui_texts(next_root))
+            if ("Latest recorded events" not in next_joined or home_id not in next_joined):
+                raise ValueError("TC001_ANDROID_REPORTS_HOME_CHANGED_DURING_SCROLL")
+            next_viewport = reports_scroll_region(next_root)
+            root, raw, viewport = next_root, next_raw, next_viewport
+            if reports_page_fingerprint(root, viewport) != before:
+                advanced = True
+                stalled_swipes = 0
+                break
+        if not advanced:
+            stalled_swipes += 1
+            if stalled_swipes >= ANDROID_REPORTS_END_NO_PROGRESS:
+                if decision_mode:
+                    raise ValueError("TC001_EXACT_HUB_DECISION_NOT_VISIBLE_IN_ANDROID_REPORTS")
+                raise ValueError("TC001_EXACT_EVENT_KEY_NOT_VISIBLE_IN_ANDROID_EVENT_DETAILS")
 
 
 if __name__ == "__main__":

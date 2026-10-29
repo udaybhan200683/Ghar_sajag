@@ -34,10 +34,11 @@ _RESPONSE_FIELDS = frozenset({
     "c3_status_queries", "s3_config_receive_pending", "s3_status_command_ready",
     "s3_status_command_sent", "bootstrap_host_write_bytes", "bootstrap_exchange_ms",
     "bootstrap_timeline", "observation", "node_id", "hub_id", "home_id", "liveness",
+    "status", "flash_size_bytes", "psram_size_bytes", "evidence_lines",
 })
 _TIMELINE_FIELDS = frozenset({
     "stage", "status", "reason", "elapsed_ms", "bytes", "response_bytes",
-    "device", "port", "challenge_stage", "observed", "attempt",
+    "device", "port", "challenge_stage", "observed", "attempt", "s3_memory_capacity",
 })
 
 
