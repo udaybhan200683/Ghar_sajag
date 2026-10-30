@@ -92,6 +92,143 @@ class StandingAuthorizationTest(unittest.TestCase):
             with hil_auth.session('observe', path, state, _development=True): pass
         self.assertEqual(len((state/'audit.jsonl').read_text().splitlines()), 6)
 
+    def test_dev_policy_hash_rotation_preserves_audit_usage_and_failure_latch(self):
+        path, policy = self.development_policy()
+        state = self.root / 'dev-rotation-audit'
+        state.mkdir(mode=0o700)
+        approval = policy['owner_approval_ref']
+        starts = [f'2026-10-30T00:00:0{i}+00:00' for i in range(4)]
+        history = []
+        for index, started in enumerate(starts):
+            procedure = 'tc001_campaign' if index == 2 else 'observe'
+            initial = {'approval_ref': approval, 'sessions': index + 1,
+                       'blocked': True, 'procedure': procedure, 'started_at': started}
+            history.append(initial)
+            if index == 1:
+                history.append({**initial, 'blocked': False, 'consecutive_failures': 0,
+                                'completed_at': '2026-10-30T00:10:00+00:00'})
+            else:
+                failures = 1 if index == 0 else index - 1
+                history.append({**initial, 'failure': 'ValueError',
+                                'consecutive_failures': failures})
+        (state / 'audit.jsonl').write_text(
+            ''.join(json.dumps(item) + '\n' for item in history))
+        (state / 'audit.jsonl').chmod(0o600)
+        legacy = state / (hil_auth.digest(path) + '.json')
+        legacy_data = {**history[-1], 'sessions': 2, 'consecutive_failures': 2}
+        legacy.write_text(json.dumps(legacy_data)); legacy.chmod(0o600)
+        legacy_bytes = legacy.read_bytes()
+
+        old_policy_sha = hil_auth.digest(path)
+        policy['activation_note'] = 'same owner consent; reviewed procedure pin update'
+        path.write_text(json.dumps(policy)); path.chmod(0o600)
+        self.assertNotEqual(hil_auth.digest(path), old_policy_sha)
+
+        with self.assertRaisesRegex(ValueError, 'third consecutive failure'):
+            with hil_auth.session('observe', path, state, _development=True) as (_p, ledger):
+                self.assertEqual(ledger['sessions'], 5)
+                self.assertEqual(ledger['consecutive_failures'], 2)
+                self.assertEqual(ledger['procedure_counts']['tc001_campaign'], 1)
+                self.assertEqual(ledger['procedure_counts']['observe'], 4)
+                raise ValueError('third consecutive failure')
+        stable, scope_id = hil_auth._development_ledger_path(state, policy)
+        migrated = json.loads(stable.read_text())
+        self.assertEqual(migrated['authorization_scope_id'], scope_id)
+        self.assertEqual(migrated['sessions'], 5)
+        self.assertEqual(migrated['consecutive_failures'], 3)
+        self.assertEqual(migrated['procedure_counts']['observe'], 4)
+        self.assertEqual(migrated['procedure_counts']['tc001_campaign'], 1)
+        self.assertTrue(migrated['blocked'])
+        self.assertEqual(legacy.read_bytes(), legacy_bytes)
+        audit = [json.loads(line) for line in (state / 'audit.jsonl').read_text().splitlines()]
+        migration = [row for row in audit
+                     if row.get('event') == 'development_ledger_reconstructed_from_audit']
+        self.assertEqual(len(migration), 1)
+        self.assertNotIn('started_at', migration[0])
+        self.assertEqual(len({row['started_at'] for row in audit if row.get('started_at')}), 5)
+        with self.assertRaisesRegex(ValueError, 'failure_latched_or_limit_reached'):
+            with hil_auth.session('observe', path, state, _development=True): pass
+
+    def test_dev_stable_ledger_cannot_diverge_from_append_only_audit(self):
+        path, policy = self.development_policy()
+        state = self.root / 'dev-ledger-audit-mismatch'
+        with hil_auth.session('observe', path, state, _development=True): pass
+        ledger, _scope = hil_auth._development_ledger_path(state, policy)
+        changed = json.loads(ledger.read_text())
+        changed.update(sessions=0, procedure_counts={})
+        ledger.write_text(json.dumps(changed)); ledger.chmod(0o600)
+        before = ledger.read_bytes()
+
+        with self.assertRaisesRegex(ValueError, 'development_authorization_history_mismatch'):
+            with hil_auth.session('observe', path, state, _development=True): pass
+        self.assertEqual(ledger.read_bytes(), before)
+
+    def test_dev_failure_after_success_is_not_hidden_by_stale_completion(self):
+        path, policy = self.development_policy()
+        state = self.root / 'dev-success-then-failure'
+        with hil_auth.session('observe', path, state, _development=True): pass
+        with self.assertRaisesRegex(RuntimeError, 'target failed'):
+            with hil_auth.session('observe', path, state, _development=True):
+                raise RuntimeError('target failed')
+
+        scope_id = hil_auth._development_scope_id(policy)
+        history = hil_auth._development_history(state, policy, scope_id)
+        self.assertEqual(history['sessions'], 2)
+        self.assertEqual(history['consecutive_failures'], 1)
+        self.assertTrue(history['blocked'])
+        self.assertNotIn('completed_at', history)
+        self.assertEqual(history['failure'], 'RuntimeError')
+
+    def test_dev_success_after_failure_clears_stale_failure_marker(self):
+        path, policy = self.development_policy()
+        state = self.root / 'dev-failure-then-success'
+        with self.assertRaisesRegex(RuntimeError, 'transient failure'):
+            with hil_auth.session('observe', path, state, _development=True):
+                raise RuntimeError('transient failure')
+        with hil_auth.session('observe', path, state, _development=True): pass
+
+        scope_id = hil_auth._development_scope_id(policy)
+        history = hil_auth._development_history(state, policy, scope_id)
+        self.assertEqual(history['sessions'], 2)
+        self.assertEqual(history['consecutive_failures'], 0)
+        self.assertFalse(history['blocked'])
+        self.assertNotIn('failure', history)
+
+    def test_dev_rotation_fails_closed_if_legacy_history_lost(self):
+        path, policy = self.development_policy()
+        state = self.root / 'dev-missing-history'
+        state.mkdir(mode=0o700)
+        legacy = state / (hil_auth.digest(path) + '.json')
+        legacy.write_text(json.dumps({'approval_ref': policy['owner_approval_ref'],
+                                      'sessions': 2, 'blocked': True,
+                                      'consecutive_failures': 2,
+                                      'started_at': '2026-10-30T00:00:00+00:00'}))
+        legacy.chmod(0o600)
+        before = legacy.read_bytes()
+        with self.assertRaisesRegex(ValueError, 'development_authorization_history_(unavailable|incomplete)'):
+            with hil_auth.session('observe', path, state, _development=True): pass
+        stable, _scope = hil_auth._development_ledger_path(state, policy)
+        self.assertFalse(stable.exists())
+        self.assertEqual(legacy.read_bytes(), before)
+
+    def test_dev_new_approval_scope_does_not_inherit_prior_scope_ledger(self):
+        path, policy = self.development_policy()
+        state = self.root / 'dev-scope-isolation'
+        with hil_auth.session('observe', path, state, _development=True): pass
+        prior_stable, prior_scope = hil_auth._development_ledger_path(state, policy)
+        self.assertEqual(json.loads(prior_stable.read_text())['sessions'], 1)
+
+        policy['owner_approval_ref'] = 'separate-unit-test-consent'
+        new_path = self.root / 'new-dev-policy.json'
+        new_path.write_text(json.dumps(policy)); new_path.chmod(0o600)
+        with hil_auth.session('observe', new_path, state, _development=True) as (_p, ledger):
+            self.assertEqual(ledger['sessions'], 1)
+            self.assertEqual(ledger['consecutive_failures'], 0)
+        new_stable, new_scope = hil_auth._development_ledger_path(state, policy)
+        self.assertNotEqual(prior_scope, new_scope)
+        self.assertEqual(json.loads(prior_stable.read_text())['sessions'], 1)
+        self.assertEqual(json.loads(new_stable.read_text())['sessions'], 1)
+
     def test_valid_repeatable_consent_does_not_grant_campaign(self):
         for _ in range(2):
             with hil_auth.session('protected_gs40_bootstrap', self.policy, self.root / 'audit') as (p, _):

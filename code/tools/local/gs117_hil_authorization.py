@@ -33,6 +33,250 @@ PREFLIGHT = ['owner_consent', 'policy_validity', 'procedure_fingerprints',
 def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
+
+def _development_scope_id(policy):
+    """Stable across reviewed file-pin changes, but isolated by consent and fixture."""
+    identity = json.dumps(policy.get('identity'), sort_keys=True, separators=(',', ':'))
+    material = '\0'.join((str(policy.get('profile')), str(policy.get('owner_approval_ref')), identity))
+    return hashlib.sha256(material.encode()).hexdigest()
+
+
+def _read_private_json(path):
+    path = Path(path)
+    info = path.lstat()
+    if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or
+            info.st_mode & 0o077):
+        raise ValueError('development_authorization_history_not_private')
+    try:
+        value = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError('development_authorization_history_corrupt') from error
+    if not isinstance(value, dict):
+        raise ValueError('development_authorization_history_corrupt')
+    return value
+
+
+def _development_history(state, policy, scope_id):
+    """Reconstruct one consent's cumulative usage from the append-only audit.
+
+    Old DEV ledgers were named after the policy file's content hash. A reviewed
+    pin update therefore produced a new empty ledger. The audit log carries the
+    stable owner approval reference; derive usage from distinct session starts
+    and treat an interrupted session as a failure. Historical files are read
+    only and remain preserved.
+    """
+    state = Path(state)
+    audit_path = state / 'audit.jsonl'
+    approval_ref = policy['owner_approval_ref']
+    sessions = {}
+    if audit_path.is_symlink():
+        raise ValueError('development_authorization_history_not_private')
+    if audit_path.exists():
+        info = audit_path.lstat()
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or
+                info.st_mode & 0o077):
+            raise ValueError('development_authorization_history_not_private')
+        try:
+            lines = audit_path.read_text().splitlines()
+        except OSError as error:
+            raise ValueError('development_authorization_history_unavailable') from error
+        for index, line in enumerate(lines):
+            if not line.strip():
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError as error:
+                raise ValueError('development_authorization_history_corrupt') from error
+            if not isinstance(record, dict):
+                raise ValueError('development_authorization_history_corrupt')
+            if record.get('approval_ref') != approval_ref or not record.get('started_at'):
+                continue
+            try:
+                started = datetime.fromisoformat(record['started_at'].replace('Z', '+00:00'))
+            except (TypeError, ValueError) as error:
+                raise ValueError('development_authorization_history_corrupt') from error
+            if started.tzinfo is None:
+                raise ValueError('development_authorization_history_corrupt')
+            key = started.astimezone(timezone.utc).isoformat()
+            sessions.setdefault(key, []).append((index, record))
+
+    ordered = sorted(sessions.items(), key=lambda item: item[0])
+    legacy = []
+    for candidate in state.glob('*.json'):
+        if candidate.name == f'dev-scope-{scope_id}.json':
+            continue
+        record = _read_private_json(candidate)
+        if record.get('approval_ref') != approval_ref:
+            continue
+        count = record.get('sessions')
+        failures = record.get('consecutive_failures', 0)
+        if (type(count) is not int or count < 0 or
+                type(failures) is not int or failures < 0):
+            raise ValueError('development_authorization_history_corrupt')
+        if count > len(ordered):
+            raise ValueError('development_authorization_history_incomplete')
+        started_text = record.get('started_at')
+        if started_text:
+            try:
+                started_dt = datetime.fromisoformat(started_text.replace('Z', '+00:00'))
+            except (TypeError, ValueError) as error:
+                raise ValueError('development_authorization_history_corrupt') from error
+            if started_dt.tzinfo is None or started_dt.astimezone(timezone.utc).isoformat() not in sessions:
+                raise ValueError('development_authorization_history_incomplete')
+        legacy.append(record)
+
+    if legacy and not ordered:
+        raise ValueError('development_authorization_history_unavailable')
+
+    consecutive = 0
+    procedure_counts = {}
+    latest_record = None
+    for _started, entries in ordered:
+        _index, latest_record = entries[-1]
+        if type(latest_record.get('blocked')) is not bool:
+            raise ValueError('development_authorization_history_corrupt')
+        procedure = latest_record.get('procedure')
+        if not isinstance(procedure, str) or procedure not in DEV_OPERATIONS:
+            raise ValueError('development_authorization_history_corrupt')
+        procedure_counts[procedure] = procedure_counts.get(procedure, 0) + 1
+        completed = latest_record.get('completed_at')
+        if not latest_record['blocked'] and not completed:
+            raise ValueError('development_authorization_history_corrupt')
+        if completed:
+            try:
+                completed_dt = datetime.fromisoformat(completed.replace('Z', '+00:00'))
+            except (TypeError, ValueError) as error:
+                raise ValueError('development_authorization_history_corrupt') from error
+            if completed_dt.tzinfo is None:
+                raise ValueError('development_authorization_history_corrupt')
+        if latest_record['blocked']:
+            consecutive += 1
+        else:
+            consecutive = 0
+
+    blocked = bool(latest_record and latest_record['blocked'])
+    if legacy and ordered:
+        latest_started = ordered[-1][0]
+        matching_latest = [item for item in legacy
+                           if item.get('started_at') and
+                           datetime.fromisoformat(item['started_at'].replace('Z', '+00:00'))
+                           .astimezone(timezone.utc).isoformat() == latest_started]
+        for record in matching_latest:
+            # A ledger may lag the append-only audit when an older policy hash
+            # lost prior failures; it must never claim a newer session/outcome.
+            if (record.get('blocked') != latest_record.get('blocked') or
+                    (record.get('consecutive_failures', 0) > consecutive)):
+                raise ValueError('development_authorization_history_mismatch')
+
+    history = {
+        'sessions': len(ordered), 'blocked': blocked,
+        'consecutive_failures': consecutive,
+        'procedure_counts': procedure_counts,
+        'approval_ref': approval_ref,
+        'authorization_scope_id': scope_id,
+    }
+    if latest_record:
+        for name in ('procedure', 'started_at', 'completed_at', 'failure', 'evidence'):
+            if (name in latest_record and
+                    (name != 'failure' or blocked) and
+                    (name != 'completed_at' or not blocked)):
+                history[name] = latest_record[name]
+    return history
+
+
+def _development_ledger_path(state, policy):
+    scope_id = _development_scope_id(policy)
+    return Path(state) / f'dev-scope-{scope_id}.json', scope_id
+
+
+def _write_private_ledger(path, data):
+    path = Path(path)
+    temp = path.with_name(path.name + '.tmp')
+    fd = os.open(temp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    try:
+        with os.fdopen(fd, 'w') as out:
+            json.dump(data, out, sort_keys=True)
+            out.flush()
+            os.fsync(out.fileno())
+        os.replace(temp, path)
+        directory_fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    except BaseException:
+        try:
+            temp.unlink()
+        except FileNotFoundError:
+            pass
+        raise
+
+
+def _append_development_migration_audit(state, policy, policy_path, scope_id, data):
+    audit = Path(state) / 'audit.jsonl'
+    if audit.is_symlink():
+        raise ValueError('development_authorization_history_not_private')
+    flags = os.O_CREAT | os.O_APPEND | os.O_WRONLY
+    if hasattr(os, 'O_NOFOLLOW'):
+        flags |= os.O_NOFOLLOW
+    fd = os.open(audit, flags, 0o600)
+    try:
+        info = os.fstat(fd)
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or
+                info.st_mode & 0o077):
+            raise ValueError('development_authorization_history_not_private')
+        with os.fdopen(fd, 'a') as out:
+            fd = -1
+            event = {
+                'event': 'development_ledger_reconstructed_from_audit',
+                'at_utc': datetime.now(timezone.utc).isoformat(),
+                'approval_ref': policy['owner_approval_ref'],
+                'authorization_scope_id': scope_id,
+                'policy_manifest_sha256': digest(policy_path),
+                'sessions': data['sessions'],
+                'consecutive_failures': data['consecutive_failures'],
+                'procedure_counts': data['procedure_counts'],
+                'blocked': data['blocked'],
+            }
+            out.write(json.dumps(event, sort_keys=True) + '\n')
+            out.flush()
+            os.fsync(out.fileno())
+    finally:
+        if fd >= 0:
+            os.close(fd)
+
+
+def _load_development_ledger(path, state, policy):
+    ledger, scope_id = _development_ledger_path(state, policy)
+    if ledger.is_symlink():
+        raise ValueError('development_authorization_history_not_private')
+    if ledger.exists():
+        data = _read_private_json(ledger)
+        if (data.get('authorization_scope_id') != scope_id or
+                data.get('approval_ref') != policy['owner_approval_ref'] or
+                type(data.get('sessions')) is not int or data['sessions'] < 0 or
+                type(data.get('consecutive_failures', 0)) is not int or
+                data.get('consecutive_failures', 0) < 0 or
+                not isinstance(data.get('procedure_counts'), dict) or
+                any(not isinstance(key, str) or type(value) is not int or value < 0
+                    for key, value in data['procedure_counts'].items()) or
+                type(data.get('blocked')) is not bool):
+            raise ValueError('development_authorization_history_mismatch')
+        audited = _development_history(state, policy, scope_id)
+        for key in ('sessions', 'blocked', 'consecutive_failures', 'procedure_counts'):
+            if data.get(key) != audited.get(key):
+                raise ValueError('development_authorization_history_mismatch')
+        return ledger, data, scope_id
+
+    # The first use after a policy-hash change migrates counters from the
+    # append-only audit, not from a new empty content-hash ledger.
+    data = _development_history(state, policy, scope_id)
+    data['policy_manifest_sha256'] = digest(path)
+    _write_private_ledger(ledger, data)
+    if data['sessions']:
+        _append_development_migration_audit(state, policy, path, scope_id, data)
+    return ledger, data, scope_id
+
 def load(path=POLICY, now=None):
     path = Path(path)
     info = path.lstat()
@@ -90,13 +334,24 @@ def session(procedure, path=POLICY, state=STATE, *, _development=False):
     with (state / 'session.lock').open('a') as lock:
         os.chmod(lock.name, 0o600)
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        ledger = state / (digest(path) + '.json')
-        data = json.loads(ledger.read_text()) if ledger.exists() else {'sessions': 0, 'blocked': False}
+        if _development:
+            ledger, data, scope_id = _load_development_ledger(path, state, p)
+        else:
+            ledger = state / (digest(path) + '.json')
+            data = json.loads(ledger.read_text()) if ledger.exists() else {'sessions': 0, 'blocked': False}
+            scope_id = None
         if ((data['blocked'] and not _development) or data['sessions'] >= p['max_sessions'] or
                 (_development and data.get('consecutive_failures', 0) >= 3)):
             raise ValueError('standing_policy_failure_latched_or_limit_reached')
         data.update(sessions=data['sessions'] + 1, blocked=True, procedure=procedure,
                     started_at=datetime.now(timezone.utc).isoformat(), approval_ref=p['owner_approval_ref'])
+        for key in ('completed_at', 'failure', 'evidence'):
+            data.pop(key, None)
+        if _development:
+            data['authorization_scope_id'] = scope_id
+            data['policy_manifest_sha256'] = digest(path)
+            counts = data.setdefault('procedure_counts', {})
+            counts[procedure] = counts.get(procedure, 0) + 1
         def save():
             temp = ledger.with_suffix('.tmp')
             fd = os.open(temp, os.O_CREAT | os.O_TRUNC | os.O_WRONLY, 0o600)
