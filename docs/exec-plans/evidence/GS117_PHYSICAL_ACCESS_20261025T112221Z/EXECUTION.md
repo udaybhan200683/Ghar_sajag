@@ -4332,4 +4332,50 @@ The old owner scope was inspected read-only: its private append-only audit conta
 
 Focused validation after the final source edit: Python compile PASS; `python3 code/tests/python/test_gs117_tc001_console.py` **124/124 PASS**, including persistent repeated sessions, release-mode denial, required/immutable activation evidence, reviewed commit/source-pin binding, predecessor-latch isolation and revocation; `make -C code validation-framework-test` **55/55 PASS**; `make -C code feature-coverage-test` PASS (232 features, 287 modules, 27 physical cases; 22/22 mapping tests); `git diff --check` PASS. No target build applies to these Python-only policy/controller changes. Previously recorded unrelated `validation-tooling` failures remain open; this work does not recast them as PASS.
 
-The user’s current direct task instruction supplies the explicit owner transition authority; Jira comments 11852–11854 supply policy references. Jira comment 11852 alone was not treated as activation. After source commit/push, create a mode-0600 byte-preserved prior-manifest backup, append one activation record bound to the actual old audit-prefix and old ledger digests, and atomically write the new schema-2 manifest with exact post-commit pin hashes. Do not modify or clear the predecessor audit/ledger. Then validate via the existing status entry point before any device work. Existing formal campaign remains **0/5**, pending live gates; EventKey 126/1 is supplemental and event 123/1’s ~6h53m latency remains unresolved.
+The owner direction in the direct task and Jira comments 11852–11854 was used to activate this new mode once after its source commit. The private manifest records activation ID `gs117-dev-mode-20261030-9fc7ae6f685305eb`; activation must not be repeated. It preserves the old audit/ledger snapshot and leaves the prior 29-session/3-failure scope unchanged. Later authorization-source edits make the active manifest's validator pin stale, so status remains fail-closed until the existing reviewed-source-update procedure records the tested committed update. Do not recreate activation, reset counters or modify the predecessor audit/ledger. Formal campaign remains **0/5**, pending live gates; EventKey 126/1 is supplemental and event 123/1’s ~6h53m latency remains unresolved.
+
+
+### 2026-10-30 19:30 UTC — persistent DEV mode source-pin recovery checkpoint
+
+The owner-directed persistent `GS117_DEV_TEST_ONLY` mode is present in the
+owner-only manifest (`enabled=true`, persistent, not revoked, no ordinary
+expiry), scoped to the established C3/S3, Home and laptop endpoint. Its
+historical predecessor authorization remains separately failure-latched and
+unchanged. The current tracked validator update is not yet pinned, so the
+standard loader correctly fails closed until its existing reviewed-source
+update path records the tested commit and fingerprints.
+
+The latest attempted DEV session at `2026-10-30T18:50:38Z` stopped before
+starting the Windows serial helper: the protected bootstrap rejected its
+embedded old serial-helper SHA-256 as `REVIEWED_SERIAL_HELPER_CHANGED`. Its
+preserved child evidence contains that startup guard and empty stderr. This
+was a tooling pin mismatch; no COM port was opened and no device operation,
+reset, bootstrap, injection, backend write or campaign run occurred. The
+source correction is restricted to a reviewed pin-chain updater plus an exact
+disposition for this one evidenced pre-I/O failure. It preserves the failed
+session and cannot disposition identity, target, authentication or other
+failures. A regression also rejects malformed non-object prior-manifest
+backups.
+
+Validation after the final source/test edits: focused GS-117 authorization and
+controller suite **133/133 PASS**; `make -C code validation-framework-test`
+**55/55 PASS**; `make -C code feature-coverage-test` **PASS** (232 features,
+287 modules, 27 physical cases and 22/22 mapping tests); Python compilation
+and `git diff --check` **PASS**. No target firmware build was applicable. The
+tracked validator pin still mismatches until the reviewed-source update is
+completed after commit. No authorization counter or latch was reset. Formal
+TC-001 remains **0/5**; no new physical event was attempted.
+
+ADB currently sees the authorized phone `ZA2237MRHN`, but Android reports
+Dozing/keyguard. No unlock, app navigation or new APK evidence was attempted.
+The prior physical EventKey `126/1` remains supplemental evidence only. Event
+`123/1`'s approximately 6h53m delivery delay remains unresolved.
+
+**Next exact action:** commit and push only the reviewed authorization source,
+its focused tests and this evidence/work-state update; use the existing
+reviewed-source function to update the private validator/bootstrap pins after
+verifying all current procedure hashes, backed up byte-for-byte; then record
+the exact pre-operation pin-failure disposition without changing the original
+audit row or session count. Recheck live backend, S3/runtime and phone gates
+before the existing campaign. Do not inject while required APK observation is
+blocked by the phone keyguard.

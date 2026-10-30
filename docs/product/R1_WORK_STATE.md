@@ -9898,3 +9898,50 @@ The private DEV failure ledger now retains two readiness attempts after the stal
 Canonical source/evidence HEAD is `f3e909aefabead856ceeaa7662ac0903a6b5eb98`, with matching origin and clean tracked files; existing unrelated untracked assets remain preserved. Context preflight PASS. PostgreSQL, caregiver HTTPS, `.6` LAN TLS and forwarding pass. The GS-117 controller is responsive when queried with its required loopback Host/Origin and is idle; its physical USB inventory is descriptor-only (`PARTIAL`). Scoped ingress listener/forwarding and signed-time helper are active, but fresh authenticated S3 receipt, target trusted-time/lease installation and current C3 rejoin are NOT_VERIFIED. Do not confuse the general caregiver server's `HUB_INGRESS_READY=NOT_CONFIGURED` with the separate active bounded listener or with target authentication.
 
 Current authorized ADB enumeration is empty; actual APK verification is BLOCKED. Settings reports HTTP 403; no applied household/Morning Routine policy or desired PostgreSQL row is present. Existing S3 source uses authenticated desired-config fetch and fails closed. Captured ingress records show authority-refresh HTTP 200 only, no desired-config response, so the target rejection's exact cause remains unknown. The private DEV readiness ledger retains two failures and must not be cleared or retried before offline cause analysis. No hardware operation, injection, new event or DB mutation occurred in this checkpoint. TC-001 remains **0/5 accepted**; previous partial physical events remain separate historical evidence. Exact current evidence and next actions are recorded in the GS-117 execution handoff.
+
+### 2026-10-30 19:30 UTC — persistent DEV-mode authorization pin recovery
+
+The current canonical branch is `feature/r1-commercial-baseline` at
+`173b307ff56cb0d022652b3e531ad6bef57986fa` before this checkpoint's commit;
+origin matched. Context preflight PASS. Only the GS-117 authorization module
+and its existing registered Python test file were modified by implementation;
+untracked Android, firmware and historical evidence assets were preserved.
+
+The owner-directed persistent TEST_ONLY mode is recorded enabled and unrevoked
+in the owner-only manifest. The previous authorization scope (29 sessions,
+three failures, failure-latched) remains a separate immutable historical
+scope. The current mode's first reserved session at 18:50 UTC failed before
+device access because the protected bootstrap still embedded an obsolete
+serial-helper fingerprint. The failure evidence is retained; no COM/USB,
+reset, bootstrap, injection or database operation occurred. The current
+manifest therefore does not yet load through the standard entry point because
+the reviewed validator source pin changed.
+
+The existing authorization module now supports a chained, commit/test-bound
+source-fingerprint review that preserves the previous private manifest and
+authorization scope; it does not grant sessions or clear counts. Its bootstrap
+path accepts only the exact one-string stale-helper correction from the
+verified private backup. The exact pre-operation failure disposition retains
+the original failed session and appends a linked record; other unknown,
+identity or security failures remain latched. No new authorization framework
+was introduced.
+
+Focused results after final edits: GS-117 suite **133/133 PASS**;
+validation framework **55/55 PASS**; feature traceability **232 features,
+287 modules, 27 physical cases; 22/22 mapping tests PASS**; Python compile and
+`git diff --check` PASS. These are software authorization/controller results,
+not physical qualification. `GS117_DEV_TEST_ONLY` routine use remains blocked
+until the reviewed source/bootstrap fingerprint update and exact pre-I/O
+failure disposition complete.
+
+The Windows ADB executable sees `ZA2237MRHN` as `device`; the handset is
+Dozing with keyguard active, so no app foreground/navigation or event
+observation was attempted. No fresh physical event was generated. Formal
+campaign remains **0/5**; the historical `126/1` event and ~6h53m delay for
+`123/1` retain their prior classifications.
+
+**Next:** commit/push only reviewed GS-117 source/tests and evidence; verify
+and update private source pins using the existing audit path and a byte-exact
+manifest/bootstrap backup; disposition only the matching pre-I/O pin failure;
+then inspect live readiness. Keep the existing campaign stop-on-first-failure
+logic and do not start a campaign until actual APK observation is possible.

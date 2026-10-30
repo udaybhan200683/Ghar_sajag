@@ -127,7 +127,7 @@ class StandingAuthorizationTest(unittest.TestCase):
         policy['activation_audit_path'] = str(audit_path)
         mode['activation_record_sha256'] = record['record_sha256']
 
-    def development_policy(self):
+    def development_policy(self, bootstrap_text=None, validator_text=None):
         p = dict(self.data, schema_version=hil_auth.DEV_MODE_SCHEMA,
                  profile='GS117_DEV_TEST_ONLY', procedures=hil_auth.DEV_OPERATIONS,
                  allowed_operations=hil_auth.DEV_OPERATIONS,
@@ -137,6 +137,14 @@ class StandingAuthorizationTest(unittest.TestCase):
         p['owner_approval_ref'] = 'unit-test-consent-only'
         p['bootstrap_evidence_helper'] = {'path': str(Path(bootstrap_evidence.__file__)),
                                         'sha256': hil_auth.digest(bootstrap_evidence.__file__)}
+        if bootstrap_text is not None:
+            bootstrap_path = Path(p['bootstrap_script']['path'])
+            bootstrap_path.write_text(bootstrap_text)
+            p['bootstrap_script']['sha256'] = hil_auth.digest(bootstrap_path)
+        if validator_text is not None:
+            validator_path = self.root / 'validator.py'
+            validator_path.write_text(validator_text)
+            p['validator'] = {'path': str(validator_path), 'sha256': hil_auth.digest(validator_path)}
         p['development_mode'] = {
             'mode_id': hil_auth.DEV_MODE_ID,
             'enabled': True, 'revoked': False, 'persistent': True,
@@ -189,6 +197,260 @@ class StandingAuthorizationTest(unittest.TestCase):
         audit = [json.loads(line) for line in (state/'audit.jsonl').read_text().splitlines()]
         scoped = [row for row in audit if row.get('approval_ref') == policy['owner_approval_ref']]
         self.assertEqual(len({row['started_at'] for row in scoped if row.get('started_at')}), 5)
+
+    def _review_test_receipt(self, _repo, commit, scope_sha256, negative_tests):
+        output = hashlib.sha256(b'focused validation passed').hexdigest()
+        return {
+            'schema_version': 1, 'reviewed_commit': commit,
+            'scope_contract_sha256': scope_sha256,
+            'reviewed_negative_tests': sorted(set(negative_tests)),
+            'created_at': datetime.now(timezone.utc).isoformat(),
+            'tests': [
+                {'name': 'gs117_focused',
+                 'command': [sys.executable, 'code/tests/python/test_gs117_tc001_console.py'],
+                 'returncode': 0, 'test_count': 1,
+                 'stdout_sha256': output, 'stderr_sha256': output},
+                {'name': 'feature_coverage',
+                 'command': ['make', '-C', 'code', 'feature-coverage-test'],
+                 'returncode': 0, 'test_count': 1,
+                 'coverage_summary': 'GS130 TRACEABILITY PASS features=1 modules=1 physical_cases=1; consistency only, not semantic/physical PASS',
+                 'stdout_sha256': output, 'stderr_sha256': output},
+            ],
+        }
+
+    def test_reviewed_source_update_is_chained_and_preserves_session_history(self):
+        stale = '66afe888be5dcd3c862bcddc4cc6333945870b8a41bd552f9cb0e3472676058e'
+        bootstrap = ("if hashlib.sha256(helper).hexdigest() != '" + stale + "':\n"
+                     "    raise ValueError('REVIEWED_SERIAL_HELPER_CHANGED')\n"
+                     "subprocess.Popen([WINPY])\n")
+        path, policy = self.development_policy(bootstrap_text=bootstrap,
+                                               validator_text='old authorization validator\n')
+        original_policy_bytes = path.read_bytes()
+        bootstrap_path = Path(policy['bootstrap_script']['path'])
+        bootstrap_path.chmod(0o600)
+        backup = self.root / 'bootstrap.before-pin-update.py'
+        backup.write_bytes(bootstrap_path.read_bytes()); backup.chmod(0o600)
+        helper_hash = policy['serial_helper']['sha256']
+        bootstrap_path.write_text(bootstrap.replace(stale, helper_hash, 1))
+        validator_path = Path(policy['validator']['path'])
+        validator_path.write_text('reviewed authorization validator with chained source updates\n')
+        audit_path = Path(policy['activation_audit_path'])
+        original_audit = audit_path.read_bytes()
+        negative_tests = [
+            'test_dev_consent_revocation_identity_and_procedure_guards',
+            'test_activation_record_binds_reviewed_commit_and_source_pins',
+            'test_campaign_safety_failure_latches_and_denies_next_operation',
+        ]
+        commit = 'a' * 40
+        with (patch.object(hil_auth, '_current_development_commit', return_value=commit),
+              patch.object(hil_auth, '_run_development_review_tests', side_effect=self._review_test_receipt)):
+            result = hil_auth.review_development_source_updates(
+                'Reviewed exact stale nested helper pin correction; authorization scope and fail-closed guards unchanged.',
+                negative_tests, bootstrap_backup=backup, path=path)
+        loaded = hil_auth.load_development(path)
+        self.assertEqual(result['status'], 'SOURCE_UPDATE_RECORDED')
+        self.assertEqual(loaded['bootstrap_script']['sha256'], hil_auth.digest(bootstrap_path))
+        self.assertEqual(loaded['validator']['sha256'], hil_auth.digest(validator_path))
+        self.assertEqual(audit_path.read_bytes().startswith(original_audit), True)
+        rows = [json.loads(line) for line in audit_path.read_text().splitlines()]
+        update = next(row for row in rows if row.get('event') == 'development_mode_source_reviewed')
+        self.assertEqual(update['changed_sources'], ['bootstrap_script', 'validator'])
+        self.assertEqual(update['reviewed_commit'], commit)
+        backup = Path(update['previous_manifest_backup_path'])
+        self.assertEqual(backup.read_bytes(), original_policy_bytes)
+        self.assertEqual(backup.stat().st_mode & 0o777, 0o600)
+        status = hil_auth.development_status(path)
+        self.assertEqual(status['sessions'], 0)
+        self.assertFalse(status['blocked'])
+
+    def test_reviewed_pin_update_fails_closed_if_manifest_backup_changes(self):
+        path, policy = self.development_policy(validator_text='before\n')
+        original_policy_bytes = path.read_bytes()
+        Path(policy['validator']['path']).write_text('after\n')
+        negatives = [
+            'test_dev_consent_revocation_identity_and_procedure_guards',
+            'test_activation_record_binds_reviewed_commit_and_source_pins',
+            'test_campaign_safety_failure_latches_and_denies_next_operation',
+        ]
+        with (patch.object(hil_auth, '_current_development_commit', return_value='e'*40),
+              patch.object(hil_auth, '_run_development_review_tests', side_effect=self._review_test_receipt)):
+            hil_auth.review_development_source_updates(
+                'Reviewed authorization update with original manifest bytes preserved.',
+                negatives, path=path)
+        audit = Path(policy['activation_audit_path'])
+        review = next(row for row in map(json.loads, audit.read_text().splitlines())
+                      if row.get('event') == 'development_mode_source_reviewed')
+        backup = Path(review['previous_manifest_backup_path'])
+        self.assertEqual(backup.read_bytes(), original_policy_bytes)
+        backup.write_bytes(b'altered prior policy')
+        backup.chmod(0o600)
+        with self.assertRaisesRegex(ValueError, 'manifest_backup_invalid'):
+            hil_auth.load_development(path)
+
+    def test_reviewed_pin_update_rejects_non_object_manifest_backup(self):
+        path, policy = self.development_policy(validator_text='before\n')
+        Path(policy['validator']['path']).write_text('after\n')
+        with (patch.object(hil_auth, '_current_development_commit', return_value='f'*40),
+              patch.object(hil_auth, '_run_development_review_tests', side_effect=self._review_test_receipt)):
+            hil_auth.review_development_source_updates(
+                'Reviewed authorization source update with authenticated policy backup validation.',
+                ['test_dev_consent_revocation_identity_and_procedure_guards',
+                 'test_activation_record_binds_reviewed_commit_and_source_pins',
+                 'test_campaign_safety_failure_latches_and_denies_next_operation'], path=path)
+        audit = Path(policy['activation_audit_path'])
+        review = next(row for row in map(json.loads, audit.read_text().splitlines())
+                      if row.get('event') == 'development_mode_source_reviewed')
+        backup = Path(review['previous_manifest_backup_path'])
+        backup.write_text('[]\n')
+        backup.chmod(0o600)
+        with self.assertRaisesRegex(ValueError, 'manifest_backup_invalid'):
+            hil_auth.load_development(path)
+
+    def test_reviewed_source_update_requires_sensitive_negative_tests_and_intact_chain(self):
+        path, policy = self.development_policy(validator_text='initial validator\n')
+        validator_path = Path(policy['validator']['path'])
+        validator_path.write_text('changed authorization validator\n')
+        audit_path = Path(policy['activation_audit_path'])
+        audit_before = audit_path.read_bytes()
+        with (patch.object(hil_auth, '_current_development_commit', return_value='b' * 40),
+              patch.object(hil_auth, '_run_development_review_tests', side_effect=self._review_test_receipt)):
+            with self.assertRaisesRegex(ValueError, 'negative_tests_missing'):
+                hil_auth.review_development_source_updates(
+                    'Reviewed authorization verifier update with its bounded test set.',
+                    ['test_dev_consent_revocation_identity_and_procedure_guards'], path=path)
+        self.assertEqual(audit_path.read_bytes(), audit_before)
+        self.assertEqual(json.loads(path.read_text())['validator']['sha256'], policy['validator']['sha256'])
+
+    def test_source_review_rejects_unregistered_negative_test_names(self):
+        path, policy = self.development_policy(validator_text='initial validator\n')
+        Path(policy['validator']['path']).write_text('changed validator\n')
+        negatives = [
+            'test_dev_consent_revocation_identity_and_procedure_guards',
+            'test_activation_record_binds_reviewed_commit_and_source_pins',
+            'test_campaign_safety_failure_latches_and_denies_next_operation',
+            'test_not_a_registered_regression',
+        ]
+        with patch.object(hil_auth, '_current_development_commit', return_value='b'*40):
+            with self.assertRaisesRegex(ValueError, 'negative_test_unregistered'):
+                hil_auth.review_development_source_updates(
+                    'Reviewed authorization update with required fail-closed regression coverage.',
+                    negatives, path=path)
+
+    def test_source_review_requires_real_nonzero_test_summaries(self):
+        reviewed = ['test_dev_consent_revocation_identity_and_procedure_guards']
+        good_unit = SimpleNamespace(returncode=0, stdout='', stderr='Ran 2 tests in 1.2s\n')
+        good_coverage = SimpleNamespace(returncode=0,
+            stdout='GS130 TRACEABILITY PASS features=2 modules=3 physical_cases=4; consistency only, not semantic/physical PASS\n',
+            stderr='Ran 3 tests in 1.2s\n')
+        with patch.object(hil_auth.subprocess, 'run', side_effect=[good_unit, good_coverage]):
+            receipt = hil_auth._run_development_review_tests(self.root, 'a'*40, 'b'*64, reviewed)
+        self.assertEqual([item['test_count'] for item in receipt['tests']], [2, 3])
+        self.assertEqual(receipt['tests'][1]['coverage_summary'], good_coverage.stdout.strip())
+
+        missing_summary = SimpleNamespace(returncode=0, stdout='all green\n', stderr='')
+        with patch.object(hil_auth.subprocess, 'run', return_value=missing_summary):
+            with self.assertRaisesRegex(ValueError, 'tests_incomplete:gs117_focused'):
+                hil_auth._run_development_review_tests(self.root, 'a'*40, 'b'*64, reviewed)
+
+        no_coverage_marker = SimpleNamespace(returncode=0, stdout='Ran 22 tests in 1.2s\n', stderr='')
+        with patch.object(hil_auth.subprocess, 'run', side_effect=[good_unit, no_coverage_marker]):
+            with self.assertRaisesRegex(ValueError, 'tests_incomplete:feature_coverage'):
+                hil_auth._run_development_review_tests(self.root, 'a'*40, 'b'*64, reviewed)
+
+        skipped = SimpleNamespace(returncode=0, stdout='',
+                                  stderr='Ran 2 tests in 1.2s\nOK (skipped=1)\n')
+        with patch.object(hil_auth.subprocess, 'run', return_value=skipped):
+            with self.assertRaisesRegex(ValueError, 'tests_incomplete:gs117_focused'):
+                hil_auth._run_development_review_tests(self.root, 'a'*40, 'b'*64, reviewed)
+
+    def test_pin_chain_tampering_fails_closed(self):
+        path, policy = self.development_policy(validator_text='old validator\n')
+        validator_path = Path(policy['validator']['path'])
+        validator_path.write_text('new validator\n')
+        negatives = [
+            'test_dev_consent_revocation_identity_and_procedure_guards',
+            'test_activation_record_binds_reviewed_commit_and_source_pins',
+            'test_campaign_safety_failure_latches_and_denies_next_operation',
+        ]
+        with (patch.object(hil_auth, '_current_development_commit', return_value='c' * 40),
+              patch.object(hil_auth, '_run_development_review_tests', side_effect=self._review_test_receipt)):
+            hil_auth.review_development_source_updates(
+                'Reviewed validator update with negative identity, scope and safety-latch tests.',
+                negatives, path=path)
+        audit_path = Path(policy['activation_audit_path'])
+        rows = audit_path.read_text().splitlines()
+        record = json.loads(rows[-1]); record['review_summary'] = 'unverified rewrite'
+        rows[-1] = json.dumps(record, sort_keys=True)
+        audit_path.write_text('\n'.join(rows) + '\n'); audit_path.chmod(0o600)
+        with self.assertRaisesRegex(ValueError, 'source_review_chain_invalid'):
+            hil_auth.load_development(path)
+
+    def test_exact_preoperation_pin_failure_is_disposed_without_deleting_session(self):
+        stale = '66afe888be5dcd3c862bcddc4cc6333945870b8a41bd552f9cb0e3472676058e'
+        bootstrap = ("if hashlib.sha256(helper).hexdigest() != '" + stale + "':\n"
+                     "    raise ValueError('REVIEWED_SERIAL_HELPER_CHANGED')\n"
+                     "subprocess.Popen([WINPY])\n")
+        path, policy = self.development_policy(bootstrap_text=bootstrap,
+                                               validator_text='old authorization validator\n')
+        state = Path(policy['activation_audit_path']).parent
+        evidence_root = self.root / 'standing-authorization-evidence'
+        evidence_root.mkdir(mode=0o700)
+        evidence = evidence_root / 'bootstrap-known-pin-mismatch'
+        evidence.mkdir(mode=0o700)
+        (evidence / 'stdout.json').write_text(
+            'BOOTSTRAP_FAILED_STAGE=startup TYPE=ValueError CODE=REVIEWED_SERIAL_HELPER_CHANGED\n')
+        (evidence / 'stderr.log').write_text('')
+        for item in evidence.iterdir(): item.chmod(0o600)
+        with patch.object(hil_auth, 'STATE', evidence_root):
+            with self.assertRaisesRegex(ValueError, 'REVIEWED_SERIAL_HELPER_CHANGED'):
+                with hil_auth.session('protected_gs40_bootstrap', path, state, _development=True) as (_p, record):
+                    record['evidence'] = str(evidence)
+                    raise ValueError('REVIEWED_SERIAL_HELPER_CHANGED')
+            failed_audit = Path(policy['activation_audit_path']).read_bytes()
+            bootstrap_path = Path(policy['bootstrap_script']['path'])
+            backup = self.root / 'bootstrap.before-pin-disposition.py'
+            backup.write_bytes(bootstrap_path.read_bytes()); backup.chmod(0o600)
+            bootstrap_path.write_text(bootstrap.replace(stale, policy['serial_helper']['sha256'], 1))
+            Path(policy['validator']['path']).write_text('reviewed authorization validator\n')
+            negatives = [
+                'test_dev_consent_revocation_identity_and_procedure_guards',
+                'test_activation_record_binds_reviewed_commit_and_source_pins',
+                'test_campaign_safety_failure_latches_and_denies_next_operation',
+            ]
+            with (patch.object(hil_auth, '_current_development_commit', return_value='d' * 40),
+                  patch.object(hil_auth, '_run_development_review_tests', side_effect=self._review_test_receipt)):
+                hil_auth.review_development_source_updates(
+                    'Reviewed exact pre-device nested pin correction and authorization verifier negative tests.',
+                    negatives, bootstrap_backup=backup, path=path)
+            with patch.object(hil_auth, '_write_private_ledger', side_effect=OSError('simulated interruption')):
+                with self.assertRaisesRegex(OSError, 'simulated interruption'):
+                    hil_auth.dispose_reviewed_preoperation_pin_failure(path)
+            result = hil_auth.dispose_reviewed_preoperation_pin_failure(path)
+            status = hil_auth.development_status(path)
+            self.assertEqual(result['status'], 'DISPOSITION_ALREADY_RECORDED')
+            self.assertEqual(result['sessions'], 1)
+            self.assertEqual(result['functional_outcome'], 'NOT_RUN')
+            self.assertEqual(status['status'], 'ACTIVE')
+            self.assertEqual(status['sessions'], 1)
+            self.assertEqual(status['consecutive_safety_failures'], 0)
+            self.assertEqual(status['reviewed_failure_dispositions'], 1)
+            audit_after = Path(policy['activation_audit_path']).read_bytes()
+            self.assertTrue(audit_after.startswith(failed_audit))
+            self.assertEqual(sum(row.get('event') == 'development_failure_disposition'
+                                 for row in map(json.loads, audit_after.splitlines())), 1)
+            old_rows = [json.loads(line) for line in failed_audit.splitlines()]
+            self.assertTrue(any(row.get('failure') == 'ValueError' and
+                                row.get('failure_class') == 'UNKNOWN_UNHANDLED' for row in old_rows))
+            self.assertEqual(status['authorization_scope_id'], hil_auth._development_scope_id(policy))
+
+    def test_preoperation_disposition_rejects_nonmatching_security_failure(self):
+        path, policy = self.development_policy()
+        state = Path(policy['activation_audit_path']).parent
+        with self.assertRaisesRegex(hil_auth.AuthorizationSafetyFailure, 'identity mismatch'):
+            with hil_auth.session('protected_gs40_bootstrap', path, state, _development=True):
+                raise hil_auth.AuthorizationSafetyFailure('identity mismatch')
+        with self.assertRaisesRegex(ValueError, 'not_disposition_eligible'):
+            hil_auth.dispose_reviewed_preoperation_pin_failure(path)
 
     def test_release_qualification_environment_fails_closed(self):
         path, _policy = self.development_policy()

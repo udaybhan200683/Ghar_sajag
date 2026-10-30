@@ -9,6 +9,8 @@ from pathlib import Path
 import re
 import secrets
 import stat
+import subprocess
+import sys
 
 POLICY = Path.home() / '.config/ghar-sajag/gs117-tc001/standing-authorization.json'
 STATE = Path.home() / '.local/state/ghar-sajag/gs117-tc001/standing-authorization'
@@ -50,6 +52,192 @@ def _development_scope_id(policy):
     return hashlib.sha256(material.encode()).hexdigest()
 
 
+def _development_scope_contract_sha256(policy):
+    """Bind reviewed pin maintenance to the active TEST_ONLY scope.
+
+    Source hashes are the only mutable policy fields in this contract. Paths,
+    identities, images, owner authority, operation limits, and prohibitions are
+    included so a source update cannot be used to rotate authorization scope.
+    """
+    value = json.loads(json.dumps(policy))
+    for name in DEV_PIN_NAMES:
+        if isinstance(value.get(name), dict):
+            value[name].pop('sha256', None)
+    encoded = json.dumps(value, sort_keys=True, separators=(',', ':')).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _read_review_receipt(path, expected_sha256):
+    path = Path(path)
+    if path.is_symlink():
+        raise ValueError('development_source_review_receipt_invalid')
+    try:
+        info = path.lstat()
+    except OSError as error:
+        raise ValueError('development_source_review_receipt_invalid') from error
+    if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or
+            info.st_mode & 0o077 or digest(path) != expected_sha256):
+        raise ValueError('development_source_review_receipt_invalid')
+    try:
+        receipt = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError('development_source_review_receipt_invalid') from error
+    required = {'gs117_focused', 'feature_coverage'}
+    tests = receipt.get('tests') if isinstance(receipt, dict) else None
+    if (not isinstance(receipt, dict) or receipt.get('schema_version') != 1 or
+            not re.fullmatch(r'[0-9a-f]{40}', str(receipt.get('reviewed_commit', ''))) or
+            not isinstance(tests, list) or
+            {item.get('name') for item in tests if isinstance(item, dict)} != required or
+            any(item.get('returncode') != 0 or
+                not re.fullmatch(r'[0-9a-f]{64}', str(item.get('stdout_sha256', ''))) or
+                not re.fullmatch(r'[0-9a-f]{64}', str(item.get('stderr_sha256', '')))
+                for item in tests if isinstance(item, dict)) or
+            len(tests) != len(required) or
+            not isinstance(receipt.get('reviewed_negative_tests'), list) or
+            any(not isinstance(item, str) for item in receipt['reviewed_negative_tests'])):
+        raise ValueError('development_source_review_receipt_invalid')
+    if receipt.get('reviewed_negative_tests') != sorted(set(receipt['reviewed_negative_tests'])):
+        raise ValueError('development_source_review_receipt_invalid')
+    expected_commands = {
+        'gs117_focused': ['code/tests/python/test_gs117_tc001_console.py'],
+        'feature_coverage': ['make', '-C', 'code', 'feature-coverage-test'],
+    }
+    for test in tests:
+        command = test.get('command') if isinstance(test, dict) else None
+        if (not isinstance(command, list) or not command or
+                type(test.get('test_count')) is not int or test['test_count'] < 1 or
+                (test['name'] == 'gs117_focused' and
+                 (not Path(command[0]).name.startswith('python3') or
+                  command[1:] != expected_commands['gs117_focused'])) or
+                (test['name'] == 'feature_coverage' and
+                 (command != expected_commands['feature_coverage'] or
+                  not re.fullmatch(r'GS130 TRACEABILITY PASS features=[1-9][0-9]* modules=[1-9][0-9]* physical_cases=[1-9][0-9]*; consistency only, not semantic/physical PASS',
+                                   str(test.get('coverage_summary', '')))))):
+            raise ValueError('development_source_review_receipt_invalid')
+    if receipt.get('reviewed_negative_tests') != sorted(set(receipt['reviewed_negative_tests'])):
+        raise ValueError('development_source_review_receipt_invalid')
+    return receipt
+
+
+def _verify_development_source_review_chain(policy, mode, records, activation_line,
+                                           allow_source_pin_drift=False):
+    pins = dict(mode['reviewed_source_fingerprints'])
+    previous_record_sha256 = mode['activation_record_sha256']
+    scope_sha256 = _development_scope_contract_sha256(policy)
+    updates = []
+    for index, row in enumerate(records):
+        if index <= activation_line or row.get('event') != 'development_mode_source_reviewed':
+            continue
+        record = dict(row)
+        record_sha256 = record.pop('record_sha256', None)
+        source_before = record.get('source_pins_before')
+        source_after = record.get('source_pins_after')
+        changed = {name for name in DEV_PIN_NAMES
+                   if isinstance(source_after, dict) and source_after.get(name) != pins.get(name)}
+        receipt_path = record.get('test_receipt_path')
+        if (record.get('activation_id') != mode.get('activation_id') or
+                record.get('approval_ref') != policy.get('owner_approval_ref') or
+                record.get('chain_previous_sha256') != previous_record_sha256 or
+                record.get('scope_contract_sha256') != scope_sha256 or
+                source_before != pins or not isinstance(source_after, dict) or
+                set(source_after) != set(DEV_PIN_NAMES) or not changed or
+                record.get('changed_sources') != sorted(changed) or
+                any(not re.fullmatch(r'[0-9a-f]{64}', str(source_after[name]))
+                    for name in DEV_PIN_NAMES) or
+                record.get('source_paths') != {name: policy[name].get('path') for name in DEV_PIN_NAMES} or
+                not isinstance(record.get('review_summary'), str) or
+                len(record['review_summary'].strip()) < 32 or
+                not re.fullmatch(r'[0-9a-f]{40}', str(record.get('reviewed_commit', ''))) or
+                not isinstance(receipt_path, str) or
+                not re.fullmatch(r'[0-9a-f]{64}', str(record.get('test_receipt_sha256', ''))) or
+                record_sha256 != _canonical_record_sha256(row)):
+            raise ValueError('development_mode_source_review_chain_invalid')
+        receipt = _read_review_receipt(receipt_path, record['test_receipt_sha256'])
+        if Path(receipt_path).parent.resolve() != \
+                Path(policy.get('activation_audit_path', '')).parent.resolve():
+            raise ValueError('development_source_review_receipt_invalid')
+        backup_path = Path(str(record.get('previous_manifest_backup_path', '')))
+        try:
+            backup_info = backup_path.lstat()
+            backup_policy = json.loads(backup_path.read_text())
+            if (not isinstance(backup_policy, dict) or
+                    not isinstance(backup_policy.get('development_mode'), dict) or
+                    any(not isinstance(backup_policy.get(name), dict)
+                        for name in DEV_PIN_NAMES)):
+                raise ValueError('development_source_review_manifest_backup_invalid')
+            backup_valid = (
+                stat.S_ISREG(backup_info.st_mode) and backup_info.st_uid == os.getuid() and
+                not (backup_info.st_mode & 0o077) and
+                backup_path.parent.resolve() ==
+                Path(policy.get('activation_audit_path', '')).parent.resolve() and
+                re.fullmatch(r'development-policy-before-source-review-[0-9a-f]{24}\.json',
+                             backup_path.name) and
+                digest(backup_path) == record.get('previous_manifest_sha256') and
+                _development_scope_contract_sha256(backup_policy) == scope_sha256 and
+                {name: backup_policy.get(name, {}).get('sha256') for name in DEV_PIN_NAMES} ==
+                source_before)
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            backup_valid = False
+            backup_policy = {}
+        if (not backup_valid or
+                backup_policy.get('development_mode', {}).get('activation_id') !=
+                mode.get('activation_id')):
+            raise ValueError('development_source_review_manifest_backup_invalid')
+        if (receipt.get('reviewed_commit') != record.get('reviewed_commit') or
+                receipt.get('scope_contract_sha256') != scope_sha256 or
+                receipt.get('reviewed_negative_tests') != record.get('reviewed_negative_tests')):
+            raise ValueError('development_source_review_receipt_invalid')
+        if 'validator' in changed or 'controller' in changed:
+            required_negative = {
+                'test_dev_consent_revocation_identity_and_procedure_guards',
+                'test_activation_record_binds_reviewed_commit_and_source_pins',
+                'test_campaign_safety_failure_latches_and_denies_next_operation',
+            }
+            if not required_negative.issubset(set(record.get('reviewed_negative_tests', []))) or \
+                    not required_negative.issubset(set(receipt.get('reviewed_negative_tests', []))):
+                raise ValueError('development_source_review_negative_tests_missing')
+        if 'bootstrap_script' in changed:
+            replacement = record.get('bootstrap_pin_replacement')
+            backup = Path(replacement.get('backup_path', '')) if isinstance(replacement, dict) else Path('/')
+            try:
+                backup_info = backup.lstat()
+                backup_valid = (stat.S_ISREG(backup_info.st_mode) and backup_info.st_uid == os.getuid() and
+                                not (backup_info.st_mode & 0o077) and
+                                digest(backup) == replacement.get('backup_sha256') and
+                                backup.parent.resolve() ==
+                                Path(record['source_paths']['bootstrap_script']).parent.resolve())
+                old_bootstrap = backup.read_text()
+                current_bootstrap = Path(record['source_paths']['bootstrap_script']).read_text()
+            except (OSError, ValueError, TypeError):
+                backup_valid = False
+                old_bootstrap = current_bootstrap = ''
+            if (not isinstance(replacement, dict) or
+                    not backup_valid or
+                    backup.parent.resolve() != Path(record['source_paths']['bootstrap_script']).parent.resolve() or
+                    replacement.get('embedded_old_helper_sha256') !=
+                    '66afe888be5dcd3c862bcddc4cc6333945870b8a41bd552f9cb0e3472676058e' or
+                    replacement.get('embedded_new_helper_sha256') != pins.get('serial_helper') or
+                    replacement.get('old_file_sha256') != pins.get('bootstrap_script') or
+                    replacement.get('new_file_sha256') != source_after.get('bootstrap_script') or
+                    old_bootstrap.count(replacement.get('embedded_old_helper_sha256', '')) != 1 or
+                    current_bootstrap != old_bootstrap.replace(
+                        replacement.get('embedded_old_helper_sha256', ''),
+                        replacement.get('embedded_new_helper_sha256', ''), 1)):
+                raise ValueError('development_source_review_bootstrap_change_unreviewed')
+        pins = dict(source_after)
+        previous_record_sha256 = record_sha256
+        updates.append(row)
+    current = {name: policy.get(name, {}).get('sha256') for name in DEV_PIN_NAMES}
+    if current != pins and not allow_source_pin_drift:
+        raise ValueError('development_mode_review_evidence_invalid' if not updates else
+                         'development_mode_source_review_chain_mismatch')
+    if (updates and not allow_source_pin_drift and
+            hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest() !=
+            updates[-1].get('policy_sha256_after')):
+        raise ValueError('development_mode_source_review_manifest_mismatch')
+    return updates
+
+
 def _read_private_json(path):
     path = Path(path)
     info = path.lstat()
@@ -78,6 +266,7 @@ def _development_history(state, policy, scope_id):
     audit_path = state / 'audit.jsonl'
     approval_ref = policy['owner_approval_ref']
     sessions = {}
+    audit_records = []
     if audit_path.is_symlink():
         raise ValueError('development_authorization_history_not_private')
     if audit_path.exists():
@@ -98,6 +287,7 @@ def _development_history(state, policy, scope_id):
                 raise ValueError('development_authorization_history_corrupt') from error
             if not isinstance(record, dict):
                 raise ValueError('development_authorization_history_corrupt')
+            audit_records.append(record)
             if record.get('approval_ref') != approval_ref or not record.get('started_at'):
                 continue
             try:
@@ -144,6 +334,11 @@ def _development_history(state, policy, scope_id):
         _index, latest_record = entries[-1]
         if type(latest_record.get('blocked')) is not bool:
             raise ValueError('development_authorization_history_corrupt')
+        if latest_record.get('event') == 'development_failure_disposition':
+            if len(entries) < 2:
+                raise ValueError('development_authorization_history_corrupt')
+            failed_record = entries[-2][1]
+            _validate_pin_failure_disposition(latest_record, failed_record, audit_records)
         procedure = latest_record.get('procedure')
         if not isinstance(procedure, str) or procedure not in DEV_OPERATIONS:
             raise ValueError('development_authorization_history_corrupt')
@@ -177,13 +372,19 @@ def _development_history(state, policy, scope_id):
                     (record.get('consecutive_failures', 0) > consecutive)):
                 raise ValueError('development_authorization_history_mismatch')
 
+    dispositions = [row for row in audit_records
+                    if row.get('event') == 'development_failure_disposition' and
+                    row.get('approval_ref') == approval_ref]
     history = {
         'sessions': len(ordered), 'blocked': blocked,
         'consecutive_failures': consecutive,
         'procedure_counts': procedure_counts,
         'approval_ref': approval_ref,
         'authorization_scope_id': scope_id,
+        'reviewed_failure_dispositions': len(dispositions),
     }
+    if dispositions:
+        history['failure_disposition'] = dispositions[-1].get('disposition')
     if latest_record:
         for name in ('procedure', 'started_at', 'completed_at', 'failure', 'failure_class',
                      'functional_outcome', 'evidence'):
@@ -192,7 +393,55 @@ def _development_history(state, policy, scope_id):
                     (name != 'functional_outcome' or not blocked) and
                     (name != 'completed_at' or not blocked)):
                 history[name] = latest_record[name]
+        if latest_record.get('event') == 'development_failure_disposition':
+            history['failure_disposition'] = latest_record['disposition']
     return history
+
+
+def _validate_pin_failure_disposition(disposition, failed_record, audit_records):
+    record_sha256 = disposition.get('record_sha256')
+    evidence = Path(str(disposition.get('evidence', '')))
+    expected_parent = Path(STATE)
+    review_sha = disposition.get('source_review_record_sha256')
+    matching_reviews = [row for row in audit_records
+                        if row.get('event') == 'development_mode_source_reviewed' and
+                        row.get('record_sha256') == review_sha]
+    try:
+        info = evidence.lstat()
+        stdout_path = evidence / 'stdout.json'
+        stderr_path = evidence / 'stderr.log'
+        stdout = stdout_path.read_text()
+        stderr = stderr_path.read_text()
+        evidence_private = (stat.S_ISDIR(info.st_mode) and info.st_uid == os.getuid() and
+                            info.st_mode & 0o077 == 0 and evidence.parent.resolve() == expected_parent.resolve())
+        evidence_matches = (
+            stdout == 'BOOTSTRAP_FAILED_STAGE=startup TYPE=ValueError CODE=REVIEWED_SERIAL_HELPER_CHANGED\n' and
+            stderr == '' and digest(stdout_path) == disposition.get('stdout_sha256') and
+            digest(stderr_path) == disposition.get('stderr_sha256'))
+    except OSError:
+        evidence_private = evidence_matches = False
+    if (disposition.get('disposition') != 'REVIEWED_PRE_OPERATION_PIN_MISMATCH' or
+            disposition.get('failure') != 'ValueError' or
+            disposition.get('failure_code') != 'REVIEWED_SERIAL_HELPER_CHANGED' or
+            disposition.get('failure_class') != 'REVIEWED_PRE_OPERATION_CONFIGURATION' or
+            disposition.get('blocked') is not False or
+            disposition.get('functional_outcome') != 'NOT_RUN' or
+            failed_record.get('blocked') is not True or
+            failed_record.get('procedure') != 'protected_gs40_bootstrap' or
+            failed_record.get('approval_ref') != disposition.get('approval_ref') or
+            failed_record.get('started_at') != disposition.get('started_at') or
+            failed_record.get('failure') != 'ValueError' or
+            failed_record.get('failure_class') != 'UNKNOWN_UNHANDLED' or
+            disposition.get('disposition_of_sha256') != _canonical_record_sha256(failed_record) or
+            disposition.get('evidence') != failed_record.get('evidence') or
+            not evidence_private or not evidence_matches or len(matching_reviews) != 1 or
+            matching_reviews[0].get('activation_id') != disposition.get('activation_id') or
+            matching_reviews[0].get('changed_sources') != ['bootstrap_script', 'validator'] or
+            matching_reviews[0].get('reviewed_commit') != disposition.get('reviewed_commit') or
+            not re.fullmatch(r'[0-9a-f]{40}', str(disposition.get('reviewed_commit', ''))) or
+            not re.fullmatch(r'[0-9a-f]{64}', str(record_sha256 or '')) or
+            record_sha256 != _canonical_record_sha256(disposition)):
+        raise ValueError('development_authorization_history_mismatch')
 
 
 def _development_ledger_path(state, policy):
@@ -301,6 +550,9 @@ def _verify_development_mode_transition(policy, *, allow_source_pin_drift=False)
     if len(activations) != 1:
         raise ValueError('development_mode_transition_audit_mismatch')
     record = activations[0]
+    activation_record_index = next(index for index, row in enumerate(records)
+                                   if row.get('event') == 'development_mode_activated' and
+                                   row.get('activation_id') == activation_id)
     audit_bytes = audit_path.read_bytes()
     audit_lines = audit_bytes.splitlines(keepends=True)
     activation_line = next((index for index, line in enumerate(audit_lines)
@@ -336,8 +588,6 @@ def _verify_development_mode_transition(policy, *, allow_source_pin_drift=False)
             not isinstance(fingerprints, dict) or set(fingerprints) != set(DEV_PIN_NAMES) or
             any(not re.fullmatch(r'[0-9a-f]{64}', str(fingerprints.get(name, '')))
                 for name in DEV_PIN_NAMES) or
-            (not allow_source_pin_drift and
-             fingerprints != {name: policy.get(name, {}).get('sha256') for name in DEV_PIN_NAMES}) or
             not isinstance(mode.get('validation_summary'), dict) or
             mode['validation_summary'].get('gs117_focused') != 'PASS' or
             mode['validation_summary'].get('framework') != 'PASS' or
@@ -359,6 +609,9 @@ def _verify_development_mode_transition(policy, *, allow_source_pin_drift=False)
     if any(row.get('event') == 'development_mode_revoked' and
            row.get('activation_id') == activation_id for row in records):
         raise ValueError('development_mode_revoked')
+    _verify_development_source_review_chain(
+        policy, mode, records, activation_record_index,
+        allow_source_pin_drift=allow_source_pin_drift)
     return mode
 
 
@@ -520,7 +773,8 @@ def session(procedure, path=POLICY, state=STATE, *, _development=False):
             raise ValueError('standing_policy_failure_latched_or_limit_reached')
         data.update(sessions=data['sessions'] + 1, blocked=True, procedure=procedure,
                     started_at=datetime.now(timezone.utc).isoformat(), approval_ref=p['owner_approval_ref'])
-        for key in ('completed_at', 'failure', 'failure_class', 'functional_outcome', 'evidence'):
+        for key in ('completed_at', 'failure', 'failure_class', 'functional_outcome', 'evidence',
+                    'failure_disposition', 'reviewed_failure_dispositions'):
             data.pop(key, None)
         if _development:
             data['authorization_scope_id'] = scope_id
@@ -596,7 +850,31 @@ def _environment_is_release_qualified():
     }
 
 
-def load_development(path=None):
+def _validate_development_pin_paths(path, policy):
+    """Keep the active DEV manifest bound to existing GS-117 procedures."""
+    path = Path(path)
+    if path.resolve() != DEFAULT_DEV_POLICY.resolve():
+        return
+    root = Path(__file__).resolve().parents[3]
+    expected = {
+        'serial_helper': root / 'code/tools/local/gs117_tc001_serial_windows.py',
+        'bootstrap_evidence_helper': root / 'code/tools/local/gs117_bootstrap_evidence.py',
+        'controller': root / 'code/tools/local/gs117_tc001_console.py',
+        'validator': root / 'code/tools/local/gs117_hil_authorization.py',
+    }
+    for name, expected_path in expected.items():
+        if Path(policy[name].get('path', '')).resolve() != expected_path.resolve():
+            raise ValueError('development_reviewed_procedure_path_mismatch')
+    bootstrap_path = Path(policy['bootstrap_script'].get('path', ''))
+    prepared = Path.home() / '.local/state/ghar-sajag/gs117-tc001/standing-readiness-prepared'
+    if (not bootstrap_path.is_absolute() or bootstrap_path.is_symlink() or
+            bootstrap_path.parent.resolve() != prepared.resolve() or
+            not re.fullmatch(r'gs117-protected-bootstrap-development-v[0-9]+\.py',
+                             bootstrap_path.name)):
+        raise ValueError('development_reviewed_procedure_path_mismatch')
+
+
+def load_development(path=None, *, verify_procedure_pins=True):
     path = Path(path or DEV_POLICY)
     info = path.lstat()
     if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
@@ -646,11 +924,349 @@ def load_development(path=None):
     if path.resolve() == DEFAULT_DEV_POLICY.resolve() and audit_path.resolve() != DEV_MODE_AUDIT.resolve():
         raise ValueError('development_mode_transition_audit_path_mismatch')
     _verify_development_mode_transition(p)
-    for name in DEV_PIN_NAMES:
-        q = p[name]; target = Path(q['path'])
-        if not target.is_absolute() or target.is_symlink() or digest(target) != q['sha256']:
-            raise ValueError('development_reviewed_procedure_changed')
+    _validate_development_pin_paths(path, p)
+    if verify_procedure_pins:
+        for name in DEV_PIN_NAMES:
+            q = p[name]; target = Path(q['path'])
+            if (not target.is_absolute() or target.is_symlink() or
+                    not target.is_file() or digest(target) != q['sha256']):
+                raise ValueError('development_reviewed_procedure_changed')
     return p
+
+
+def _current_development_commit(repo):
+    top = subprocess.run(['git', 'rev-parse', '--show-toplevel'], cwd=repo,
+                         capture_output=True, text=True, timeout=10)
+    branch = subprocess.run(['git', 'branch', '--show-current'], cwd=repo,
+                            capture_output=True, text=True, timeout=10)
+    if (top.returncode != 0 or Path(top.stdout.strip()).resolve() != Path(repo).resolve() or
+            branch.returncode != 0 or branch.stdout.strip() != 'feature/r1-commercial-baseline'):
+        raise ValueError('development_source_review_wrong_repository_or_branch')
+    result = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=repo,
+                            capture_output=True, text=True, timeout=10)
+    value = result.stdout.strip()
+    if (result.returncode != 0 or not re.fullmatch(r'[0-9a-f]{40}', value)):
+        raise ValueError('development_source_review_commit_unavailable')
+    dirty = subprocess.run(['git', 'diff', '--quiet', 'HEAD', '--'], cwd=repo,
+                           capture_output=True, text=True, timeout=10)
+    if dirty.returncode != 0:
+        raise ValueError('development_source_review_requires_committed_source')
+    return value
+
+
+def _run_development_review_tests(repo, reviewed_commit, scope_sha256,
+                                 reviewed_negative_tests):
+    commands = [
+        ('gs117_focused', [sys.executable, 'code/tests/python/test_gs117_tc001_console.py']),
+        ('feature_coverage', ['make', '-C', 'code', 'feature-coverage-test']),
+    ]
+    results = []
+    for name, command in commands:
+        result = subprocess.run(command, cwd=repo, capture_output=True, text=True,
+                                timeout=900)
+        output = result.stdout + '\n' + result.stderr
+        test_summary = re.search(r'^Ran ([1-9][0-9]*) tests? in ', output, re.MULTILINE)
+        coverage_summary = re.search(
+            r'^GS130 TRACEABILITY PASS features=[1-9][0-9]* modules=[1-9][0-9]* physical_cases=[1-9][0-9]*; consistency only, not semantic/physical PASS$',
+            output, re.MULTILINE)
+        if result.returncode == 0 and (not test_summary or re.search(r'\bskipped\s*=\s*[1-9]', output) or
+                                       (name == 'feature_coverage' and not coverage_summary)):
+            raise ValueError('development_source_review_tests_incomplete:' + name)
+        results.append({
+            'name': name, 'command': command, 'returncode': result.returncode,
+            'test_count': int(test_summary.group(1)) if test_summary else 0,
+            'stdout_sha256': hashlib.sha256(result.stdout.encode()).hexdigest(),
+            'stderr_sha256': hashlib.sha256(result.stderr.encode()).hexdigest(),
+        })
+        if coverage_summary:
+            results[-1]['coverage_summary'] = coverage_summary.group(0)
+        if result.returncode != 0:
+            raise ValueError('development_source_review_tests_failed:' + name)
+    return {
+        'schema_version': 1, 'reviewed_commit': reviewed_commit,
+        'scope_contract_sha256': scope_sha256,
+        'reviewed_negative_tests': sorted(set(reviewed_negative_tests)),
+        'created_at': datetime.now(timezone.utc).isoformat(), 'tests': results,
+    }
+
+
+def review_development_source_updates(review_summary, reviewed_negative_tests,
+                                     bootstrap_backup=None, path=None):
+    """Commit-, test-, and scope-bound pin maintenance; never grants a session.
+
+    The updater changes only SHA-256 values for the five existing procedure
+    paths. The active identity, operation list, consent, policy path, and
+    release transition remain fixed. Authorization-module/controller changes
+    require explicit review notes and named negative tests.
+    """
+    path = Path(path or DEV_POLICY)
+    audit_path = Path(path.parent / 'development-authorization' / 'audit.jsonl')
+    if path.resolve() == DEFAULT_DEV_POLICY.resolve():
+        audit_path = DEV_MODE_AUDIT
+    state = audit_path.parent
+    if (not isinstance(review_summary, str) or len(review_summary.strip()) < 32 or
+            not isinstance(reviewed_negative_tests, (list, tuple)) or
+            any(not isinstance(name, str) for name in reviewed_negative_tests)):
+        raise ValueError('development_source_review_details_required')
+    state.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if state.is_symlink() or state.stat().st_uid != os.getuid() or state.stat().st_mode & 0o077:
+        raise ValueError('standing_audit_directory_not_private')
+    lock_path = state / 'session.lock'
+    with lock_path.open('a') as lock:
+        os.chmod(lock.name, 0o600)
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise ValueError('development_source_review_session_active') from error
+        policy = load_development(path, verify_procedure_pins=False)
+        _validate_development_pin_paths(path, policy)
+        old_pins = {name: policy[name]['sha256'] for name in DEV_PIN_NAMES}
+        old_paths = {name: policy[name]['path'] for name in DEV_PIN_NAMES}
+        actual_pins = {}
+        for name in DEV_PIN_NAMES:
+            target = Path(old_paths[name])
+            if (not target.is_absolute() or target.is_symlink() or not target.is_file() or
+                    target.stat().st_uid != os.getuid() and name == 'bootstrap_script'):
+                raise ValueError('development_source_review_source_invalid:' + name)
+            actual_pins[name] = digest(target)
+        changed = {name for name in DEV_PIN_NAMES if old_pins[name] != actual_pins[name]}
+        if not changed:
+            raise ValueError('development_source_review_no_pin_changes')
+        if 'bootstrap_script' in changed:
+            backup = Path(bootstrap_backup or '')
+            if backup.is_symlink() or not backup.is_file():
+                raise ValueError('development_source_review_bootstrap_backup_required')
+            info = backup.lstat()
+            old_text = backup.read_text()
+            new_text = Path(old_paths['bootstrap_script']).read_text()
+            helper_hash = actual_pins['serial_helper']
+            stale = '66afe888be5dcd3c862bcddc4cc6333945870b8a41bd552f9cb0e3472676058e'
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077 or
+                    digest(backup) != old_pins['bootstrap_script'] or
+                    old_text.count(stale) != 1 or
+                    new_text != old_text.replace(stale, helper_hash, 1) or
+                    actual_pins['serial_helper'] != old_pins['serial_helper']):
+                raise ValueError('development_source_review_bootstrap_change_unreviewed')
+        sensitive = changed.intersection({'controller', 'validator'})
+        required_negative = {
+            'test_dev_consent_revocation_identity_and_procedure_guards',
+            'test_activation_record_binds_reviewed_commit_and_source_pins',
+            'test_campaign_safety_failure_latches_and_denies_next_operation',
+        }
+        if sensitive and not required_negative.issubset(set(reviewed_negative_tests)):
+            raise ValueError('development_source_review_negative_tests_missing')
+        repo = Path(__file__).resolve().parents[3]
+        test_source = repo / 'code/tests/python/test_gs117_tc001_console.py'
+        try:
+            registered_tests = set(re.findall(
+                r'^\s*def\s+(test_[A-Za-z0-9_]+)\s*\(',
+                test_source.read_text(), re.MULTILINE))
+        except OSError as error:
+            raise ValueError('development_source_review_tests_unavailable') from error
+        if not set(reviewed_negative_tests).issubset(registered_tests):
+            raise ValueError('development_source_review_negative_test_unregistered')
+        commit = _current_development_commit(repo)
+        scope_sha256 = _development_scope_contract_sha256(policy)
+        receipt = _run_development_review_tests(
+            repo, commit, scope_sha256, reviewed_negative_tests)
+        if (_current_development_commit(repo) != commit or
+                any(digest(old_paths[name]) != actual_pins[name] for name in DEV_PIN_NAMES)):
+            raise ValueError('development_source_review_commit_changed_during_validation')
+        receipt_path = state / ('source-review-' + secrets.token_hex(12) + '.json')
+        _atomic_private_json(receipt_path, receipt)
+        receipt_sha256 = digest(receipt_path)
+        previous_manifest_sha256 = digest(path)
+        backup_path = state / ('development-policy-before-source-review-' + secrets.token_hex(12) + '.json')
+        raw_policy = path.read_bytes()
+        if hashlib.sha256(raw_policy).hexdigest() != previous_manifest_sha256:
+            raise ValueError('development_source_review_manifest_changed_during_validation')
+        fd = os.open(backup_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        with os.fdopen(fd, 'wb') as out:
+            out.write(raw_policy)
+            out.flush()
+            os.fsync(out.fileno())
+        directory_fd = os.open(state, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+        updated = json.loads(json.dumps(policy))
+        for name in DEV_PIN_NAMES:
+            updated[name]['sha256'] = actual_pins[name]
+        existing_records = _read_private_audit(audit_path)
+        activation = next(row for row in existing_records
+                          if row.get('event') == 'development_mode_activated' and
+                          row.get('activation_id') == policy['development_mode']['activation_id'])
+        previous_review = next((row for row in reversed(existing_records)
+                                if row.get('event') == 'development_mode_source_reviewed' and
+                                row.get('activation_id') == policy['development_mode']['activation_id']), None)
+        chain_previous = ((previous_review or activation).get('record_sha256'))
+        new_pins = dict(actual_pins)
+        record = {
+            'event': 'development_mode_source_reviewed',
+            'activation_id': policy['development_mode']['activation_id'],
+            'approval_ref': policy['owner_approval_ref'],
+            'chain_previous_sha256': chain_previous,
+            'scope_contract_sha256': scope_sha256,
+            'source_pins_before': old_pins, 'source_pins_after': new_pins,
+            'source_paths': old_paths, 'changed_sources': sorted(changed),
+            'reviewed_commit': commit,
+            'review_summary': review_summary.strip(),
+            'reviewed_negative_tests': sorted(set(reviewed_negative_tests)),
+            'test_receipt_path': str(receipt_path),
+            'test_receipt_sha256': receipt_sha256,
+            'previous_manifest_backup_path': str(backup_path),
+            'previous_manifest_sha256': previous_manifest_sha256,
+            'at_utc': datetime.now(timezone.utc).isoformat(),
+        }
+        if 'bootstrap_script' in changed:
+            record['bootstrap_pin_replacement'] = {
+                'embedded_old_helper_sha256': stale,
+                'embedded_new_helper_sha256': actual_pins['serial_helper'],
+                'old_file_sha256': old_pins['bootstrap_script'],
+                'new_file_sha256': actual_pins['bootstrap_script'],
+                'backup_path': str(Path(bootstrap_backup)),
+                'backup_sha256': digest(bootstrap_backup),
+            }
+        record['record_sha256'] = _canonical_record_sha256(record)
+        updated_sha256 = hashlib.sha256(
+            json.dumps(updated, sort_keys=True).encode()).hexdigest()
+        record['policy_sha256_after'] = updated_sha256
+        record['record_sha256'] = _canonical_record_sha256(record)
+        _append_private_audit(audit_path, record)
+        _atomic_private_json(path, updated)
+        return {
+            'status': 'SOURCE_UPDATE_RECORDED', 'reviewed_commit': commit,
+            'changed_sources': sorted(changed), 'sessions_preserved': True,
+            'safety_latch_unchanged': True, 'policy_sha256': digest(path),
+            'review_record_sha256': record['record_sha256'],
+            'test_receipt_sha256': receipt_sha256,
+        }
+
+
+def dispose_reviewed_preoperation_pin_failure(path=None):
+    """Resolve only the proven stale nested serial-helper pin failure.
+
+    This appends a disposition for the exact startup-only failure. It does not
+    delete the failed session, change its original audit row, reduce its session
+    count, or authorize a hardware operation by itself.
+    """
+    path = Path(path or DEV_POLICY)
+    audit_path = Path(path.parent / 'development-authorization' / 'audit.jsonl')
+    if path.resolve() == DEFAULT_DEV_POLICY.resolve():
+        audit_path = DEV_MODE_AUDIT
+    state = audit_path.parent
+    lock_path = state / 'session.lock'
+    with lock_path.open('a') as lock:
+        os.chmod(lock.name, 0o600)
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise ValueError('development_failure_disposition_session_active') from error
+        policy = load_development(path)
+        scope_id = _development_scope_id(policy)
+        history = _development_history(state, policy, scope_id)
+        if history.get('failure_disposition') == 'REVIEWED_PRE_OPERATION_PIN_MISMATCH':
+            ledger_path, _ = _development_ledger_path(state, policy)
+            if ledger_path.exists():
+                current_ledger = _read_private_json(ledger_path)
+                if (current_ledger.get('authorization_scope_id') != scope_id or
+                        current_ledger.get('approval_ref') != policy['owner_approval_ref']):
+                    raise ValueError('development_authorization_history_mismatch')
+                backup = ledger_path.with_name(ledger_path.name + '.before-reviewed-disposition-' +
+                                               secrets.token_hex(6))
+                fd = os.open(backup, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                with os.fdopen(fd, 'wb') as out:
+                    out.write(ledger_path.read_bytes()); out.flush(); os.fsync(out.fileno())
+            history['policy_manifest_sha256'] = digest(path)
+            _write_private_ledger(ledger_path, history)
+            return {'status': 'DISPOSITION_ALREADY_RECORDED', 'sessions': history['sessions'],
+                    'consecutive_safety_failures': history['consecutive_failures'],
+                    'functional_outcome': history.get('functional_outcome'),
+                    'failure_disposition': history.get('failure_disposition')}
+        if (history.get('sessions') != 1 or not history.get('blocked') or
+                history.get('failure') != 'ValueError' or
+                history.get('failure_class') != 'UNKNOWN_UNHANDLED' or
+                history.get('procedure') != 'protected_gs40_bootstrap'):
+            raise ValueError('development_preoperation_failure_not_disposition_eligible')
+        records = _read_private_audit(audit_path)
+        starts = [row.get('started_at') for row in records
+                  if row.get('approval_ref') == policy['owner_approval_ref'] and row.get('started_at')]
+        started_at = history.get('started_at')
+        rows = [row for row in records if row.get('approval_ref') == policy['owner_approval_ref'] and
+                row.get('started_at') == started_at]
+        if not starts or started_at != starts[-1] or len(rows) < 2:
+            raise ValueError('development_preoperation_failure_not_latest')
+        failed = rows[-1]
+        if (failed.get('blocked') is not True or failed.get('failure') != 'ValueError' or
+                failed.get('failure_class') != 'UNKNOWN_UNHANDLED' or
+                failed.get('procedure') != 'protected_gs40_bootstrap'):
+            raise ValueError('development_preoperation_failure_not_disposition_eligible')
+        evidence = Path(str(failed.get('evidence', '')))
+        stdout_path, stderr_path = evidence / 'stdout.json', evidence / 'stderr.log'
+        try:
+            info = evidence.lstat()
+            stdout, stderr = stdout_path.read_text(), stderr_path.read_text()
+        except OSError as error:
+            raise ValueError('development_preoperation_failure_evidence_invalid') from error
+        if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077 or
+                evidence.parent.resolve() != Path(STATE).resolve() or
+                stdout != 'BOOTSTRAP_FAILED_STAGE=startup TYPE=ValueError CODE=REVIEWED_SERIAL_HELPER_CHANGED\n' or
+                stderr != ''):
+            raise ValueError('development_preoperation_failure_evidence_invalid')
+        reviews = [row for row in records
+                   if row.get('event') == 'development_mode_source_reviewed' and
+                   row.get('activation_id') == policy['development_mode']['activation_id']]
+        if (not reviews or reviews[-1].get('changed_sources') != ['bootstrap_script', 'validator'] or
+                reviews[-1].get('bootstrap_pin_replacement', {}).get('embedded_new_helper_sha256') !=
+                policy['serial_helper']['sha256'] or
+                reviews[-1].get('source_pins_after', {}).get('bootstrap_script') !=
+                policy['bootstrap_script']['sha256']):
+            raise ValueError('development_preoperation_failure_source_review_missing')
+        bootstrap_path = Path(policy['bootstrap_script']['path'])
+        bootstrap_text = bootstrap_path.read_text()
+        helper_hash = policy['serial_helper']['sha256']
+        marker = "hexdigest() != '" + helper_hash + "':"
+        guard = bootstrap_text.find('REVIEWED_SERIAL_HELPER_CHANGED')
+        first_target_start = bootstrap_text.find('subprocess.Popen([WINPY')
+        if (digest(bootstrap_path) != policy['bootstrap_script']['sha256'] or
+                bootstrap_text.count(marker) != 1 or guard < 0 or
+                first_target_start < 0 or guard > first_target_start):
+            raise ValueError('development_preoperation_pin_guard_order_unverified')
+        disposition = dict(failed)
+        disposition.update({
+            'event': 'development_failure_disposition',
+            'disposition': 'REVIEWED_PRE_OPERATION_PIN_MISMATCH',
+            'activation_id': policy['development_mode']['activation_id'],
+            'failure': 'ValueError', 'failure_code': 'REVIEWED_SERIAL_HELPER_CHANGED',
+            'failure_class': 'REVIEWED_PRE_OPERATION_CONFIGURATION',
+            'disposition_of_sha256': _canonical_record_sha256(failed),
+            'source_review_record_sha256': reviews[-1]['record_sha256'],
+            'reviewed_commit': reviews[-1]['reviewed_commit'],
+            'stdout_sha256': digest(stdout_path), 'stderr_sha256': digest(stderr_path),
+            'at_utc': datetime.now(timezone.utc).isoformat(),
+            'blocked': False, 'consecutive_failures': 0,
+            'functional_outcome': 'NOT_RUN',
+            'completed_at': datetime.now(timezone.utc).isoformat(),
+        })
+        disposition['record_sha256'] = _canonical_record_sha256(disposition)
+        _append_private_audit(audit_path, disposition)
+        ledger_path, _scope = _development_ledger_path(state, policy)
+        if ledger_path.exists():
+            backup = ledger_path.with_name(ledger_path.name + '.before-reviewed-disposition-' +
+                                           secrets.token_hex(6))
+            fd = os.open(backup, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            with os.fdopen(fd, 'wb') as out:
+                out.write(ledger_path.read_bytes()); out.flush(); os.fsync(out.fileno())
+        history = _development_history(state, policy, scope_id)
+        history['policy_manifest_sha256'] = digest(path)
+        _write_private_ledger(ledger_path, history)
+        return {'status': 'REVIEWED_PRE_OPERATION_FAILURE_DISPOSED',
+                'sessions': history['sessions'],
+                'consecutive_safety_failures': history['consecutive_failures'],
+                'functional_outcome': history.get('functional_outcome'),
+                'failure_disposition': history.get('failure_disposition'),
+                'source_review_record_sha256': reviews[-1]['record_sha256']}
 
 
 def development_session(procedure):
@@ -685,6 +1301,8 @@ def development_status(path=None):
         'procedures': policy['procedures'],
         'owner_approval_ref': policy['owner_approval_ref'],
         'authorization_scope_id': scope_id,
+        'reviewed_failure_dispositions': history.get('reviewed_failure_dispositions', 0),
+        'failure_disposition': history.get('failure_disposition'),
     }
 
 
