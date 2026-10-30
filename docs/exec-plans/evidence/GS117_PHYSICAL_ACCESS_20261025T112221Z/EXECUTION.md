@@ -4313,10 +4313,12 @@ accounting remains **0/5**; there was no fresh event or hardware operation in
 this work. Supplemental C3 HIL EventKey `126/1` remains separate, and the
 ~6 h 53 min delay for event `123/1` remains unexplained.
 
-Checkpoint before delivery: canonical branch `feature/r1-commercial-baseline`,
-base local/origin HEAD `c4ea2bb7a2761916b12d19cbe921f0c540775ad0`; the only
-tracked changes are the existing GS-117 auth/controller/test files, this
-handoff, `R1_WORK_STATE.md`, and the existing traceability row. All unrelated
-pre-existing untracked firmware, Android, private/hardware evidence artifacts
-remain untouched. The commit SHA, push, remote equality and dated Jira comment
-are recorded in the final delivery handoff after verification.
+Source/test/evidence changes were committed as
+`cc5b4ef3fee8594ff375727f01f733018488e4f0` on
+`feature/r1-commercial-baseline`, pushed normally, and matched
+`git ls-remote` at the time of delivery. Jira GS-117 comment 11851 was added
+and read back; issue status remains In Progress. The implementation commit's
+tracked tree was clean. Pre-existing untracked firmware, Android, private and
+hardware evidence artifacts were preserved. This delivery did not touch the
+owner-only manifest, any authorization ledger, ADB, COM/USB, hardware or the
+five-run campaign. Final current HEAD is reported by the delivery response.
