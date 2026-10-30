@@ -9945,3 +9945,44 @@ and update private source pins using the existing audit path and a byte-exact
 manifest/bootstrap backup; disposition only the matching pre-I/O pin failure;
 then inspect live readiness. Keep the existing campaign stop-on-first-failure
 logic and do not start a campaign until actual APK observation is possible.
+
+### 2026-10-30 19:39 UTC — persistent DEV mode active; APK receipt blocks campaign
+
+Commit `a5b3e79dc15d4e68690f34afb232b73201c99282` is pushed and matched
+origin. The reviewed source update chained exact current private fingerprints
+for the existing bootstrap and authorization validator after the focused test
+receipt; it did not change device/Home/backend scope or procedure allowlist.
+The prior manifest was byte-preserved in the owner-only audit directory. The
+single reserved session failed before Windows helper invocation because of
+the stale nested serial hash; an exact, evidence-linked disposition leaves
+that original failure intact as `NOT_RUN`, preserves session count 1, and
+returns persistent DEV status to `ACTIVE` with 0 consecutive safety failures.
+The predecessor 60-entry audit prefix and 29-session/3-failure ledger still
+match their activation hashes exactly. No authorization history was deleted,
+rewritten or reset.
+
+Current health: PostgreSQL durability/TLS, local caregiver HTTPS, laptop LAN
+TLS/forwarding at `192.168.1.6`, Windows portproxy route audit, caregiver Home
+and the exact COM4/COM10 USB descriptors pass. The existing 8445 listener and
+Windows route are ready; this is not a current S3 mTLS/time proof. The
+existing console's current readiness response blocks at the owner-only fixture
+because its Android install receipt is 25.7 hours old; the fixture-derived
+campaign and enrollment checks are consequently blocked. The authorized ADB
+serial is currently online, but Android is Dozing behind keyguard; no APK
+foreground or current authenticated Home/origin observation was attempted.
+
+Validation: GS-117 focused suite **133/133 PASS**; validation framework
+**55/55 PASS**; feature traceability **232/287/27 with 22/22 tests PASS**,
+including a rerun after updating the existing GS-130 row to this commit and
+pin-review regression. Python compile and diff-check PASS. No hardware session,
+serial open, reset, bootstrap, injection or database write occurred. TC-001
+remains **0/5**, and previous EventKey `126/1` remains supplemental historical
+evidence. Event `123/1`'s ~6h53m delay remains unresolved.
+
+**Next exact owner action:** unlock authorized phone `ZA2237MRHN` and leave it
+available to the existing ADB observer so current APK, Home, backend origin
+and authenticated UI evidence can be refreshed. Then rerun the existing
+fixture/readiness gate and, only if it passes, start the already existing
+bounded five-run campaign under active DEV Mode. No separate routine campaign
+consent is needed while Development Mode is active; real security, fixture,
+authentication and event-stage guards remain mandatory.
