@@ -1,3 +1,28 @@
+## GS-117 — Separate DEV functional outcomes from authorization-safety failures — 2026-10-30
+
+OWNING_JIRA=GS-117; RELATED_JIRA=GS-179, GS-116, GS-130, GS-173
+BUG_CLASSIFICATION=TEST_INFRA_ONLY
+REQUIREMENT_SOURCE=GS-117 reusable TEST_ONLY authorization and stop-on-first-non-PASS campaign; GS-116 focused validation policy
+DECISION_IDS=NONE
+TASK_SCOPE=Classify existing DEV campaign results separately from authorization/safety faults so ordinary product or observer failures retain evidence and can be diagnosed/retried within valid consent; preserve the old latched scope and prepare the next approval boundary.
+OUT_OF_SCOPE=No hardware/ADB/USB access, motion injection, policy/ledger edit, credential/enrollment change, database mutation, fixture fabrication or campaign execution.
+
+The last three failed recorded sessions were reviewed against the existing append-only private audit and preserved run evidence:
+
+1. `2026-10-30T01:42:11Z`, `tc001_campaign`: the controller's Android observer exited with `CalledProcessError` after the product path had otherwise completed. The exact same EventKey was later observed in the actual APK by the existing observer. Classify this as a recoverable tooling/observer failure. The original campaign run remains `BLOCKED`; it is not retroactively a PASS.
+2. `2026-10-30T07:31:02Z`, `protected_gs40_bootstrap`: the protected procedure reported `REVIEWED_SERIAL_HELPER_CHANGED`. This is a reviewed-procedure fingerprint/authorization failure and correctly remains fail-closed; no retry occurred.
+3. `2026-10-30T07:33:33Z`, `protected_gs40_bootstrap`: the child returned exit 0, but the captured S3 output reported desired-policy rejection, disabled routine rules and `CloudSync submitted=0`, while C3 liveness counters advanced. The parent did not persist a precise target failure code and no same-session authenticated rejoin was observed. Classify as UNKNOWN/unhandled target-readiness failure pending better preserved stage evidence; do not relabel it as a confirmed ordinary product defect or successful bootstrap.
+
+The durable owner-scoped history remains **29 sessions** (10 bootstrap, 11 observe, 4 application-flash, 4 campaign), with **3 consecutive failures and `blocked=true`**. This task did not modify the owner-only manifest, any old hash-keyed ledger, the stable ledger or the append-only audit. The existing active consent pins the old controller and authorization-module SHA-256 values; both now differ from the reviewed working-tree files, so the standard loader fails closed before reserving a session. Other reviewed pins still match. The historical scope must remain latched; no hash rotation, new consent reference or counter reset was made.
+
+The existing authorization module and TC-001 controller now keep two outcomes distinct. A completed campaign records `functional_outcome` (`PASS`, `FAIL`, `BLOCKED`, `NOT_RUN`, or `PARTIAL`) separately from `authorization_outcome`. A normal functional non-PASS stops the current campaign and preserves its evidence, but does not increment the authorization-safety failure counter. Explicit identity/scope/authority safety failures raise a typed guard and latch the scope. Unknown exceptions remain conservatively latched. Pre-session pin/consent denials do not reserve a session. No acceptance criteria were relaxed.
+
+Focused validation after the final source edit: `python3 code/tests/python/test_gs117_tc001_console.py` **118/118 PASS**; `make -C code validation-framework-test` **55/55 PASS**; `python3 -m py_compile ...` and `git diff --check` **PASS**. `make -C code validation-tooling` did **not** pass: its Python stage reported two unrelated existing failures (static payload/CSS budget and the S3 fixture test's expectation that `GS_HIL_COMMISSIONING` is absent from the current build script). The report also records `source_unchanged=false`, so it is not a matched-source validation receipt. No target build applies to this Python-only controller/auth change. Traceability has been updated to map the new test anchor; its final mapping check is recorded in the associated evidence entry.
+
+The physical campaign remains **0/5 accepted**; no new EventKey, hardware action or Android observation was produced. Event `126/1` remains supplemental real C3-HIL-to-APK evidence while its original controller run remains BLOCKED. Optical PIR qualification, recovery qualification and release acceptance remain separate.
+
+**Next gate:** preserve the old latch and obtain one explicit successor DEV consent scope if continuing after review. The successor must pin the final committed controller and authorization-module hashes, retain the exact C3/S3/Home/backend identities and existing safety restrictions, and reference the preserved 29-session/3-failure scope without resetting it. Reconnect the authorized phone, verify the successor through the existing fail-closed loader and readiness path, then execute the existing campaign only under valid scope; stop on the first non-PASS. The unresolved `123/1` delivery latency (~6 h 53 min) remains a reliability investigation item, not a newly validated acceptance threshold.
+
 ## GS-117 — DEV authorization history continuity; campaign latch preserved — 2026-10-30
 
 OWNING_JIRA=GS-117; RELATED_JIRA=GS-179, GS-116, GS-130

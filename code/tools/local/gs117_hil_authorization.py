@@ -30,6 +30,13 @@ PREFLIGHT = ['owner_consent', 'policy_validity', 'procedure_fingerprints',
              'authenticated_rejoin_liveness_progress', 'fresh_physical_time_mtls_receipt']
 
 
+class AuthorizationSafetyFailure(RuntimeError):
+    """An explicit identity, authorization, authentication, or safety guard failure."""
+
+
+FUNCTIONAL_OUTCOMES = frozenset({'PASS', 'FAIL', 'BLOCKED', 'NOT_RUN', 'PARTIAL'})
+
+
 def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
@@ -176,9 +183,11 @@ def _development_history(state, policy, scope_id):
         'authorization_scope_id': scope_id,
     }
     if latest_record:
-        for name in ('procedure', 'started_at', 'completed_at', 'failure', 'evidence'):
+        for name in ('procedure', 'started_at', 'completed_at', 'failure', 'failure_class',
+                     'functional_outcome', 'evidence'):
             if (name in latest_record and
-                    (name != 'failure' or blocked) and
+                    (name not in ('failure', 'failure_class') or blocked) and
+                    (name != 'functional_outcome' or not blocked) and
                     (name != 'completed_at' or not blocked)):
                 history[name] = latest_record[name]
     return history
@@ -266,6 +275,10 @@ def _load_development_ledger(path, state, policy):
         for key in ('sessions', 'blocked', 'consecutive_failures', 'procedure_counts'):
             if data.get(key) != audited.get(key):
                 raise ValueError('development_authorization_history_mismatch')
+        for key in ('failure_class', 'functional_outcome'):
+            if key in data or key in audited:
+                if data.get(key) != audited.get(key):
+                    raise ValueError('development_authorization_history_mismatch')
         return ledger, data, scope_id
 
     # The first use after a policy-hash change migrates counters from the
@@ -340,12 +353,15 @@ def session(procedure, path=POLICY, state=STATE, *, _development=False):
             ledger = state / (digest(path) + '.json')
             data = json.loads(ledger.read_text()) if ledger.exists() else {'sessions': 0, 'blocked': False}
             scope_id = None
-        if ((data['blocked'] and not _development) or data['sessions'] >= p['max_sessions'] or
+        # Normal campaign FAIL/BLOCKED outcomes are recorded and exit cleanly.
+        # Any exception keeps blocked=true and therefore prevents another
+        # operation under this consent until a separately approved scope exists.
+        if (data['blocked'] or data['sessions'] >= p['max_sessions'] or
                 (_development and data.get('consecutive_failures', 0) >= 3)):
             raise ValueError('standing_policy_failure_latched_or_limit_reached')
         data.update(sessions=data['sessions'] + 1, blocked=True, procedure=procedure,
                     started_at=datetime.now(timezone.utc).isoformat(), approval_ref=p['owner_approval_ref'])
-        for key in ('completed_at', 'failure', 'evidence'):
+        for key in ('completed_at', 'failure', 'failure_class', 'functional_outcome', 'evidence'):
             data.pop(key, None)
         if _development:
             data['authorization_scope_id'] = scope_id
@@ -364,13 +380,22 @@ def session(procedure, path=POLICY, state=STATE, *, _development=False):
         save()
         try:
             yield p, data
+            if ('functional_outcome' in data and
+                    data['functional_outcome'] not in FUNCTIONAL_OUTCOMES):
+                raise ValueError('development_functional_outcome_invalid')
         except BaseException as error:
             data['failure'] = type(error).__name__
+            data['failure_class'] = ('AUTHORIZATION_SAFETY' if
+                                     isinstance(error, AuthorizationSafetyFailure) else
+                                     'UNKNOWN_UNHANDLED')
+            data.pop('functional_outcome', None)
             data['consecutive_failures'] = data.get('consecutive_failures', 0) + 1
             save()
             raise
         else:
             data.update(blocked=False, consecutive_failures=0, completed_at=datetime.now(timezone.utc).isoformat())
+            data.pop('failure', None)
+            data.pop('failure_class', None)
             save()
 
 def status():

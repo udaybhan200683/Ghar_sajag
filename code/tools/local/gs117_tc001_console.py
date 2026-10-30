@@ -1156,7 +1156,7 @@ class Controller:
             self._morning_mark(report, "android_apk", "PASS",
                                "installed APK Reports displayed the exact Hub decision after refresh")
             report["overall"], report["acceptance"] = "PASS", "TARGET_TEST_INPUT_PASS"
-        except (ValueError, OSError, subprocess.SubprocessError, KeyError, TypeError) as error:
+        except (ValueError, OSError, subprocess.SubprocessError) as error:
             stage_name = next((name for name in MORNING_STAGES
                                if report["stages"][name]["status"] == "NOT_STARTED"), "android_apk")
             self._morning_mark(report, stage_name, "BLOCKED",
@@ -1354,17 +1354,49 @@ class Controller:
     def execute_campaign(self, campaign: dict, _development_reserved=False) -> None:
         import gs117_hil_authorization as auth
         if auth.DEV_POLICY.exists() and not _development_reserved:
+            session_entered = False
+            delegated_to_reserved_session = False
             try:
-                with auth.development_session('tc001_campaign'):
+                with auth.development_session('tc001_campaign') as (_policy, authorization_session):
+                    session_entered = True
+                    delegated_to_reserved_session = True
                     self.execute_campaign(campaign, _development_reserved=True)
-                    if campaign.get('overall') != 'PASS':
-                        raise ValueError('development_campaign_' + campaign.get('overall', 'UNKNOWN'))
-            except (OSError, ValueError) as error:
-                if not _development_reserved and campaign.get('overall') not in ('PASS', 'FAIL', 'BLOCKED'):
-                    campaign['overall'] = 'BLOCKED'
-                    campaign['stop_reason'] = str(error)
+                    functional_outcome = campaign.get('overall')
+                    if functional_outcome not in auth.FUNCTIONAL_OUTCOMES:
+                        raise RuntimeError('TC001_FUNCTIONAL_OUTCOME_UNRECORDED')
+                    authorization_session['functional_outcome'] = functional_outcome
+                    campaign['functional_outcome'] = functional_outcome
+                    campaign['authorization_outcome'] = 'AUTHORIZED_SCOPE_OPERATION'
                     self.save(campaign)
-                    if self.lock.locked(): self.lock.release()
+            except auth.AuthorizationSafetyFailure as error:
+                campaign['authorization_outcome'] = 'SAFETY_FAILURE'
+                campaign['overall'] = 'BLOCKED'
+                campaign['functional_outcome'] = 'BLOCKED'
+                campaign['stop_reason'] = str(error)
+                self.save(campaign)
+            except (OSError, ValueError) as error:
+                campaign['authorization_outcome'] = (
+                    'UNKNOWN_UNHANDLED' if session_entered else 'PRESESSION_GUARD_DENIED')
+                campaign['overall'] = 'BLOCKED'
+                campaign['functional_outcome'] = 'BLOCKED' if session_entered else 'NOT_RUN'
+                campaign['stop_reason'] = str(error)
+                self.save(campaign)
+                if session_entered:
+                    raise
+            except BaseException as error:
+                campaign['authorization_outcome'] = (
+                    'UNKNOWN_UNHANDLED' if session_entered else 'PRESESSION_GUARD_DENIED')
+                campaign['overall'] = 'BLOCKED'
+                campaign['functional_outcome'] = 'BLOCKED' if session_entered else 'NOT_RUN'
+                campaign['stop_reason'] = type(error).__name__
+                self.save(campaign)
+                raise
+            finally:
+                # The reserved recursive call owns the normal completion path
+                # and releases the controller lock itself. Avoid a second
+                # release here, which could race with the next request.
+                if not delegated_to_reserved_session and self.lock.locked():
+                    self.lock.release()
             return
         approval_path = CAMPAIGN_APPROVAL
         consumed_path = None
@@ -1395,7 +1427,13 @@ class Controller:
                 campaign["overall"] = "BLOCKED"
                 return
             fixture = exact_fixture()
-            approval = campaign_approval(approval_path, fixture)
+            try:
+                approval = campaign_approval(approval_path, fixture)
+            except ValueError as error:
+                if auth.DEV_POLICY.exists():
+                    raise auth.AuthorizationSafetyFailure(
+                        'development_campaign_fixture_or_scope_mismatch') from error
+                raise
             self._campaign_stage(campaign, "campaign_preflight", "PASS",
                                   "TEST_ONLY fixture, current backend/Home, both USB identities, and ADB package ready; no board serial opened")
             # One-use approval is consumed only after all static readiness checks
@@ -1427,7 +1465,11 @@ class Controller:
                 self.save(run_report)
                 self.save(campaign)
                 if approval.get('development_authorization'):
-                    auth.load_development()  # Revocation is checked before every input.
+                    try:
+                        auth.load_development()  # Revocation/pins checked before every input.
+                    except (OSError, ValueError, KeyError, TypeError) as error:
+                        raise auth.AuthorizationSafetyFailure(
+                            'GS117_DEV_AUTHORIZATION_REVALIDATION_FAILED') from error
                 self.execute(run_report, fixture_override=fixture, release_lock=False)
                 campaign["completed_runs"] = index
                 if run_report["overall"] == "PASS":
@@ -1444,7 +1486,9 @@ class Controller:
                 self.save(campaign)
             campaign["overall"] = "PASS" if campaign["passed_runs"] == CAMPAIGN_RUNS else "PARTIAL"
             campaign["completed_at"] = utc()
-        except (ValueError, OSError, subprocess.SubprocessError, KeyError, TypeError) as error:
+        except auth.AuthorizationSafetyFailure:
+            raise
+        except (ValueError, OSError, subprocess.SubprocessError) as error:
             self._campaign_stage(campaign, "campaign_preflight", "BLOCKED",
                                  str(error) if isinstance(error, ValueError) else type(error).__name__)
             campaign["overall"] = "BLOCKED"
@@ -1460,6 +1504,7 @@ class Controller:
 
     def execute(self, report: dict, *, fixture_override: dict | None = None,
                 release_lock: bool = True) -> None:
+        import gs117_hil_authorization as auth
         try:
             readiness = self.readiness(force=True)
             observed = readiness["backend"]
@@ -1498,6 +1543,14 @@ class Controller:
                 if not any(item.get("port") == expected["port"] and
                            item.get("usb_hwid") == expected["usb_hwid"] and
                            item.get("serial_number") == expected["serial_number"] for item in ports):
+                    same_port = any(item.get("port") == expected["port"] for item in ports)
+                    same_device_elsewhere = any(
+                        item.get("serial_number", "").casefold() == expected["serial_number"].casefold() or
+                        expected["serial_number"].casefold() in item.get("usb_hwid", "").casefold()
+                        for item in ports)
+                    if same_port or same_device_elsewhere:
+                        raise auth.AuthorizationSafetyFailure(
+                            "TC001_VERIFIED_USB_INTERFACE_MISMATCH")
                     self.mark(report, name, "BLOCKED", "exact COM/USB interface absent or changed")
                     return
                 self.mark(report, name, "PASS", "exact COM/USB metadata and current installed-image receipt matched; no S3 UART open")
@@ -1507,15 +1560,20 @@ class Controller:
                        "installation_epoch": fixture["installation_epoch"]}
             before = backend(request)
             if before.get("authority_ready") is not True:
-                self.mark(report, "environment", "BLOCKED", "current backend Hub/Home/epoch or Node enrollment is not active")
-                return
+                raise auth.AuthorizationSafetyFailure(
+                    "current backend Hub/Home/epoch or Node enrollment authority is not active")
             report["enrollment_generation"] = before["enrollment_generation"]
-            serial = powershell("Run", fixture)
+            try:
+                serial = powershell("Run", fixture)
+            except ValueError as error:
+                if str(error) == "TC001_VERIFIED_USB_INTERFACE_MISMATCH":
+                    raise auth.AuthorizationSafetyFailure(str(error)) from error
+                raise
             c3 = serial.get("c3", [])
             s3 = serial.get("s3", [])
             if serial.get("s3_serial_opened") is not False or s3:
-                self.mark(report, "s3_identity", "FAIL", "serial helper returned S3 UART evidence; S3 UART must remain unopened")
-                return
+                raise auth.AuthorizationSafetyFailure(
+                    "serial helper returned S3 UART evidence; S3 UART must remain unopened")
             report["serial_evidence"] = {
                 "c3": [line for line in c3 if any(marker in line for marker in
                        ("HIL_OK command=INJECT_MOTION", "PIR -> NodeRuntime", "NodeMessage sent", "Application ACK"))][:20],
@@ -1596,8 +1654,8 @@ class Controller:
             if (outcome.get("committing_hub_id") != fixture["hub_id"] or
                     outcome.get("ownership_epoch") != fixture["installation_epoch"] or
                     outcome.get("node_enrollment_generation") != before["enrollment_generation"]):
-                self.mark(report, "hub_cloudsync", "FAIL", "durable row lacks exact Hub/Home/epoch/enrollment provenance")
-                return
+                raise auth.AuthorizationSafetyFailure(
+                    "durable row lacks exact Hub/Home/epoch/enrollment provenance")
             self.mark(report, "hub_cloudsync", "PASS", "fresh original EventKey committed with exact authenticated physical Hub/Home/epoch/enrollment provenance")
             report["backend_evidence"] = {key: outcome.get(key) for key in
                                           ("durable_count", "caregiver_count", "event_id",
@@ -1626,12 +1684,15 @@ class Controller:
                 report["apk_observation"] = "AUTOMATED_FAIL"
                 self.mark(report, "android_apk", "FAIL", "actual installed APK did not expose the exact EventKey in Reports/Event details with bounded UI evidence")
                 return
-            if (not same_https_origin(apk.get("backend_origin"),
-                                      fixture["phone_receipt"]["backend_origin"]) or
-                    "CONNECTED" not in str(apk.get("backend_status", ""))):
+            if (apk.get("home_id") != fixture["home_id"] or
+                    not same_https_origin(apk.get("backend_origin"),
+                                          fixture["phone_receipt"]["backend_origin"])):
+                raise auth.AuthorizationSafetyFailure(
+                    "actual APK Home or backend origin differs from the authorized fixture")
+            if "CONNECTED" not in str(apk.get("backend_status", "")):
                 report["apk_observation"] = "AUTOMATED_FAIL"
                 self.mark(report, "android_apk", "FAIL",
-                          "actual APK Settings backend origin or authenticated connection differs from the approved receipt")
+                          "actual APK authenticated backend connection was not observed")
                 return
             try:
                 screenshot = base64.b64decode(screenshot_b64, validate=True)
@@ -1672,7 +1733,9 @@ class Controller:
             self.mark(report, "android_apk", "PASS", "actual foreground Parivar Saathi APK Reports/Event details exposed the exact new EventKey; private screenshot saved")
             report["overall"] = "PASS" if all(
                 report["stages"][name]["status"] == "PASS" for name in STAGES) else "PARTIAL"
-        except (ValueError, OSError, subprocess.SubprocessError, KeyError, TypeError) as error:
+        except auth.AuthorizationSafetyFailure:
+            raise
+        except (ValueError, OSError, subprocess.SubprocessError) as error:
             target = next((name for name in STAGES if report["stages"][name]["reason"] == "not reached"), "environment")
             self.mark(report, target, "BLOCKED", str(error) if isinstance(error, ValueError) else type(error).__name__)
         finally:

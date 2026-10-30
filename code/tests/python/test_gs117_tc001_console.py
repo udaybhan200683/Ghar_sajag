@@ -84,13 +84,12 @@ class StandingAuthorizationTest(unittest.TestCase):
     def test_dev_failures_are_preserved_and_bounded_without_one_use_latch(self):
         path, _p = self.development_policy()
         state = self.root / 'dev-audit'
-        for _ in range(3):
-            with self.assertRaisesRegex(ValueError, 'diagnosed_test_failure'):
-                with hil_auth.session('observe', path, state, _development=True):
-                    raise ValueError('diagnosed_test_failure')
+        with self.assertRaisesRegex(ValueError, 'diagnosed_test_failure'):
+            with hil_auth.session('observe', path, state, _development=True):
+                raise ValueError('diagnosed_test_failure')
         with self.assertRaisesRegex(ValueError, 'limit_reached'):
             with hil_auth.session('observe', path, state, _development=True): pass
-        self.assertEqual(len((state/'audit.jsonl').read_text().splitlines()), 6)
+        self.assertEqual(len((state/'audit.jsonl').read_text().splitlines()), 2)
 
     def test_dev_policy_hash_rotation_preserves_audit_usage_and_failure_latch(self):
         path, policy = self.development_policy()
@@ -124,19 +123,14 @@ class StandingAuthorizationTest(unittest.TestCase):
         path.write_text(json.dumps(policy)); path.chmod(0o600)
         self.assertNotEqual(hil_auth.digest(path), old_policy_sha)
 
-        with self.assertRaisesRegex(ValueError, 'third consecutive failure'):
-            with hil_auth.session('observe', path, state, _development=True) as (_p, ledger):
-                self.assertEqual(ledger['sessions'], 5)
-                self.assertEqual(ledger['consecutive_failures'], 2)
-                self.assertEqual(ledger['procedure_counts']['tc001_campaign'], 1)
-                self.assertEqual(ledger['procedure_counts']['observe'], 4)
-                raise ValueError('third consecutive failure')
+        with self.assertRaisesRegex(ValueError, 'failure_latched_or_limit_reached'):
+            with hil_auth.session('observe', path, state, _development=True): pass
         stable, scope_id = hil_auth._development_ledger_path(state, policy)
         migrated = json.loads(stable.read_text())
         self.assertEqual(migrated['authorization_scope_id'], scope_id)
-        self.assertEqual(migrated['sessions'], 5)
-        self.assertEqual(migrated['consecutive_failures'], 3)
-        self.assertEqual(migrated['procedure_counts']['observe'], 4)
+        self.assertEqual(migrated['sessions'], 4)
+        self.assertEqual(migrated['consecutive_failures'], 2)
+        self.assertEqual(migrated['procedure_counts']['observe'], 3)
         self.assertEqual(migrated['procedure_counts']['tc001_campaign'], 1)
         self.assertTrue(migrated['blocked'])
         self.assertEqual(legacy.read_bytes(), legacy_bytes)
@@ -145,7 +139,7 @@ class StandingAuthorizationTest(unittest.TestCase):
                      if row.get('event') == 'development_ledger_reconstructed_from_audit']
         self.assertEqual(len(migration), 1)
         self.assertNotIn('started_at', migration[0])
-        self.assertEqual(len({row['started_at'] for row in audit if row.get('started_at')}), 5)
+        self.assertEqual(len({row['started_at'] for row in audit if row.get('started_at')}), 4)
         with self.assertRaisesRegex(ValueError, 'failure_latched_or_limit_reached'):
             with hil_auth.session('observe', path, state, _development=True): pass
 
@@ -179,20 +173,155 @@ class StandingAuthorizationTest(unittest.TestCase):
         self.assertNotIn('completed_at', history)
         self.assertEqual(history['failure'], 'RuntimeError')
 
-    def test_dev_success_after_failure_clears_stale_failure_marker(self):
+    def test_dev_failure_latches_until_a_new_approved_scope(self):
         path, policy = self.development_policy()
         state = self.root / 'dev-failure-then-success'
         with self.assertRaisesRegex(RuntimeError, 'transient failure'):
             with hil_auth.session('observe', path, state, _development=True):
                 raise RuntimeError('transient failure')
-        with hil_auth.session('observe', path, state, _development=True): pass
+        with self.assertRaisesRegex(ValueError, 'failure_latched_or_limit_reached'):
+            with hil_auth.session('observe', path, state, _development=True): pass
 
         scope_id = hil_auth._development_scope_id(policy)
         history = hil_auth._development_history(state, policy, scope_id)
-        self.assertEqual(history['sessions'], 2)
+        self.assertEqual(history['sessions'], 1)
+        self.assertEqual(history['consecutive_failures'], 1)
+        self.assertTrue(history['blocked'])
+        self.assertEqual(history['failure_class'], 'UNKNOWN_UNHANDLED')
+
+        policy['owner_approval_ref'] = 'separate-unit-test-consent-after-latch'
+        successor = self.root / 'new-dev-scope.json'
+        successor.write_text(json.dumps(policy)); successor.chmod(0o600)
+        with hil_auth.session('observe', successor, state, _development=True): pass
+        self.assertEqual(hil_auth._development_history(state, policy, scope_id)['sessions'], 1)
+        successor_ledger, _ = hil_auth._development_ledger_path(state, policy)
+        self.assertEqual(json.loads(successor_ledger.read_text())['sessions'], 1)
+
+    def test_functional_campaign_outcome_is_audited_without_safety_latch(self):
+        path, policy = self.development_policy()
+        state = self.root / 'dev-functional-outcome'
+        with hil_auth.session('tc001_campaign', path, state, _development=True) as (_p, record):
+            record['functional_outcome'] = 'FAIL'
+        scope_id = hil_auth._development_scope_id(policy)
+        history = hil_auth._development_history(state, policy, scope_id)
+        self.assertEqual(history['functional_outcome'], 'FAIL')
         self.assertEqual(history['consecutive_failures'], 0)
         self.assertFalse(history['blocked'])
-        self.assertNotIn('failure', history)
+        with hil_auth.session('tc001_campaign', path, state, _development=True): pass
+
+    def test_campaign_functional_failure_keeps_session_reusable(self):
+        path, policy = self.development_policy()
+        state = self.root / 'dev-campaign-functional-failure'
+        fixture = {"home_id": "gs177-test-product", "physical_device_id": "c3-146393c5d158",
+                   "hub_id": "hub-e072a1d38d34",
+                   "c3": {"port": "COM4", "serial_number": "14:63:93:C5:D1:58"},
+                   "s3": {"port": "COM10", "serial_number": "E0:72:A1:D3:8D:34"}}
+        readiness = {"backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS",
+                                  "DEVELOPMENT_ENDPOINT_READY": "PASS"},
+                     "caregiver_home": {"caregiver_home_ready": True},
+                     "physical_boards": {"c3": "PASS", "s3": "PASS"},
+                     "fixture": {"status": "PASS"}, "android_apk": {"status": "PASS"},
+                     "hub_ingress": {"status": "PASS"}}
+        controller = tc.Controller(); controller.lock.acquire()
+        campaign = {"run_id": "TC001-CAMPAIGN-functional", "planned_runs": 5,
+                    "passed_runs": 0, "completed_runs": 0, "runs": [], "overall": "PARTIAL",
+                    "stages": {"campaign_preflight": {"status": "NOT_VERIFIED"}}}
+        def fail_run(report, **_kwargs):
+            report["overall"] = "FAIL"
+            report["stages"]["android_apk"] = {"status": "FAIL", "reason": "observer failed"}
+        with (patch.object(hil_auth, "DEV_POLICY", path),
+              patch.object(hil_auth, "DEV_STATE", state),
+              patch.object(controller, "readiness", return_value=readiness),
+              patch.object(tc, "exact_fixture", return_value=fixture),
+              patch.object(tc, "campaign_approval", return_value={
+                  "approval_ref": policy["owner_approval_ref"], "development_authorization": True}),
+              patch.object(controller, "execute", side_effect=fail_run),
+              patch.object(controller, "save")):
+            controller.execute_campaign(campaign)
+            stable, _ = hil_auth._development_ledger_path(state, policy)
+            ledger = json.loads(stable.read_text())
+            self.assertEqual(campaign["overall"], "FAIL")
+            self.assertEqual(campaign["functional_outcome"], "FAIL")
+            self.assertEqual(campaign["authorization_outcome"], "AUTHORIZED_SCOPE_OPERATION")
+            self.assertEqual(campaign["completed_runs"], 1)
+            self.assertEqual(ledger["functional_outcome"], "FAIL")
+            self.assertEqual(ledger["consecutive_failures"], 0)
+            self.assertFalse(ledger["blocked"])
+            self.assertFalse(controller.lock.locked())
+            with hil_auth.development_session("tc001_campaign"):
+                pass
+
+    def test_campaign_safety_failure_latches_and_denies_next_operation(self):
+        path, policy = self.development_policy()
+        state = self.root / 'dev-campaign-safety-failure'
+        fixture = {"home_id": "gs177-test-product", "physical_device_id": "c3-146393c5d158",
+                   "hub_id": "hub-e072a1d38d34",
+                   "c3": {"port": "COM4", "serial_number": "14:63:93:C5:D1:58"},
+                   "s3": {"port": "COM10", "serial_number": "E0:72:A1:D3:8D:34"}}
+        readiness = {"backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS",
+                                  "DEVELOPMENT_ENDPOINT_READY": "PASS"},
+                     "caregiver_home": {"caregiver_home_ready": True},
+                     "physical_boards": {"c3": "PASS", "s3": "PASS"},
+                     "fixture": {"status": "PASS"}, "android_apk": {"status": "PASS"},
+                     "hub_ingress": {"status": "PASS"}}
+        controller = tc.Controller(); controller.lock.acquire()
+        campaign = {"run_id": "TC001-CAMPAIGN-safety", "planned_runs": 5,
+                    "passed_runs": 0, "completed_runs": 0, "runs": [], "overall": "PARTIAL",
+                    "stages": {"campaign_preflight": {"status": "NOT_VERIFIED"}}}
+        with (patch.object(hil_auth, "DEV_POLICY", path),
+              patch.object(hil_auth, "DEV_STATE", state),
+              patch.object(controller, "readiness", return_value=readiness),
+              patch.object(tc, "exact_fixture", return_value=fixture),
+              patch.object(tc, "campaign_approval", return_value={
+                  "approval_ref": policy["owner_approval_ref"], "development_authorization": True}),
+              patch.object(controller, "execute", side_effect=hil_auth.AuthorizationSafetyFailure(
+                  "TC001_VERIFIED_USB_INTERFACE_MISMATCH")),
+              patch.object(controller, "save")):
+            controller.execute_campaign(campaign)
+            stable, _ = hil_auth._development_ledger_path(state, policy)
+            ledger = json.loads(stable.read_text())
+            self.assertEqual(ledger["failure_class"], "AUTHORIZATION_SAFETY")
+            self.assertTrue(ledger["blocked"])
+            self.assertEqual(campaign["authorization_outcome"], "SAFETY_FAILURE")
+            self.assertEqual(campaign["functional_outcome"], "BLOCKED")
+            self.assertFalse(controller.lock.locked())
+            with self.assertRaisesRegex(ValueError, "failure_latched_or_limit_reached"):
+                with hil_auth.development_session("tc001_campaign"):
+                    pass
+
+    def test_campaign_unhandled_failure_is_latched_conservatively(self):
+        path, policy = self.development_policy()
+        state = self.root / 'dev-campaign-unhandled-failure'
+        fixture = {"home_id": "gs177-test-product", "physical_device_id": "c3-146393c5d158",
+                   "hub_id": "hub-e072a1d38d34",
+                   "c3": {"port": "COM4", "serial_number": "14:63:93:C5:D1:58"},
+                   "s3": {"port": "COM10", "serial_number": "E0:72:A1:D3:8D:34"}}
+        readiness = {"backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS",
+                                  "DEVELOPMENT_ENDPOINT_READY": "PASS"},
+                     "caregiver_home": {"caregiver_home_ready": True},
+                     "physical_boards": {"c3": "PASS", "s3": "PASS"},
+                     "fixture": {"status": "PASS"}, "android_apk": {"status": "PASS"},
+                     "hub_ingress": {"status": "PASS"}}
+        controller = tc.Controller(); controller.lock.acquire()
+        campaign = {"run_id": "TC001-CAMPAIGN-unhandled", "planned_runs": 5,
+                    "passed_runs": 0, "completed_runs": 0, "runs": [], "overall": "PARTIAL",
+                    "stages": {"campaign_preflight": {"status": "NOT_VERIFIED"}}}
+        with (patch.object(hil_auth, "DEV_POLICY", path),
+              patch.object(hil_auth, "DEV_STATE", state),
+              patch.object(controller, "readiness", return_value=readiness),
+              patch.object(tc, "exact_fixture", return_value=fixture),
+              patch.object(tc, "campaign_approval", return_value={
+                  "approval_ref": policy["owner_approval_ref"], "development_authorization": True}),
+              patch.object(controller, "execute", side_effect=RuntimeError("unexpected test harness fault")),
+              patch.object(controller, "save")):
+            with self.assertRaisesRegex(RuntimeError, "unexpected test harness fault"):
+                controller.execute_campaign(campaign)
+            stable, _ = hil_auth._development_ledger_path(state, policy)
+            ledger = json.loads(stable.read_text())
+            self.assertEqual(ledger["failure_class"], "UNKNOWN_UNHANDLED")
+            self.assertTrue(ledger["blocked"])
+            self.assertEqual(campaign["authorization_outcome"], "UNKNOWN_UNHANDLED")
+            self.assertFalse(controller.lock.locked())
 
     def test_dev_rotation_fails_closed_if_legacy_history_lost(self):
         path, policy = self.development_policy()
@@ -2499,11 +2628,9 @@ class TC001Test(unittest.TestCase):
 
     def test_revoked_hub_or_node_enrollment_blocks_before_injection(self):
         report = self.report()
-        hardware = self.execute(report, {}, baseline={"keys": [], "count": 0,
-                                "authority_ready": False, "enrollment_generation": None})
-        self.assertEqual(hardware.call_count, 1)  # read-only COM listing only
-        self.assertEqual(report["stages"]["environment"]["status"], "BLOCKED")
-        self.assertEqual(report["stages"]["c3_injection"]["status"], "NOT_VERIFIED")
+        with self.assertRaises(hil_auth.AuthorizationSafetyFailure):
+            self.execute(report, {}, baseline={"keys": [], "count": 0,
+                            "authority_ready": False, "enrollment_generation": None})
 
     def test_wrong_caregiver_room_fails_after_exact_backend_commit(self):
         c3 = ["HIL_OK command=INJECT_MOTION", "PIR -> NodeRuntime session=12 seq=3",
@@ -2523,13 +2650,12 @@ class TC001Test(unittest.TestCase):
               "Application ACK session=12 seq=3 class=0 retired=1"]
         s3 = ["Authenticated event logical=bedroom session=12 seq=3 sensor=PIR event=MOTION event_id=p15:test-c3-bedroomn7:bedrooms12q3 room=bedroom ack=0 send=ESP_OK"]
         report = self.report()
-        self.execute(report, {"c3": c3, "s3": s3}, outcome={"durable_count": 1,
+        with self.assertRaises(hil_auth.AuthorizationSafetyFailure):
+            self.execute(report, {"c3": c3, "s3": s3}, outcome={"durable_count": 1,
                      "caregiver_count": 1, "event_kind": "MOTION", "event_location": "bedroom",
                      "event_id": "evt-1", "caregiver_event_id": tc.event_key_text("test-c3-bedroom", 12, 3),
                      "committing_hub_id": "test-hub-other", "ownership_epoch": 1,
                      "node_enrollment_generation": 1})
-        self.assertEqual(report["stages"]["hub_cloudsync"]["status"], "FAIL")
-        self.assertEqual(report["stages"]["backend_commit"]["status"], "PASS")
 
     def test_caregiver_projection_with_other_event_id_fails(self):
         c3 = ["HIL_OK command=INJECT_MOTION", "PIR -> NodeRuntime session=12 seq=3",

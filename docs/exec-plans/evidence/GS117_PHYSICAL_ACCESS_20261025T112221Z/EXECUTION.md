@@ -4239,3 +4239,84 @@ counter reset. Reconnect the authorized phone. Then run the existing campaign
 through the web utility under the new valid consent and stop at its first
 non-PASS. Do not open the S3 serial port during the campaign. Current physical
 five-run result remains **0/5 accepted**; optical PIR remains separate.
+
+### 2026-10-30 18:08 UTC — functional campaign outcomes separated from authorization failures
+
+Reviewed the three failed sessions in the owner-only append-only audit. The
+01:42:11 UTC campaign failed in the Android observer with `CalledProcessError`
+after the real product path had otherwise completed; the same EventKey was
+later found in the installed APK by the existing observer. Disposition:
+recoverable observer/tooling failure; preserve the original run as BLOCKED.
+The 07:31:02 UTC protected bootstrap stopped on
+`REVIEWED_SERIAL_HELPER_CHANGED`; disposition: procedure-pin authorization
+failure, correctly fail-closed. The 07:33:33 UTC protected bootstrap child
+returned exit 0 but its captured S3 output showed desired-policy rejection,
+disabled rules and `CloudSync submitted=0`, while C3 counters advanced; the
+parent omitted a precise target failure code and same-session authenticated
+rejoin was not observed. Disposition: UNKNOWN/unhandled target-readiness failure;
+retain the latch and do not infer success or a confirmed product defect.
+
+The stable ledger still has 29 sessions (10 bootstrap, 11 observe, 4
+application-flash and 4 campaign), three consecutive failures and
+`blocked=true`. The active manifest and all prior ledgers/audit were read-only
+throughout this task. Its old controller pin
+`f5de2dfadc74533fd881a576bbc2e922a8fee2b5f913b2c9ba78daa7d4dec75e` and
+authorization-module pin
+`91973a527d3518a90ca93e625fa0b7df0a14b77902fd883446e6f07acbb7277d` do not
+match the newly reviewed source below. Serial helper
+`fc2a30f5b0407d1f0f2300552476991575128cb2b66aa3cdd29a9533a608ceaa` and
+bootstrap evidence helper
+`cdcfd90ebbeb3ce270578d0e589aeb88db84ae98778872ddfb36a367e442e929` remain
+unchanged and match their pins.
+
+The existing DEV session manager now treats completed campaign outcomes as
+functional results (`PASS`, `FAIL`, `BLOCKED`, `NOT_RUN`, `PARTIAL`) rather
+than exceptions. Each run still stops on its first non-PASS and keeps its
+campaign evidence. A normal functional failure does not increment the
+authorization-safety failure count, so a later bounded attempt is permitted
+only if the same owner scope is valid and unlatched. Reports now expose
+`functional_outcome` separately from `authorization_outcome`. Explicit typed
+identity/authority/scope failures remain safety-latched; unexpected exceptions
+remain `UNKNOWN_UNHANDLED` and fail-closed; policy denial before session
+reservation remains a pre-session guard denial. The negative tests assert a
+campaign can remain FAIL while the authorization session is valid, and that
+safety and unknown faults prevent the next operation.
+
+Validation after the final code edit: `python3
+code/tests/python/test_gs117_tc001_console.py` **118/118 PASS**;
+`make -C code validation-framework-test` **55/55 PASS**;
+`make -C code feature-coverage-test` **PASS** (232 features, 287 modules, 27
+physical cases; 22/22 mapping tests); Python compilation and `git diff --check`
+**PASS**. `make -C code validation-tooling` did not pass: 16/17 stages passed;
+the 715-test Python stage reported two unrelated existing failures: the static
+payload/CSS budget (`118556 > 114688` total, `29576 > 18432` CSS) and
+`test_s3_option_is_opt_in_and_legacy_broad_hil_stays_rejected`, whose source
+expectation conflicts with the existing production build script's
+`GS_HIL_COMMISSIONING` option. Its report also had `source_unchanged=false`,
+so it is not a matched-source receipt. This Python-only test-harness change
+does not warrant target builds; no hardware or APK was accessed.
+
+The active private consent was not rewritten or reactivated. Current source
+hashes are controller
+`12db4b3ce0d4d3a43d423dafa854d2e783086ce576d2993c0661525b8c5dc533` and
+authorization module
+`f77bfe0bc5043128d4e62cfe7d64903e0c991a48f20d49cb27732a95fbb2157c`;
+the active loader therefore fails closed on the two stale pins, in addition to
+the prior scope's existing three-failure latch. A new explicit successor
+consent reference is required to preserve that scope as history and enable
+another bounded development campaign. Do not reset or migrate away the latch.
+
+Traceability row `GS117-TC001-01` now includes
+`GS117-DEV-AUTH-OUTCOME-001`, anchored to
+`test_campaign_functional_failure_keeps_session_reusable`. Formal campaign
+accounting remains **0/5**; there was no fresh event or hardware operation in
+this work. Supplemental C3 HIL EventKey `126/1` remains separate, and the
+~6 h 53 min delay for event `123/1` remains unexplained.
+
+Checkpoint before delivery: canonical branch `feature/r1-commercial-baseline`,
+base local/origin HEAD `c4ea2bb7a2761916b12d19cbe921f0c540775ad0`; the only
+tracked changes are the existing GS-117 auth/controller/test files, this
+handoff, `R1_WORK_STATE.md`, and the existing traceability row. All unrelated
+pre-existing untracked firmware, Android, private/hardware evidence artifacts
+remain untouched. The commit SHA, push, remote equality and dated Jira comment
+are recorded in the final delivery handoff after verification.
