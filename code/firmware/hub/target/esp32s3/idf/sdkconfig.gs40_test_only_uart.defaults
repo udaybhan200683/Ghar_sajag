@@ -1,0 +1,7 @@
+# GS-117 physical TEST_ONLY fixture uses the board's CH343 UART0 as its
+# authenticated config-envelope control path. This profile is opt-in and
+# replaces the native USB Serial/JTAG console selection.
+CONFIG_ESP_TLS_USE_DS_PERIPHERAL=n
+CONFIG_ESP_CONSOLE_UART_NUM=0
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=n
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED=y

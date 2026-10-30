@@ -957,7 +957,27 @@ EXECUTION.md. Current S3 appff111634… was application-only hash-verified, with
 matching current boot,16/8MiB and unchanged partition table. GS117 owns continued
 web-triggered exact-key acceptance under active reusable DEV consent.
 
-
 ### 2026-10-30 02:13 UTC — owner quota pause; no false physical/Android PASS
 
 Actual6253ms software-RSA handshake failure corrected with isolated15s client/server and30s total request bound; production limits unchanged. Actual6281ms authenticated COMPLETE target response and durable original122/1,123/1,125/3,126/1 commits observed. Full isolated PostgreSQL71/71 PASS. DEV backend observation bounded180s/90 polls; strict15-poll mode unchanged; actual latency recorded, not qualified as near-real-time. Latest campaign126/1 got exact durable ACK and one API/DB row but Android evidence capture was inconsistent. GS177/observer fixes tested104/104 plus focused Reports browser1/1; actual APK reload pending. Full browser interrupted after41PASS at owner quota threshold; full component failures retained. NodeHealth503/UNKNOWN gap remains; no protected record/enrollment changes. See current GS117 handoff for exact resume sequence and technical stale DEV pin blocker; no new owner permission needed in active scope.
+
+
+### 2026-10-30 07:19 UTC — resumed GS-179 regression and APK packaging check
+
+The resumed registered PostgreSQL E2E passed **72/72**, including the Reports
+identity-across-refresh regression; the full desktop/mobile Playwright gate passed
+**86/86**, and the separate dashboard preview passed **20/20**. Backend health
+continues to pass PostgreSQL TLS/durability and verified LAN HTTPS at192.168.1.6.
+The physical ingress runtime is not configured at this checkpoint.
+
+The phone is not currently visible to the authorized Windows ADB executable.
+Source audit found that the Android WebView serves `tools/sim/pwa` as bundled APK
+assets, so the committed Reports disclosure fix requires a new signed TEST_ONLY
+APK to appear in the installed app. The e52f4c8 push workflow failed before APK
+verification/upload because the CI checkout lacked the 349-byte required
+TEST_ONLY UART sdkconfig defaults file, which existed only as an untracked local
+file. That credential-free profile is included in the reviewed source checkpoint.
+Its related regression file ran17/18; one known false-positive source-string
+assertion remains as previously recorded. Rerun the existing TEST_ONLY workflow
+to verify registration and build the signed APK. This is a device/build-artifact
+blocker, not an API or backend failure; see the GS-117 handoff for next steps.
