@@ -981,3 +981,9 @@ Its related regression file ran17/18; one known false-positive source-string
 assertion remains as previously recorded. Rerun the existing TEST_ONLY workflow
 to verify registration and build the signed APK. This is a device/build-artifact
 blocker, not an API or backend failure; see the GS-117 handoff for next steps.
+
+### 2026-10-30 08:28 UTC — fresh physical event and actual APK correlation
+
+For original EventKey `c3-146393c5d158 / bedroom / session 126 / sequence 1`, the existing physical campaign record confirms one authenticated S3 CloudSync commit (`durable_count=1`), zero duplicates, and one authenticated caregiver API projection. A later ADB run of the existing observer located that same key in the installed Parivar Saathi APK Reports/Event Details, with `Backend API · CONNECTED`, Home `gs177-test-product`, Bedroom and `Motion recorded`. The actual-phone screenshot and accessibility XML hashes, and the link to the preserved controller run, are in the private GS-117 supplemental receipt `~/.local/state/ghar-sajag/gs117-tc001/supplemental-evidence-20261030T082835Z/android-stage-addendum.json`.
+
+The campaign controller's original Android stage had stopped on `CalledProcessError`; its immutable run record remains BLOCKED and the campaign counter remains 0/5. The later exact-key APK observation completes the evidence chain for this one event but does not rewrite campaign accounting or establish optical PIR. The backend's commit/receipt timestamp is not the unavailable C3 generation timestamp. This gives GS-179 a fresh real Hub-to-PostgreSQL/API-to-APK result, while its separate Settings endpoint correctly rejects the active FAMILY/CAREGIVER account (403) because routine configuration requires OWNER/PRIMARY. No role or database record was changed. The phone has since been disconnected; future Android stages need it reconnected.

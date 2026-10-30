@@ -1,3 +1,24 @@
+## GS-117 / GS-179 — Fresh C3 HIL event correlated through actual APK — 2026-10-30
+
+OWNING_JIRA=GS-117; RELATED_JIRA=GS-179, GS-116, GS-130
+BUG_CLASSIFICATION=TEST_INFRA_ONLY
+REQUIREMENT_SOURCE=GS-117 exact original EventKey through C3/S3/backend/caregiver APK; GS-116 focused validation; GS-130 traceability
+DECISION_IDS=NONE
+TASK_SCOPE=Fix bounded Android Reports observer recovery, reconcile the same-key evidence for physical C3 HIL event 126/1, and update existing evidence/traceability.
+OUT_OF_SCOPE=No further phone interaction after disconnect, COM access, reset/bootstrap, motion injection, firmware operation, policy/ledger edit, credential change, or database mutation.
+
+One fresh C3 HIL event has a complete same-key evidence chain. EventKey: `c3-146393c5d158 / bedroom / session 126 / sequence 1`; provenance `C3_HIL_INJECTED`. The original controller record shows the physical C3 command and NodeRuntime event, matching authenticated class-0 S3 durable application ACK (`retired=1`), authenticated S3 CloudSync, one PostgreSQL durable record, zero duplicates and one caregiver API result for `gs177-test-product` / Hub `hub-e072a1d38d34` / epoch 1 / enrollment generation 1. The backend commit/receipt time is 2026-10-30 01:43:30 UTC; source C3 generation wall-clock time is unavailable.
+
+The initial controller Android step exited `CalledProcessError`, so its immutable run remains `BLOCKED`, `passed_runs=0` and campaign accounting remains **0/5 accepted**. A later run of the existing ADB observer on the authorized phone independently found that same fresh exact key in the actual installed Parivar Saathi APK Reports/Event Details: package `in.gharsajag.caregiver.discoverytest`, version `0.4.0-connected-lite-staging`, Home `gs177-test-product`, origin `https://192.168.1.6/`, backend `CONNECTED`, Bedroom, Motion recorded. Screenshot and accessibility evidence are preserved privately; see `GS117_PHYSICAL_ACCESS.../EXECUTION.md` and private `android-stage-addendum.json`. The owner has since disconnected the phone for a call. It is needed for APK verification of any later campaign event, not for offline work. This HIL input does not qualify optical PIR.
+
+The existing Android observer was minimally extended to recover from transient Reports-tab loss after scroll and transient Home/Reports accessibility gaps after refresh/capture, while keeping bounded retries and exact Home/package/origin/authenticated-session/EventKey checks. Persistent missing navigation, mismatched Home or absent EventKey still fails closed. `python3 code/tests/python/test_gs117_tc001_console.py`: **108/108 PASS**. `make -C code feature-coverage-test`: **PASS** (232 features, 287 modules, 27 physical cases; 22/22 registry tests). The existing GS-130 traceability row is updated; no new framework or test ID was added.
+
+Other reconciled findings: EventKey session 123/1 eventually committed through authenticated ingress and caregiver API exactly once at 2026-10-30 01:22:10 UTC, about 6 h 53 min after the C3 input; the delay cause is not established. The current routine-config HTTP 403 is expected for the authenticated FAMILY/CAREGIVER account because the existing route requires OWNER/PRIMARY. The TEST_ONLY Home has no desired policy row; S3's version-0/no-policy form is supported and does not block motion event validation. The previous generic target “desired household policy rejected” remains unexplained because its actual config GET response was not captured.
+
+**Next gate:** the active private DEV manifest pins `gs117_tc001_serial_windows.py` at SHA-256 `66afe888…`, but the reviewed helper after this observer change hashes to `fc2a30f5…`. The standard authorization path fails closed on this mismatch. The current owner-only ledger remains `sessions=2`, `consecutive_failures=2`, `blocked=true`; preserve it. Do not edit the private consent manifest, reset the ledger, or bypass the pin. A reviewed pin update through an established authorized mechanism is required before another campaign. Reconnect the phone before attempting additional exact-key APK stages. No second event was started after the original run stopped.
+
+At resume the canonical local and origin branch were both `feature/r1-commercial-baseline`, HEAD `84d56bce0669886b28a30468afb25de9c46845a0`; context preflight PASS (`2026-10-28.001`). The observer/test patch, this handoff, the GS-117/GS-179 evidence addenda, and the existing traceability row were reviewed together. See delivery commit below for final local/remote SHA. Unrelated untracked Android/build/hardware evidence was preserved. GS-117 and GS-179 remain In Progress; no ticket is closed.
+
 ## GS-117 — Session-118 32-event Android report reconciliation — 2026-10-29
 
 OWNING_JIRA=GS-117; RELATED_JIRA=GS-179

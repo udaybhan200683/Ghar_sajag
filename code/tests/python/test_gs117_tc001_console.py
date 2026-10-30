@@ -1189,6 +1189,9 @@ class TC001Test(unittest.TestCase):
                                   accessible_navigation=False,
                                   initial_blank_dumps=0,
                                   transient_report_navigation_dumps=0,
+                                  transient_post_scroll_navigation_dumps=0,
+                                  transient_refresh_reports_home_dumps=0,
+                                  transient_capture_reports_home_dumps=0,
                                   collapse_after_screenshot=0,
                                   report_scan_keys=None,
                                   report_scan_decisions=None,
@@ -1228,7 +1231,9 @@ class TC001Test(unittest.TestCase):
         reports = report_pages[0][0]
         ui_sequence = iter((home, settings, settings, reports))
         state = {"page": 0, "expanded": False, "scan_started": False,
-                 "monkey_count": 0}
+                 "monkey_count": 0, "scroll_navigation_pending": 0,
+                 "refresh_home_pending": 0, "capture_home_pending": 0,
+                 "capture_home_injected": False}
         last = [reports]
         blank = self._android_tree([])
         dump_count = [0]
@@ -1252,6 +1257,32 @@ class TC001Test(unittest.TestCase):
                     if node.get("class") == "android.widget.Button" and node.get("text") == "Reports":
                         node.set("clickable", "false")
                 return transient, tc_serial.ET.tostring(transient)
+            if state["scan_started"] and state["scroll_navigation_pending"] > 0:
+                state["scroll_navigation_pending"] -= 1
+                transient = tc_serial.ET.fromstring(last[0][1])
+                for node in transient.iter("node"):
+                    if node.get("class") == "android.widget.Button" and node.get("text") == "Reports":
+                        node.set("clickable", "false")
+                return transient, tc_serial.ET.tostring(transient)
+            if state["scan_started"] and state["refresh_home_pending"] > 0:
+                state["refresh_home_pending"] -= 1
+                transient = tc_serial.ET.fromstring(last[0][1])
+                for node in transient.iter("node"):
+                    for attribute in ("text", "content-desc"):
+                        node.set(attribute, node.get(attribute, "").replace(
+                            "gs177-test-product", ""))
+                return transient, tc_serial.ET.tostring(transient)
+            if state["scan_started"] and state["capture_home_pending"] > 0:
+                state["capture_home_pending"] -= 1
+                transient = tc_serial.ET.fromstring(last[0][1])
+                for node in list(transient.iter("node")):
+                    if (node.get("text", "").strip() == "Latest recorded events" or
+                            node.get("text", "").strip() == "TEST_ONLY authenticated caregiver data · gs177-test-product · AUTHENTICATED_GS148_TEST_ONLY"):
+                        parent = next((candidate for candidate in transient.iter()
+                                       if node in list(candidate)), None)
+                        if parent is not None:
+                            parent.remove(node)
+                return transient, tc_serial.ET.tostring(transient)
             return last[0]
 
         calls = []
@@ -1261,12 +1292,15 @@ class TC001Test(unittest.TestCase):
                 state["monkey_count"] += 1
                 if state["monkey_count"] >= 2:
                     state["scan_started"] = True
+                    if state["monkey_count"] == 2:
+                        state["refresh_home_pending"] = transient_refresh_reports_home_dumps
             if state["scan_started"] and args[:3] == ("shell", "input", "tap") and \
                     args[-2:] == ("500", "440"):
                 state["expanded"] = True
             if state["scan_started"] and args[:3] == ("shell", "input", "swipe"):
                 state["page"] = min(state["page"] + 1, len(report_pages) - 1)
                 state["expanded"] = False
+                state["scroll_navigation_pending"] = transient_post_scroll_navigation_dumps
             if args[:3] == ("shell", "pm", "path"):
                 return ("package:/data/app/" + package + "/base.apk").encode()
             if args[:3] == ("shell", "dumpsys", "package"):
@@ -1274,6 +1308,9 @@ class TC001Test(unittest.TestCase):
             if args[:3] == ("shell", "dumpsys", "activity"):
                 return ("mResumedActivity: ActivityRecord{abc " + package + "/.MainActivity}").encode()
             if args[:2] == ("exec-out", "screencap"):
+                if not state["capture_home_injected"]:
+                    state["capture_home_pending"] = transient_capture_reports_home_dumps
+                    state["capture_home_injected"] = True
                 if capture_collapses[0] > 0:
                     capture_collapses[0] -= 1
                     state["expanded"] = False
@@ -1341,6 +1378,14 @@ class TC001Test(unittest.TestCase):
         self.assertEqual(result["observation"], "AUTOMATED_PASS")
         self.assertEqual(sum(args[:2] == ('exec-out', 'screencap') for _, args in calls), 2)
 
+    def test_android_capture_retries_transient_reports_tree_without_home_header(self):
+        result, calls = self._run_android_verification(
+            transient_capture_reports_home_dumps=1)
+        self.assertEqual(result["capture_retries"], 1)
+        self.assertEqual(result["home_id"], "gs177-test-product")
+        self.assertEqual(result["observation"], "AUTOMATED_PASS")
+        self.assertEqual(sum(args[:2] == ('exec-out', 'screencap') for _, args in calls), 2)
+
     def test_android_capture_never_accepts_repeatedly_collapsing_exact_key(self):
         with self.assertRaisesRegex(ValueError, "OUTCOME_CHANGED_DURING_EVIDENCE_CAPTURE"):
             self._run_android_verification(collapse_after_screenshot=3)
@@ -1370,6 +1415,34 @@ class TC001Test(unittest.TestCase):
         # fixed bottom navigation (whose top is y=1900 in this fixture).
         self.assertLess(int(swipes[0][4]), 1900)
         self.assertLess(int(swipes[0][6]), 1900)
+
+    def test_android_observer_retries_transient_reports_tab_loss_after_scroll(self):
+        expected = {"physical_device_id": "c3-146393c5d158", "logical_node_id": "bedroom",
+                    "origin_session_id": 118, "event_sequence": 100}
+        earlier = {**expected, "event_sequence": 99}
+        result, _calls = self._run_android_verification(
+            event_key=expected, report_scan_keys=[earlier, expected],
+            transient_post_scroll_navigation_dumps=1)
+        self.assertEqual(result["observation"], "AUTOMATED_PASS")
+        self.assertEqual(result["event_key"], expected)
+        self.assertEqual(result["reports_scrolls"], 1)
+
+    def test_android_observer_waits_for_home_identity_after_foreground_refresh(self):
+        result, _calls = self._run_android_verification(
+            transient_refresh_reports_home_dumps=1)
+        self.assertEqual(result["observation"], "AUTOMATED_PASS")
+        self.assertEqual(result["home_id"], "gs177-test-product")
+        self.assertEqual(result["event_key"]["event_sequence"], 9)
+
+    def test_android_observer_fails_if_reports_tab_stays_missing_after_scroll(self):
+        expected = {"physical_device_id": "c3-146393c5d158", "logical_node_id": "bedroom",
+                    "origin_session_id": 118, "event_sequence": 100}
+        earlier = {**expected, "event_sequence": 99}
+        with patch.object(tc_serial, "ANDROID_REPORTS_SCROLL_POLL_ATTEMPTS", 3):
+            with self.assertRaisesRegex(ValueError, "TC001_ANDROID_REPORTS_TAB_NOT_CONFIRMED_FOR_SCROLL"):
+                self._run_android_verification(
+                    event_key=expected, report_scan_keys=[earlier, expected],
+                    transient_post_scroll_navigation_dumps=3)
 
     def test_reports_scroll_region_keeps_top_event_visible_when_header_is_collapsed(self):
         expected = {"physical_device_id": "c3-146393c5d158", "logical_node_id": "bedroom",

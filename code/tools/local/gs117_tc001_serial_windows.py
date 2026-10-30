@@ -998,8 +998,20 @@ def android_verify_event(config: dict, *, adb_locator=find_adb,
             sleep(0.25)
             root, raw = ui_dump(adb, serial_number)
             joined = "\n".join(ui_texts(root))
-            if "Latest recorded events" not in joined or home_id not in joined:
+            trusted_home_markers = [text for text in ui_texts(root)
+                                    if "AUTHENTICATED_GS148_TEST_ONLY" in text]
+            marker_homes = {match for text in trusted_home_markers
+                            for match in re.findall(r"\bgs177-test-[a-z0-9-]+\b", text)}
+            if marker_homes and home_id not in marker_homes:
                 raise ValueError("TC001_ANDROID_REPORTS_HOME_CHANGED_DURING_REFRESH")
+            if "Latest recorded events" not in joined or home_id not in joined:
+                if navigation_attempt == 3:
+                    raise ValueError("TC001_ANDROID_REPORTS_HOME_CHANGED_DURING_REFRESH")
+                # The foreground refresh can briefly expose a stale/empty
+                # WebView tree. Wait within the existing bounded navigation
+                # window; a positively identified different Home still fails
+                # immediately above.
+                continue
             try:
                 viewport = reports_scroll_region(root)
                 break
@@ -1029,7 +1041,19 @@ def android_verify_event(config: dict, *, adb_locator=find_adb,
             confirmed_root, confirmed_raw = ui_dump(adb, serial_number)
             confirmed_text = "\n".join(ui_texts(confirmed_root))
             if "Latest recorded events" not in confirmed_text or home_id not in confirmed_text:
-                raise ValueError("TC001_ANDROID_REPORTS_HOME_CHANGED_DURING_CAPTURE")
+                trusted_home_markers = [text for text in ui_texts(confirmed_root)
+                                        if "AUTHENTICATED_GS148_TEST_ONLY" in text]
+                marker_homes = {match for text in trusted_home_markers
+                                for match in re.findall(r"\bgs177-test-[a-z0-9-]+\b", text)}
+                if marker_homes and home_id not in marker_homes:
+                    raise ValueError("TC001_ANDROID_REPORTS_HOME_CHANGED_DURING_CAPTURE")
+                capture_retries += 1
+                if capture_retries >= 3:
+                    raise ValueError("TC001_ANDROID_REPORTS_HOME_CHANGED_DURING_CAPTURE")
+                # Do not accept a transient refresh tree as evidence. Re-find
+                # the exact record and capture it again within the existing
+                # three-attempt evidence bound.
+                continue
             confirmed_viewport = reports_scroll_region(confirmed_root)
             still_visible = (exact_decision_in_ui(confirmed_root, expected_decision,
                                 visible_bounds=confirmed_viewport) if decision_mode else
@@ -1094,18 +1118,33 @@ def android_verify_event(config: dict, *, adb_locator=find_adb,
         scroll_reports(adb, serial_number, root, call=call)
         scrolls += 1
         advanced = False
-        for _ in range(ANDROID_REPORTS_SCROLL_POLL_ATTEMPTS):
+        reports_navigation_confirmed = False
+        for poll_attempt in range(ANDROID_REPORTS_SCROLL_POLL_ATTEMPTS):
             sleep(0.25)
             next_root, next_raw = ui_dump(adb, serial_number)
             next_joined = "\n".join(ui_texts(next_root))
             if ("Latest recorded events" not in next_joined or home_id not in next_joined):
                 raise ValueError("TC001_ANDROID_REPORTS_HOME_CHANGED_DURING_SCROLL")
-            next_viewport = reports_scroll_region(next_root)
+            try:
+                next_viewport = reports_scroll_region(next_root)
+            except ValueError as error:
+                if (str(error) != "TC001_ANDROID_REPORTS_TAB_NOT_CONFIRMED_FOR_SCROLL" or
+                        poll_attempt + 1 >= ANDROID_REPORTS_SCROLL_POLL_ATTEMPTS):
+                    raise
+                # A real WebView can publish its scrolled body before the
+                # fixed navigation buttons reappear in the accessibility tree.
+                # Keep polling within the existing bound; never inspect or
+                # accept a key until the strict Reports viewport is present.
+                root, raw = next_root, next_raw
+                continue
+            reports_navigation_confirmed = True
             root, raw, viewport = next_root, next_raw, next_viewport
             if reports_page_fingerprint(root, viewport) != before:
                 advanced = True
                 stalled_swipes = 0
                 break
+        if not reports_navigation_confirmed:
+            raise ValueError("TC001_ANDROID_REPORTS_TAB_NOT_CONFIRMED_FOR_SCROLL")
         if not advanced:
             stalled_swipes += 1
             if stalled_swipes >= ANDROID_REPORTS_END_NO_PROGRESS:
