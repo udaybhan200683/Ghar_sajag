@@ -3830,3 +3830,267 @@ Actual Android receipt17:54:35Z: authorized phone, existing0.4.0-connected-lite-
 Focused GS11796/96, framework13/13, traceability22/22 PASS; C3 TEST_ONLY target build complete PASS (ESP-IDF6.0.3). Node component gate31 stages:29 PASS,2 FAIL (historical S3 build-script source-string assertion; mandatory P0 full-product product_status=PARTIAL). The gate source_unchanged=false because tooling evolved during the run; it is not a clean full gate PASS. Existing GS17839/39 and board/runtime stages ran through this component gate, not as substituted hardware acceptance. No assertion was weakened.
 
 Expired existing one-hour host services were restored with the same isolated scripts/trust in development-services-20261029T180639Z; current-source console restarted idle. Web status: backend/route/USB/DEV fixture/DEV consent/Android prerequisites PASS; physical event authentication remains to be proved during the actual run. No new motion stimulus has been sent yet.
+
+
+### 2026-10-29 — DEV web campaign: authenticated ACK established; CloudSync timing investigation
+
+OWNING_JIRA=GS-179 (CloudSync); GS-117 (physical acceptance).
+BUG_CLASSIFICATION=R1_FIX; REQUIREMENT_SOURCE=docs/product/R1_RELEASE_CONTRACT.md;
+DECISION_IDS=NONE; TASK_SCOPE=approved isolated DEV hardware-to-APK integration;
+OUT_OF_SCOPE=production identity activation, destructive recovery, optical PIR.
+Existing functionality → actual gap → minimum change: reuse the authenticated
+HTTPS adapter and real CloudSync; its five-second total deadline can expire during
+TEST_ONLY software RSA-3072 TLS, dropping a complete receipt; exercise delayed
+handshakes and give only the authenticated TEST_ONLY software-key profile a bounded
+30-second total budget plus sanitized elapsed/status diagnostics. Production
+five-second deadline and three-second socket timeout remain. All TLS, trusted-time,
+lease-expiry, identity and complete-response checks remain. Target causality is a
+hypothesis until timing evidence is obtained; HTTP commits alone do not prove it.
+
+First browser campaign TC001-CAMPAIGN-20261029T181319-3c235c8e stopped at
+run1/session122/sequence1 without matching ACK. A subsequent COM10 diagnostic
+reset the Hub and cleared RAM-only GS40 state; this did not cause the earlier
+failure. Existing protected v11 restores GS40 without resetting C3; S3 capacity
+16MiB/PSRAM8MiB, TLS identity and owner enrolled=1 observed. C3-only reset after
+Hub startup established session123 advancing runtime/sensing. Late authenticated
+class0 ACK for122/1 had retired=0 and is not campaign PASS. Existing S3 matching
+ELF resolves its watchdog backtrace to CloudSync LittleFS journal iteration.
+
+Second actual browser campaign TC001-CAMPAIGN-20261029T182809-bb34657a produced
+fresh physical123/1 and matching authenticated class0 ACK retired=1 (about1.9s),
+then failed PostgreSQL wait. Runs2–5 NOT_RUN; overall0/5. Real S3 CloudSync is
+committing/retrying older session118 backlog; no fresh controlled event commit
+or actual APK outcome verified yet. Preserve both failures and original ledgers.
+No S3 application flash, full erase, credential/enrollment or database mutation
+has occurred at this checkpoint. Private DEV evidence remains owner-only.
+
+
+### 2026-10-30 — GS-117 DEV continuation: physical ACK established, TLS timing cause confirmed
+
+Two real browser campaigns on source8acab96 stopped at their first failure:
+122/1 lacked the matching ACK; 123/1 received authenticated durable class0 ACK
+retired=1 but missed the backend wait. Both remain failed0/5; runs2–5 NOT_RUN.
+No failure report or old authorization ledger was rewritten. Original physical
+EventKeys are c3-146393c5d158/bedroom/<session>/1. A late122/1 ACK retired=0
+is not proof of captured retirement or a controlled PASS.
+
+The Oct30 target transcript identifies the CloudSync blocker: RSA-3072 software
+CertificateVerify in esp_http_client_open, watchdog stack resolved against the
+matching ELF, followed by an unauthenticated/incomplete request after6253ms and
+CloudSync AuthorityUnavailable. The S3 socket limit was3000ms; the TEST_ONLY
+server handshake limit was5000ms. Existing HTTPS total budget5000ms was also
+insufficient. Minimum correction: only GS40 authenticated software-key DEV TLS
+uses15000ms socket/handshake and30000000us total; GS179_TEST_ONLY ingress uses
+its existing listener's bounded15s maximum, retaining8 workers,16KiB request,
+TLS1.2, client-cert/Home/epoch and trusted-time checks. Production DS limits
+remain3000ms/5000000us; generic listener default remains5s. No trust or certificate
+replacement. Real target now reports a6281ms authenticated COMPLETE HTTP200
+request without deadline expiry and resumes actual backlog commits.
+
+Three S3 app-only writes at0x420000 were performed: timing instrumentation494e2e5c…,
+CloudSync result instrumentation85b7c4a1…, and actual handshake fixff1116344cbc05d4c6fcc18a8f003d067b809ef6d90236fd90bba6f86ab052e5.
+Each esptool write hash verified; the built table matches preserved installed
+partitions. No bootloader/OTA-selector/NVS/outbox erase or credential/enrollment
+change. C3 remains diagnostic-only app589dc9f9…; expected post-Hub C3-only resets
+restore association. Current S3 v16 boot matches0x420000/8acab96-dirty/7584a1f80,
+flash16MiB/PSRAM8MiB. Its readiness wrapper reached the fresh-rejoin/liveness guard
+rather than the time/authority failure; no full TARGET_OBSERVATION_PASS claimed.
+
+An initial expected ELF prefix mistakenly used10 characters; SDK prints9.
+Offline image descriptor/SDK reconciliation corrected the private pin. A later
+extended observation parent exceeded the evidence helper's120s cap; corrected
+before the next attempt to90s observation+10s tail,120s child and unchanged150s
+parent. The existing DEV-only helper accepts at most120s; ordinary/readiness-only
+profiles retain60s. Failed attempts and latches remain. Pre-challenge failure
+records now retain allowlisted/redacted actual boot fields before raising.
+No nonce, private key or configuration bytes are published. Current tests98/98.
+
+Focused C++: production9 cases, TEST_ONLY5 cases and4 deadline checks/profile
+PASS, including6s DEV success, production refusal,30s boundary, incomplete receipt
+and retry cleanup. Real isolated PostgreSQL delayed TLS and stalled-handshake
+worker-bound tests2/2 PASS. Current S3 ESP-IDF6.0.3 target build completed PASS;
+initial reconfigure failed on an expired temporary paired-C3 asset path, then
+reused the verified C3 artifact through GS_NODE_FIRMWARE_ASSET. Framework13/13 and
+traceability22/22 PASS before the added handshake row; final mapping checkPASS229
+features. Full new PostgreSQL suite running separately; no physical PASS implied.
+
+Affected component gates actually executed on the pre-diagnostic source snapshot:
+Hub52/55, contract46/48, backend24/27 stages PASS; overall all FAIL. Remaining
+failures: commissioning source-string assertion; Hub clean-migration assertion;
+P0 product_status=PARTIAL; Python static total/CSS budget excess and commissioning
+assertion; diagnostic registry expected-set missing dev-to-production-gates and
+gs179-reports-projection. Reports remain under code/evidence/validation_framework/
+hub-1793299193907484851, contract-1793300236672984135 and
+backend-1793300925551175292. These failures were not suppressed or fixed in this
+motion integration task. Subsequent changes are TEST_ONLY diagnostic logging,
+bounded DEV collection and the confirmed TLS timeout fix; focused tests/builds
+are separate from these component receipts.
+
+Existing bounded services restored after overnight expiry in private
+development-services-20261030T005445Z. Only physical ingress restarted to apply
+its TLS timeout; caregiverHTTPS/PostgreSQL, Windows forwarding and healthy signed
+time were preserved. ADB ZA2237MRHN remains authorized. Current private evidence
+is under development-s3-rsa-handshake-fix-20261030 and preserved bootstrap dirs;
+new installed-image receipts use actual flash/boot times, not historical hashes
+as fresh attestation. At checkpoint, backlog progressed through118/123; original
+controlled123/1 and a new five-event Android result remain pending. Next: complete
+C3 post-Hub rejoin, allow existing backlog to drain, use the existing browser Run
+for five fresh events, verify every exact key in the installed APK. Reusable DEV
+consent is active; no additional owner approval is required within that scope.
+
+
+### 2026-10-30 — GS177 Reports disclosure refresh defect (GS117 acceptance dependency)
+
+BUG_CLASSIFICATION=R1_FIX; OWNING_JIRA=GS-177; REQUIREMENT_SOURCE=R1 release
+contract caregiver-visible correctness and GS117 exact Android Event Details.
+Existing functionality: shared connected_lite.mjs, actual installed MainActivity
+loads trusted HTTPS shared UI;15s/visibility refresh rebuilds Reports via panel
+innerHTML. Verified gap: real126/1 XML contains visible exact key but subsequent
+screenshot shows collapsed disclosure. A transient Reports tab accessibility
+guard also failed during refresh. Minimum product change: retain only already
+open event/decision disclosures under the same Home and tab using existing stable
+identities; never restore removed records or cross-Home state. Add existing
+production-path browser regression and bounded observer capture consistency.
+No APK installation, authentication, event-pipeline or database change. Original
+failed/partial screenshots preserved, not promoted into complete APK proof.
+
+
+### 2026-10-30 02:13 UTC — PAUSED at owner five-hour quota threshold (11% remaining)
+
+**Task is not complete. Controlled campaign remains0/5; no full Android acceptance
+is claimed.** No physical campaign, COM operation, bootstrap or software test is
+left running by this agent. The full browser runner/owned workers were stopped
+at the owner pause checkpoint:41 cases PASS, one interrupted, full gate
+INTERRUPTED/NOT_PASS. Existing backend/console and bounded DEV services are left
+in their normal state; do not assume their saved PIDs or readiness remain valid.
+
+#### Completed implementation and actual findings
+
+- Existing reusable DEV consent from owner direction remains; old one-use
+  manifests, consumed ledgers and failure latches are preserved. No new framework.
+- Confirmed software-RSA3072 TLS deadline failure: actual6253ms failed signing
+  handshake and AuthorityUnavailable. TEST_ONLY S315s socket/30s total and
+  existing GS179_TEST_ONLY listener15s now retain complete authenticated6281ms
+  responses. Production DS3s/5s limits and generic listener5s default unchanged.
+- Exact genuine web-input keys122/1,123/1,125/3 and126/1 were generated on physical
+  C3 and ultimately persisted/projection-visible via physical S3. Captured durable
+  class0 ACK retired=1 is established for123/1,125/3,126/1. Late122/1 retired=0
+  is not proof of captured retirement. No historical backlog is counted as TC001.
+- Three S3 app-only writes (instrumentation, result diagnostics, actual fix),
+  latestff1116344cbc05d4c6fcc18a8f003d067b809ef6d90236fd90bba6f86ab052e5,
+  all esptool hash verified at0x420000. Actual boot8acab96-dirty/ELF7584a1f80,
+  capacity16MiB/PSRAM8MiB. C3 retains app589dc9f98ef78fed97709e2ffb845b0a0eb6ccf5babfd9cc149743539932acb7,
+  installed app-only at0x20000. No erase, partition/OTA-selector/NVS mutation,
+  credential/enrollment/ownership changes, repeated JEDEC or readback.
+- Latest C3 post-Hub restart was session126, runtime/sensing483 and empty pending/
+  retained state before campaign. Campaign126/1 received matching class0 durable
+  ACK; later current state must be observed, not inferred from that snapshot.
+- Parent boot-prefix preparation mistake (SDK9 chars, not10) and child-timeout
+  preparation mistake were corrected offline. Current private parentv17 uses90s
+  observation,120s child, unchanged150s parent. Evidence retains initial child
+  boot failures before raising, sanitized/allowlisted. All failed attempts remain.
+- Existing controller now preserves specific nonzero Windows-helper error JSON,
+  and explicit DEV wait is bounded180s/90 polls; strict fixture keeps15 polls.
+  Actual125/3 delivery took~107s and missed the old test wait. Latency is recorded,
+  never claimed as production near-real-time qualification.
+
+#### Android correction and precise current acceptance gap
+
+Latest campaign **TC001-CAMPAIGN-20261030T014210-a720e455** stopped on run1,
+**c3-146393c5d158 / bedroom /126/1**: C3 input/key, authenticated durable ACK,
+physical CloudSync, one PostgreSQL row and one authenticated API projection PASS;
+Android stage BLOCKED. First Windows process error masked its reason; corrected
+parsing identified TC001_ANDROID_REPORTS_TAB_NOT_CONFIRMED_FOR_SCROLL. Observer
+now waits at most4 trees for the same strict tab guard.
+
+A later standalone observer returned PASS and XML contained the visible exact126/1
+key, but **visual review of its PNG shows collapsed Event Details**. Preserve this
+contradiction: original files and returned JSON are unchanged, and
+`~/.local/state/ghar-sajag/gs117-tc001/android-fresh-126-1-repaired-20261030/capture-review.json`
+marks acceptance NOT_VERIFIED. This is not a complete APK screenshot PASS.
+
+Actual MainActivity loads shared UI from the trusted existing HTTPS server.
+Its15s/visibility refresh replaced Reports innerHTML and collapsed disclosures.
+GS177 fix preserves already-open event/decision details only under the same Home,
+tab and stable identity; explicit tab navigation resets the scope. No old/removed
+records are recreated. Observer now requires the same key before AND after PNG,
+with at most3 capture attempts; persistent collapse fails. **The installed APK
+has not yet been reloaded/reverified against this shared UI fix.** No reinstall
+or app-data clearing occurred. Phone remained authorized, awake, unlocked and on
+Parivar Saathi. Homegs177-test-product/originhttps://192.168.1.6/CONNECTED and
+trusted APK byte identity are established; formal apksigner verification remains
+unavailable and is not claimed.
+
+#### Exact validation state
+
+- `python3 code/tests/python/test_gs117_tc001_console.py`: **104/104 PASS**, including
+  strict-vs-DEV bounded wait, specific helper errors, transient tab/persistent tab,
+  capture-collapse retry/failure, and first-line boot evidence/redaction.
+- C++ TLS adapter: production9 cases, TEST_ONLY5,4 deadline checks/profile PASS;
+  production unchanged bounds, DEV delayed handshake, timeout/truncation/retry.
+- `make -C code gs179-postgres-e2e`: **71/71 PASS** before the new Reports UI test.
+  Uses existing isolated local PostgreSQL schemas; protected household untouched.
+- Focused new production Node→Hub→PostgreSQL→real shared browser regression:
+  `test_gs178_vertical.NodeOriginVertical.test_reports_open_event_identity_survives_same_home_visibility_refresh`
+  **1/1 PASS,6 browser assertions**. It waits for actual Reports rendering and DOM
+  replacement, then checks retained disclosure and explicit tab-reset negative.
+- Current C3/S3 target builds actually completed PASS. Current S3 build is from
+ 8acab96 plus the tracked firmware patch, not falsely described as built using
+  the later delivery commit label. No further firmware change is needed for UI.
+- Framework13/13 and traceability22/22 PASS before the last metadata rows; final
+  checker rerun at checkpoint. Affected full component receipts remain FAIL:
+  Hub52/55, contract46/48, backend24/27, with failures listed above. They are not
+  replaced by focused PASS. Full browser`make -C code playwright-gate` is
+  **INTERRUPTED at owner quota pause:41 PASS,1 interrupted; not a gate PASS**.
+  Source log:code/build/gs117_dev_rejoin_20261029/gs177-full-browser-regression.log.
+
+#### Preserved private runtime/evidence and technical authorization state
+
+- Active consent:~/.config/ghar-sajag/gs117-tc001/development-authorization.json;
+  fixture:fixture.json in that directory. **Current DEV procedure pins are stale
+  after the latest reviewed observer edit**, so readiness must fail closed until
+  repinned on resume. Consent is not revoked; no fresh owner approval is needed
+  inside its existing DEV scope. Private parentv17 must be preserved; prepare a
+  reviewed successor if its embedded helper hash needs updating. Do not reactivate
+  old readiness-only policies or clear their latches.
+- Current image receipts/artifacts:development-s3-rsa-handshake-fix-20261030/;
+  queued-ready C3 receipt:c3-current-image-queue-ready.json;
+  S3:s3-current-image-rearmed.json. C3 observation:development-c3-ready-drained-queue.json.
+- Existing bounded services:development-services-20261030T005445Z/. Ingress was
+  restarted around01:15 to apply15s TLS and may expire around02:15; signed-time
+  window renewed around01:36 and may expire around02:36. GS40 RAM-only config also
+  expires. Check actual current processes/listeners and Home/epoch state first.
+  Existing caregiverHTTPS/PostgreSQL and .6 routing were healthy and preserved.
+- Current console process pointer:development-current-console-dev-wait.pid;
+  it must be restarted idle on resume to load latest reviewed controller/helper.
+- Four failed/stopped campaign reports and every partial artifact remain. Latest
+  campaign above cannot be retroactively changed to PASS. Earlier125/3 campaign:
+  TC001-CAMPAIGN-20261030T012803-e45b64d0. No first-run failure allowed runs2–5.
+- NodeHealth route503, monitoringUNKNOWN/sourceSTALE remain independent GS148/
+  GS179 gaps; no enrollment or historical record was manipulated. Optical PIR,
+  formal physical recovery qualification and commercial release acceptance remain
+  NOT_RUN/BLOCKED. Actual GPIO/background events are not optical qualification.
+
+#### Precise resume sequence
+
+1. Verify canonical branch/worktree/HEAD/remote, no competing writer, preserved
+   untracked assets; read this handoff/latest Jira and require context PASS.
+2. Finish affected full browser validation and rerun the existing PostgreSQL
+   suite including the newly registered Reports regression (expected72 tests).
+   Reuse protected existing local test environment; never print its credentials.
+3. Verify shared asset served over valid .6 HTTPS; reload the existing APK using
+   ordinary non-destructive app lifecycle only, preserve cookies/data. First use
+   existing126/1 for read-only proof: exact visible key/Home/Bedroom/Motion in both
+   screenshot and before/after XML. Visually review the PNG; do not trust stale XML.
+4. Review and update only active DEV procedure fingerprints/required private
+   successor hash, preserving all previous policy files/ledgers. Verify consent,
+   exact known USB identities, current-image receipts and no expired fixture.
+5. Restore only actually expired existing ingress/signed-time services. If Hub
+   RAM-only GS40 state expired, use existing protected DEV bootstrap and C3-only
+   authenticated GET_STATE/rejoin procedure. No new images, readback or JEDEC needed.
+6. Once current DEV gates pass, use existing web Run for a **new** five-event
+   campaign, keep COM10 unopened during runs, stop first failure, retain original
+   keys and actual APK PNG/XML. Record actual latency separately from release SLA.
+7. Update canonical evidence/Jira with real outcomes, commit/push and compare
+   remote/local. GS117/179/177 remain In Progress, not Done. No production issuer,
+   security activation, new infrastructure or unrelated automation work.

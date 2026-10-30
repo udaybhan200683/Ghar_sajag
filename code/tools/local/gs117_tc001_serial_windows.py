@@ -337,7 +337,8 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
             "psram_size_bytes": 8 * 1024 * 1024}:
         raise ValueError("TC001_S3_MEMORY_PROFILE_EXPECTATION_INVALID")
     observation_seconds = config.get("observation_seconds", 10)
-    if type(observation_seconds) is not int or not 10 <= observation_seconds <= 60:
+    observation_limit = 120 if config.get("profile") == "GS117_DEV_TEST_ONLY" else 60
+    if type(observation_seconds) is not int or not 10 <= observation_seconds <= observation_limit:
         raise ValueError("TC001_OBSERVATION_SECONDS_OUT_OF_RANGE")
     c3_status_interval_seconds = config.get("c3_status_interval_seconds", 0)
     if (type(c3_status_interval_seconds) is not int or
@@ -991,13 +992,24 @@ def android_verify_event(config: dict, *, adb_locator=find_adb,
     # with clamped/zero-height bounds are never tapped.
     scrolls = 0
     stalled_swipes = 0
+    capture_retries = 0
     while True:
-        sleep(0.25)
-        root, raw = ui_dump(adb, serial_number)
-        joined = "\n".join(ui_texts(root))
-        if "Latest recorded events" not in joined or home_id not in joined:
-            raise ValueError("TC001_ANDROID_REPORTS_HOME_CHANGED_DURING_REFRESH")
-        viewport = reports_scroll_region(root)
+        for navigation_attempt in range(4):
+            sleep(0.25)
+            root, raw = ui_dump(adb, serial_number)
+            joined = "\n".join(ui_texts(root))
+            if "Latest recorded events" not in joined or home_id not in joined:
+                raise ValueError("TC001_ANDROID_REPORTS_HOME_CHANGED_DURING_REFRESH")
+            try:
+                viewport = reports_scroll_region(root)
+                break
+            except ValueError as error:
+                # Visibility refresh may expose the Reports body before its
+                # tab becomes interactive. Wait for the same strict guard;
+                # never swipe or accept a key using an unverified viewport.
+                if (str(error) != "TC001_ANDROID_REPORTS_TAB_NOT_CONFIRMED_FOR_SCROLL" or
+                        navigation_attempt == 3):
+                    raise
         visible_texts = [node.get("text", "").strip() or
                          node.get("content-desc", "").strip()
                          for node in root.iter("node")
@@ -1008,11 +1020,27 @@ def android_verify_event(config: dict, *, adb_locator=find_adb,
                          else exact_key_in_ui(root, expected_key,
                                               visible_bounds=viewport))
         if exact_outcome:
+            before_capture_sha256 = hashlib.sha256(raw).hexdigest()
             screenshot = call(adb, serial_number, "exec-out", "screencap", "-p",
                               timeout_seconds=12)
             if (not screenshot.startswith(b"\x89PNG\r\n\x1a\n") or
                     len(screenshot) > 8 * 1024 * 1024):
                 raise ValueError("TC001_ANDROID_SCREENSHOT_CAPTURE_INVALID")
+            confirmed_root, confirmed_raw = ui_dump(adb, serial_number)
+            confirmed_text = "\n".join(ui_texts(confirmed_root))
+            if "Latest recorded events" not in confirmed_text or home_id not in confirmed_text:
+                raise ValueError("TC001_ANDROID_REPORTS_HOME_CHANGED_DURING_CAPTURE")
+            confirmed_viewport = reports_scroll_region(confirmed_root)
+            still_visible = (exact_decision_in_ui(confirmed_root, expected_decision,
+                                visible_bounds=confirmed_viewport) if decision_mode else
+                             exact_key_in_ui(confirmed_root, expected_key,
+                                visible_bounds=confirmed_viewport))
+            if not still_visible:
+                capture_retries += 1
+                if capture_retries >= 3:
+                    raise ValueError("TC001_ANDROID_OUTCOME_CHANGED_DURING_EVIDENCE_CAPTURE")
+                continue
+            raw = confirmed_raw
             expected_label = ("Morning routine completed" if decision_mode else "Motion recorded")
             if expected_label.casefold() not in visible_joined.casefold():
                 raise ValueError("TC001_ANDROID_EXACT_OUTCOME_LABEL_MISMATCH")
@@ -1028,6 +1056,8 @@ def android_verify_event(config: dict, *, adb_locator=find_adb,
                     "outcome_details_open": True,
                     "event_label": expected_label,
                     "reports_scrolls": scrolls,
+                    "capture_retries": capture_retries,
+                    "ui_before_capture_sha256": before_capture_sha256,
                     "ui_dump_sha256": hashlib.sha256(raw).hexdigest(),
                     "ui_hierarchy_xml_b64": base64.b64encode(raw).decode("ascii"),
                     "screenshot_png_b64": base64.b64encode(screenshot).decode("ascii")}

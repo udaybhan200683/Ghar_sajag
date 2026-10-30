@@ -35,10 +35,13 @@ _RESPONSE_FIELDS = frozenset({
     "s3_status_command_sent", "bootstrap_host_write_bytes", "bootstrap_exchange_ms",
     "bootstrap_timeline", "observation", "node_id", "hub_id", "home_id", "liveness",
     "status", "flash_size_bytes", "psram_size_bytes", "evidence_lines", "s3_memory_capacity",
+    "app_offset", "app_version", "elf_sha256_prefix",
 })
 _TIMELINE_FIELDS = frozenset({
     "stage", "status", "reason", "elapsed_ms", "bytes", "response_bytes",
     "device", "port", "challenge_stage", "observed", "attempt", "s3_memory_capacity",
+    "boot", "app_offset", "app_version", "elf_sha256_prefix",
+    "post_reset_boot_verified", "ignored_pre_boot_challenges",
 })
 
 
@@ -111,12 +114,18 @@ def _challenge_summary(line: str | None) -> dict[str, Any] | None:
         return {"status": "MALFORMED", **_digest(line)}
     stage = value.get("stage")
     error = value.get("error")
-    return {
+    summary = {
         "status": "VALID",
         "stage": stage if isinstance(stage, str) and _SAFE_CODE.fullmatch(stage) else None,
         "error": error if isinstance(error, str) and _SAFE_CODE.fullmatch(error) else None,
         **_digest(line),
     }
+    # A failed child can report its only target observation in the first line,
+    # before CONFIG_CHALLENGE. Preserve the same allowlisted/redacted evidence
+    # used for later results; never persist the challenge or envelope itself.
+    if summary["error"] is not None:
+        summary["observation"] = _safe_response(line)
+    return summary
 
 
 def _stderr_summary(stderr: str) -> list[str]:

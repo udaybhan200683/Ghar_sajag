@@ -396,10 +396,15 @@ def powershell(action: str, fixture: dict | None = None) -> object:
                "-NoProfile", "-NonInteractive", "-Command",
                'py -3 "' + script + '" "' + encoded + '"']
     timeout = 90 if action in {"AndroidVerify", "AndroidVerifyDecision"} else 50
-    result = subprocess.run(command, capture_output=True, text=True, timeout=timeout, check=True)
-    value = json.loads(result.stdout.strip() or "[]")
+    result = subprocess.run(command, capture_output=True, text=True, timeout=timeout, check=False)
+    try:
+        value = json.loads(result.stdout.strip() or "[]")
+    except json.JSONDecodeError:
+        raise ValueError("TC001_WINDOWS_HELPER_RESPONSE_INVALID_EXIT_" + str(result.returncode)) from None
     if isinstance(value, dict) and value.get("error"):
         raise ValueError(value["error"])
+    if result.returncode:
+        raise ValueError("TC001_WINDOWS_HELPER_PROCESS_FAILED_EXIT_" + str(result.returncode))
     return value
 
 
@@ -1547,13 +1552,25 @@ class Controller:
             else:
                 self.mark(report, "s3_admission", "FAIL", "matching authenticated durable S3 application ACK absent")
                 return
-            for _ in range(15):
+            development_wait = development_input_trial(fixture)
+            poll_limit = 90 if development_wait else 15
+            wait_started = time.monotonic()
+            for attempt in range(poll_limit):
                 outcome = backend(request)
                 if (outcome.get("durable_count") == 1 and outcome.get("caregiver_count") == 1) or \
                         (isinstance(outcome.get("durable_count"), int) and
                          outcome["durable_count"] > 1):
                     break
+                if development_wait and time.monotonic() - wait_started >= 180:
+                    break
                 time.sleep(2)
+            report["backend_observation_wait"] = {
+                "profile": "DEV_INPUT_TRIAL" if development_wait else "QUALIFIED_FIXTURE",
+                "poll_limit": poll_limit, "attempts": attempt + 1,
+                "elapsed_seconds": round(time.monotonic() - wait_started, 3),
+                "development_deadline_seconds": 180 if development_wait else None,
+                "release_latency_qualified": False,
+            }
             durable_count = outcome.get("durable_count")
             report["backend_durable_count_observed"] = durable_count
             report["caregiver_count_observed"] = outcome.get("caregiver_count")

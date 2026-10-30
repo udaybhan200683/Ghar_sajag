@@ -32,6 +32,32 @@ const os = require('os');
     await page.getByLabel('Email').fill('owner@gs178.dev');
     await page.getByLabel('Password',{exact:true}).fill(config.password);
     await page.getByRole('button',{name:'Log in',exact:true}).click();
+    if(config.reportDisclosureOnly){
+      await page.locator('[data-tab="reports"]').click();
+      await expect(page.locator('#homeTab h1')).toHaveText('Reports');
+      const event=page.locator('.connected-product-event[data-event-key]').first();
+      await expect(event).toBeVisible();
+      const key=await event.getAttribute('data-event-key');
+      await event.locator('summary').click();
+      await expect(event.locator('details')).toHaveAttribute('open','');
+      const previousEvent=await event.elementHandle();
+      const refreshed=page.waitForResponse(r=>r.url().includes('/reports')&&r.status()===200);
+      await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
+      await refreshed;
+      await page.waitForFunction(node=>!node.isConnected,previousEvent);
+      await expect(event).toHaveAttribute('data-event-key',key);
+      await expect(event.locator('details')).toHaveAttribute('open','');
+      await expect(event.locator('code')).toBeVisible();
+      await page.locator('[data-tab="devices"]').click();
+      await expect(page.locator('#homeTab h1')).toHaveText('Devices');
+      await page.locator('[data-tab="reports"]').click();
+      await expect(page.locator('#homeTab h1')).toHaveText('Reports');
+      await expect(event).toHaveAttribute('data-event-key',key);
+      await expect(event.locator('details')).not.toHaveAttribute('open','');
+      fs.writeFileSync(config.dom,await page.content());
+      console.log(JSON.stringify({status:'HOST_SIM_PASS',browser_assertions:6,case_id:'GS177-REPORTS-DISCLOSURE-001',requests,physical:'NOT_RUN'}));
+      return;
+    }
     if(config.coverageOnly){
       const hero=page.locator('#homeTab .connected-home-hero');
       await expect(hero).toHaveAttribute('data-source-freshness',config.sourceFreshness);

@@ -36,7 +36,21 @@ function status(text,detail){
 }
 
 function panel(html){
-  $('#homeTab').innerHTML=html;
+  const content=$('#homeTab');
+  const identity=article=>{
+    const event=article.getAttribute('data-event-key'),decision=article.getAttribute('data-hub-decision');
+    return event&&event!=='unknown'?`event:${event}`
+      :decision&&decision!=='unknown'?`decision:${decision}`:null;
+  };
+  const sameScope=content.dataset.homeId===String(profile?.home_id||'')&&content.dataset.viewTab===tab;
+  const opened=new Set(sameScope?[...content.querySelectorAll('.connected-product-event')]
+    .filter(article=>article.querySelector('details')?.open).map(identity).filter(Boolean):[]);
+  content.innerHTML=html;
+  content.dataset.homeId=String(profile?.home_id||'');content.dataset.viewTab=tab;
+  for(const article of content.querySelectorAll('.connected-product-event')){
+    const details=article.querySelector('details');
+    if(details&&opened.has(identity(article)))details.open=true;
+  }
   for(const id of ['devices','reports','settings'])$('#'+id+'Tab').innerHTML='';
   for(const id of ['devices','reports','settings'])$('#'+id+'Tab').classList.remove('active');
   $('#homeTab').classList.add('active');
@@ -119,6 +133,7 @@ function nav(){
   navigation.querySelectorAll('button').forEach(button=>button.onclick=()=>openTab(button.dataset.tab));
 }
 function openTab(next){
+  if(next!==tab)$('#homeTab').dataset.viewTab='';
   tab=next;selectedRun=null;
   nav();
   // Secondary views share their parent ribbon label and remain reachable from it.

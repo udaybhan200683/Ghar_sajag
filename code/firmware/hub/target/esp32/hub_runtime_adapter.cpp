@@ -328,6 +328,12 @@ void cloud_node_health_task(void* opaque) {
         // Hub-owned derived decisions use their existing bounded channels
         // after the durable event batch has had its turn.
         const auto events = context.worker->run_once(route_available, now_ms, 4, false);
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+        ESP_LOGI(kTag, "TEST_ONLY CloudSync state=%u submitted=%u completed=%u refused_original=%u elapsed_ms=%lld",
+                 static_cast<unsigned>(events.state), static_cast<unsigned>(events.submitted),
+                 static_cast<unsigned>(events.completed), static_cast<unsigned>(events.refused_original),
+                 static_cast<long long>(esp_timer_get_time() / 1000 - now_ms));
+#endif
         if (events.state == CloudWorkerState::AuthorityChanged)
             ESP_LOGE(kTag, "Cloud event worker stopped after Hub/Home/epoch authority change");
         const auto result = context.worker->run_node_health_once(route_available, now_ms);

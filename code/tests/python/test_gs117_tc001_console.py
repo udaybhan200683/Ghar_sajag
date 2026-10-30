@@ -296,7 +296,9 @@ class BootstrapChildEvidenceTest(unittest.TestCase):
                 "evidence_lines": ["SPI Flash size: 16MB", "Found 8MB PSRAM device"],
             }, "nonce": "must-not-persist"},
         }))
-        result = self._run(child)
+        result = self._run(child, timeout=120)
+        with self.assertRaisesRegex(ValueError, "BOOTSTRAP_CHILD_TIMEOUT_OUT_OF_RANGE"):
+            self._run(self.Child("{}"), timeout=121)
         evidence = self._evidence()
         self.assertEqual(result["c3"], evidence["response"]["c3"])
         self.assertEqual(evidence["child_exit_code"], 0)
@@ -371,6 +373,24 @@ class BootstrapChildEvidenceTest(unittest.TestCase):
         self.assertEqual(evidence["response"]["observation"]["c3"],
                          ["HIL_STATE role=c3 session=121 runtime_live=0 sensing_live=0"])
 
+    def test_failed_first_line_retains_boot_fingerprint_without_secret_fields(self):
+        first = {"error": "TC001_BOOTSTRAP_RUNNING_IMAGE_MISMATCH",
+                 "nonce": "n" * 64, "private_key": "NEVER_PUBLISH",
+                 "bootstrap_timeline": {"boot": {"app_offset": "0x420000",
+                    "app_version": "dev", "elf_sha256_prefix": "e763e0b6e"},
+                    "post_reset_boot_verified": True}}
+        child = self.Child("", returncode=None)
+        path = bootstrap_evidence.record_interrupted_child(
+            child, self.root, stage="encrypted_config_exchange",
+            started_at="2026-10-29T06:00:00+00:00", challenge_received_at=None,
+            parent_error=ValueError("AUTHENTICATED_CONFIG_CHALLENGE_UNAVAILABLE"),
+            challenge_line=json.dumps(first))
+        saved = json.loads(path.read_text())["challenge"]["observation"]
+        self.assertEqual(saved["bootstrap_timeline"]["boot"], first["bootstrap_timeline"]["boot"],
+                         "GS117-CHILD-BOOT-EVIDENCE-001")
+        self.assertNotIn("nonce", json.dumps(saved))
+        self.assertNotIn("NEVER_PUBLISH", path.read_text())
+
     def test_parent_interruption_before_result_drains_child_and_records_stage(self):
         child = self.Child("", returncode=None,
                            drain_stdout=json.dumps({
@@ -435,13 +455,24 @@ class TC001Test(unittest.TestCase):
                                            ('s3','COM10','E0:72:A1:D3:8D:34')]}
         fixture['observation_seconds'] = 30
         with patch.object(tc.subprocess, 'check_output', return_value='C:\\observer.py'), \
-             patch.object(tc.subprocess, 'run', return_value=SimpleNamespace(stdout='{}')) as run:
+             patch.object(tc.subprocess, 'run', return_value=SimpleNamespace(stdout='{}', returncode=0)) as run:
             tc.powershell('ObserveNode', fixture)
         encoded = run.call_args.args[0][-1].split('"')[-2]
         payload = json.loads(base64.b64decode(encoded))
         self.assertEqual(payload['c3']['port'], 'COM4')
         self.assertEqual(payload['s3']['serial_number'], 'E0:72:A1:D3:8D:34')
         self.assertEqual(payload['observation_seconds'], 30)
+
+    def test_windows_helper_preserves_specific_failure_before_exit_status(self):
+        for output, reason in ((json.dumps({'error': 'TC001_ANDROID_SETTINGS_NAVIGATION_NOT_FOUND'}),
+                'TC001_ANDROID_SETTINGS_NAVIGATION_NOT_FOUND'),
+                ('not-json', 'TC001_WINDOWS_HELPER_RESPONSE_INVALID_EXIT_1'),
+                ('{}', 'TC001_WINDOWS_HELPER_PROCESS_FAILED_EXIT_1')):
+            with self.subTest(output=output), \
+                 patch.object(tc.subprocess, 'check_output', return_value='C:\\observer.py'), \
+                 patch.object(tc.subprocess, 'run', return_value=SimpleNamespace(stdout=output, returncode=1)), \
+                 self.assertRaisesRegex(ValueError, reason):
+                tc.powershell('List')
 
     def test_node_only_observer_rejects_unknown_usb_before_serial_open(self):
         with patch.object(tc_serial, 'ports', return_value=[]), patch.object(tc_serial.serial, 'Serial') as opened:
@@ -1157,6 +1188,8 @@ class TC001Test(unittest.TestCase):
                                   settings_origin="https://laptop.local",
                                   accessible_navigation=False,
                                   initial_blank_dumps=0,
+                                  transient_report_navigation_dumps=0,
+                                  collapse_after_screenshot=0,
                                   report_scan_keys=None,
                                   report_scan_decisions=None,
                                   report_scan_homes=None):
@@ -1199,6 +1232,8 @@ class TC001Test(unittest.TestCase):
         last = [reports]
         blank = self._android_tree([])
         dump_count = [0]
+        navigation_pending = [transient_report_navigation_dumps]
+        capture_collapses = [collapse_after_screenshot]
         def dump(_adb, _serial):
             if dump_count[0] < initial_blank_dumps:
                 dump_count[0] += 1
@@ -1210,6 +1245,13 @@ class TC001Test(unittest.TestCase):
             except StopIteration:
                 page = min(state["page"], len(report_pages) - 1)
                 last[0] = report_pages[page][1 if state["expanded"] else 0]
+            if state["scan_started"] and navigation_pending[0] > 0:
+                navigation_pending[0] -= 1
+                transient = tc_serial.ET.fromstring(last[0][1])
+                for node in transient.iter("node"):
+                    if node.get("class") == "android.widget.Button" and node.get("text") == "Reports":
+                        node.set("clickable", "false")
+                return transient, tc_serial.ET.tostring(transient)
             return last[0]
 
         calls = []
@@ -1232,6 +1274,9 @@ class TC001Test(unittest.TestCase):
             if args[:3] == ("shell", "dumpsys", "activity"):
                 return ("mResumedActivity: ActivityRecord{abc " + package + "/.MainActivity}").encode()
             if args[:2] == ("exec-out", "screencap"):
+                if capture_collapses[0] > 0:
+                    capture_collapses[0] -= 1
+                    state["expanded"] = False
                 return b"\x89PNG\r\n\x1a\nexample"
             return b""
 
@@ -1281,6 +1326,24 @@ class TC001Test(unittest.TestCase):
         self.assertEqual(result["observation"], "AUTOMATED_PASS")
         self.assertTrue(result["event_details_open"])
         self.assertEqual(result["event_key"]["event_sequence"], 9)
+
+    def test_android_observer_waits_for_reports_navigation_after_visibility_refresh(self):
+        result, _calls = self._run_android_verification(transient_report_navigation_dumps=3)
+        self.assertEqual(result["observation"], "AUTOMATED_PASS", "GS117-ANDROID-REFRESH-001")
+
+    def test_android_observer_does_not_accept_persistently_missing_reports_tab(self):
+        with self.assertRaisesRegex(ValueError, "REPORTS_TAB_NOT_CONFIRMED_FOR_SCROLL"):
+            self._run_android_verification(transient_report_navigation_dumps=4)
+
+    def test_android_capture_rechecks_exact_key_and_recovers_from_one_refresh(self):
+        result, calls = self._run_android_verification(collapse_after_screenshot=1)
+        self.assertEqual(result["capture_retries"], 1, "GS117-ANDROID-CAPTURE-001")
+        self.assertEqual(result["observation"], "AUTOMATED_PASS")
+        self.assertEqual(sum(args[:2] == ('exec-out', 'screencap') for _, args in calls), 2)
+
+    def test_android_capture_never_accepts_repeatedly_collapsing_exact_key(self):
+        with self.assertRaisesRegex(ValueError, "OUTCOME_CHANGED_DURING_EVIDENCE_CAPTURE"):
+            self._run_android_verification(collapse_after_screenshot=3)
 
     def test_android_verification_fails_when_exact_event_key_is_not_visible(self):
         with patch.object(tc_serial, "scroll_reports", wraps=tc_serial.scroll_reports) as scroll:
@@ -1503,7 +1566,7 @@ class TC001Test(unittest.TestCase):
                 "apk_observation": "NOT_VERIFIED", "stages": {
                     name: {"status": "NOT_VERIFIED", "reason": "not reached"} for name in tc.STAGES}}
 
-    def execute(self, report, serial_data, baseline=None, outcome=None, home_origin="https://laptop.local", ports_override=None, mode_state=True):
+    def execute(self, report, serial_data, baseline=None, outcome=None, home_origin="https://laptop.local", ports_override=None, mode_state=True, pending_observations=0):
         fixture = {"home_id": "gs177-test-product", "physical_device_id": "test-c3-bedroom",
                    "expected_caregiver_origin": "https://laptop.local",
                    "approval_ref": "test", "hub_id": "test-hub-a", "installation_epoch": 1,
@@ -1557,7 +1620,8 @@ class TC001Test(unittest.TestCase):
               patch.object(controller, "readiness", return_value={"backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS", "DEVELOPMENT_ENDPOINT_READY": "PASS", "LAPTOP_LAN_ENDPOINT_TLS_READY": "PASS"}, "caregiver_home": {"caregiver_home_ready": True, "backend_origin": home_origin}, "android_apk": {"status": "PASS"}, "hub_ingress": {"status": "PASS"}}),
               patch.object(tc, "exact_fixture", return_value=fixture),
               patch.object(tc, "powershell", side_effect=[ports if ports_override is None else ports_override, serial_data, apk_result]) as hardware,
-              patch.object(tc, "backend", side_effect=[baseline, outcome]),
+              patch.object(tc, "backend", side_effect=[baseline] +
+                  [{"durable_count": 0, "caregiver_count": 0}] * pending_observations + [outcome]),
               patch.object(controller, "save")):
             if "c3" in serial_data:
                 pair_for_apk = tc.physical_key(serial_data["c3"])
@@ -1592,6 +1656,21 @@ class TC001Test(unittest.TestCase):
                 self.assertEqual(report["event_key"]["event_sequence"], sequence)
                 self.assertFalse(report["serial_evidence"]["s3_uart_opened"])
                 self.assertEqual(report["duplicate_count"], 0)
+
+    def test_dev_wait_accepts_late_genuine_commit_but_remains_bounded_and_separate(self):
+        for development, pending, expected, attempts in ((True, 16, "PASS", 17),
+                (False, 16, "FAIL", 15), (True, 100, "FAIL", 90)):
+            report = self.report()
+            with self.subTest(development=development, pending=pending), \
+                    patch.object(tc, "development_input_trial", return_value=development), \
+                    patch.object(tc.time, "sleep"):
+                self.execute(report, {"c3": ["HIL_OK command=INJECT_MOTION",
+                    "PIR -> NodeRuntime session=12 seq=3",
+                    "Application ACK session=12 seq=3 class=0 retired=1"]},
+                    pending_observations=pending)
+            self.assertEqual(report["overall"], expected, "GS117-DEV-WAIT-001")
+            self.assertEqual(report["backend_observation_wait"]["attempts"], attempts)
+            self.assertFalse(report["backend_observation_wait"]["release_latency_qualified"])
 
     def test_duplicate_durable_event_count_is_recorded_before_campaign_stops(self):
         c3 = ["HIL_OK command=INJECT_MOTION", "PIR -> NodeRuntime session=12 seq=3",
@@ -1928,6 +2007,16 @@ class TC001Test(unittest.TestCase):
         for interval in (True, -1, 1, 4, 31, "10"):
             with self.subTest(interval=interval), self.assertRaisesRegex(ValueError, "INTERVAL_OUT_OF_RANGE"):
                 tc_serial.observe({"c3": {}, "s3": {}, "c3_status_interval_seconds": interval})
+
+    def test_development_observation_window_is_explicit_and_still_bounded(self):
+        config = {"profile": "GS117_DEV_TEST_ONLY", "observation_seconds": 120,
+                  "c3": {"port": "COM4", "serial_number": "14:63:93:C5:D1:58"},
+                  "s3": {"port": "COM10", "serial_number": "E0:72:A1:D3:8D:34"}}
+        with self.assertRaisesRegex(ValueError, "VERIFIED_USB_INTERFACE_MISMATCH"):
+            tc_serial.observe(config, port_finder=lambda: [])
+        for profile, duration in (("GS117_DEV_TEST_ONLY", 121), ("GS179_TEST_ONLY", 61)):
+            with self.subTest(profile=profile), self.assertRaisesRegex(ValueError, "SECONDS_OUT_OF_RANGE"):
+                tc_serial.observe({**config, "profile": profile, "observation_seconds": duration})
 
     def test_bootstrap_carries_only_target_bound_encrypted_frame(self):
         nonce = b"n" * 32

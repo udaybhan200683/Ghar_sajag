@@ -293,5 +293,31 @@ class BootstrapSecurity(unittest.TestCase):
         # validation. The empty body is deliberately invalid (400).
         self.assertEqual(s.hub_request(f"/v1/homes/{HOME}/events", {})[0], 400)
 
+    def test_software_rsa_development_handshake_may_exceed_five_seconds(self):
+        s = self.fixture()
+        s.mtls_listener.close()
+        listener = self.listener(s, timeout_seconds=15, max_concurrent_requests=1)
+        s.mtls_listener = listener
+        s.hub_origin = listener.start()
+        # Populate the existing ephemeral client certificate files and prove
+        # normal authenticated request validation before the delayed handshake.
+        path = f"/v1/homes/{HOME}/events"
+        self.assertEqual(s.hub_request(path, {})[0], 400)
+        self.assertTrue(listener.server.wait_for_workers(2))
+        context = ssl.create_default_context(cafile=str(s.ca_path))
+        context.minimum_version = context.maximum_version = ssl.TLSVersion.TLSv1_2
+        context.load_cert_chain(s.path / "client.pem", s.path / "client.key")
+        port = int(s.hub_origin.rsplit(":", 1)[1])
+        with socket.create_connection(("127.0.0.1", port), timeout=15) as raw:
+            time.sleep(6)  # Existing five-second server deadline would close it.
+            with context.wrap_socket(raw, server_hostname="localhost") as tls:
+                tls.sendall((f"POST {path} HTTP/1.1\r\nHost: localhost\r\n"
+                             "Content-Type: application/json\r\nContent-Length: 2\r\n"
+                             "Connection: close\r\n\r\n{}").encode())
+                self.assertIn(b" 400 ", tls.recv(4096).split(b"\r\n", 1)[0],
+                              "GS179-DEV-RSA-HANDSHAKE-001 authenticated validation retained")
+        self.assertTrue(listener.server.wait_for_workers(2))
+        self.assertEqual(listener.server.active_workers, 0)
+
 
 if __name__ == "__main__": unittest.main()

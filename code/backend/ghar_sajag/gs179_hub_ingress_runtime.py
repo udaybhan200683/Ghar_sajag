@@ -303,7 +303,10 @@ class Gs179TestOnlyHubIngressRuntime:
                     port=self.config.port,
                     allow_private_bind=self.config.allow_private_bind,
                     max_request_bytes=16_384,
-                    timeout_seconds=5.0,
+                    # Software RSA-3072 on the isolated S3 can take more than
+                    # five seconds before CertificateVerify. Keep the existing
+                    # listener's finite maximum and worker/request bounds.
+                    timeout_seconds=15.0,
                     available=self._backend_ready,
                     max_concurrent_requests=8,
                     on_result=self.on_result,

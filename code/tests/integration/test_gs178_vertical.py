@@ -77,6 +77,22 @@ class NodeOriginVertical(unittest.TestCase):
         self.assertEqual(self.stack.durable.api.durable_events.due_outbox(self.stack.domain_now),[])
         self.save_report("P0-A-D-E-F-K-L",view)
 
+    def test_reports_open_event_identity_survives_same_home_visibility_refresh(self):
+        self.input(0, "motion")
+        self.assertEqual(self.sync()["completed"], 1)
+        reports = Path(os.environ.get("GS178_REPORT_DIR", "build/gs178_evidence"))
+        reports.mkdir(parents=True, exist_ok=True)
+        result = subprocess.run(["node", str(CAREGIVER_BROWSER)],
+            input=json.dumps({"base": self.stack.human_origin, "password": self.stack.password,
+                              "dom": str(reports / "reports_disclosure_refresh.html"),
+                              "reportDisclosureOnly": True}),
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=90,
+            env={**os.environ, "NODE_EXTRA_CA_CERTS": str(self.stack.ca_path)})
+        self.assertEqual(result.returncode, 0, result.stdout)
+        evidence = json.loads(result.stdout.splitlines()[-1])
+        self.assertEqual(evidence["case_id"], "GS177-REPORTS-DISCLOSURE-001")
+        self.save_report("GS177-REPORTS-DISCLOSURE-001", evidence)
+
     def test_02_wan_loss_lost_ack_restart_exactly_once_and_delayed_chronology(self):
         first=self.input(0,"motion",drop=True)
         self.assertEqual(first["pending"],1)

@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <string>
 
-struct FakeHttpClient { bool opened{false}; };
+struct FakeHttpClient { bool opened{false}; bool read{false}; };
 namespace {
 void check(bool value, const char* message) { if (!value) throw std::runtime_error(message); }
 struct Provider final : gs::hub::target::CloudTlsIdentityProvider {
@@ -45,9 +45,16 @@ std::string expected_url = "https://backend.invalid/v1/homes/home-1/events";
 int expected_method = HTTP_METHOD_POST;
 int expected_content_length = 2;
 void* ds_context = nullptr;
+std::int64_t clock_us = 1, handshake_us = 0;
+bool truncated = false;
 }  // namespace
 
 esp_http_client_handle_t esp_http_client_init(const esp_http_client_config_t* config) {
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    check(config->timeout_ms == 15000, "bounded TEST_ONLY software RSA TLS handshake budget");
+#else
+    check(config->timeout_ms == 3000, "production DS TLS handshake budget unchanged");
+#endif
     check(config && config->client_cert_pem && config->cert_pem &&
           (config->ds_data != nullptr || config->client_key_pem != nullptr) &&
           config->method == expected_method && std::string(config->url) == expected_url &&
@@ -59,6 +66,7 @@ esp_http_client_handle_t esp_http_client_init(const esp_http_client_config_t* co
     ds_context = config->ds_data;
     client_key = config->client_key_pem == nullptr ? "" : config->client_key_pem;
     ++initialized;
+    client.read = false;
     return &client;
 }
 esp_err_t esp_http_client_set_header(esp_http_client_handle_t, const char* name, const char*) {
@@ -67,20 +75,20 @@ esp_err_t esp_http_client_set_header(esp_http_client_handle_t, const char* name,
 }
 esp_err_t esp_http_client_open(esp_http_client_handle_t, int length) {
     check(length == expected_content_length, "request method has expected body length");
+    clock_us += handshake_us;
     client.opened = true; return ESP_OK;
 }
 int esp_http_client_write(esp_http_client_handle_t, const char*, int length) { return length; }
 std::int64_t esp_http_client_fetch_headers(esp_http_client_handle_t) { return 2; }
 int esp_http_client_get_status_code(esp_http_client_handle_t) { return 201; }
 int esp_http_client_read(esp_http_client_handle_t, char* buffer, int) {
-    static bool read = false;
-    if (read) { read = false; return 0; }
-    buffer[0] = '{'; buffer[1] = '}'; read = true; return 2;
+    if (client.read) return 0;
+    buffer[0] = '{'; buffer[1] = '}'; client.read = true; return 2;
 }
-bool esp_http_client_is_complete_data_received(esp_http_client_handle_t) { return true; }
+bool esp_http_client_is_complete_data_received(esp_http_client_handle_t) { return !truncated; }
 esp_err_t esp_http_client_close(esp_http_client_handle_t) { return ESP_OK; }
 esp_err_t esp_http_client_cleanup(esp_http_client_handle_t) { ++cleaned; return ESP_OK; }
-std::int64_t esp_timer_get_time() { return 1; }
+std::int64_t esp_timer_get_time() { return clock_us; }
 
 int main() {
     try {
@@ -177,6 +185,26 @@ int main() {
         std::cout << "GS-CLOUD-MTLS-UT-009 PASS\n";
         std::cout << "CLOUDSYNC MTLS ADAPTER PASS cases=9 physical=NOT_RUN\n";
 #endif
+        provider.value.trusted_utc_seconds = 1'800'000'000;
+        handshake_us = 6'000'000;
+        const auto slow = channel.post(path, "{}");
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+        check(slow.server_authenticated && slow.message_complete,
+              "TEST_ONLY software RSA handshake retains complete authenticated receipt after five seconds");
+#else
+        check(!slow.message_complete, "production five-second total deadline preserved");
+#endif
+        handshake_us = 30'000'000;
+        check(!channel.post(path, "{}").message_complete,
+              "total deadline remains bounded including handshake");
+        handshake_us = 0;
+        truncated = true;
+        check(!channel.post(path, "{}").message_complete,
+              "longer DEV budget never accepts an incomplete receipt");
+        truncated = false;
+        check(channel.post(path, "{}").message_complete && initialized == cleaned,
+              "valid retry recovers after timeout and truncation without leaked client");
+        std::cout << "GS-CLOUD-MTLS-DEADLINE-001 PASS checks=4\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "CLOUDSYNC MTLS ADAPTER FAIL " << error.what() << '\n';

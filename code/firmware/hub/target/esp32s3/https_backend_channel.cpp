@@ -4,6 +4,7 @@
 #include <utility>
 #include <string_view>
 #if defined(ESP_PLATFORM)
+#include "esp_log.h"
 #include <sys/time.h>
 #include <time.h>
 #endif
@@ -70,7 +71,22 @@ BackendHttpResponse HttpsBackendChannel::request(const std::string& path,
                                                    const std::string& body,
                                                    bool get_request) {
     BackendHttpResponse result;
-    const auto deadline = esp_timer_get_time() + 5000000;
+    const auto started = esp_timer_get_time();
+    auto deadline = started + 5000000;
+#if defined(ESP_PLATFORM) && defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    struct RequestTiming {
+        const BackendHttpResponse& response;
+        std::int64_t started;
+        const std::int64_t& deadline;
+        ~RequestTiming() {
+            const auto now = esp_timer_get_time();
+            ESP_LOGI("gs_https", "TEST_ONLY request elapsed_ms=%lld status=%d attempted=%d authenticated=%d complete=%d deadline_exceeded=%d",
+                     static_cast<long long>((now - started) / 1000), response.status,
+                     response.network_attempted, response.server_authenticated,
+                     response.message_complete, now >= deadline);
+        }
+    } timing{result, started, deadline};
+#endif
     CloudTlsIdentity identity;
 #if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
     bool test_only_software_identity = false;
@@ -124,6 +140,12 @@ BackendHttpResponse HttpsBackendChannel::request(const std::string& path,
 #endif
 #endif
     }
+    // RSA-3072 software signing on the isolated development target can exceed
+    // the production DS-backed request budget. Keep a finite total deadline;
+    // ownership, trusted time, lease validity and TLS checks remain independent.
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    if (test_only_software_identity) deadline = started + 30000000;
+#endif
     // A fixed HTTPS origin; no userinfo, fragments, queries, redirects or paths.
     const bool ordinary_home_post_path = !get_request &&
         (home_route(path, "/events") || home_route(path, "/node-health") ||
@@ -174,6 +196,9 @@ BackendHttpResponse HttpsBackendChannel::request(const std::string& path,
     config.skip_cert_common_name_check = false;
     config.disable_auto_redirect = true;
     config.timeout_ms = 3000;
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    if (test_only_software_identity) config.timeout_ms = 15000;
+#endif
     config.buffer_size = 1024;
     config.buffer_size_tx = 1024;
     config.method = get_request ? HTTP_METHOD_GET : HTTP_METHOD_POST;

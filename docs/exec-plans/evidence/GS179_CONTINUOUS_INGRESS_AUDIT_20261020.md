@@ -937,3 +937,27 @@ Existing ingress independently recorded fresh physical mTLS authority-refresh HT
 Sanitized child evidence (exit code, timestamps, C3/S3 observations and memory object) durably retained at standing-authorization/bootstrap-56551ab3816f16d00e646592/bootstrap-child-result.json under the owner-only GS117 state directory. Current r2 ledger consumed1/1 and failure-latched; original ledgers unchanged. No TARGET_OBSERVATION_PASS or TC001_READY was emitted because the target observation failed. Positive C3 liveness and S3 PSRAM observations remain preserved in the child evidence. Fixture.json/campaign approval absent. TC0010/5 NOT_RUN; no motion injection, campaign, flashing, erase, readback, JEDEC, credential/enrollment/ownership changes or arbitrary database write. No source change, tests not rerun; prior focused software receipts remain historical.
 
 Minimum next work: offline determine why flash-capacity boot evidence was not captured and how existing target/ingress evidence can supply verified time/authority/rejoin fields; preserve all pins/latches until any reviewed amendment. Reconnect the authorized phone. A further readiness hardware operation needs fresh approval because the authorized r2 session is consumed; do not retry it. Only after genuine owner fixture acceptance should separate campaign authorization be requested and the existing web Run used.
+
+
+### 2026-10-30 — physical S3 software-RSA handshake timeout correction
+
+Actual target6253ms failed client handshake plus matching RSA CertificateVerify
+backtrace and AuthorityUnavailable establish the immediate publication failure.
+The existing GS40 TEST_ONLY software-key channel now has15s handshake/socket and
+30s total budget; default-disabled GS179_TEST_ONLY ingress uses its existing15s
+listener maximum. Production DS3s/5s limits, generic listener5s default, verified
+TLS, Home/epoch/enrollment,8-worker/16KiB and response-completeness guards remain.
+Target then completed an authenticated6281ms request and actual backlog commits
+advanced through118/123. No fresh controlled APK result yet; no CloudSync PASS
+from HTTP200 alone. Existing ingress alone restarted; no new service, certificate
+or credential change. C++ positive/timeout/truncation/recovery checks PASS; two
+isolated PostgreSQL delayed-handshake/concurrency cases PASS. Full PostgreSQL
+regression is running; prior component failures remain documented in GS117
+EXECUTION.md. Current S3 appff111634… was application-only hash-verified, with
+matching current boot,16/8MiB and unchanged partition table. GS117 owns continued
+web-triggered exact-key acceptance under active reusable DEV consent.
+
+
+### 2026-10-30 02:13 UTC — owner quota pause; no false physical/Android PASS
+
+Actual6253ms software-RSA handshake failure corrected with isolated15s client/server and30s total request bound; production limits unchanged. Actual6281ms authenticated COMPLETE target response and durable original122/1,123/1,125/3,126/1 commits observed. Full isolated PostgreSQL71/71 PASS. DEV backend observation bounded180s/90 polls; strict15-poll mode unchanged; actual latency recorded, not qualified as near-real-time. Latest campaign126/1 got exact durable ACK and one API/DB row but Android evidence capture was inconsistent. GS177/observer fixes tested104/104 plus focused Reports browser1/1; actual APK reload pending. Full browser interrupted after41PASS at owner quota threshold; full component failures retained. NodeHealth503/UNKNOWN gap remains; no protected record/enrollment changes. See current GS117 handoff for exact resume sequence and technical stale DEV pin blocker; no new owner permission needed in active scope.
