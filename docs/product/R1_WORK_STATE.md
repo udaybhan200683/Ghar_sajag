@@ -1,3 +1,26 @@
+## GS-117 — DEV authorization history continuity; campaign latch preserved — 2026-10-30
+
+OWNING_JIRA=GS-117; RELATED_JIRA=GS-179, GS-116, GS-130
+BUG_CLASSIFICATION=TEST_INFRA_ONLY
+REQUIREMENT_SOURCE=Current GS-117 DEV authorization procedure and owner direction; GS-116 focused validation policy
+DECISION_IDS=NONE
+TASK_SCOPE=Preserve cumulative DEV session, procedure and failure counts across reviewed manifest pin changes; validate the existing Android observer fix offline; do not start a physical campaign while the owner-scope failure latch is active.
+OUT_OF_SCOPE=No ADB interaction while the phone is disconnected; no COM access, reset/bootstrap, motion injection, firmware operation, credentials, enrollment, database mutation, or failure-counter reset.
+
+The authorization bug was confirmed: DEV ledgers were keyed by the manifest SHA-256, so each reviewed pin rotation could select a fresh zero-count ledger. The current manifest-specific ledger reported 2 sessions/2 consecutive failures, while the owner-scoped append-only audit contains **29 sessions**, including 10 protected bootstrap, 11 observe, 4 app-flash and 4 campaign sessions, with **3 consecutive failures** at the end. The audit, not the newest hash-specific ledger, is the cumulative source of usage.
+
+Commit `b59a903dea5f0451bf963d3911cb12cdd6e56132` implements a stable owner-consent/fixture ledger identity, reconstructs cumulative counters from distinct audited session starts, preserves old hash ledgers, reconciles the stable ledger against the append-only audit on every use, and fails closed on missing/corrupt/inconsistent history. It also clears stale prior-run completion/failure fields when reserving a new session and derives the last outcome from the explicit blocked/completed state. New-consent scopes remain isolated; changing only procedure pins does not reset the existing scope.
+
+Focused validation: `python3 code/tests/python/test_gs117_tc001_console.py` **114/114 PASS**. It covers hash rotation, procedure/session count preservation, failure-latch retention, missing history, stable-ledger/audit mismatch, stale completion markers, success after failure, and consent-scope isolation. `make -C code feature-coverage-test` **PASS**: 232 features, 287 modules, 27 physical cases and 22/22 registry tests. No target build applies to this Python-only tooling change.
+
+The established owner-only atomic backup/repin procedure was used on the active `GS117_DEV_TEST_ONLY` manifest, with **only** `serial_helper.sha256` and `validator.sha256` changed. Byte-for-byte backup: `~/.config/ghar-sajag/gs117-tc001/development-authorization.json.before-ledger-history-repin-20261030T1635Z` (old manifest SHA-256 `fd6e54cda06a4a06b57c586ae7fcde184885b25e5c065df78fbf74f7f12761a6`). New serial helper SHA-256 is `fc2a30f5b0407d1f0f2300552476991575128cb2b66aa3cdd29a9533a608ceaa`; the validator SHA-256 is `91973a527d3518a90ca93e625fa0b7df0a14b77902fd883446e6f07acbb7277d`; new owner-only manifest SHA-256 is `b89b819497b1d7a93cd7e1e65220c44df53990543bd888e4b74e3ae2504c2aa6`. The existing approval reference, device/Home/backend scope, permissions, limits, revocation and all other pins were verified unchanged. `load_development()` now passes.
+
+The standard campaign authorization check was then exercised offline. It reconstructed a private stable ledger at 29 sessions / 3 consecutive failures / blocked=true, preserved every historical hash-keyed ledger byte-for-byte, appended one migration audit note with no `started_at`, and **denied before reserving a session**. Audit session starts remain 29. No device, USB port, ADB, or event input was accessed. Therefore the 3-failure guard is active and cannot be bypassed by the now-valid source pins. The earlier Android correction remains covered by the same focused test suite; the phone is disconnected and no live APK observation occurred in this checkpoint.
+
+The existing physical event `c3-146393c5d158 / bedroom / session 126 / sequence 1` remains one same-key C3-HIL-to-actual-APK supplemental evidence chain, but the original controller run remains BLOCKED and formal campaign accounting remains **0/5 accepted**. Event `123/1` later committed about 6 h 53 min after input; the scheduling/backoff cause remains unknown. Neither is promoted to this campaign.
+
+**Next gate:** do not clear or rewrite the 29-session/3-failure history. The current DEV scope is latched. The owner must review the last three failed session records and, if continuing is desired, explicitly approve a successor DEV consent scope for the same exact TEST_ONLY devices/Home/backend after that review. Reconnect the authorized Android phone before any new run. Then verify standard non-hardware preflight and start the existing web campaign only under that successor consent; keep stop-on-first-failure. No optical PIR or commercial release qualification is inferred.
+
 ## GS-117 / GS-179 — Fresh C3 HIL event correlated through actual APK — 2026-10-30
 
 OWNING_JIRA=GS-117; RELATED_JIRA=GS-179, GS-116, GS-130

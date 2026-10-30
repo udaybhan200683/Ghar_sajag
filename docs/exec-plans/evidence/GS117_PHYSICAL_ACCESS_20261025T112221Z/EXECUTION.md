@@ -4155,3 +4155,87 @@ The existing observer was minimally hardened for transient Reports navigation lo
 Offline reconciliation also established that the previous physical `123/1` event was delayed, not lost: authenticated caregiver API/PostgreSQL now show exactly one durable row and one caregiver result; the physical ingress trace records its eventual HTTP 201 `COMMITTED` at `2026-10-30T01:22:10Z`, about 6 h 53 min after its C3 injection, with no duplicate. The actual cause of the long delay is not established. For household Settings, this authenticated login is an active CAREGIVER/FAMILY member, while the existing routine-config endpoint requires OWNER/PRIMARY; its HTTP 403 is correct and was not bypassed. This Home currently has no desired-config row; S3 version-0/no-policy is a supported unconfigured state, so the missing row does not block motion-event validation. The prior target's generic desired-policy rejection remains unexplained because the actual `/config/desired` request/response was not captured; it is not evidence that the policy was accepted.
 
 Next: reconnect the phone and use the existing authorized mechanism to reconcile the stale helper fingerprint without resetting the two-failure ledger; verify the existing controller then passes live preflight before starting another bounded campaign. Keep the campaign stop-on-first-failure behavior and verify each future exact key in the actual APK. Do not repeat successful 126/1 observation, historical backlog checks, JEDEC or firmware readback. Real optical PIR and full GS-117 acceptance remain NOT_RUN.
+# 2026-10-30 — DEV authorization history continuity and campaign stop
+
+Canonical branch `feature/r1-commercial-baseline`, code commit
+`b59a903dea5f0451bf963d3911cb12cdd6e56132`; origin matched after push.
+Context preflight passed (`2026-10-28.001`). The worktree contains only the
+traceability/evidence changes for this checkpoint; unrelated pre-existing
+untracked build, Android and hardware evidence remains untouched.
+
+## Confirmed pin-rotation accounting defect
+
+The active private DEV manifest pins serial helper
+`66afe888be5dcd3c862bcddc4cc6333945870b8a41bd552f9cb0e3472676058e`, while the
+reviewed committed helper is
+`fc2a30f5b0407d1f0f2300552476991575128cb2b66aa3cdd29a9533a608ceaa`. The active
+validator pin was `d6ab3f21ab70eca839f14f9edefb286184491bb456b2cf1b3b1d2632ea586a24`;
+the committed history-preserving validator is
+`91973a527d3518a90ca93e625fa0b7df0a14b77902fd883446e6f07acbb7277d`.
+
+The prior hash-keyed ledger showed two sessions/two failures. Read-only
+reconstruction of the owner-scoped append-only audit showed 29 distinct sessions
+for the same approval reference: protected bootstrap 10, observation 11,
+application flash 4, campaign 4. The latest three entries are blocked failed
+sessions, so the correct consecutive failure count is three. The three latest
+rows are independently represented by the explicit blocked state; successful
+records may retain a stale `failure` field from previous versions, so completion
+must not be inferred from that field alone.
+
+## Corrective change and validation
+
+Commit `b59a903` keeps DEV accounting in the existing authorization module. It
+keys the stable ledger to the same DEV profile, owner approval reference and
+exact fixture identity rather than content hash; reconstructs sessions and
+procedure counts from distinct audit session starts; preserves all old ledgers;
+and compares stable-ledger values with the audit on each use. Missing, malformed,
+non-private or inconsistent history fails closed. New sessions clear stale
+completion/failure/evidence fields before the first snapshot. Reconstructed
+outcome uses the session's blocked flag, so an earlier completion timestamp
+cannot hide a later failed session. A distinct explicit approval reference
+remains a separate consent scope; the old scope/history is never rewritten.
+
+Focused `python3 code/tests/python/test_gs117_tc001_console.py`: **114/114 PASS**.
+New regressions cover pin rotation preserving cumulative sessions/procedure
+counts and the 3-failure latch, missing/corrupt legacy history, audit/stable
+ledger divergence, stale completion after success, successful recovery after a
+failure, and separate approval scopes. The first 112-test run caught only a
+test assertion that counted both start and final snapshots as separate sessions;
+it was corrected to count unique `started_at`, and the final 114-test run passed.
+The prior observer transient-recovery and exact-key tests remain in this same
+suite. No APK was reinstalled or opened because the owner disconnected the phone.
+
+The existing owner-only atomic backup/repin mechanism was applied after commit.
+It changed only `serial_helper.sha256` and `validator.sha256`; consent reference,
+scope, operation list, limits, image/bootstrap/controller/helper pins, expiry,
+revocation and prohibited operations were verified unchanged. Byte-for-byte
+backup: `~/.config/ghar-sajag/gs117-tc001/development-authorization.json.before-ledger-history-repin-20261030T1635Z`,
+SHA-256 `fd6e54cda06a4a06b57c586ae7fcde184885b25e5c065df78fbf74f7f12761a6`.
+New owner-only manifest SHA-256:
+`b89b819497b1d7a93cd7e1e65220c44df53990543bd888e4b74e3ae2504c2aa6`.
+`load_development()` passed with the reviewed pins.
+
+The standard campaign authorization entry was then called without invoking any
+hardware. It migrated a stable owner-scoped private ledger to **29 sessions,
+4 prior campaign sessions, 3 consecutive failures, blocked=true**, appended one
+migration audit record without a session-start timestamp, and returned
+`standing_policy_failure_latched_or_limit_reached` before reserving a new
+session. Audit session starts remain 29; every previous hash-keyed ledger file
+has the same SHA-256 as before migration. The guard is therefore effective after
+the pin update and no attempt was consumed. No COM/USB/ADB, reset, bootstrap,
+motion input, PostgreSQL write or campaign operation occurred.
+
+`make -C code feature-coverage-test`: **PASS**, 232 features, 287 modules, 27
+physical cases; 22/22 registry tests passed. GS-117 and GS-179 remain In Progress.
+The original event126/1 controller run remains BLOCKED despite the later same-key
+actual APK supplement; campaign acceptance is **0/5**. Event123/1's approximately
+6h53m delayed commit remains an unresolved latency concern. Neither is a fresh
+campaign pass.
+
+**Next action:** preserve this latched history. The owner must review the last
+three failed sessions and explicitly approve a successor DEV consent scope, if
+continuing is desired; this is a new consent reference, not a pin rotation or
+counter reset. Reconnect the authorized phone. Then run the existing campaign
+through the web utility under the new valid consent and stop at its first
+non-PASS. Do not open the S3 serial port during the campaign. Current physical
+five-run result remains **0/5 accepted**; optical PIR remains separate.
