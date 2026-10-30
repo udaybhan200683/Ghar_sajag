@@ -35,6 +35,7 @@ class StandingAuthorizationTest(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
+        self.mode_audit = self.root / 'development-authorization' / 'audit.jsonl'
         self.policy = self.root / 'policy.json'
         source = Path(__file__).resolve().parents[3] / 'docs/exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/standing-authorization.proposed.json'
         self.data = json.loads(source.read_text())
@@ -62,14 +63,105 @@ class StandingAuthorizationTest(unittest.TestCase):
     def write(self):
         self.policy.write_text(json.dumps(self.data)); self.policy.chmod(0o600)
 
+    def write_mode_activation(self, policy, audit_path=None):
+        audit_path = Path(audit_path or self.mode_audit)
+        audit_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        audit_path.parent.chmod(0o700)
+        mode = policy['development_mode']
+        predecessor = mode['predecessor']
+        predecessor_policy = {
+            'profile': policy['profile'],
+            'owner_approval_ref': predecessor['approval_ref'],
+            'identity': policy['identity'],
+        }
+        predecessor_scope = hil_auth._development_scope_id(predecessor_policy)
+        predecessor['scope_id'] = predecessor_scope
+        predecessor_ledger_path = audit_path.parent / f'dev-scope-{predecessor_scope}.json'
+        predecessor_counts = {'protected_gs40_bootstrap': 10, 'observe': 11,
+                              'application_flash': 4, 'tc001_campaign': 4}
+        predecessor_ledger = {
+            'authorization_scope_id': predecessor_scope,
+            'approval_ref': predecessor['approval_ref'], 'sessions': predecessor['sessions'],
+            'consecutive_failures': predecessor['consecutive_failures'],
+            'blocked': predecessor['blocked'], 'procedure_counts': predecessor_counts,
+        }
+        predecessor_ledger_path.write_text(json.dumps(predecessor_ledger, sort_keys=True))
+        predecessor_ledger_path.chmod(0o600)
+        old_audit = []
+        procedures = [name for name, count in predecessor_counts.items() for _ in range(count)]
+        for index, procedure in enumerate(procedures):
+            started = datetime(2026, 10, 30, tzinfo=timezone.utc).replace(
+                minute=index % 60, second=index // 60).isoformat()
+            start = {'approval_ref': predecessor['approval_ref'], 'procedure': procedure,
+                     'sessions': index + 1, 'blocked': True, 'started_at': started}
+            old_audit.append(start)
+            if index < len(procedures) - 3:
+                old_audit.append({**start, 'blocked': False, 'consecutive_failures': 0,
+                                  'completed_at': started})
+            else:
+                old_audit.append({**start, 'failure': 'ValueError',
+                                  'failure_class': 'UNKNOWN_UNHANDLED',
+                                  'consecutive_failures': index - (len(procedures) - 4)})
+        audit_path.write_text(''.join(json.dumps(row, sort_keys=True) + '\n' for row in old_audit))
+        audit_path.chmod(0o600)
+        old_bytes = audit_path.read_bytes()
+        predecessor['audit_entry_count'] = len(old_audit)
+        predecessor['audit_sha256'] = hashlib.sha256(old_bytes).hexdigest()
+        predecessor['ledger_sha256'] = hil_auth.digest(predecessor_ledger_path)
+        record = {
+            'event': 'development_mode_activated',
+            'activation_id': mode['activation_id'],
+            'approval_ref': policy['owner_approval_ref'],
+            'authorization_scope_id': hil_auth._development_scope_id(policy),
+            'activated_at': mode['activated_at'],
+            'authority_refs': mode['authority_refs'],
+            'predecessor': mode['predecessor'],
+            'reviewed_commit': mode['reviewed_commit'],
+            'reviewed_source_fingerprints': mode['reviewed_source_fingerprints'],
+            'validation_summary': mode['validation_summary'],
+        }
+        record['record_sha256'] = hil_auth._canonical_record_sha256(record)
+        with audit_path.open('ab') as out:
+            out.write(json.dumps(record, sort_keys=True).encode() + b'\n')
+        audit_path.chmod(0o600)
+        policy['activation_audit_path'] = str(audit_path)
+        mode['activation_record_sha256'] = record['record_sha256']
+
     def development_policy(self):
-        p = dict(self.data, profile='GS117_DEV_TEST_ONLY', procedures=hil_auth.DEV_OPERATIONS,
+        p = dict(self.data, schema_version=hil_auth.DEV_MODE_SCHEMA,
+                 profile='GS117_DEV_TEST_ONLY', procedures=hil_auth.DEV_OPERATIONS,
                  allowed_operations=hil_auth.DEV_OPERATIONS,
-                 prohibited_operations=hil_auth.DEV_PROHIBITED, max_sessions=1000,
+                 prohibited_operations=hil_auth.DEV_PROHIBITED, max_sessions=None,
+                 development_mode_enabled=True, images=hil_auth.DEV_IMAGES,
                  motion_injection_authorized=True)
+        p['owner_approval_ref'] = 'unit-test-consent-only'
         p['bootstrap_evidence_helper'] = {'path': str(Path(bootstrap_evidence.__file__)),
                                         'sha256': hil_auth.digest(bootstrap_evidence.__file__)}
+        p['development_mode'] = {
+            'mode_id': hil_auth.DEV_MODE_ID,
+            'enabled': True, 'revoked': False, 'persistent': True,
+            'environment': 'GS117_TEST_ONLY', 'expires_at': None,
+            'authorization_ref': p['owner_approval_ref'],
+            'authority_refs': hil_auth.DEV_MODE_AUTHORITY_REFS,
+            'disable_on_release_transition': True,
+            'activated_at': p['activated_at'],
+            'activation_id': 'unit-test-activation-0001',
+            'reviewed_commit': '4' * 40,
+            'reviewed_source_fingerprints': {
+                name: p[name]['sha256'] for name in hil_auth.DEV_PIN_NAMES
+            },
+            'validation_summary': {'gs117_focused': 'PASS', 'framework': 'PASS',
+                                   'feature_coverage': 'PASS'},
+            'predecessor': {'approval_ref': 'unit-test-old-consent',
+                            'scope_id': 'a' * 64, 'sessions': 29,
+                            'consecutive_failures': 3, 'blocked': True,
+                            'audit_sha256': 'b' * 64, 'ledger_sha256': 'c' * 64},
+            'activation_record_sha256': None,
+        }
         path = self.root / 'dev-policy.json'; path.write_text(json.dumps(p)); path.chmod(0o600)
+        self.write_mode_activation(p)
+        path.write_text(json.dumps(p)); path.chmod(0o600)
+        self.data = p
         return path, p
 
     def test_dev_consent_revocation_identity_and_procedure_guards(self):
@@ -80,6 +172,97 @@ class StandingAuthorizationTest(unittest.TestCase):
                        {'procedures': hil_auth.DEV_OPERATIONS + ['efuse']}):
             path.write_text(json.dumps(dict(p, **change)))
             with self.assertRaises(ValueError): hil_auth.load_development(path)
+
+    def test_development_mode_is_persistent_unexpired_and_audits_repeated_sessions(self):
+        path, policy = self.development_policy()
+        state = self.root / 'development-authorization'
+        self.assertIsNone(policy['max_sessions'])
+        self.assertIsNone(policy['development_mode']['expires_at'])
+        for _ in range(5):
+            with hil_auth.session('observe', path, state, _development=True): pass
+        status = hil_auth.development_status(path)
+        self.assertEqual(status['status'], 'ACTIVE')
+        self.assertTrue(status['development_mode_enabled'])
+        self.assertTrue(status['persistent'])
+        self.assertIsNone(status['expires_at'])
+        self.assertEqual(status['sessions'], 5)
+        audit = [json.loads(line) for line in (state/'audit.jsonl').read_text().splitlines()]
+        scoped = [row for row in audit if row.get('approval_ref') == policy['owner_approval_ref']]
+        self.assertEqual(len({row['started_at'] for row in scoped if row.get('started_at')}), 5)
+
+    def test_release_qualification_environment_fails_closed(self):
+        path, _policy = self.development_policy()
+        with patch.dict(os.environ, {'GHAR_SAJAG_QUALIFICATION_MODE': 'release_candidate'}):
+            with self.assertRaisesRegex(ValueError, 'disabled_for_release_qualification'):
+                hil_auth.load_development(path)
+
+    def test_activation_record_is_mandatory_and_immutable(self):
+        path, policy = self.development_policy()
+        audit = Path(policy['activation_audit_path'])
+        original = audit.read_bytes()
+        audit.unlink()
+        with self.assertRaisesRegex(ValueError, 'transition_audit_missing'):
+            hil_auth.load_development(path)
+        audit.write_bytes(original); audit.chmod(0o600)
+        rows = audit.read_text().splitlines()
+        index = next(i for i, line in enumerate(rows)
+                     if json.loads(line).get('event') == 'development_mode_activated')
+        record = json.loads(rows[index]); record['predecessor']['sessions'] += 1
+        rows[index] = json.dumps(record, sort_keys=True)
+        audit.write_text('\n'.join(rows) + '\n'); audit.chmod(0o600)
+        with self.assertRaisesRegex(ValueError, 'transition_audit_mismatch'):
+            hil_auth.load_development(path)
+
+    def test_activation_record_binds_reviewed_commit_and_source_pins(self):
+        path, policy = self.development_policy()
+        original = json.loads(path.read_text())
+        original['controller']['sha256'] = '0' * 64
+        path.write_text(json.dumps(original)); path.chmod(0o600)
+        with self.assertRaisesRegex(ValueError, 'review_evidence_invalid'):
+            hil_auth.load_development(path)
+        path.write_text(json.dumps(policy)); path.chmod(0o600)
+        changed = json.loads(path.read_text())
+        changed['development_mode']['reviewed_commit'] = '5' * 40
+        path.write_text(json.dumps(changed)); path.chmod(0o600)
+        with self.assertRaisesRegex(ValueError, 'transition_audit_mismatch'):
+            hil_auth.load_development(path)
+
+    def test_revocation_is_audited_and_disables_future_sessions(self):
+        path, _policy = self.development_policy()
+        state = self.root / 'development-authorization'
+        before = (state/'audit.jsonl').read_bytes()
+        stale = json.loads(path.read_text())
+        stale['controller']['sha256'] = '0' * 64
+        path.write_text(json.dumps(stale)); path.chmod(0o600)
+        result = hil_auth.revoke_development_mode('owner ended development phase', path)
+        self.assertEqual(result['status'], 'REVOKED')
+        with self.assertRaises(ValueError):
+            with hil_auth.session('observe', path, state, _development=True): pass
+        rows = [json.loads(line) for line in (state/'audit.jsonl').read_text().splitlines()]
+        events = [row for row in rows if row.get('event') in {
+            'development_mode_activated', 'development_mode_revoked'}]
+        self.assertEqual([row['event'] for row in events], [
+            'development_mode_activated', 'development_mode_revoked'])
+        self.assertEqual(rows[-1]['event'], 'development_mode_revoked')
+        self.assertTrue((state/'audit.jsonl').read_bytes().startswith(before))
+        self.assertFalse(json.loads(path.read_text())['development_mode_enabled'])
+
+    def test_explicit_transition_keeps_predecessor_latch_separate(self):
+        path, policy = self.development_policy()
+        predecessor = policy['development_mode']['predecessor']
+        self.assertEqual(predecessor['sessions'], 29)
+        self.assertEqual(predecessor['consecutive_failures'], 3)
+        self.assertTrue(predecessor['blocked'])
+        self.assertNotEqual(policy['owner_approval_ref'], predecessor['approval_ref'])
+        state = self.root / 'development-authorization'
+        old_bytes = (state/'audit.jsonl').read_bytes()
+        old_ledger_path = state / f"dev-scope-{predecessor['scope_id']}.json"
+        old_ledger_bytes = old_ledger_path.read_bytes()
+        with hil_auth.session('observe', path, state, _development=True): pass
+        self.assertTrue((state/'audit.jsonl').read_bytes().startswith(old_bytes))
+        self.assertEqual(old_ledger_path.read_bytes(), old_ledger_bytes)
+        self.assertEqual(hil_auth.development_status(path)['sessions'], 1)
+        self.assertEqual(policy['development_mode']['predecessor']['sessions'], 29)
 
     def test_dev_failures_are_preserved_and_bounded_without_one_use_latch(self):
         path, _p = self.development_policy()
@@ -190,6 +373,10 @@ class StandingAuthorizationTest(unittest.TestCase):
         self.assertEqual(history['failure_class'], 'UNKNOWN_UNHANDLED')
 
         policy['owner_approval_ref'] = 'separate-unit-test-consent-after-latch'
+        policy['development_mode']['authorization_ref'] = policy['owner_approval_ref']
+        policy['development_mode']['activation_id'] = 'unit-test-successor-0001'
+        successor_audit = self.root / 'successor-development-authorization' / 'audit.jsonl'
+        self.write_mode_activation(policy, successor_audit)
         successor = self.root / 'new-dev-scope.json'
         successor.write_text(json.dumps(policy)); successor.chmod(0o600)
         with hil_auth.session('observe', successor, state, _development=True): pass
@@ -207,6 +394,7 @@ class StandingAuthorizationTest(unittest.TestCase):
         self.assertEqual(history['functional_outcome'], 'FAIL')
         self.assertEqual(history['consecutive_failures'], 0)
         self.assertFalse(history['blocked'])
+        self.assertEqual(hil_auth.development_status(path)['status'], 'ACTIVE')
         with hil_auth.session('tc001_campaign', path, state, _development=True): pass
 
     def test_campaign_functional_failure_keeps_session_reusable(self):
@@ -348,6 +536,10 @@ class StandingAuthorizationTest(unittest.TestCase):
         self.assertEqual(json.loads(prior_stable.read_text())['sessions'], 1)
 
         policy['owner_approval_ref'] = 'separate-unit-test-consent'
+        policy['development_mode']['authorization_ref'] = policy['owner_approval_ref']
+        policy['development_mode']['activation_id'] = 'unit-test-scope-successor-0001'
+        successor_audit = self.root / 'successor-development-authorization' / 'audit.jsonl'
+        self.write_mode_activation(policy, successor_audit)
         new_path = self.root / 'new-dev-policy.json'
         new_path.write_text(json.dumps(policy)); new_path.chmod(0o600)
         with hil_auth.session('observe', new_path, state, _development=True) as (_p, ledger):

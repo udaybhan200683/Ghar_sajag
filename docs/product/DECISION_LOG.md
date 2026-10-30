@@ -1632,3 +1632,23 @@ unqualified until a consistent PNG/XML check. No security, event identity,
 durability, optical-PIR or release requirement was relaxed. See the latest GS117
 EXECUTION.md handoff for verified results and owner-quota pause. CONTEXT_VERSION
 is unchanged; no new product requirement or architecture authority is introduced.
+
+### 2026-10-30 GS117 persistent TEST_ONLY Development Mode — owner-directed execution policy
+
+GS-117 comment 11852 and the direct owner instruction for this task establish a
+persistent, revocable default-permitted Development Mode for the exact isolated
+GS117 TEST_ONLY C3/S3/Home/backend fixture. GS-116 comment 11853 and GS-130
+comment 11854 retain their separate validation and physical-qualification
+boundaries. Implementation reuses the existing owner-only GS-117 authorization
+manifest, session lock, append-only audit and controller; it creates no parallel
+approval system. Normal functional FAIL/BLOCKED results stop that campaign and
+remain auditable without disabling the mode. Identity, authentication,
+authorization, trust and unexpected-operation faults remain fail-closed; the
+release/production qualification environment blocks Development Mode, and the
+owner can explicitly revoke it. The former owner scope remains at 29 sessions,
+three consecutive failures and `blocked=true`, byte-preserved and linked by a
+separate activation transition. This does not alter product behavior, R1 scope,
+commercial security requirements, physical acceptance, or GS-173 release gates.
+No new LOCKED product decision is introduced; `CONTEXT_VERSION` is unchanged.
+See the dated GS-117 execution record and `R1_WORK_STATE.md` for source, tests,
+activation state and remaining physical acceptance.

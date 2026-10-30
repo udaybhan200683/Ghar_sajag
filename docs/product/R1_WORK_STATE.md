@@ -1,3 +1,25 @@
+## GS-117 — Persistent TEST_ONLY development mode and physical E2E — 2026-10-30
+
+OWNING_JIRA=GS-117; RELATED_JIRA=GS-116, GS-130, GS-179, GS-173
+BUG_CLASSIFICATION=TEST_INFRA_ONLY
+REQUIREMENT_SOURCE=GS-117 owner policy comment 11852 and current direct owner instruction; GS-116 comment 11853; GS-130 comment 11854
+DECISION_IDS=NONE; commercial and release acceptance remain unchanged
+TASK_SCOPE=Reuse the existing GS-117 authorization module to establish persistent, revocable default-permitted operations on the exact known GS117_DEV_TEST_ONLY fixture; preserve the prior 29-session/3-failure latch; run focused negative regressions and proceed to the existing campaign only when live technical gates pass.
+OUT_OF_SCOPE=Production security activation, unknown/non-test devices, customer data, permanent eFuse/security changes, credential/ownership/enrollment bypass, unauthenticated device/backend paths, optical PIR qualification, and commercial release acceptance.
+
+Existing functionality → actual gap → minimum change:
+
+- Existing: `gs117_hil_authorization.py` owns the private policy, exact fixture identity, reviewed procedure pins, append-only ledger, bounded campaigns, and functional-versus-safety outcomes. Gap: the DEV policy is finite, its current source pins are stale, it has no explicit persistent-mode state, and a new consent reference must be traceably separated from the preserved old latch. Minimum change: add a fail-closed persistent mode contract and activation/revocation audit transition in that module, with no parallel service or ledger.
+- Existing: the GS-117 controller runs the C3 HIL campaign and consumes `development_session('tc001_campaign')`; exact fixture, current device, ingress, API, and Android guards are already present. Gap: it cannot proceed until the persistent DEV policy validates. Minimum change: keep the existing controller path and update only its source pin after commit/review if required.
+- Existing: the TEST_ONLY fixture and firmware receipts are preserved privately. Gap: current Android/device readiness is not yet rechecked in this task. Minimum change: run read-only live preflight after mode activation; never infer readiness from old receipts.
+- Existing evidence: the prior owner-scoped audit contains 29 sessions, 3 consecutive failures, `blocked=true`; the prior manifest and all historical ledgers remain intact. The new mode must have a distinct direct-owner reference and activation event that links this predecessor snapshot; no hash rotation or counter reset may clear the old latch.
+
+Validation after the latest source edit: `python3 -m py_compile code/tools/local/gs117_hil_authorization.py code/tools/local/gs117_tc001_console.py code/tests/python/test_gs117_tc001_console.py` PASS; `python3 code/tests/python/test_gs117_tc001_console.py` **124/124 PASS**; `make -C code validation-framework-test` **55/55 PASS**; `make -C code feature-coverage-test` PASS (232 features / 287 modules / 27 physical cases, 22/22 mapping tests); `git diff --check` PASS. These are Python tooling/policy tests; no target build is implicated. The prior `validation-tooling` failures recorded below remain unrelated and are not represented as passing.
+
+Current execution status: source changes are implemented and focused validation passes; a current owner-only Development Mode activation event has not yet been written. No hardware/ADB action or fresh campaign has yet been performed in this task. Physical campaign remains formally 0/5 until a new run passes every C3/S3/backend/API/actual-APK stage. The 126/1 supplemental success and the 123/1 long-delay concern remain historical, unchanged evidence.
+
+Next exact action: review and commit this tested policy/transition change, then create a byte-preserved backup and owner-audited activation record for the direct owner instruction. Preserve the old manifest and append-only predecessor ledger. Only after the activated policy validates should live readiness and the existing web campaign be attempted; the web campaign remains blocked on its existing fixture/ADB/target gates until live evidence says otherwise.
+
 ## GS-117 — Separate DEV functional outcomes from authorization-safety failures — 2026-10-30
 
 OWNING_JIRA=GS-117; RELATED_JIRA=GS-179, GS-116, GS-130, GS-173

@@ -2009,6 +2009,11 @@ def standing_readiness(development=False):
 
 
 if __name__ == "__main__":
+    if "--dev-policy-status" in sys.argv:
+        import gs117_hil_authorization as auth
+        result = auth.development_status()
+        print(json.dumps(result))
+        raise SystemExit(0 if result["status"] == "ACTIVE" else 2)
     if "--hil-policy-status" in sys.argv:
         import gs117_hil_authorization as auth
         result = auth.status()
