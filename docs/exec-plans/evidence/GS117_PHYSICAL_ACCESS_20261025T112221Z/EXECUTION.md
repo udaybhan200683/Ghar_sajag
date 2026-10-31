@@ -5391,3 +5391,5 @@ build-only, TC-001 remains 0/5, EventKey 123/1's approximately 6h53m delay is
 unresolved, and historical EventKey 126/1 remains supplemental evidence only.
 The 5-hour work budget was not approached; unrelated untracked files and
 historical ledgers remain preserved.
+Jira comments 11874 (GS-179), 11875 (GS-177) and 11876 (GS-117) were posted and
+read back; all three issues remain In Progress.

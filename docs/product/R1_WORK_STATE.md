@@ -10493,3 +10493,6 @@ Event 123/1 latency remains unresolved and 126/1 remains historical evidence.
 At this checkpoint, branch `feature/r1-commercial-baseline` is at
 `c19acab86d181296d0b8f951d9c5a912ede7e6ed`, matching `origin`; all existing
 untracked files, evidence and authorization ledgers are preserved.
+Jira comments 11874 (GS-179), 11875 (GS-177) and 11876 (GS-117) were posted and
+read back; all three issues remain In Progress. The documentation closeout is
+being committed separately from the existing source/build checkpoint.
