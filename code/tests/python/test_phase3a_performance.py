@@ -17,6 +17,7 @@ class Phase3APerformanceTest(unittest.TestCase):
         self.assertEqual(result["correctness_gate"]["status"], "PASS", result["correctness_gate"]["failures"])
         self.assertEqual(result["static"]["profile"], "connected-caregiver-startup")
         self.assertIn("tools/sim/pwa/caregiver.css", result["static"]["files"])
+        self.assertIn("tools/sim/pwa/password_visibility.mjs", result["static"]["files"])
         self.assertNotIn("tools/sim/pwa/app.js", result["static"]["files"])
         self.assertEqual(result["startup"]["reports_requested_initially"], 0)
         self.assertEqual(result["startup"]["full_state_requested_initially"], 0)

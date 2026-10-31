@@ -5,6 +5,46 @@ import {dirname,resolve} from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {normalizeRuntimeConfig,parseCaregiverBackendOrigin,requestHeaders,requestUrl} from '../../tools/sim/pwa/runtime_mode.mjs';
+import {bindPasswordVisibility} from '../../tools/sim/pwa/password_visibility.mjs';
+
+test('GS177 caregiver password visibility toggles accessibly without changing value or selection', () => {
+  class PasswordInput {
+    constructor() {
+      this._type='password';this.value='private-development-secret';
+      this.selectionStart=4;this.selectionEnd=14;this.selectionDirection='forward';
+    }
+    get type(){return this._type;}
+    set type(value){this._type=value;this.selectionStart=this.selectionEnd=this.value.length;}
+    setSelectionRange(start,end,direction){this.selectionStart=start;this.selectionEnd=end;this.selectionDirection=direction;}
+  }
+  class ToggleButton {
+    constructor(){this.attributes={};this.listeners={};this.textContent='';}
+    addEventListener(name,listener){this.listeners[name]=listener;}
+    setAttribute(name,value){this.attributes[name]=value;}
+    click(){this.listeners.click();}
+  }
+  const input=new PasswordInput(),button=new ToggleButton();
+  const reset=bindPasswordVisibility(input,button);
+  assert.equal(input.type,'password');
+  assert.equal(button.textContent,'Show');
+  assert.equal(button.attributes['aria-label'],'Show password');
+  assert.equal(button.attributes['aria-pressed'],'false');
+  button.click();
+  assert.equal(input.type,'text');
+  assert.equal(input.value,'private-development-secret');
+  assert.deepEqual([input.selectionStart,input.selectionEnd,input.selectionDirection],[4,14,'forward']);
+  assert.equal(button.textContent,'Hide');
+  assert.equal(button.attributes['aria-label'],'Hide password');
+  assert.equal(button.attributes['aria-pressed'],'true');
+  button.click();
+  assert.equal(input.type,'password');
+  assert.equal(input.value,'private-development-secret');
+  assert.deepEqual([input.selectionStart,input.selectionEnd,input.selectionDirection],[4,14,'forward']);
+  button.click();
+  reset();
+  assert.equal(input.type,'password','authentication failure resets a visible value to hidden');
+  assert.equal(button.attributes['aria-pressed'],'false');
+});
 
 test('caregiver mode accepts only a public HTTPS origin and enables authenticated API transport', () => {
   const runtime=normalizeRuntimeConfig({mode:'caregiver',backendOrigin:'https://care.gharsajag.in/',caregiverApiConfigured:true},'https://care.gharsajag.in');
@@ -133,6 +173,10 @@ test('GS-177 connected caregiver UI restores Home safely and keeps the approved 
   assert.match(script,/form\.addEventListener\('focusin',markCredentialEntry/);
   assert.match(script,/form\.addEventListener\('input',markCredentialEntry/);
   assert.match(script,/profile=verifiedProfile;view=null;tab='home'/);
+  assert.match(script,/bindPasswordVisibility\(/);
+  assert.match(script,/resetPasswordVisibility\(\)/);
+  assert.match(script,/<button type="button" data-password-visibility aria-controls="loginPassword" aria-label="Show password" aria-pressed="false">Show<\/button>/);
+  assert.match(script,/querySelector\('button\[type="submit"\]'\)/);
   assert.match(script,/const verifiedProfile=await api\('me'\)/);
   assert.match(script,/Current authorized Home data is unavailable/);
   assert.match(script,/function renderHome\(\)/);

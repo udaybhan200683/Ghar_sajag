@@ -1,4 +1,5 @@
 import {normalizeRuntimeConfig,requestUrl} from './runtime_mode.mjs';
+import {bindPasswordVisibility} from './password_visibility.mjs';
 
 const runtime=normalizeRuntimeConfig(window.PARIVAR_SAATHI_RUNTIME,window.location.origin);
 document.body.classList.add('connected-lite-runtime');
@@ -62,7 +63,7 @@ function loginScreen(message=''){
   $('.bottom-nav').hidden=true;
   $('.bottom-nav').replaceChildren();
   const reconnect=runtime.localBackendReconnect?'<p><a class="local-backend-reconnect" href="gharsajag://backend/reconnect">Reconnect to laptop server</a></p>':'';
-  panel(`<div class="card connected-auth"><h1>Sign in</h1><p>Use your caregiver account to open its authorized Home.</p><p id="loginError" class="status-bad" role="alert" aria-live="polite">${esc(message)}</p><form id="loginForm"><label>Email<input name="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><button type="submit">Log in</button></form>${reconnect}<p class="muted">Monitoring status remains unknown until the server verifies your session and current Home access.</p></div>`);
+  panel(`<div class="card connected-auth"><h1>Sign in</h1><p>Use your caregiver account to open its authorized Home.</p><p id="loginError" class="status-bad" role="alert" aria-live="polite">${esc(message)}</p><form id="loginForm"><label>Email<input name="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" required></label><label>Password<input id="loginPassword" name="password" type="password" autocomplete="current-password" required></label><button type="button" data-password-visibility aria-controls="loginPassword" aria-label="Show password" aria-pressed="false">Show</button><button type="submit">Log in</button></form>${reconnect}<p class="muted">Monitoring status remains unknown until the server verifies your session and current Home access.</p></div>`);
   document.querySelector('.local-backend-reconnect')?.addEventListener('click',event=>{event.preventDefault();window.location.href='gharsajag://backend/reconnect'});
   const form=$('#loginForm');
   const markCredentialEntry=()=>{
@@ -75,6 +76,8 @@ function loginScreen(message=''){
   };
   form.addEventListener('focusin',markCredentialEntry,{once:true});
   form.addEventListener('input',markCredentialEntry,{once:true});
+  const resetPasswordVisibility=bindPasswordVisibility(
+    form.elements.namedItem('password'),form.querySelector('[data-password-visibility]'));
   if(!startupLoginMetricRecorded){
     performance.mark('gs177-login-form-visible');
     performance.measure('gs177-login-form-visible','gs177-connected-ui-start','gs177-login-form-visible');
@@ -89,7 +92,7 @@ function loginScreen(message=''){
     markCredentialEntry();
     loginPending=true;
     const data=new FormData(event.target);
-    const button=event.target.querySelector('button');button.disabled=true;
+    const button=event.target.querySelector('button[type="submit"]');button.disabled=true;
     const error=$('#loginError');
     error.textContent='';
     try{
@@ -104,6 +107,7 @@ function loginScreen(message=''){
       await refresh({verifiedProfile});
     }catch(failure){
       loginPending=false;
+      resetPasswordVisibility();
       if($('#loginForm')){
         button.disabled=false;
         error.textContent=`Login failed: ${failure.message}`;

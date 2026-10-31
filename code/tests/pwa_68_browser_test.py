@@ -98,6 +98,8 @@ class Pwa68BrowserTest(unittest.TestCase):
     self.assertIn('no approved HTTPS backend',dom['banner'])
     self.assertIn('Monitoring status remains unknown until the server verifies your session and current Home access.',dom['home'])
     self.assertFalse(dom['pilot'])
+    visibility=cdp(ws,'Runtime.evaluate',{'expression':"(()=>{const input=document.querySelector('#loginPassword'),button=document.querySelector('[data-password-visibility]');if(!input||!button)return null;input.value='test-entry-42';input.focus();input.setSelectionRange(2,7);const before={type:input.type,label:button.getAttribute('aria-label'),pressed:button.getAttribute('aria-pressed')};button.click();const shown={type:input.type,label:button.getAttribute('aria-label'),pressed:button.getAttribute('aria-pressed'),value:input.value,start:input.selectionStart,end:input.selectionEnd};button.click();const hidden={type:input.type,label:button.getAttribute('aria-label'),pressed:button.getAttribute('aria-pressed'),value:input.value,start:input.selectionStart,end:input.selectionEnd};return {before,shown,hidden}})()",'returnByValue':True})['result']['value']
+    self.assertEqual(visibility,{'before':{'type':'password','label':'Show password','pressed':'false'},'shown':{'type':'text','label':'Hide password','pressed':'true','value':'test-entry-42','start':2,'end':7},'hidden':{'type':'password','label':'Show password','pressed':'false','value':'test-entry-42','start':2,'end':7}},'password visibility must preserve entry and selection while keeping the field hidden by default')
     branding=cdp(ws,'Runtime.evaluate',{'expression':"(()=>{const name=document.querySelector('.brand-name');const icon=document.querySelector('.brand-icon');return {name:name?.textContent?.trim(),icon:icon?.getAttribute('src'),loaded:!!icon?.complete&&icon.naturalWidth===192}})()",'returnByValue':True})['result']['value']
     self.assertEqual(branding,{'name':'Parivar Saathi','icon':'assets/parivar-saathi-icon-192.png','loaded':True},'PWA branding must use the approved logo mark and name')
     forbidden=cdp(ws,'Runtime.evaluate',{'expression':"/simulation-owner|simulation-home|All is well at home|Home looks normal/.test(document.body.innerText)",'returnByValue':True})['result']['value']
@@ -111,7 +113,7 @@ class Pwa68BrowserTest(unittest.TestCase):
     self.assertNotIn('/sw.js',app_assets,'caregiver runtime must not register or fetch simulator service-worker code')
     nav=cdp(ws,'Runtime.evaluate',{'expression':"document.querySelector('.bottom-nav').hidden",'returnByValue':True})['result']['value']
     self.assertTrue(nav,'caregiver navigation must stay hidden until server authentication')
-    print('PASS caregiver offline browser E2E: login gate, explicit unavailable state, no simulator data or API calls')
+    print('PASS caregiver offline browser E2E: login gate, Show/Hide password, explicit unavailable state, no simulator data or API calls')
    finally: ws.close()
   finally:
    self.web.runtime_config=original

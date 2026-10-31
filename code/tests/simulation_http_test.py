@@ -45,7 +45,7 @@ class HttpTests(unittest.TestCase):
         self.assertGreaterEqual(len(report["cases"]),60); self.assertEqual(report["passed"], report["total"])
 
     def test_web_assets_and_reused_modules(self):
-        for path in ("/","/lab.mjs","/lab.css","/src/features/home/index.mjs","/src/features/incidents/index.mjs","/src/features/routines/index.mjs","/src/platform/logging.mjs"):
+        for path in ("/","/lab.mjs","/lab.css","/connected_lite.mjs","/password_visibility.mjs","/src/features/home/index.mjs","/src/features/incidents/index.mjs","/src/features/routines/index.mjs","/src/platform/logging.mjs"):
             with self.subTest(path=path):
                 status,data=self.request(path,raw=True);self.assertEqual(status,200);self.assertGreater(len(data),100)
 

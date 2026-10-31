@@ -21,6 +21,7 @@ CAREGIVER_STARTUP_FILES = (
     "tools/sim/pwa/index.html",
     "tools/sim/pwa/boot.mjs",
     "tools/sim/pwa/connected_lite.mjs",
+    "tools/sim/pwa/password_visibility.mjs",
     "tools/sim/pwa/runtime_mode.mjs",
     "tools/sim/pwa/caregiver.css",
     "tools/sim/pwa/manifest.webmanifest",

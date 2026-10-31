@@ -206,7 +206,7 @@ class ComponentGateTest(unittest.TestCase):
                    if s["id"]=="gs177-caregiver-offline-browser")
         evidence=(
             "test_catalog (__main__.BrowserTest) ... PASS PWA browser E2E: 92/92 rendered PASS\n"
-            "test_offline (__main__.BrowserTest) ... PASS caregiver offline browser E2E: login gate, explicit unavailable state, no simulator data or API calls\n"
+            "test_offline (__main__.BrowserTest) ... PASS caregiver offline browser E2E: login gate, Show/Hide password, explicit unavailable state, no simulator data or API calls\n"
             "test_connected (__main__.BrowserTest) ... PASS connected Lite browser E2E: prompt login, slow-session cancellation, expired/revoked session gating, Home, four-tab navigation, role-gated simulation/engineering (mock transport)\n"
             "test_authenticated_home (__main__.BrowserTest) ... PASS authenticated GS-148 caregiver browser regression: normal/concern/stale/unknown/offline states, incident lifecycle, source provenance, four text-only tabs, narrow layout, supported settings; no simulator request\n"
             "Ran 4 tests in 1.0s\n\nOK\n")
@@ -404,10 +404,12 @@ class ComponentGateTest(unittest.TestCase):
         self.assertFalse(stage.get("release",False))
         self.assertIn(stage,gate.select(data,"android"))
         self.assertLessEqual({"tools/sim/pwa/boot.mjs","tools/sim/pwa/connected_lite.mjs",
+                              "tools/sim/pwa/password_visibility.mjs",
                               "tools/sim/pwa/caregiver.css"},set(stage["inputs"]))
         runner=(ROOT/"validation/run_gs177_android.py").read_text()
+        self.assertIn('"assets/password_visibility.mjs"',runner)
         self.assertIn('"assets/caregiver.css"',runner)
-        self.assertIn('"connected_lite.mjs", "caregiver.css"',runner)
+        self.assertIn('"connected_lite.mjs", "password_visibility.mjs", "caregiver.css"',runner)
         self.assertIn('source_bound_assets',runner)
         for suite in ("tooling","fast","release"):
             self.assertNotIn(stage,gate.select(data,suite))

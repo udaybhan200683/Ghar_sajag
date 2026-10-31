@@ -5121,3 +5121,97 @@ Authorization remains SAFETY_LATCHED. Generic ValueError classification preserve
 No new tests/builds were needed for this documentation-only investigation. Reused evidence: GS-117 136/136, framework 55/55, paired production-profile target compilation; incomplete Hub/contract results retained. Production-profile S3 artifact 56264ff1… is not a TEST_ONLY deployment candidate. Future diagnostic deployment requires a correctly profiled build of reviewed diagnostic source, exact artifact hash/pins, existing app-only flash/rollback safeguards and explicit successor scope after preserving the latch. One protected S3 runtime restore and one deliberate C3 restart with a 90-second observation should then collect the failing stage and actual authenticated final/rejoin/liveness, plus separate target time/authority proof. No campaign is authorized by this record. TC-001 0/5; historical 126/1 remains supplemental; 123/1 latency unresolved.
 
 Jira comment 11867 posted and read back; GS-117 remains In Progress.
+
+## 2026-10-31 07:44 UTC — caregiver LAN failure and login visibility
+
+Starting source checkpoint was canonical branch `feature/r1-commercial-baseline`
+at `3033ce3576662e97a4a881785b37c9c96a8db3df`; origin matched. Context
+preflight had passed earlier in this resumed session. The current GS-117
+successor remains `SAFETY_LATCHED`; no COM access, reset, bootstrap, firmware
+deployment or motion injection was performed. TC-001 remains 0/5.
+
+The live first network boundary is before TLS/API authentication. Windows shows
+the owner-approved SSID `Yogi`, `192.168.1.6/24`, but classifies it as Public.
+The existing `Ghar Sajag GS-179 Trusted Wi-Fi Reconnect` task is present with
+the existing `Watch` action and elevated RunLevel; its last result is exit 1.
+The existing script explains this result exactly:
+`active_wifi_must_be_owner_trusted_private_or_domain_authenticated`. It checks
+this before changing the scoped firewall or portproxy. Its read-only Audit
+reported the existing `.6:443 → 172.17.152.10:8444` and `.6:8445 →
+172.17.152.10:8445` mappings and one port-443 listener; firewall-rule details
+were inaccessible to the non-administrator shell. No network or firewall
+state was changed.
+
+The existing laptop service and PostgreSQL passed their own checks:
+`POSTGRES_READY=PASS` with verify-full TLS and durability enabled;
+`CAREGIVER_HTTPS_READY=PASS` with the local CA and DNS SAN verified;
+`LOCAL_BACKEND_READY=PASS`. The WSL-to-laptop-LAN HTTPS probe timed out, so
+`LAN_FORWARDING_READY=FAIL` and `DEVELOPMENT_ENDPOINT_READY=FAIL`. On the
+authorized phone, passive ADB identified `ZA2237MRHN` online, connected to
+`Airtel_Agrim` (`192.168.1.5`) rather than `Yogi`; neighbor resolution for
+`192.168.1.6` had failed in the preceding probe. The foreground was the
+launcher, not Parivar Saathi. We did not launch or interrupt it. Thus the
+owner's `Failed to fetch` is consistent with the current network path, but its
+specific APK request has not been captured and the actual login result is
+**NOT_VERIFIED**. The remaining network work is to restore `Yogi` to its
+approved Private profile through Windows' normal administrator UI, rerun the
+existing scoped watcher, and connect the phone to that same LAN before opening
+the existing APK.
+
+The shared caregiver PWA login now has an accessible Show/Hide password
+control, hidden by default. The existing form's submit button is selected by
+type so toggling visibility cannot submit. Value and selection are preserved;
+the field is hidden after a login failure. No password is logged or persisted.
+The new helper is included in the registered shared-PWA inputs and Android
+asset/source-match checks. The existing `GS177-CONNECTED-LITE-LOGIN-001`
+traceability record was updated. `node --test tests/js/caregiver_runtime.test.mjs`
+passed 12/12; `python3 validation/run_gs177_connected_lite.py` passed 23/23 API
+tests plus three host scenarios; `python3 -m unittest tests.python.test_component_gate`
+passed 55/55; `make -C code feature-coverage-test` passed with 232 features,
+288 modules and 27 physical cases; syntax, suite-registry JSON and `git diff --check` passed. The existing
+browser command was attempted, but its setup skipped all tests because this
+WSL environment has no Chromium/Chrome binary. No Android APK was rebuilt or
+installed, so the new control is not yet verified on the handset.
+
+Authentication review found no supported four-digit TEST_ONLY PIN. The
+existing caregiver account verifier enforces 16–256-character passwords and
+issues the existing scoped, revocable server session; the present lockout
+limits five attempts per email/IP for 15 minutes. A four-digit value would
+need a separately provisioned per-account TEST_ONLY credential and stronger,
+durable guessing controls; there is no current provisioning/auth contract for
+that flow. The production password rule and credentials were not changed and
+no PIN was added.
+
+The earlier S3 failure-stage diagnostics remain source/compile evidence only;
+this session did not deploy them. No correct full TEST_ONLY S3 diagnostic
+artifact was built because the exact paired C3 firmware asset needed by the
+existing product-composition builder was absent from the checked build paths.
+The diagnostic continuation remains blocked offline on that artifact
+prerequisite; the hardware latch independently prohibits deployment. Existing
+ESP-NOW findings and the remaining authorization state are unchanged.
+
+Jira comments 11868 (GS-177), 11869 (GS-179) and 11870 (GS-117) were posted
+and read back. All three issues remain In Progress. Existing unrelated and
+untracked files were preserved.
+
+### 2026-10-31 07:51 UTC — local asset route and payload-budget follow-up
+
+Source review found that the existing `local_lab.py` asset allowlist did not
+serve the newly imported `password_visibility.mjs`. Added that one exact GET
+route and extended the existing HTTP asset check; no broader file-serving rule
+was added. The changed-source route test passed, and the validation component
+registry tests passed 55/55. The startup byte profile now includes the helper
+so its measurement reflects the module graph loaded by Connected Lite.
+
+The focused `Phase3APerformanceTest.test_static_payload_and_collection_budgets`
+was executed and **failed**: `static.total_bytes=120819` exceeds 114688 and
+`static.css_bytes=29576` exceeds 18432. The CSS file itself is unchanged from
+the starting HEAD; the limits were not raised. This is a recorded performance
+gate failure, not a login/network result. Current feature traceability still
+passes 22/22 (232 features, 288 modules, 27 physical cases).
+
+The Windows trusted-network/phone prerequisite is still pending owner action:
+the existing watcher correctly refuses the current Public profile for the
+owner-approved `Yogi` SSID; the phone remains on `Airtel_Agrim`. No Login
+request was captured from the installed APK. GS-117 stays `SAFETY_LATCHED`,
+TC-001 0/5, and no hardware action was taken.

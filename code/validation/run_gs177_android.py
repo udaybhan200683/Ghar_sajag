@@ -225,7 +225,7 @@ def main() -> int:
         return 1
     print("CASE GS177-LAN-NSD-001 SOURCE_PASS", flush=True)
     required_pwa = [
-        "index.html", "app.js", "connected_lite.mjs", "caregiver.css",
+        "index.html", "app.js", "connected_lite.mjs", "password_visibility.mjs", "caregiver.css",
         "runtime_mode.mjs", "styles.css",
         "assets/parivar-saathi-icon-192.png",
         "assets/parivar-saathi-icon-maskable-512.png", "assets/icon.svg",
@@ -437,6 +437,7 @@ def main() -> int:
         "assets/app.js",
         "assets/boot.mjs",
         "assets/connected_lite.mjs",
+        "assets/password_visibility.mjs",
         "assets/caregiver.css",
         "assets/runtime_mode.mjs",
         "assets/styles.css",
@@ -448,7 +449,7 @@ def main() -> int:
         with zipfile.ZipFile(APK) as apk:
             bundled_assets = set(apk.namelist())
             source_bound_assets = (
-                "index.html", "boot.mjs", "connected_lite.mjs", "caregiver.css",
+                "index.html", "boot.mjs", "connected_lite.mjs", "password_visibility.mjs", "caregiver.css",
             )
             stale_or_mismatched = [
                 relative for relative in source_bound_assets

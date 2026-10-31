@@ -1715,7 +1715,9 @@
         "tests/simulation_http_test.py"
       ],
       "inputs": [
-        "tests/simulation_http_test.py"
+        "tests/simulation_http_test.py",
+        "tools/sim/local_lab.py",
+        "tools/sim/pwa/password_visibility.mjs"
       ],
       "success": "(?i)^[^\\n]*(?:PASS|passed|OK)[^\\n]*$",
       "timeout": 600
@@ -2365,6 +2367,7 @@
         "backend/ghar_sajag/diagnostic_authorization.py",
         "tools/sim/pwa/boot.mjs",
         "tools/sim/pwa/connected_lite.mjs",
+        "tools/sim/pwa/password_visibility.mjs",
         "tools/sim/pwa/caregiver.css",
         "tools/sim/pwa/runtime_mode.mjs",
         "tests/js/caregiver_runtime.test.mjs",
@@ -2406,6 +2409,7 @@
         "tools/sim/pwa/app.js",
         "tools/sim/pwa/boot.mjs",
         "tools/sim/pwa/connected_lite.mjs",
+        "tools/sim/pwa/password_visibility.mjs",
         "tools/sim/pwa/caregiver.css",
         "tools/sim/pwa/runtime_mode.mjs",
         "tools/sim/pwa/styles.css",
@@ -2489,6 +2493,7 @@
         "tools/sim/local_lab.py",
         "tools/sim/pwa/boot.mjs",
         "tools/sim/pwa/connected_lite.mjs",
+        "tools/sim/pwa/password_visibility.mjs",
         "tools/sim/pwa/caregiver.css",
         "tools/sim/pwa/index.html",
         "tools/sim/pwa/app.js",
@@ -2502,7 +2507,7 @@
       "success": "Ran (\\d+) tests?",
       "required_success": [
         "^.*PASS PWA browser E2E: \\d+/\\d+ rendered PASS$",
-        "^.*PASS caregiver offline browser E2E: login gate, explicit unavailable state, no simulator data or API calls$",
+        "^.*PASS caregiver offline browser E2E: login gate, Show/Hide password, explicit unavailable state, no simulator data or API calls$",
         "^.*PASS connected Lite browser E2E: prompt login, slow-session cancellation, expired/revoked session gating, Home, four-tab navigation, role-gated simulation/engineering \\(mock transport\\)$",
         "^.*PASS authenticated GS-148 caregiver browser regression: normal/concern/stale/unknown/offline states, incident lifecycle, source provenance, four text-only tabs, narrow layout, supported settings; no simulator request$"
       ],
@@ -2576,6 +2581,7 @@
         "firmware/hub/cloud_sync/http_backend_transport.cpp",
         "firmware/hub/cloud_sync/http_backend_transport.hpp",
         "tools/sim/pwa/connected_lite.mjs",
+        "tools/sim/pwa/password_visibility.mjs",
         "firmware/hub/target/esp32s3/cloud_trust_provider.cpp",
         "firmware/hub/target/esp32s3/gs40_test_only_bootstrap.cpp",
         "firmware/hub/target/esp32s3/gs40_test_only_bootstrap.hpp",
@@ -2709,7 +2715,8 @@
         "backend/migrations/013_hub_rule_decisions.sql",
         "backend/migrations/015_effective_event_timeline_index.sql",
         "backend/ghar_sajag/queries.py",
-        "tools/sim/pwa/connected_lite.mjs"
+        "tools/sim/pwa/connected_lite.mjs",
+        "tools/sim/pwa/password_visibility.mjs"
       ],
       "success": "^GS179 POSTGRES E2E PASS tests=(\\d+) physical=NOT_RUN$",
       "required_success": [

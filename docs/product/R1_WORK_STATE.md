@@ -10332,3 +10332,60 @@ protected bootstrap/C3 rejoin to restore and verify RAM-only configuration;
 only after that fixture passes may the remaining conditional five-run campaign
 be used. No C3/S3 operation or physical motion event occurred in this turn;
 the Android ADB observation was read-only. GS-117 remains In Progress.
+
+### 2026-10-31 07:44 UTC — GS-177 caregiver login network and visibility checkpoint
+
+At source checkpoint `3033ce3576662e97a4a881785b37c9c96a8db3df` (branch
+`feature/r1-commercial-baseline`; origin matched before edits), local PostgreSQL
+and caregiver HTTPS pass with verified TLS, while the Windows LAN endpoint
+probe fails. The approved `Yogi` Wi-Fi is categorized Public. The existing
+trusted-network task exits 1 on its intended
+`active_wifi_must_be_owner_trusted_private_or_domain_authenticated` guard
+before network mutation. The phone is ADB-online but on `Airtel_Agrim`, not
+Yogi; no phone Login request was observed. Exact APK `Failed to fetch` cause
+cannot be stated until the phone is on the intended network and the real
+request is captured. No firewall, proxy, account, session or app state changed.
+
+Implemented the shared PWA login Show/Hide control (hidden by default, value
+and selection preserved, accessible labels, re-hidden after login failure),
+registered its asset/dependencies and added unit/browser assertions. Node
+focused tests passed 12/12, GS-177 connected-lite API passed 23/23 plus three
+host scenarios, component-gate tests passed 55/55, and feature traceability passed 22/22
+(232 features / 288 modules / 27 physical cases). The browser command was attempted but ran zero tests because Chromium/Chrome is absent;
+actual Android UI/login remains NOT_VERIFIED and the APK was not installed or
+updated. No four-digit PIN was added: the existing account verifier requires
+16–256-character passwords and its bounded email/IP lockout is not a suitable
+4-digit PIN defense; no per-account TEST_ONLY PIN provisioning contract exists.
+No production auth policy or credentials changed.
+
+GS-117 remains 0/5 and hardware `SAFETY_LATCHED`. S3 challenge diagnostics were
+not deployed; no correct full TEST_ONLY diagnostic image was built because the
+exact paired C3 asset needed by the existing builder was absent from checked
+build paths. Historical session 127/129, EventKey 123/1 latency, EventKey
+126/1 and physical acceptance statuses are unchanged. Exact evidence is in
+[`GS-117 execution handoff`](../exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md).
+
+**Next:** restore the owner-approved Yogi network to the existing required
+Private profile through Windows' normal administrator UI, then run the
+existing scoped recovery and observe a real Login from the attached phone on
+that LAN. Continue offline preparation while awaiting that network change.
+
+### 2026-10-31 07:51 UTC — asset-route and performance-budget result
+
+Added the missing exact `/password_visibility.mjs` route to the existing local
+lab allowlist and covered it in the HTTP asset test. The focused route test
+passed; component-registry tests passed 55/55. The PWA startup-size profile
+now counts the imported visibility helper. Its focused budget test failed at
+`static.total_bytes=120819` (limit 114688) and `static.css_bytes=29576` (limit
+18432). CSS was unchanged by this task and budget values were not relaxed; the
+profile failure remains visible. Feature traceability passed 22/22 with 232
+features, 288 modules and 27 physical cases.
+
+No actual installed-APK Login request/result is available yet. The laptop
+HTTPS/PostgreSQL checks pass locally, but the Windows trusted-network watcher
+is stopped by the current Public classification of approved SSID `Yogi`, and
+the attached phone is on `Airtel_Agrim`. No firewall/profile mutation was
+performed. GS-117 remains safety-latched and TC-001 remains 0/5; no hardware
+was accessed. Detailed network and Show/Hide evidence remains in the linked
+GS-117 execution record. Jira comments 11868 (GS-177), 11869 (GS-179) and
+11870 (GS-117) were posted and read back; all three remain In Progress.
