@@ -5528,3 +5528,29 @@ the owner to prepare the sign-in form and enter test credentials directly on
 the phone; no credentials should be shared in chat.
 Jira comments 11880 (GS-177), 11881 (GS-179), and 11882 (GS-117) were posted
 and read back; the issues remain In Progress.
+
+### 2026-10-31 09:44 UTC — installed Android Show/Hide observation
+
+The owner left the authorized phone `ZA2237MRHN` on Sign in. The existing
+Windows ADB executable reported the device authorized and the installed
+`in.gharsajag.caregiver.discoverytest` package at versionCode 3. The password
+field was empty and masked by default. Using only non-secret test text, the
+installed APK changed Show → Hide when revealing the field and Hide → Show
+when remasking it; the same test value remained present, the keyboard stayed
+visible, and the test text was cleared without submitting Login. No credentials
+or tokens were captured. The sanitized result is retained privately at
+`~/.local/state/ghar-sajag/gs177-android-login/20261031T094458Z/show-hide-observation.json`
+(SHA-256 `0b071cf8a2ec6b633da59c1113e87154cecd62c1fb08faf2955b306fbe8a11e3`).
+
+Focus continuation is not a full PASS: Android accessibility reported the
+WebView password node unfocused after the visibility toggle, and a separate
+non-secret ADB-injected suffix was not observed in that field without tapping
+it again. The keyboard remained shown. This leaves physical caret/focus
+continuity inconclusive; the user's password was never entered or inspected.
+The form is clear and remains on Sign in. Fresh HTTPS password Login, server
+session issuance and the post-login Home/API check are still NOT_VERIFIED; no
+login request was submitted or observed. Previously verified authenticated
+Home/API access remains historical evidence. No network recovery, APK
+installation, source change or hardware operation occurred. GS-117 remains
+SAFETY_LATCHED and TC-001 remains 0/5; its diagnostic image is still
+build-only.

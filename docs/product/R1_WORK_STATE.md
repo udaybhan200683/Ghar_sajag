@@ -10572,3 +10572,26 @@ PASS; starting local/remote HEAD was
 historical authorization ledgers remain untouched. Jira status remains
 In Progress for GS-117/GS-177/GS-179. Comments 11880 (GS-177), 11881 (GS-179),
 and 11882 (GS-117) were posted and read back.
+
+### 2026-10-31 09:44 UTC — physical Android Show/Hide check
+
+The owner opened Sign in on authorized Android `ZA2237MRHN`. In installed
+Parivar Saathi versionCode 3, the initially empty password field was masked;
+non-secret test input was revealed by Show, remasked by Hide, retained across
+both toggles and cleared without submitting. The keyboard remained visible.
+Private sanitized evidence:
+`~/.local/state/ghar-sajag/gs177-android-login/20261031T094458Z/show-hide-observation.json`
+(SHA-256 `0b071cf8a2ec6b633da59c1113e87154cecd62c1fb08faf2955b306fbe8a11e3`).
+
+Physical focus continuity is inconclusive: the Android accessibility node
+reported unfocused after toggling, and an ADB-injected continuation character
+was not observed without tapping the field again, although the keyboard stayed
+visible. No actual credentials/tokens were read or submitted. Fresh password
+Login, session issuance and post-login Home/API checks remain NOT_VERIFIED;
+the prior authenticated Home/API PASS is reused as historical evidence. No APK
+reinstall/network recovery/source change was needed. The TEST_ONLY four-digit
+PIN remains proposal-only pending an approved per-account provisioning,
+durable anti-guessing, and recovery contract; the existing password policy is
+unchanged. GS-117 remains SAFETY_LATCHED at TC-001 0/5, with the S3 diagnostic
+image build-only. Jira remains In Progress; only GS-177 is updated for this
+new device observation.
