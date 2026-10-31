@@ -9986,3 +9986,50 @@ fixture/readiness gate and, only if it passes, start the already existing
 bounded five-run campaign under active DEV Mode. No separate routine campaign
 consent is needed while Development Mode is active; real security, fixture,
 authentication and event-stage guards remain mandatory.
+
+### 2026-10-31 02:28 UTC — latest GS-117 readiness disposition
+
+The previous handoff's `ACTIVE` Development Mode state is superseded by one
+authorized readiness session on 31 October. It stopped at
+`standing_readiness_authenticated_liveness_not_verified`; current DEV status is
+`SAFETY_LATCHED` (2 sessions, 1 consecutive safety failure, blocked=true).
+Historical predecessor scope remains 29 sessions / 3 failures / blocked and
+was not changed. No motion input or TC-001 run occurred; formal campaign stays
+**0/5 NOT_RUN**.
+
+The phone is now online and unlocked. The installed Parivar Saathi APK was
+observed against Home `gs177-test-product`, origin `https://192.168.1.6/` and
+backend CONNECTED; its fresh owner-only receipt records installed APK bytes
+matching the trusted artifact. The signer digest was corroborated, but formal
+`apksigner verify` was not run. Historical EventKey 126/1 was seen again and
+does not count as a fresh campaign event.
+
+The single protected S3 bootstrap reported 16 MiB flash, 8 MiB PSRAM and TLS
+pair validation `valid=1`. Target authority/config startup logs establish
+trusted time and a current authority lease by control flow: the target reached
+the `current_binding()` branch, whose implementation requires an unexpired
+lease and trusted time from the same boot generation. This is not a separate
+serialized target receipt. The exact household-config rejection remains
+unresolved because target evidence did not capture a fetch status/body. C3
+GET_STATE liveness advanced `4,432,374→4,436,416` in session 126, but no fresh
+authenticated rejoin line was captured. Source shows that a running C3 does
+not immediately rejoin solely because S3 rebooted: its idle-contact recovery
+timeout is 430 seconds when negotiated, and the observation was about 81
+seconds; the existing HIL reassociation request is only consumed before the
+security link becomes ready. This absence is not proof of a C3 security defect.
+
+The existing fixture remains blocked at
+`c3_current_installed_image_provenance_missing`. No current installed-image
+receipt was fabricated. Bounded 8445 and 4468 readiness services were stopped
+and their listeners verified absent; backend/PostgreSQL and the loopback GS-117
+console remain available. Source was unchanged, so prior focused tests were
+reused; only documentation diff validation is applicable. Evidence and exact
+source analysis are in the GS-117 execution handoff section dated
+2026-10-31 02:28 UTC.
+
+**Next:** preserve the safety latch and failure evidence. Use the existing
+audited review/disposition path before any new hardware session; then review
+the minimal readiness sequencing change and config-rejection evidence gap.
+Re-evaluate the current-image fixture and campaign gates before injecting.
+Event 123/1's ~6h53m delay remains unresolved; real PIR and release acceptance
+remain separate.
