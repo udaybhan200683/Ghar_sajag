@@ -68,6 +68,17 @@ session remaining and zero current safety failures. The predecessor's
 29-session/3-failure latch remains preserved. The exact fixture still fails
 closed at `c3_installed_image_receipt_stale`; the campaign slot was not used.
 
+##### 2026-10-31 04:43 UTC — preserve integrity-failure precedence
+
+Review tightened the check order: receipt identity/image/partition/capacity
+integrity is evaluated before age classification. A stale receipt with a wrong
+image digest therefore remains a provenance mismatch; only a matching receipt
+with an old observation is labeled stale. The regression now explicitly covers
+that combined case. The focused suite remains **135/135 PASS**. This follow-up
+controller edit temporarily makes the reviewed source pin stale again; it will
+be recorded by the same audited source-update path after this commit. No
+hardware was accessed and the campaign slot remains unused.
+
 ## GS-117 — Persistent TEST_ONLY development mode and physical E2E — 2026-10-30
 
 OWNING_JIRA=GS-117; RELATED_JIRA=GS-116, GS-130, GS-179, GS-173

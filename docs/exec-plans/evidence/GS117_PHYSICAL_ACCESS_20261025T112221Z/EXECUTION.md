@@ -4892,3 +4892,15 @@ new safety failure; the 29-session/3-failure predecessor latch is unchanged.
 `exact_fixture()` still fails closed with
 `c3_installed_image_receipt_stale`. No session was consumed and no hardware
 operation occurred.
+
+### 2026-10-31 04:43 UTC — preserve integrity-failure precedence
+
+The check now evaluates image/device/partition/capacity agreement before
+receipt age. A stale receipt whose image digest is wrong still reports the
+integrity/provenance failure; `*_installed_image_receipt_stale` is emitted only
+when the recorded image and board identity fields otherwise match. The focused
+regression explicitly tests this combined stale-plus-wrong-digest case. The
+GS-117 suite passed again at **135/135** and `git diff --check` passed. The
+controller fingerprint requires one more record through the existing audited
+source-update path after this committed correction; no authorization scope or
+session count will be changed. No board access or campaign activity occurred.

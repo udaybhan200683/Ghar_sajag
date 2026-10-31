@@ -1883,6 +1883,11 @@ class TC001Test(unittest.TestCase):
                 s3_receipt = json.loads(s3_receipt_path.read_text())
 
                 c3_receipt["observed_at"] = (datetime.now(timezone.utc) - timedelta(hours=25)).isoformat()
+                c3_receipt["running_image_sha256"] = "f" * 64
+                c3_receipt_path.write_text(json.dumps(c3_receipt))
+                with self.assertRaisesRegex(ValueError, "c3_current_installed_image_provenance_missing"):
+                    tc.exact_fixture()
+                c3_receipt["running_image_sha256"] = fixture["c3"]["image_sha256"]
                 c3_receipt_path.write_text(json.dumps(c3_receipt))
                 with self.assertRaisesRegex(ValueError, "c3_installed_image_receipt_stale"):
                     tc.exact_fixture()

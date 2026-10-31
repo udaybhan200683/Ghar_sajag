@@ -158,10 +158,6 @@ def exact_fixture() -> dict:
         if observed_at.tzinfo is None:
             raise ValueError(name + "_running_image_observation_time_invalid")
         age = (datetime.now(timezone.utc) - observed_at).total_seconds()
-        if age < 0:
-            raise ValueError(name + "_running_image_observation_time_invalid")
-        if age > IMAGE_RECEIPT_MAX_AGE_SECONDS:
-            raise ValueError(name + "_installed_image_receipt_stale")
         if (installed.get("running_image_sha256") != expected or
                 installed.get("target") != ("ESP32-C3" if name == "c3" else "ESP32-S3") or
                 installed.get("usb_hwid") != board["usb_hwid"] or
@@ -176,6 +172,10 @@ def exact_fixture() -> dict:
                 (name == "s3" and (not isinstance(installed.get("psram_size_bytes"), int) or
                                     installed["psram_size_bytes"] != 8 * 1024 * 1024))):
             raise ValueError(name + "_current_installed_image_provenance_missing")
+        if age < 0:
+            raise ValueError(name + "_running_image_observation_time_invalid")
+        if age > IMAGE_RECEIPT_MAX_AGE_SECONDS:
+            raise ValueError(name + "_installed_image_receipt_stale")
     if fixture["c3"]["port"] == fixture["s3"]["port"]:
         raise ValueError("c3_and_s3_ports_must_differ")
     if (fixture["c3"].get("hil_control") is not True or
