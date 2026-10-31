@@ -10410,3 +10410,38 @@ phone to that LAN. No firewall/proxy/network or app data changed. GS-117
 authorization is still safety-latched and TC-001 remains 0/5. CI follow-up
 comments 11871 (GS-177) and 11872 (GS-117) were posted/read back; GS-179
 comment 11869 retains the exact trusted-Wi-Fi guard result.
+
+### 2026-10-31 08:23 UTC — fixture network and TEST_ONLY S3 candidate build
+
+Live read-only checks show Windows Wi-Fi `Yogi|Public` and the authorized
+ADB-online phone `ZA2237MRHN` on `Airtel_Agrim` (`192.168.1.5`). The existing
+trusted-network recovery guard correctly does not mutate a Public network.
+Local HTTPS/PostgreSQL PASS does not establish laptop LAN reachability; the
+installed APK's Login request remains uncaptured and actual login is
+NOT_VERIFIED. Next network prerequisite is restoring the approved Yogi profile
+to Private through Windows' standard administrator UI and joining the phone to
+that network before using the existing scoped recovery.
+
+The paired C3 build asset is present and its SHA-256 matches the previously
+verified image. A correct clean ESP-IDF 6.0.3 S3 TEST_ONLY configuration exposed
+an incomplete existing UART fixture profile: the protected RSA bootstrap
+requires an 8192-byte main-task stack, and the profile needed to explicitly
+select UART0 rather than USB Serial/JTAG. The opt-in
+`sdkconfig.gs40_test_only_uart.defaults` now declares those two existing
+requirements; production defaults and firmware runtime are unchanged. Focused
+profile regression passed 1/1. The full 18-check fixture module is 17/18 due to
+the pre-existing brittle production-builder string assertion recorded in the
+execution handoff.
+
+The final clean TEST_ONLY S3 build passed compile, image generation and size
+checks: app 2,303,136 bytes in the 4 MiB slot (45% free), ESP32-S3/16 MiB,
+UART0, 8 KiB bootstrap stack. App SHA-256:
+`d1e15266b89bfd14ea17d92d3616d2d2bb334d024693ccb0be00232aa23a8d10`; ELF:
+`224fbc4f15c9653da80591c62cbdffb84dfdbfe6d8740dc1dbf540f4d9c59ccb`.
+This is build-only; no hardware was accessed and authorization remains
+SAFETY_LATCHED. Read-only authorization status reports 2 sessions, 1
+consecutive safety failure and 0 reviewed dispositions. GS-117 remains 0/5.
+Earlier valid software/physical evidence is reused as recorded; no broad
+regression suite was rerun. Show/Hide remains
+unverified on the installed APK; the four-digit PIN remains deferred pending a
+secure TEST_ONLY credential contract. Event 123/1 latency remains unresolved.

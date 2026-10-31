@@ -2,6 +2,10 @@
 # authenticated config-envelope control path. This profile is opt-in and
 # replaces the native USB Serial/JTAG console selection.
 CONFIG_ESP_TLS_USE_DS_PERIPHERAL=n
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
 CONFIG_ESP_CONSOLE_UART_NUM=0
 CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=n
 CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED=y
+# The protected GS40 TEST_ONLY RSA-3072 bootstrap has a compile-time 8 KiB
+# main-task stack requirement. Keep this override limited to the fixture profile.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192

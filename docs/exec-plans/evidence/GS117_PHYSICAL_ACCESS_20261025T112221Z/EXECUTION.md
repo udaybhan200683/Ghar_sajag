@@ -5245,3 +5245,85 @@ After this push, local and origin branch HEAD both equal
 previous unrelated untracked files remain preserved. CI follow-up Jira
 comments `11871` (GS-177) and `11872` (GS-117) were posted and read back;
 GS-179 remains In Progress with comment `11869` documenting the network guard.
+
+## 2026-10-31 08:23 UTC — TEST_ONLY S3 UART build prepared; login remains network-blocked
+
+The approved Windows Wi-Fi guard and phone network were rechecked without
+changing either: `Get-NetConnectionProfile` reports `Yogi|Public`; Windows
+port 443 forwarding and WSL HTTPS status remain as in the preceding
+checkpoint. Windows ADB still lists `ZA2237MRHN` as `device`; read-only
+`cmd wifi status` reports `Airtel_Agrim`, `192.168.1.5`. The phone was not
+opened/launched and no APK Login request was captured. The existing watcher
+correctly stops at its trusted-Private/Domain precondition; no firewall, proxy,
+network profile, credentials, account, or app data was changed. Actual APK
+Login is still NOT_VERIFIED.
+
+The previous statement that the paired C3 asset was missing was corrected by
+read-only hash verification: `code/build/gs117_dev_rejoin_20261029/node_firmware.bin`
+is the established C3 image
+(`589dc9f98ef78fed97709e2ffb845b0a0eb6ccf5babfd9cc149743539932acb7`). The
+external public TEST_ONLY configuration root matches tracked candidate
+metadata (`53c5e81b87d1510c0d137d64a2e0b8989e250dcf981c33a34c5783db314e887a`).
+No private key or credential was read.
+
+Build triage:
+
+```text
+BUG_CLASSIFICATION=TEST_INFRA_ONLY
+REQUIREMENT_SOURCE=code/firmware/hub/target/esp32s3/idf/README.md; gs40_test_only_bootstrap.cpp:178-179
+DECISION_IDS=NONE
+TASK_SCOPE=make the existing opt-in CH343/UART TEST_ONLY profile satisfy its UART and RSA-stack build guards
+OUT_OF_SCOPE=production defaults, firmware runtime/protocol/authentication changes, hardware deployment
+```
+
+The first build attempt stopped at the existing static assertion because the
+selected defaults left `CONFIG_ESP_MAIN_TASK_STACK_SIZE=3584` while the
+protected TEST_ONLY RSA-3072 bootstrap requires at least 8192. An intermediate
+build completed but retained USB Serial/JTAG console selection from an existing
+generated sdkconfig; its image
+(`935fcb62218caba2976070be9bf11af08a04980f2422b180a1619948bacd0786`) is not
+the COM10 fixture candidate. The existing UART profile was incomplete: it
+disabled USB Serial/JTAG and chose UART0 but did not select the UART console or
+provide the protected bootstrap stack budget. The minimal correction added
+`CONFIG_ESP_CONSOLE_UART_DEFAULT=y` and the existing 8192-byte requirement to
+that opt-in profile; production defaults are unchanged. The existing focused
+profile test now asserts both values.
+
+A fresh isolated ESP-IDF v6.0.3 TEST_ONLY build then completed `build size`:
+ESP32-S3, 16 MiB flash, UART0/CH343 console, 8192-byte main stack,
+`GS40_TEST_ONLY_CLOUDSYNC=ON`, `GS_HIL_COMMISSIONING=ON`, and remaining HIL
+mutation flags OFF. The app is 2,303,136 bytes, below the 4 MiB app slot (45%
+free). App SHA-256 is
+`d1e15266b89bfd14ea17d92d3616d2d2bb334d024693ccb0be00232aa23a8d10`; ELF
+SHA-256 is `224fbc4f15c9653da80591c62cbdffb84dfdbfe6d8740dc1dbf540f4d9c59ccb`;
+partition-table SHA-256 is
+`bb0066feee7368e621c6f0f0d7bfdf47cbc5bbbf4cfdd9eccab9525ad683f82a`.
+`esptool image-info` identifies an ESP32-S3 DIO/40 MHz, 16 MiB image. The
+image contains the reviewed `peer_add`, `wire_fragment`, `esp_now_submit`,
+`send_callback`, callback-timeout and ESP send-error diagnostic strings. The
+isolated effective sdkconfig SHA-256 is
+`b38500b2075304ed79975b5d2b69933ec02b1b9f98f169e222963603b766dbb8`; the UART
+profile SHA-256 is
+`5c3498feb519cec7370f34f220035a3d2aed05db0437a627d25cd8fafa0bef68`. Build
+output is local/ignored and was not flashed; it proves compilation and image
+format only, not installed-image identity, ESP-NOW behavior or readiness.
+
+Validation: the exact profile regression passed 1/1. The existing
+`make s3-fixture-commissioning-test` module ran 18 checks with 17 PASS and one
+pre-existing false-positive failure in
+`test_s3_option_is_opt_in_and_legacy_broad_hil_stays_rejected`: its assertion
+rejects any `GS_HIL_COMMISSIONING` text although the existing production
+builder explicitly sets it OFF. That unrelated assertion was preserved. The
+first build configuration failure and the USB-console intermediate image are
+not passes; only the final clean UART-profile build passed compile and size
+checks. No full Hub/contract/release suite was run.
+
+Read-only `development_status()` currently reports
+`SAFETY_LATCHED`, enabled, 2 sessions, 1 consecutive safety failure, and 0
+reviewed failure dispositions (`GS-117#11864`). No COM port, bootstrap, reset,
+flash, event injection or physical run occurred. TC-001 is still 0/5. The
+candidate is build-only and not deployment-authorized. The
+4-digit PIN remains unimplemented because no per-account TEST_ONLY credential
+provisioning and durable anti-guessing contract exists; production password
+policy is unchanged. Show/Hide is implemented and CI-packaged but is not yet
+observed in the installed APK. Event 123/1 latency (~6h53m) remains unresolved.
