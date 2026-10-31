@@ -10595,3 +10595,32 @@ durable anti-guessing, and recovery contract; the existing password policy is
 unchanged. GS-117 remains SAFETY_LATCHED at TC-001 0/5, with the S3 diagnostic
 image build-only. Jira remains In Progress; only GS-177 is updated for this
 new device observation.
+
+### 2026-10-31 10:53 UTC — GS-117 approved deployment preflight stopped
+
+Owner approval `GS-117#11884` activated a single bounded S3 diagnostic
+successor. Its first `application_flash` session stopped before invoking the
+reviewed image readback helper because the local wrapper had a mistyped
+expected helper digest. The actual helper SHA-256
+`87fa118c5c345d8544c25f35b45966a6e41e5354fcfe9e1255dff019b620d25b` was then
+verified offline to match the authorization pin exactly. Live Windows USB
+enumeration had matched the approved C3/S3 serials; no COM port was opened and
+no hardware read, reset, bootstrap, flash, OTA-selector write, or event
+injection occurred.
+
+The successor audit recorded one attempted `application_flash` session and
+`AUTHORIZATION_SAFETY`, leaving the successor `SAFETY_LATCHED` (1 session,
+1 failure, 0 reviewed dispositions). The failure is preserved without
+reclassification or clearing. The predecessor ledger and its audit prefix
+remain byte/hash unchanged. The existing reviewed disposition only accepts a
+specific prior bootstrap helper-pin failure, so it does not authorize recovery
+from this wrapper failure. No retry is permitted under the current latch.
+
+The owner-pinned S3 diagnostic artifact remains build-only at the approved
+SHA-256; TC-001 remains 0/5 and no motion was injected. Private evidence is at
+`~/.local/state/ghar-sajag/gs117-tc001/s3-diagnostic-successor-20261031/application-flash-20261031T105352Z/`.
+No product source or tests changed. The single next action is an owner-approved
+audited disposition or a replacement audit-linked successor for the same
+bounded diagnostic, preserving this failed session and all historical ledgers.
+GS-117 Jira comment 11885 records this stop and was read back; the issue
+remains In Progress.

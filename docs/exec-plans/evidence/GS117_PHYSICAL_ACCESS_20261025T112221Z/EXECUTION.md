@@ -5554,3 +5554,45 @@ Home/API access remains historical evidence. No network recovery, APK
 installation, source change or hardware operation occurred. GS-117 remains
 SAFETY_LATCHED and TC-001 remains 0/5; its diagnostic image is still
 build-only.
+
+### 2026-10-31 10:53 UTC — approved successor stopped before serial access
+
+Owner approval `GS-117#11884` was independently checked against the active
+TEST_ONLY successor before starting its single `application_flash` procedure.
+The successor matched the exact fixture and diagnostic-only scope; the
+owner-pinned S3 candidate still matched SHA-256
+`d1e15266b89bfd14ea17d92d3616d2d2bb334d024693ccb0be00232aa23a8d10` and size
+2,303,136 bytes. Its TEST_ONLY build/profile, source ancestry, app-slot fit,
+rollback setting, and the readback helper's offline self-test were checked.
+Windows port enumeration matched COM4/C3 and COM10/S3 USB serials.
+
+The procedure then stopped at the wrapper's pre-open helper-hash guard. The
+wrapper contained a mistyped expected digest; offline verification immediately
+afterward established that the actual readback helper SHA-256
+`87fa118c5c345d8544c25f35b45966a6e41e5354fcfe9e1255dff019b620d25b` exactly
+matches the active successor's readback pin. The approved helper was not
+invoked. No serial port was opened, no flash was read or written, no reset or
+bootstrap occurred, and no event was generated.
+
+The audited development session recorded one `application_flash` attempt and
+classified the wrapper guard exception as `AUTHORIZATION_SAFETY`; the
+successor is now `SAFETY_LATCHED` with one consecutive safety failure and zero
+reviewed dispositions. This record is preserved as written. The predecessor
+ledger SHA-256 remains
+`bdc7f7e1ea56bf094b57a2f3960371beaa912de54bd9848b5d6be35b738a729d`, and its
+77-entry audit-prefix SHA-256 remains
+`5f7ddd221d9f505673c63d61d0531a23152097e6568384df8e1d049166db34b0`.
+The existing reviewed disposition function only handles a specifically
+reviewed bootstrap serial-helper pin mismatch; this wrapper failure does not
+meet that contract. No disposition, latch clear, policy rewrite, flash, or
+retry was attempted.
+
+Private execution evidence is retained at
+`~/.local/state/ghar-sajag/gs117-tc001/s3-diagnostic-successor-20261031/application-flash-20261031T105352Z/`.
+The exact pinned image remains build-only; TC-001 remains 0/5 and no motion
+was injected. No source, build, test, or tracked documentation changes were
+made during the stopped hardware attempt. To continue, the owner must approve
+the applicable audited disposition or a replacement audit-linked successor;
+the same latched session cannot authorize another hardware operation.
+GS-117 Jira comment 11885 records this stop and was read back; issue status
+remains In Progress.
