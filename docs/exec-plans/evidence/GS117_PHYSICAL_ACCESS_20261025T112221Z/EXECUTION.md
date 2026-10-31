@@ -4787,3 +4787,92 @@ all live identity/trust/backend/APK checks pass. The existing ingress and
 signed-time services were stopped after the prior observation; start them
 through their existing bounded procedures only when the campaign preflight is
 otherwise eligible. Continue to stop on its first non-PASS.
+
+### 2026-10-31 04:35 UTC — 24-hour image-receipt policy audit
+
+`code/tools/local/gs117_tc001_console.py:170` is the exact image-age guard:
+`0 <= age <= 86400` for each C3/S3 installed-image observation. It was added in
+commit `ad717c71` with the initial guarded TC-001 console on 24 October; neither
+that commit nor the current Jira acceptance text gives a technical rationale
+for the particular 24-hour value. The rule is local fixture preflight policy,
+not a firmware lifetime and not a product runtime rule. `exact_fixture()` also
+applies the same 24-hour bound to Android-install and authenticated-ingress
+observations; owner approval timestamps have a separate replay/freshness bound.
+
+Canonical requirements require a physical installed-image identity receipt to
+match the fixture (Decision Log, 24 October physical-identity entry). The R1
+release contract independently makes missing/stale evidence a release NO-GO at
+a frozen candidate, but specifies no 24-hour image TTL. No Jira comment or
+canonical decision located in this audit approves that exact duration.
+Therefore the time limit is a stricter DEVELOPMENT fixture safeguard. It checks
+the age of an observation; the other receipt checks compare the artifact/image
+digest, target, USB identity, firmware source, active OTA slot, partition-table
+digest and board capacity. It does not itself detect a firmware change.
+
+The 24-hour limit is not safely removable through change-aware continuity on
+these installed profiles. The current C3 HIL `GET_STATE` exposes the active
+slot but no trusted running-image digest. The tracked C3 signed-update profile
+is explicitly signed-on-update without Secure Boot; previous authorized C3
+security readout recorded Secure Boot off and flash encryption off. The S3
+runtime evidence exposes version/short ELF-hash prefix, not the required full
+app/partition hashes; tracked TEST_ONLY defaults do not enable Secure Boot.
+Neither device emits independent device-side provenance attestation. The DEV
+operation ledger can record operations run through the authorized harness, but
+it cannot prevent or reliably detect direct/out-of-band ROM flashing. An
+unchanged ledger or version string is therefore not proof that the old image is
+still installed. The 24-hour window is a conservative local recency bound, not
+a cryptographic integrity guarantee; it also cannot exclude a change within
+that window.
+
+**Change triage before implementation:**
+
+```text
+BUG_CLASSIFICATION=TEST_INFRA_ONLY
+REQUIREMENT_SOURCE=GS-117 installed-image-match fixture contract; no canonical 24-hour TTL
+DECISION_IDS=NONE (GS-D029 concerns stored-data freshness, not image-receipt age)
+TASK_SCOPE=Separate stale-observation diagnostics from image identity/integrity mismatch; retain all checks and the 24-hour bound.
+OUT_OF_SCOPE=Accept stale receipts, change production/release gates, read/flash hardware, or start TC-001.
+```
+
+This is a narrow diagnostic correction: the current guard combines receipt age
+and image/identity/capacity mismatch into the same
+`*_current_installed_image_provenance_missing` result. It obscures whether the
+receipt is simply stale or its integrity/identity does not match. The audit
+does not establish that a historical receipt is current; no age relaxation is
+proposed until reliable change detection or device-side attestation exists.
+
+Current receipts were observed 26.936h (C3) and 26.970h (S3) ago; both record
+the expected artifact digest, target and device identity. The first fixture
+failure remains C3 receipt age. Active successor authorization is read-only
+status `ACTIVE`, 1/2 sessions used, zero safety failures, with one conditional
+campaign session; its operation list does not permit image readback. No COM,
+reset, bootstrap, flash, database write or injection was performed. A single
+current targeted read-only image/partition/OTA-selector observation is still
+necessary to establish current exact-image identity; this is not a firmware
+reinstallation. Because it is explicitly outside the current consent, it needs
+one audit-linked successor session. Any S3 reset effect and the bounded
+protected-bootstrap/C3-rejoin restoration must be in that same scope. The
+conditional TC-001 campaign remains permitted only after all gates pass.
+
+### 2026-10-31 04:40 UTC — stale image-receipt diagnostic separation
+
+The 24-hour `observed_at` TTL is a local development fixture freshness bound;
+no canonical Jira or requirement source specifies that exact duration. The
+security audit found no trusted full-image attestation on the installed C3/S3
+profiles and no reliable detection of out-of-band firmware changes. Thus the
+old receipts cannot safely be reused as current, and no TTL relaxation or
+firmware reinstall is justified. Production/release image requirements are
+unchanged.
+
+The existing check conflated stale observation age with image/identity/capacity
+mismatch. The controller now reports stale receipt, invalid/future timestamp,
+and image provenance mismatch distinctly while retaining the existing 24-hour
+gate and every identity/integrity check. The focused fixture regression covers
+stale C3 and S3 receipts, invalid/future timestamps, and a fresh receipt with a
+wrong image digest. Python compilation and the GS-117 console suite passed:
+**135/135**. A direct current-fixture preflight now reports
+`c3_installed_image_receipt_stale`. The reviewed controller pin must be updated
+through the existing source-review procedure before authorization can be used;
+the current authorization status presently fails closed on that temporary pin
+mismatch. No hardware operation, receipt refresh, or event injection occurred;
+TC-001 remains **0/5**.

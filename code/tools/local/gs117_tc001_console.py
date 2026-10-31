@@ -39,6 +39,8 @@ MORNING_APPROVAL = Path.home() / ".config/ghar-sajag/gs117-tc001/morning-routine
 ORIGIN = "http://127.0.0.1:18791"
 STATUSES = ("NOT_STARTED", "RUNNING", "PASS", "FAIL", "BLOCKED", "PARTIAL", "NOT_VERIFIED", "NOT_IMPLEMENTED")
 CAMPAIGN_RUNS = 5
+# DEV fixture observation-freshness limit; it is not an installed-image lifetime.
+IMAGE_RECEIPT_MAX_AGE_SECONDS = 24 * 60 * 60
 MORNING_STAGES = ("caregiver_network", "applied_household_policy", "enrolled_room_nodes", "trusted_hub_configuration",
                   "fresh_physical_ingress", "hardware_authorization", "hub_rule_decision",
                   "postgres_decision", "caregiver_api", "android_apk")
@@ -151,9 +153,15 @@ def exact_fixture() -> dict:
         installed_receipts[name] = installed
         try:
             observed_at = datetime.fromisoformat(installed["observed_at"])
-            age = (datetime.now(timezone.utc) - observed_at).total_seconds()
         except (KeyError, TypeError, ValueError):
             raise ValueError(name + "_running_image_observation_time_missing") from None
+        if observed_at.tzinfo is None:
+            raise ValueError(name + "_running_image_observation_time_invalid")
+        age = (datetime.now(timezone.utc) - observed_at).total_seconds()
+        if age < 0:
+            raise ValueError(name + "_running_image_observation_time_invalid")
+        if age > IMAGE_RECEIPT_MAX_AGE_SECONDS:
+            raise ValueError(name + "_installed_image_receipt_stale")
         if (installed.get("running_image_sha256") != expected or
                 installed.get("target") != ("ESP32-C3" if name == "c3" else "ESP32-S3") or
                 installed.get("usb_hwid") != board["usb_hwid"] or
@@ -166,8 +174,7 @@ def exact_fixture() -> dict:
                 (name == "c3" and installed["flash_size_bytes"] < 4 * 1024 * 1024) or
                 (name == "s3" and installed["flash_size_bytes"] != 16 * 1024 * 1024) or
                 (name == "s3" and (not isinstance(installed.get("psram_size_bytes"), int) or
-                                    installed["psram_size_bytes"] != 8 * 1024 * 1024)) or
-                observed_at.tzinfo is None or not 0 <= age <= 86400):
+                                    installed["psram_size_bytes"] != 8 * 1024 * 1024))):
             raise ValueError(name + "_current_installed_image_provenance_missing")
     if fixture["c3"]["port"] == fixture["s3"]["port"]:
         raise ValueError("c3_and_s3_ports_must_differ")

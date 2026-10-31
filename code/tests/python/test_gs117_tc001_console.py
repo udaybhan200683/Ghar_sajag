@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import base64
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import io
 from http.server import ThreadingHTTPServer
@@ -1879,6 +1879,44 @@ class TC001Test(unittest.TestCase):
                 self.assertEqual(tc.exact_fixture()["physical_device_id"], "c3-146393c5d158")
                 c3_receipt_path = Path(fixture["c3"]["installed_image_receipt"])
                 c3_receipt = json.loads(c3_receipt_path.read_text())
+                s3_receipt_path = Path(fixture["s3"]["installed_image_receipt"])
+                s3_receipt = json.loads(s3_receipt_path.read_text())
+
+                c3_receipt["observed_at"] = (datetime.now(timezone.utc) - timedelta(hours=25)).isoformat()
+                c3_receipt_path.write_text(json.dumps(c3_receipt))
+                with self.assertRaisesRegex(ValueError, "c3_installed_image_receipt_stale"):
+                    tc.exact_fixture()
+                c3_receipt["observed_at"] = now
+                c3_receipt_path.write_text(json.dumps(c3_receipt))
+
+                s3_receipt["observed_at"] = (datetime.now(timezone.utc) - timedelta(hours=25)).isoformat()
+                s3_receipt_path.write_text(json.dumps(s3_receipt))
+                with self.assertRaisesRegex(ValueError, "s3_installed_image_receipt_stale"):
+                    tc.exact_fixture()
+                s3_receipt["observed_at"] = now
+                s3_receipt_path.write_text(json.dumps(s3_receipt))
+
+                c3_receipt["observed_at"] = (datetime.now(timezone.utc) + timedelta(seconds=1)).isoformat()
+                c3_receipt_path.write_text(json.dumps(c3_receipt))
+                with self.assertRaisesRegex(ValueError, "c3_running_image_observation_time_invalid"):
+                    tc.exact_fixture()
+                c3_receipt["observed_at"] = now
+                c3_receipt_path.write_text(json.dumps(c3_receipt))
+
+                c3_receipt["observed_at"] = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+                c3_receipt_path.write_text(json.dumps(c3_receipt))
+                with self.assertRaisesRegex(ValueError, "c3_running_image_observation_time_invalid"):
+                    tc.exact_fixture()
+                c3_receipt["observed_at"] = now
+                c3_receipt_path.write_text(json.dumps(c3_receipt))
+
+                c3_receipt["running_image_sha256"] = "f" * 64
+                c3_receipt_path.write_text(json.dumps(c3_receipt))
+                with self.assertRaisesRegex(ValueError, "c3_current_installed_image_provenance_missing"):
+                    tc.exact_fixture()
+                c3_receipt["running_image_sha256"] = fixture["c3"]["image_sha256"]
+                c3_receipt_path.write_text(json.dumps(c3_receipt))
+
                 c3_receipt["permanent_device_id"] = "c3-aabbccddeeff"
                 c3_receipt_path.write_text(json.dumps(c3_receipt))
                 with self.assertRaisesRegex(ValueError, "physical_MAC_derived_identity_receipts"):

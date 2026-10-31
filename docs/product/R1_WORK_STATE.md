@@ -18,6 +18,40 @@ The approval allows one protected S3 bootstrap, one bounded C3 restart, a 90-sec
 
 Next: finish review/commit/push of the tested source and this evidence, then preserve the current manifest and both ledgers byte-for-byte while recording the separately approved, exact-hash successor activation through the existing audit format. Recheck all mandatory non-invasive pins and identities before using the candidate. Run at most one approved readiness session; start the campaign only if fresh target evidence and the complete fixture validate.
 
+### 2026-10-31 04:40 UTC — image receipt expiry audit and diagnostic correction
+
+The installed-image receipt's 24-hour `observed_at` limit is defined in the
+existing GS-117 controller, not in the canonical requirements or Jira
+acceptance. It is a development fixture observation-freshness policy, not a
+firmware expiration rule. Exact current image identity remains mandatory. The
+installed C3 HIL profile exposes no trusted full-image/partition digest, the S3
+runtime only exposes a short image-hash prefix, and external/out-of-band
+firmware changes are not reliably detectable from the local operation ledger.
+Therefore the old receipts cannot be treated as current, and removing the age
+gate would assume an integrity continuity that this fixture does not prove.
+Production/release image requirements remain unchanged.
+
+Existing functionality → actual gap → minimum change: `exact_fixture()` already
+checks a fresh timestamp plus image digest, target, USB/device identity, active
+OTA slot, partition digest and capacity. Gap: a stale observation and a
+mismatched image were collapsed into the same provenance error. Minimum change:
+retain the 24-hour check and all integrity checks, but report stale receipt and
+invalid/future observation time separately from image/identity mismatch.
+`IMAGE_RECEIPT_MAX_AGE_SECONDS` names the existing DEV bound; no TTL was
+extended or removed.
+
+Validation: Python compile and `python3
+code/tests/python/test_gs117_tc001_console.py` **135/135 PASS**. Focused fixture
+regressions confirm stale C3 and S3 receipts fail with a stale-specific reason,
+future/naive observation times fail, and an otherwise fresh wrong image digest
+still fails the provenance guard. Direct current-fixture preflight returns
+`c3_installed_image_receipt_stale`. The controller source pin is now stale by
+the intended edit and must be updated through the existing reviewed source-pin
+process after commit; until then authorization status/preflight fails closed.
+No physical access, receipt renewal, bootstrap, event injection or TC-001 run
+occurred. TC-001 remains **0/5**. The remaining authorized campaign slot is
+preserved, and the predecessor safety-latched ledgers remain unchanged.
+
 ## GS-117 — Persistent TEST_ONLY development mode and physical E2E — 2026-10-30
 
 OWNING_JIRA=GS-117; RELATED_JIRA=GS-116, GS-130, GS-179, GS-173
