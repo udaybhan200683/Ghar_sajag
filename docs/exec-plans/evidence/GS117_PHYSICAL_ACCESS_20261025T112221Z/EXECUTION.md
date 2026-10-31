@@ -1,6 +1,6 @@
 # GS-117 physical access recovery — 2026-10-25
 
-Current reference: [offline C3/S3 rejoin differential and diagnostic capture](#2026-10-31-0625-utc--offline-c3s3-rejoin-differential-and-diagnostic-capture).
+Current reference: [SDK-specific ESP-NOW transmit analysis](#gs-117--sdk-specific-esp-now-transmit-analysis--2026-10-31-0656-utc).
 Earlier entries are dated historical checkpoints, not current blockers.
 
 Source HEAD: `30af100d2d5c84b56c7bd7abc99be031cd075cc6`. Canonical branch and context preflight PASS; no tracked changes on entry.
@@ -5099,3 +5099,25 @@ target time/authority acceptance plus authenticated rejoin. Do not clear or
 rewrite the latch or ledgers.
 
 Jira: GS-117 remains In Progress. Comment **11866** was posted and read back.
+
+## GS-117 — SDK-specific ESP-NOW transmit analysis — 2026-10-31 06:56 UTC
+
+Context preflight PASS; starting local/remote HEAD `301f277a6401630cd443c2929342c17fddb006b2`, canonical worktree and branch, tracked clean. Owning Jira GS-117; BUG_CLASSIFICATION=INVESTIGATE_ONLY. Offline investigation only; no device access, firmware changes, policy activation or ledger changes.
+
+The installed SDK is ESP-IDF 6.0.3 at `/home/udaybhan/.espressif/v6.0.3/esp-idf` (verified against the completed target build's project_description.json). Its esp_now.h specifies channel 0 as the current STA/AP channel, ESP_ERR_ESPNOW_IF/CHAN for peer interface/channel mismatch, and no caller-buffer lifetime requirement after send returns. Its bundled esp_now.rst warns that callbacks may be disordered when sends overlap and MAC delivery does not prove application acceptance.
+
+Source/evidence inventory: HubSecurityLink validates the exact registry/MAC/Home/Hub/logical/session binding and installation-key HMAC before returning RejoinChallenge. The Hub adds absent peers on WIFI_IF_STA, channel 0, native encryption off because application authentication protects the handshake. Existing peers are reused without inspecting/updating metadata. Challenge bodies are 64 bytes (v1) or 68 bytes (v2), plus a 12-byte header: one 76/80-byte packet, below 250. The owner submits once per received hello and waits up to 1000ms for the send callback; C3 owns bounded hello retries and channel discovery. No extra Hub retry was added.
+
+Both saved C3 sessions sweep channels 1 through 7 with matching delivery flags. Session 127 subsequently sends RejoinFinal on channel 7 at C3 uptime 38387ms, challenge_pinned=1; session 129 continues hello attempts on channel 8 at 45747ms and channel 9 at 65897ms, without a pinned challenge. Hub failures occur at its uptime 48736/48816/48926ms. C3 and Hub boot clocks must not be directly subtracted; saved output does not establish exact cross-device queue latency. The earliest proven divergence remains challenge delivery, not different initial C3 channel selection or a sensing failure.
+
+Ranked unresolved hypotheses: (1) channel availability/hello processing timing or MAC delivery loss while C3 scans; (2) peer-add/ESP-NOW submit errors, including stale peer metadata; (3) callback attribution or late callbacks. The callback stores only a Boolean in one shared queue, and other ACK/FOTA/runtime sends use the same registration; it cannot prove which outstanding transmission completed. This is a source-supported diagnostic limitation, not a confirmed cause in session 129. Fragment size/buffer lifetime and backend time/authority gating are unsupported causes: the challenge is small, buffer ownership is permitted by this SDK, and HubSecurityLink's rejoin path has no trusted-time/lease dependency. Backend publication remains separately fenced by time/authority checks.
+
+The existing 70d577e diagnostics uniquely distinguish peer_add, wire_fragment, esp_now_submit, callback timeout and callback failure and preserve ESP error names. Receive channel comes from rx_ctrl; it is not a measurement of the current transmit channel. Callback failure is an uncorrelated global callback result under the present implementation. Logs expose no keys, payloads or credentials and execute only on failure outside the Wi-Fi callback. Collector retention and compilation evidence remain applicable. No speculative transport change is justified before observing the failed stage.
+
+Gate RCA: separate make processes share `build/obj/<product>/<profile>/tests/support/host/multinode/scheduled_harness.d.tmp` and `.o.tmp`; identical profiles do not isolate concurrent writers, and the Makefile has no cross-process lock. Serialize these gates. The modified IDF adapter is not linked into those host test binaries; the existing commissioning assertion, journal migration failure and sanitizer timeout remain unresolved gate failures rather than demonstrated regressions from diagnostic logging. The sanitizer timeout under contention is inconclusive and needs an isolated owning-gate rerun before release PASS; no full gate or sanitizer PASS is claimed here.
+
+Authorization remains SAFETY_LATCHED. Generic ValueError classification preserves the failure conservatively; absence of authenticated rejoin is not enough to declare either successful readiness or a credential violation. The existing audited disposition only handles the exact pre-operation pin-mismatch case, not this post-operation readiness guard. No classifier/latch change or new authorization mechanism was made.
+
+No new tests/builds were needed for this documentation-only investigation. Reused evidence: GS-117 136/136, framework 55/55, paired production-profile target compilation; incomplete Hub/contract results retained. Production-profile S3 artifact 56264ff1… is not a TEST_ONLY deployment candidate. Future diagnostic deployment requires a correctly profiled build of reviewed diagnostic source, exact artifact hash/pins, existing app-only flash/rollback safeguards and explicit successor scope after preserving the latch. One protected S3 runtime restore and one deliberate C3 restart with a 90-second observation should then collect the failing stage and actual authenticated final/rejoin/liveness, plus separate target time/authority proof. No campaign is authorized by this record. TC-001 0/5; historical 126/1 remains supplemental; 123/1 latency unresolved.
+
+Jira comment 11867 posted and read back; GS-117 remains In Progress.
