@@ -5393,3 +5393,54 @@ The 5-hour work budget was not approached; unrelated untracked files and
 historical ledgers remain preserved.
 Jira comments 11874 (GS-179), 11875 (GS-177) and 11876 (GS-117) were posted and
 read back; all three issues remain In Progress.
+
+## 2026-10-31 09:10 UTC — live APK session and Home API observation
+
+Canonical repo/worktree `/home/udaybhan/projects/Ghar_sajag_r1`, branch
+`feature/r1-commercial-baseline`, HEAD `98bc237f161d3e5052860313e3848eb6c2332e48`;
+origin matched and context preflight passed. Tracked files were clean before
+this evidence update. Existing untracked/generated assets and prior evidence
+were preserved.
+
+The existing Windows ADB identified the authorized Motorola handset
+`ZA2237MRHN` as online. The device was awake/unlocked and the foreground
+activity was the installed package
+`in.gharsajag.caregiver.discoverytest` `MainActivity`. Installed package
+version is `0.4.0-connected-lite-staging` / versionCode 3, with the already
+verified local-origin APK update time 2026-10-31 14:11:15 local. No reinstall,
+data clear, credential entry, logout, or account change was performed.
+
+Two read-only UI-hierarchy observations 18 seconds apart showed the real app's
+Home surface, the expected Home ID `gs177-test-product`, and `CONNECTED`;
+neither snapshot showed the Login form. The source sets `CONNECTED` only after
+`/lite/v1/me` returns a valid server profile and the Home overview, devices,
+routines, and incidents projections match that profile's Home and TEST_ONLY
+scope. A 15-second foreground refresh also ran between observations. This is
+current installed-APK authenticated session restoration and Home/API evidence;
+it is **not** a fresh password submission to `/auth/login`.
+
+The backend origin and installed bytes remain linked to the previously
+verified CI artifact `13036937381` (APK SHA-256
+`f44df9a80674a0746446de96b5948cf33e3c4fa3031e1d751d1c1eb12cf322e7`), built
+for `https://192.168.1.6/`; the handset reports live API `CONNECTED`. The
+latest TLS/network and local CA evidence remains the earlier GS-179 checkpoint.
+No fresh request body, password, token, or other credential was collected.
+
+The Login form is not currently available without using the app's Logout
+control, which revokes the active server session. To avoid revoking the owner's
+working session silently, the owner was asked to use the normal Settings → Log
+out action and leave the Sign in form visible, then enter the test credentials
+directly on the handset. Credentials must not be sent in chat. Until then,
+fresh Login and on-device Show/Hide interaction remain `NOT_VERIFIED`. The
+already implemented Show/Hide control remains included in the verified APK and
+its prior software interaction tests; no duplicate implementation or rebuild
+was made. The development PIN remains deferred because no per-account TEST_ONLY
+PIN provisioning and durable anti-guessing contract exists; the 16–256
+character password policy is unchanged.
+
+No firmware, server, network, database, account, or source code was changed.
+GS-117 remains In Progress, hardware authorization remains
+`SAFETY_LATCHED`, TC-001 remains 0/5, and no C3/S3 port or event campaign was
+used. Event 123/1's approximately 6h53m delivery delay remains unresolved.
+Next: complete the actual Login and handset Show/Hide checks after the owner
+prepares the Login form; retain the authenticated Home evidence independently.

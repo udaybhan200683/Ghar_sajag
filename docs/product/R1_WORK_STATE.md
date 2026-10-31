@@ -10496,3 +10496,36 @@ untracked files, evidence and authorization ledgers are preserved.
 Jira comments 11874 (GS-179), 11875 (GS-177) and 11876 (GS-117) were posted and
 read back; all three issues remain In Progress. The documentation closeout is
 being committed separately from the existing source/build checkpoint.
+
+### 2026-10-31 09:10 UTC — installed APK authenticated Home/API observation
+
+On ADB device `ZA2237MRHN`, the updated installed TEST_ONLY APK
+`in.gharsajag.caregiver.discoverytest` v3 (`0.4.0-connected-lite-staging`)
+was awake and foreground. Two read-only UI snapshots 18 seconds apart showed
+Home `gs177-test-product` and `CONNECTED`. In the current source, this status
+follows a valid server `/lite/v1/me` profile plus matching authenticated Home
+overview/devices/routines/incidents responses; the visible refresh interval is
+15 seconds. This establishes live authenticated session restoration and Home
+API connectivity from the real APK, not a new password submission.
+
+The Sign in form is absent and the existing session is active. Since normal
+Logout revokes that server session, no logout was performed. Owner was asked to
+leave the Sign in form open using the normal app flow and enter the test
+credentials directly on-device. Fresh Login and physical Show/Hide behavior
+therefore remain `NOT_VERIFIED`; the existing Show/Hide code and prior software
+tests are reused without rebuilding/reinstalling. TEST_ONLY PIN remains
+unimplemented/documented: the backend currently enforces 16–256-character
+scrypt passwords, persistent account+source-IP login throttling (5 failures,
+15-minute block), and 12-hour Secure/HttpOnly/SameSite=Strict sessions. There is
+no separate per-account PIN provisioning/lifecycle contract; production
+password policy was not weakened.
+
+Current LAN recovery was not modified. The actual app's `CONNECTED` status is
+application-level confirmation in addition to the prior GS-179 host/TLS checks.
+GS-117 remains In Progress, safety-latched, and TC-001 0/5; no hardware access
+or motion injection occurred. The TEST_ONLY S3 diagnostic image remains
+build-only and Event 123/1's ~6h53m delay remains unresolved. Local/remote
+checkpoint before this documentation update was
+`98bc237f161d3e5052860313e3848eb6c2332e48`; unrelated untracked evidence and
+generated assets remain preserved. Jira statuses GS-117/GS-177/GS-179 are
+still In Progress.
