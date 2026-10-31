@@ -10445,3 +10445,9 @@ Earlier valid software/physical evidence is reused as recorded; no broad
 regression suite was rerun. Show/Hide remains
 unverified on the installed APK; the four-digit PIN remains deferred pending a
 secure TEST_ONLY credential contract. Event 123/1 latency remains unresolved.
+
+Delivery checkpoint 2026-10-31 08:25 UTC: validated profile/test and evidence
+commit `5d0d02a89f35b189358d77207aea68fe67dfb6ba` was pushed on
+`feature/r1-commercial-baseline`; `git ls-remote origin` matched local HEAD.
+Tracked files are clean. All existing untracked assets and hardware evidence
+remain preserved and unstaged.

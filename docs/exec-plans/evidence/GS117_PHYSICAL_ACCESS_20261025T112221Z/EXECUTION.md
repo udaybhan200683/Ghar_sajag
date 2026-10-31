@@ -5327,3 +5327,12 @@ candidate is build-only and not deployment-authorized. The
 provisioning and durable anti-guessing contract exists; production password
 policy is unchanged. Show/Hide is implemented and CI-packaged but is not yet
 observed in the installed APK. Event 123/1 latency (~6h53m) remains unresolved.
+
+Delivery checkpoint (2026-10-31 08:25 UTC): profile/test/evidence commit
+`5d0d02a89f35b189358d77207aea68fe67dfb6ba` is on
+`feature/r1-commercial-baseline`; `git ls-remote origin` matched that commit.
+The four intended files were committed. Tracked files are clean. Existing
+untracked assets and evidence (including generated IDF `managed_components/`
+and `sdkconfig`, the Android reference/source workspace and Zone.Identifier
+files, `NUL`, and prior hardware evidence trees) remain untouched and
+unstaged.
