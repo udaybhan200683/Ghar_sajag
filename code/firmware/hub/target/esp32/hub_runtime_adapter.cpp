@@ -764,8 +764,8 @@ void owner_task(void*) {
 #endif
 
 #if !GS_HIL_BUILD
-bool add_runtime_peer(const HubSecurityLink::Mac& mac) {
-    if (esp_now_is_peer_exist(mac.data())) return true;
+esp_err_t add_runtime_peer(const HubSecurityLink::Mac& mac) {
+    if (esp_now_is_peer_exist(mac.data())) return ESP_OK;
     esp_now_peer_info_t peer{};
     std::memcpy(peer.peer_addr, mac.data(), mac.size());
     peer.channel = 0;
@@ -773,22 +773,38 @@ bool add_runtime_peer(const HubSecurityLink::Mac& mac) {
     // Runtime frames carry their own authenticated encryption. Native
     // encrypted-peer capacity is below the installed-node requirement.
     peer.encrypt = false;
-    return esp_now_add_peer(&peer) == ESP_OK;
+    return esp_now_add_peer(&peer);
 }
 
-bool send_security_message(const HubSecurityLink::Outbound& outbound) {
-    if (!add_runtime_peer(outbound.destination)) return false;
+bool send_security_message(const HubSecurityLink::Outbound& outbound,
+                           std::uint8_t receive_channel = 0) {
+    const auto kind = static_cast<unsigned>(outbound.message.kind);
+    const auto failed = [&](const char* stage, const char* result) {
+        ESP_LOGW(kTag,
+            "Authenticated control TX status=FAIL stage=%s kind=%u rx_channel=%u result=%s",
+            stage, kind, static_cast<unsigned>(receive_channel), result);
+        return false;
+    };
+    const auto peer_result = add_runtime_peer(outbound.destination);
+    if (peer_result != ESP_OK)
+        return failed("peer_add", esp_err_to_name(peer_result));
     std::vector<security::wire::Packet> packets;
     std::uint32_t transaction = esp_random();
     if (transaction == 0) transaction = 1;
-    if (!security::wire::fragment(outbound.message, transaction, packets)) return false;
+    if (!security::wire::fragment(outbound.message, transaction, packets))
+        return failed("wire_fragment", "rejected");
     for (const auto& packet : packets) {
         (void)xQueueReset(g_security_send_queue);
-        if (esp_now_send(outbound.destination.data(), packet.bytes.data(),
-                         packet.size) != ESP_OK) return false;
+        const auto send_result = esp_now_send(outbound.destination.data(),
+            packet.bytes.data(), packet.size);
+        if (send_result != ESP_OK)
+            return failed("esp_now_submit", esp_err_to_name(send_result));
         bool delivered = false;
         if (xQueueReceive(g_security_send_queue, &delivered,
-                          pdMS_TO_TICKS(1000)) != pdTRUE || !delivered) return false;
+                          pdMS_TO_TICKS(1000)) != pdTRUE)
+            return failed("send_callback", "timeout");
+        if (!delivered)
+            return failed("send_callback", "mac_delivery_failed");
     }
     return true;
 }
@@ -1445,8 +1461,11 @@ void secure_owner_task(void*) {
                 ESP_LOGI(kTag, "Prior physical Node revoked after replacement peer=%s",
                          esp_err_to_name(peer_result));
             }
-            if (outbound && !send_security_message(*outbound))
-                ESP_LOGW(kTag, "Authenticated control reply delivery failed");
+            if (outbound && !send_security_message(*outbound, control.channel))
+                ESP_LOGW(kTag,
+                    "Authenticated control reply delivery failed kind=%u rx_channel=%u",
+                    static_cast<unsigned>(outbound->message.kind),
+                    static_cast<unsigned>(control.channel));
             if (const auto* node = security_link.ready_node(control.source_mac)) {
                 const auto prior = authorized.find(control.source_mac);
                 if (prior == authorized.end() || prior->second != node->last_session) {

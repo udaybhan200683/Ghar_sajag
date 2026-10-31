@@ -1,6 +1,6 @@
 # GS-117 physical access recovery — 2026-10-25
 
-Current reference: [successor readiness session stopped at the S3 time/authority guard](#2026-10-29-0702-utc--successor-readiness-session-stopped-at-the-s3-timeauthority-guard).
+Current reference: [offline C3/S3 rejoin differential and diagnostic capture](#2026-10-31-0625-utc--offline-c3s3-rejoin-differential-and-diagnostic-capture).
 Earlier entries are dated historical checkpoints, not current blockers.
 
 Source HEAD: `30af100d2d5c84b56c7bd7abc99be031cd075cc6`. Canonical branch and context preflight PASS; no tracked changes on entry.
@@ -4997,3 +4997,103 @@ listener shutdown checks were executed in this session. Event 123/1's ~6h53m
 latency remains unresolved. Next action is offline source/evidence diagnosis of
 the S3 signed-time/authority/config rejection and C3↔S3 authenticated rejoin;
 no hardware retry may occur under the consumed latched successor.
+
+## 2026-10-31 06:25 UTC — offline C3/S3 rejoin differential and diagnostic capture
+
+`BUG_CLASSIFICATION=TEST_INFRA_ONLY`; no product/security acceptance changed.
+This was offline only. No ADB, COM, device reset, bootstrap, flash, readback,
+event injection, campaign or database mutation occurred. The current successor
+remains `SAFETY_LATCHED` after the preserved
+`standing_readiness_authenticated_liveness_not_verified` failure; historical
+ledgers were not changed.
+
+The private session-127 known-good observation and session-129 failed
+observation show the same C3 app/OTA image, serial-open reset reason and initial
+authenticated `RejoinHello` (wire kind 6). In session 127 the C3 subsequently
+sent `RejoinFinal` (kind 8), S3 logged authenticated Bedroom rejoin, and only
+then C3 runtime/sensing counters advanced. In session 129 there is no
+`RejoinFinal`; S3 logged three authenticated control-reply delivery failures
+while attempting the rejoin challenge (kind 7). This is the earliest
+evidence-backed divergence. The old generic failure line did not retain the
+lower-level result, so peer-add, wire-fragment, ESP-NOW submit and callback
+failure cannot be distinguished retrospectively. The exact failed stage is
+unknown; no serial output was reconstructed.
+
+Source confirms `owner_task()` waits for `security_link.ready()` before the
+normal NodeRuntime/sensing loop and liveness counters begin. Zero liveness in
+session 129 is therefore secondary to incomplete authenticated rejoin, not
+evidence of a C3 sensing-loop defect. The 430-second timeout applies to an
+already associated idle link and is not the cause of this initial handshake.
+Session 127 confirms the existing rejoin path can work; no new protocol or
+timeout change is justified.
+
+Minimum diagnostic change: the existing S3 `send_security_message()` failure
+path now emits a bounded stage (`peer_add`, `wire_fragment`, `esp_now_submit`,
+or `send_callback`), outbound message kind, inbound receive channel, and
+ESP-NOW result/callback status. The existing Windows collector accepts the
+`Authenticated` log prefix; a focused regression verifies the line is
+retained. No send/retry behavior, authentication check, protocol message,
+guard or liveness counter changed. This detail may be collected only after a
+valid audited latch disposition and active authorization.
+
+Target trust/time remains unestablished for session 129: authority-refresh
+HTTP 200 and signed-time request counts prove server exchange, not target
+acceptance or authority-lease installation. An earlier S3 `CloudSync Ready`
+state passed through `current_binding()` in that earlier boot and is historical
+evidence only. The household-policy rejection is the known missing
+`activity_home_id` configuration path; supported v0/no-policy basic motion
+mode makes it unrelated to rejoin. NodeHealth 503 is a separate additive path
+with no evidence it is mandatory for TC-001. CloudSync zero submissions with
+no queued event is not a failure.
+
+Validation: `python3 code/tests/python/test_gs117_tc001_console.py` **136/136
+PASS**; `make -C code validation-framework-test` **55/55 PASS**;
+`git diff --check` **PASS**. The paired C3/S3 production-profile target build
+completed: `TARGET_COMPILED_ONLY`, `physical_status=NOT_RUN`,
+`hardware_actions=NONE`; C3 artifact SHA-256
+`45affeab2f3cff25594560eaff1cd94411dd327ab8d69dcb22ca9cd17dc2afdd`, S3
+`56264ff117e7dd40062d98f87655448042079854b09537daf79b35e0203a691d`. The
+build used production flags with HIL and TEST_ONLY CloudSync disabled; it did
+not flash either board or prove installed-image identity. `make validation-hub`
+and `make validation-contract` were
+started concurrently by mistake and shared generated test artifacts. Contract's
+board-stack test passed while Hub's copy failed with a missing temporary
+artifact; Hub commissioning has a separate stale assertion rejecting the
+current explicit `GS_HIL_COMMISSIONING=OFF` builder option; Hub journal
+migration failed its clean-migration commit assertion; Hub storage sanitizer
+timed out at 600 seconds. Contract had passed CloudSync mTLS, cloud contract,
+worker/backend integration, HTTPS channel and health config when recorded;
+remaining component-gate stages were still running and are not claimed as
+PASS. These results are separate from the focused test and target compilation.
+
+TC-001 remains **0/5**; no fresh EventKey exists. Event 123/1's ~6h53m delay
+remains unresolved. Event 126/1 is historical physical HIL delivery evidence,
+not a new campaign pass. GS-117 remains In Progress.
+
+Authorization implementation detail: `standing_readiness_authenticated_liveness_not_verified` is thrown as a known `ValueError` from the readiness verifier after the session has been reserved. The current session manager catches exceptions that are not the typed `AuthorizationSafetyFailure` as `UNKNOWN_UNHANDLED`, increments the safety-failure count, and latches. This label is conservative fail-closed bookkeeping; the observed facts show a blocked authenticated rejoin, not an identity or credential mismatch. No audited disposition for this post-operation guard was found offline, and this session did not change classification or ledger behavior. Hardware remains prohibited while the latch is active.
+
+The Hub and contract component gates were terminated after approximately 45
+minutes because they had been started concurrently and continued into
+release-scale stages unrelated to this logging-only change. Hub board-stack
+validation failed from the shared temporary artifact race; the matching
+contract board-stack stage passed. The Hub fixture-commissioning test reported
+18 tests/1 failure because its assertion rejects the build script's explicit
+`GS_HIL_COMMISSIONING=OFF`; the Hub journal-migration test failed its clean
+migration-commit assertion; the Hub storage sanitizer timed out at 600
+seconds. Hub identity-compaction, incremental-completion and mixed-compaction
+passed; cloudsync-security-unit was interrupted. Contract cloudsync mTLS,
+cloud contract, worker/backend integration, HTTPS channel, health config (17
+tests), contracts and GS-130 HIL runner integrity (116 tests) passed. Its
+first-event-reader stage timed out at 600 seconds, while the Hub gate later
+passed the matching stage in 367.8 seconds. Contract P0 product E2E was
+interrupted. These are partial gate results, not complete-suite PASS. No
+sequential broad rerun was attempted because the focused regression and target
+compile passed and the remaining failures were unrelated or incomplete; no
+unrelated assertions were changed.
+
+Next: continue offline only until the existing safety latch is dispositioned
+through its audited mechanism and valid authorization covers a bounded
+observation of the reviewed diagnostic image. That future observation must
+identify the lower-level challenge-send failure and independently establish
+target time/authority acceptance plus authenticated rejoin. Do not clear or
+rewrite the latch or ledgers.

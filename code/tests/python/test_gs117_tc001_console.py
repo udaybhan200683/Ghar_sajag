@@ -1287,6 +1287,22 @@ class TC001Test(unittest.TestCase):
         tc_serial.collect(Stream(), '', lines)
         self.assertEqual(tc_serial.s3_memory_capacity(lines)['flash_size_bytes'], 16777216)
 
+    def test_authenticated_control_tx_failure_stage_is_retained(self):
+        class Stream:
+            data = (b'W (49000) gs_hub_runtime: Authenticated control TX '
+                    b'status=FAIL stage=send_callback kind=7 rx_channel=6 '
+                    b'result=mac_delivery_failed\n')
+            in_waiting = len(data)
+            def read(self, count):
+                value = self.data; self.data = b''; self.in_waiting = 0; return value
+        lines = []
+        tc_serial.collect(Stream(), '', lines)
+        self.assertEqual(len(lines), 1)
+        self.assertIn('stage=send_callback', lines[0])
+        self.assertIn('kind=7', lines[0])
+        self.assertIn('rx_channel=6', lines[0])
+        self.assertIn('result=mac_delivery_failed', lines[0])
+
 
     def test_health_preserves_lan_failure_reason_and_overall_exit(self):
         result = SimpleNamespace(
