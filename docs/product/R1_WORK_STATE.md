@@ -79,6 +79,21 @@ controller edit temporarily makes the reviewed source pin stale again; it will
 be recorded by the same audited source-update path after this commit. No
 hardware was accessed and the campaign slot remains unused.
 
+##### 2026-10-31 04:43 UTC — follow-up source review completed
+
+The source-review procedure recorded commit
+`4dae4db2c8efec14030c193dd689445f7149cc5c`, changed only the controller pin,
+and preserved policy/session state. Review record SHA-256:
+`bf412de5a9ca82f90f7bab4ea771b2c24d0c57bab5cb45f6c94abbaf1a50c8f3`; test
+receipt SHA-256:
+`9e8decaf09e6784eedc697a05147f2d2141e8e8d5ce31b2238d06fc2c63252c0`.
+The reviewed tests again report GS-117 **135/135 PASS** and feature mapping
+**22/22 PASS** (232 features / 287 modules / 27 physical cases). Current
+authorization is `ACTIVE`, 1/2 sessions used, one campaign slot remaining,
+zero safety failures; all procedure pins match and the predecessor latch is
+preserved. The exact fixture remains blocked at
+`c3_installed_image_receipt_stale`. No physical operation occurred.
+
 ## GS-117 — Persistent TEST_ONLY development mode and physical E2E — 2026-10-30
 
 OWNING_JIRA=GS-117; RELATED_JIRA=GS-116, GS-130, GS-179, GS-173
