@@ -5097,3 +5097,5 @@ observation of the reviewed diagnostic image. That future observation must
 identify the lower-level challenge-send failure and independently establish
 target time/authority acceptance plus authenticated rejoin. Do not clear or
 rewrite the latch or ledgers.
+
+Jira: GS-117 remains In Progress. Comment **11866** was posted and read back.

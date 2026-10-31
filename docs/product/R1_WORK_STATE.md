@@ -22,6 +22,8 @@ Validation: `python3 code/tests/python/test_gs117_tc001_console.py` **136/136 PA
 
 Next: retain this offline diagnosis and seek only the existing audited latch disposition/authorization needed for a single observation using the reviewed diagnostic image; that observation must identify the actual S3 challenge-send failure and re-establish trusted-time/authority and authenticated C3 rejoin. Do not access hardware while the latch remains active.
 
+Jira: GS-117 remains In Progress. Dated differential diagnosis and validation status were posted as comment 11866 and read back.
+
 ## GS-117 — approved provenance session stopped at authenticated rejoin guard — 2026-10-31
 
 OWNING_JIRA=GS-117; RELATED_JIRA=GS-179, GS-116, GS-130, GS-173
