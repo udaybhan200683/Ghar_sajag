@@ -127,13 +127,17 @@ class StandingAuthorizationTest(unittest.TestCase):
         policy['activation_audit_path'] = str(audit_path)
         mode['activation_record_sha256'] = record['record_sha256']
 
-    def development_policy(self, bootstrap_text=None, validator_text=None):
+    def development_policy(self, bootstrap_text=None, validator_text=None,
+                           procedures=None, max_sessions=None):
+        selected_procedures = list(hil_auth.DEV_OPERATIONS if procedures is None else procedures)
         p = dict(self.data, schema_version=hil_auth.DEV_MODE_SCHEMA,
-                 profile='GS117_DEV_TEST_ONLY', procedures=hil_auth.DEV_OPERATIONS,
-                 allowed_operations=hil_auth.DEV_OPERATIONS,
-                 prohibited_operations=hil_auth.DEV_PROHIBITED, max_sessions=None,
+                 profile='GS117_DEV_TEST_ONLY', procedures=selected_procedures,
+                 allowed_operations=selected_procedures,
+                 prohibited_operations=hil_auth.DEV_PROHIBITED, max_sessions=max_sessions,
                  development_mode_enabled=True, images=hil_auth.DEV_IMAGES,
-                 motion_injection_authorized=True)
+                 motion_injection_authorized=('tc001_campaign' in selected_procedures))
+        if selected_procedures != hil_auth.DEV_OPERATIONS:
+            p['procedure_session_limits'] = {name: 1 for name in selected_procedures}
         p['owner_approval_ref'] = 'unit-test-consent-only'
         p['bootstrap_evidence_helper'] = {'path': str(Path(bootstrap_evidence.__file__)),
                                         'sha256': hil_auth.digest(bootstrap_evidence.__file__)}
@@ -180,6 +184,78 @@ class StandingAuthorizationTest(unittest.TestCase):
                        {'procedures': hil_auth.DEV_OPERATIONS + ['efuse']}):
             path.write_text(json.dumps(dict(p, **change)))
             with self.assertRaises(ValueError): hil_auth.load_development(path)
+
+    def test_development_successor_subset_denies_unapproved_operations_and_is_bounded(self):
+        scope = ['protected_gs40_bootstrap', 'tc001_campaign']
+        path, policy = self.development_policy(procedures=scope, max_sessions=2)
+        loaded = hil_auth.load_development(path)
+        self.assertEqual(loaded['procedures'], scope)
+        self.assertEqual(loaded['allowed_operations'], scope)
+        self.assertTrue(loaded['motion_injection_authorized'])
+
+        state = path.parent / 'development-authorization'
+        with self.assertRaisesRegex(ValueError, 'standing_policy_operation_not_authorized'):
+            with hil_auth.session('application_flash', path, state, _development=True):
+                self.fail('flash operation entered despite successor allowlist')
+        initial_rows = [json.loads(line) for line in (state / 'audit.jsonl').read_text().splitlines()]
+        self.assertFalse(any(row.get('approval_ref') == policy['owner_approval_ref'] and
+                             row.get('started_at') for row in initial_rows))
+
+        with hil_auth.session('protected_gs40_bootstrap', path, state, _development=True):
+            pass
+        with self.assertRaisesRegex(ValueError, 'standing_policy_procedure_limit_reached'):
+            with hil_auth.session('protected_gs40_bootstrap', path, state, _development=True):
+                self.fail('successor exceeded its single-bootstrap limit')
+        with hil_auth.session('tc001_campaign', path, state, _development=True):
+            pass
+        with self.assertRaisesRegex(ValueError, 'standing_policy_failure_latched_or_limit_reached'):
+            with hil_auth.session('tc001_campaign', path, state, _development=True):
+                self.fail('bounded successor exceeded its session limit')
+        rows = [json.loads(line) for line in (state / 'audit.jsonl').read_text().splitlines()]
+        self.assertEqual(len({row['started_at'] for row in rows
+                              if row.get('approval_ref') == policy['owner_approval_ref'] and
+                              row.get('started_at')}), 2)
+        status = hil_auth.development_status(path)
+        self.assertEqual(status['status'], 'SESSION_LIMIT_REACHED')
+        self.assertEqual(status['sessions_remaining'], 0)
+
+    def test_development_subset_rejects_unbounded_duplicate_and_mismatched_scopes(self):
+        path, policy = self.development_policy(
+            procedures=['protected_gs40_bootstrap'], max_sessions=1)
+        invalid_scopes = [
+            ([], 1, False),
+            (['protected_gs40_bootstrap', 'protected_gs40_bootstrap'], 1, False),
+            (['protected_gs40_bootstrap', 'efuse'], 1, False),
+            (['protected_gs40_bootstrap'], None, False),
+            (['tc001_campaign'], 1, False),
+        ]
+        for procedures, maximum, motion in invalid_scopes:
+            with self.subTest(procedures=procedures, maximum=maximum, motion=motion):
+                value = json.loads(path.read_text())
+                value['procedures'] = procedures
+                value['allowed_operations'] = procedures
+                value['max_sessions'] = maximum
+                value['motion_injection_authorized'] = motion
+                path.write_text(json.dumps(value))
+                with self.assertRaisesRegex(ValueError, 'development_consent_scope_mismatch'):
+                    hil_auth.load_development(path)
+        mismatch = json.loads(path.read_text())
+        mismatch['procedures'] = ['protected_gs40_bootstrap']
+        mismatch['allowed_operations'] = ['protected_gs40_bootstrap', 'tc001_campaign']
+        path.write_text(json.dumps(mismatch))
+        with self.assertRaisesRegex(ValueError, 'development_consent_scope_mismatch'):
+            hil_auth.load_development(path)
+        valid = json.loads(json.dumps(policy))
+        valid['procedure_session_limits'] = {'protected_gs40_bootstrap': 2,
+                                             'tc001_campaign': 1}
+        path.write_text(json.dumps(valid))
+        with self.assertRaisesRegex(ValueError, 'development_consent_scope_mismatch'):
+            hil_auth.load_development(path)
+        valid['procedure_session_limits'] = {'protected_gs40_bootstrap': True,
+                                             'tc001_campaign': 1}
+        path.write_text(json.dumps(valid))
+        with self.assertRaisesRegex(ValueError, 'development_consent_scope_mismatch'):
+            hil_auth.load_development(path)
 
     def test_development_mode_is_persistent_unexpired_and_audits_repeated_sessions(self):
         path, policy = self.development_policy()

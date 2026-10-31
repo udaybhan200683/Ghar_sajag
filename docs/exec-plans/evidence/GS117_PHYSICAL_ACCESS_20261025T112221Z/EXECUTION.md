@@ -4510,3 +4510,64 @@ API and actual-APK guards. No flash, erase, credential, enrollment or ownership
 change is included. The existing failure scope remains SAFETY_LATCHED; no
 hardware operation is authorized by this record and no readiness or campaign
 was started.
+
+## 2026-10-31 — approved successor readiness checkpoint
+
+OWNER_APPROVAL_REF=OWNER_CHAT_GS117_SUCCESSOR_20261031; Jira approval comment=11859.
+The owner approved one audit-linked successor for the exact TEST_ONLY Home,
+C3/S3 USB identities, backend and Android device. The owner-only candidate
+SHA-256 was independently checked as
+`0429ee7f7293f319cd0538ca10d52c063613dd5b837116b63232491345a5ff55`.
+Its scope permits one protected S3 bootstrap, one bounded C3 restart and a
+90-second post-restart observation; only if all mandatory gates pass, one
+existing campaign of up to five fresh events with the existing stop-on-first-
+non-PASS behavior. Flashing, readback, JEDEC, erase, credential, enrollment,
+ownership and non-test database changes are outside scope.
+
+Existing authorization → gap → minimum change: the existing owner-only DEV
+manifest already binds the fixture, scripts and append-only audit. The old
+scope is safety-latched and cannot be dispositioned for its post-operation
+missing-rejoin result. A new owner-approved activation must link the old scope
+without editing its manifest, failure row or ledger. The existing loader
+allowed a selected-operation subset but only enforced a total session cap; a
+two-session successor could otherwise bootstrap twice. The existing policy
+validator/session manager now requires and enforces per-procedure session
+limits for subset policies, before reservation. The exact approved bounded
+mapping is one `protected_gs40_bootstrap` session and one `tc001_campaign`
+session, total maximum two. Other operations, including flash, erase and
+reprovision, remain denied by the allowlist.
+
+Regression evidence after final source edits: GS-117 focused authorization and
+controller tests **135/135 PASS**; `make -C code validation-framework-test`
+**55/55 PASS**; `make -C code feature-coverage-test` **PASS** (232 features,
+287 modules, 27 physical cases; 22/22 mapping tests); Python compilation and
+`git diff --check` **PASS**. No target build is applicable. This is source and
+policy validation only, not physical readiness.
+
+Current old authorization and audit snapshots were inspected read-only. The
+active predecessor manifest SHA-256 is
+`48e4f21064c705783230ce7937f7781c47416d0f70712ff9ce9d8f1ed41bda77`; its
+owner reference is `OWNER_CHAT_GS117_PERSISTENT_DEV_MODE_20261030` and it
+remains `SAFETY_LATCHED` (2 sessions, 1 failure). Its earlier predecessor
+ledger remains 29 sessions / 3 failures / blocked, SHA-256
+`ec23f7d1b51217a89e006c3c23ae97e3a8a5f92a7cf31bc5378cc2f6d364c640`. The
+current append-only audit hash before successor activation was
+`90174c553ad0c21acbf958740e608b57eb57e5daaeb9b8a55f975a12e79c88b4`.
+No latch, counter, ledger or audit was changed in this checkpoint. The new
+successor is not yet activated here, and no hardware operation has been run.
+
+Remaining technical gates are unchanged: refresh/verify current device image
+provenance from genuine records; establish S3 trusted time/authority and fresh
+authenticated C3 rejoin after the deliberate restart; validate the complete
+fixture and actual Android readiness. The candidate may collect useful target
+observations even if final fixture acceptance is pending, but cannot manufacture
+missing provenance. TC-001 remains **0/5**. Event `123/1`'s approximately
+6h53m backend delivery delay remains unresolved. The old session-118 backlog
+and EventKey `126/1` are historical evidence only.
+
+Next: commit the reviewed code and this checkpoint, post a concise Jira status,
+then record a new activation with a distinct audit reference after preserving
+the old manifest/ledger snapshots. Revalidate candidate and procedure hashes,
+USB identities, Android and service readiness before exactly one authorized
+readiness session. Run the existing campaign only if target and fixture gates
+all pass.

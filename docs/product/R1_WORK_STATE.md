@@ -1,3 +1,23 @@
+## GS-117 — successor readiness authorization implementation checkpoint — 2026-10-31
+
+OWNING_JIRA=GS-117; RELATED_JIRA=GS-116, GS-130, GS-179, GS-173
+OWNER_APPROVAL_REF=OWNER_CHAT_GS117_SUCCESSOR_20261031 (GS-117 comment 11859)
+BUG_CLASSIFICATION=TEST_INFRA_ONLY
+REQUIREMENT_SOURCE=GS-117 owner approval comment 11859; existing GS-117 DEV authorization and readiness contract
+DECISION_IDS=NONE; product/security requirements and acceptance criteria unchanged
+TASK_SCOPE=Enforce the one-bootstrap/one-campaign successor scope in the existing fail-closed authorization/session manager, preserve all predecessor ledgers, then activate and execute the approved readiness candidate only after exact preflight passes.
+OUT_OF_SCOPE=Any flash/readback/JEDEC/erase, credential/enrollment/ownership change, non-test database mutation, safety-latch reset, or operation beyond the approved candidate/session limits.
+
+Existing functionality → actual gap → minimum change: the existing GS-117 authorization loader already enforced exact fixture identity, source pins, an operation allowlist and a global session cap; the selected-operation successor path did not enforce a separate per-operation count, so two allowed sessions could both have been bootstrap sessions. The existing loader/session manager now requires a finite per-operation limit map for subset policies and checks that limit before reserving a session. For the approved successor the only valid map is `protected_gs40_bootstrap: 1` and `tc001_campaign: 1`, with `max_sessions: 2`; rejected operations do not consume a session. No second authorization framework was introduced.
+
+Focused validation after the final source edits: `python3 code/tests/python/test_gs117_tc001_console.py` **135/135 PASS**; `make -C code validation-framework-test` **55/55 PASS**; `make -C code feature-coverage-test` **PASS**, 232 features / 287 modules / 27 physical cases and 22/22 mapping tests; Python compilation and `git diff --check` **PASS**. The new regression proves application flash is denied before reservation, a second bootstrap cannot reserve a session, the one campaign slot remains independently available, and malformed or inconsistent per-operation limits fail closed. No target build applies to this Python-only policy change.
+
+The latest private active DEV manifest is still the previous authorization, owner approval ref `OWNER_CHAT_GS117_PERSISTENT_DEV_MODE_20261030`, SHA-256 `48e4f21064c705783230ce7937f7781c47416d0f70712ff9ce9d8f1ed41bda77`; its current scope remains `SAFETY_LATCHED` at 2 sessions / 1 safety failure. The immutable predecessor remains 29 sessions / 3 failures / blocked. Neither was edited or cleared. Jira comment 11859 independently records the owner's approval of an audit-linked successor and exact candidate SHA-256 `0429ee7f7293f319cd0538ca10d52c063613dd5b837116b63232491345a5ff55`. At this checkpoint the successor has not yet been activated, and no hardware operation has been performed.
+
+The approval allows one protected S3 bootstrap, one bounded C3 restart, a 90-second observation, then one existing campaign of up to five events only if every mandatory gate passes. The readiness candidate can provide current boot/capacity, trusted-time/authority and rejoin observations only as emitted by the actual devices; it does not guarantee a current C3 installed-image provenance receipt or fixture acceptance. No values may be inferred or fabricated. TC-001 remains **0/5**; the prior missing fresh authenticated rejoin and `c3_current_installed_image_provenance_missing` remain open. Event `123/1`'s approximately 6h53m delivery delay remains an independent unresolved reliability finding.
+
+Next: finish review/commit/push of the tested source and this evidence, then preserve the current manifest and both ledgers byte-for-byte while recording the separately approved, exact-hash successor activation through the existing audit format. Recheck all mandatory non-invasive pins and identities before using the candidate. Run at most one approved readiness session; start the campaign only if fresh target evidence and the complete fixture validate.
+
 ## GS-117 — Persistent TEST_ONLY development mode and physical E2E — 2026-10-30
 
 OWNING_JIRA=GS-117; RELATED_JIRA=GS-116, GS-130, GS-179, GS-173

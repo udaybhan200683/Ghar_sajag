@@ -771,6 +771,11 @@ def session(procedure, path=POLICY, state=STATE, *, _development=False):
                 (session_limit is not None and data['sessions'] >= session_limit) or
                 (_development and data.get('consecutive_failures', 0) >= 3)):
             raise ValueError('standing_policy_failure_latched_or_limit_reached')
+        if _development:
+            procedure_limit = p.get('procedure_session_limits', {}).get(procedure)
+            procedure_count = data.get('procedure_counts', {}).get(procedure, 0)
+            if procedure_limit is not None and procedure_count >= procedure_limit:
+                raise ValueError('standing_policy_procedure_limit_reached')
         data.update(sessions=data['sessions'] + 1, blocked=True, procedure=procedure,
                     started_at=datetime.now(timezone.utc).isoformat(), approval_ref=p['owner_approval_ref'])
         for key in ('completed_at', 'failure', 'failure_class', 'functional_outcome', 'evidence',
@@ -850,6 +855,38 @@ def _environment_is_release_qualified():
     }
 
 
+def _development_operation_scope_valid(policy):
+    """Validate an explicit, bounded allowlist for an owner-approved DEV scope."""
+    procedures = policy.get('procedures')
+    if (not isinstance(procedures, list) or not procedures or
+            procedures != [name for name in DEV_OPERATIONS if name in procedures] or
+            policy.get('allowed_operations') != procedures):
+        return False
+    max_sessions = policy.get('max_sessions')
+    if (max_sessions is not None and
+            (type(max_sessions) is not int or not 1 <= max_sessions <= 30)):
+        return False
+    if procedures != DEV_OPERATIONS and max_sessions is None:
+        return False
+    procedure_limits = policy.get('procedure_session_limits')
+    if procedures != DEV_OPERATIONS:
+        if (not isinstance(procedure_limits, dict) or
+                set(procedure_limits) != set(procedures) or
+                any(type(limit) is not int or not 1 <= limit <= max_sessions
+                    for limit in procedure_limits.values()) or
+                sum(procedure_limits.values()) != max_sessions):
+            return False
+    elif procedure_limits is not None:
+        if (not isinstance(procedure_limits, dict) or
+                set(procedure_limits) != set(procedures) or
+                any(type(limit) is not int or limit < 1 for limit in procedure_limits.values()) or
+                (max_sessions is not None and sum(procedure_limits.values()) != max_sessions)):
+            return False
+    expected_motion = 'tc001_campaign' in procedures
+    return (type(policy.get('motion_injection_authorized')) is bool and
+            policy.get('motion_injection_authorized') == expected_motion)
+
+
 def _validate_development_pin_paths(path, policy):
     """Keep the active DEV manifest bound to existing GS-117 procedures."""
     path = Path(path)
@@ -886,11 +923,9 @@ def load_development(path=None, *, verify_procedure_pins=True):
         p.get('development_mode_enabled') is not True or
         p.get('owner_approved') is not True or not p.get('owner_approval_ref') or
         str(p['owner_approval_ref']).startswith('PENDING') or p.get('identity') != IDENTITY or
-        p.get('images') != DEV_IMAGES or
-        p.get('procedures') != DEV_OPERATIONS or p.get('allowed_operations') != DEV_OPERATIONS or
+        p.get('images') != DEV_IMAGES or not _development_operation_scope_valid(p) or
         p.get('prohibited_operations') != DEV_PROHIBITED or
         p.get('serial_reset_risk_accepted') is not True or
-        p.get('max_sessions') is not None or p.get('motion_injection_authorized') is not True or
         not isinstance(mode, dict) or mode.get('enabled') is not True or
         mode.get('revoked') is not False or mode.get('persistent') is not True or
         mode.get('mode_id') != DEV_MODE_ID or mode.get('expires_at') is not None or
@@ -1290,12 +1325,17 @@ def development_status(path=None):
     scope_id = _development_scope_id(policy)
     state = DEV_STATE if path.resolve() == DEV_POLICY.resolve() else path.parent / 'development-authorization'
     history = _development_history(state, policy, scope_id)
+    session_limit = policy.get('max_sessions')
+    exhausted = session_limit is not None and history['sessions'] >= session_limit
     return {
-        'status': 'ACTIVE' if not history['blocked'] else 'SAFETY_LATCHED',
+        'status': ('SAFETY_LATCHED' if history['blocked'] else
+                   'SESSION_LIMIT_REACHED' if exhausted else 'ACTIVE'),
         'development_mode_enabled': True,
         'persistent': True,
         'expires_at': None,
         'sessions': history['sessions'],
+        'session_limit': session_limit,
+        'sessions_remaining': None if session_limit is None else max(0, session_limit-history['sessions']),
         'consecutive_safety_failures': history['consecutive_failures'],
         'blocked': history['blocked'],
         'procedures': policy['procedures'],
