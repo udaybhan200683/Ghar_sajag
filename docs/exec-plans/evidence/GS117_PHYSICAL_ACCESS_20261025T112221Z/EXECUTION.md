@@ -5526,3 +5526,5 @@ Show/Hide implementation and CI artifact remain reused; no APK rebuild or
 reinstall was done. Jira remains In Progress. The next immediate action is for
 the owner to prepare the sign-in form and enter test credentials directly on
 the phone; no credentials should be shared in chat.
+Jira comments 11880 (GS-177), 11881 (GS-179), and 11882 (GS-117) were posted
+and read back; the issues remain In Progress.

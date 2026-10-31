@@ -10570,4 +10570,5 @@ No source changed and no software tests/builds were rerun. Context preflight
 PASS; starting local/remote HEAD was
 `8ef67d5f4698816fc3ffda5a8557c225a63a8b0b`. Existing untracked files and
 historical authorization ledgers remain untouched. Jira status remains
-In Progress for GS-117/GS-177/GS-179.
+In Progress for GS-117/GS-177/GS-179. Comments 11880 (GS-177), 11881 (GS-179),
+and 11882 (GS-117) were posted and read back.
