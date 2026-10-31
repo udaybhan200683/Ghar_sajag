@@ -5336,3 +5336,58 @@ untracked assets and evidence (including generated IDF `managed_components/`
 and `sdkconfig`, the Android reference/source workspace and Zone.Identifier
 files, `NUL`, and prior hardware evidence trees) remain untouched and
 unstaged.
+
+## 2026-10-31 08:42 UTC — Agrim LAN restored; local TEST_ONLY APK updated
+
+The owner reconnected the laptop to Agrim Wi-Fi. Fresh Windows checks report
+`Airtel_Agrim`, Private, `192.168.1.6/24`, gateway `192.168.1.1`; the phone
+`ZA2237MRHN` reports the same SSID and `192.168.1.5`. WSL is
+`172.17.152.10/20`. The existing `Ghar Sajag GS-179 Trusted Wi-Fi Reconnect`
+task's latest result is 0. The read-only proxy audit shows the expected
+`.6:443 → 172.17.152.10:8444` mapping and one listener; its firewall-rule query
+is blocked to this non-admin audit process. No profile, firewall or proxy
+mutation was needed. The existing GS-179 health command passes PostgreSQL,
+local CA/hostname-verified HTTPS, the laptop LAN HTTPS endpoint and
+`DEVELOPMENT_ENDPOINT_READY`. A phone-side TCP connect to `.6:443` also passed.
+The APK's bundled local CA hash matches the current laptop CA; the active
+server certificate validates for both `192.168.1.6` and
+`desktop-3qqu64b.local`. This establishes current routing and server TLS
+material, but it is not an APK Login/API observation.
+
+The installed package before update was the TEST_ONLY package
+`in.gharsajag.caregiver.discoverytest`, versionCode 3, version
+`0.4.0-connected-lite-staging`, SHA-256
+`0b240966255618ad3466e17e8dcca40d71efbe84b0096cb1063ba9f4855e2d76`; it did
+not include `assets/password_visibility.mjs`. Existing workflow
+`41185329437`, dispatched from source `c19acab86d181296d0b8f951d9c5a912ede7e6ed`
+with the explicit GS-179 local-LAN TEST_ONLY profile and
+`https://192.168.1.6/`, completed successfully. Browser E2E passed 92/92;
+registered caregiver API, Android-dashboard and voice stages passed 23, 19 and
+29 checks; the framework classified this as software PASS / physical NOT_RUN.
+The uploaded artifact `13036937381` passed CI signature verification and
+SHA-256 checking. APK hash is
+`f44df9a80674a0746446de96b5948cf33e3c4fa3031e1d751d1c1eb12cf322e7`; signer
+SHA-256 `d336ae68479da03de932a44b16c8de730c86e3cf68aee52fe92261e74e596b85`
+matches the existing TEST_ONLY signer; bundled CA SHA-256 is
+`7152366fdcf6d64d2df6ad2eca86ec6a8a8d60dad43cc7a8738e353fe86eddd5`. The
+artifact contains the already implemented Show/Hide asset.
+
+Using the existing Windows ADB and same package/signer, `adb install -r`
+updated the installed TEST_ONLY APK successfully without uninstalling or
+clearing app data. `firstInstallTime` remains 2026-10-23; the pulled installed
+APK hash exactly matches the CI artifact. The handset remained in the
+WhatsApp foreground before and after the update. To avoid interrupting that
+activity, Parivar Saathi was not launched; actual APK TLS/API Login and
+handset Show/Hide interaction therefore remain **NOT_VERIFIED**. The active
+network path is restored and the next needed observation is the real app's
+Login/Home request and Show/Hide interaction when the phone is available.
+
+No credentials or account state changed. No four-digit PIN was added: there is
+still no per-account TEST_ONLY PIN provisioning and durable anti-guessing
+contract; the 16–256-character caregiver password rule remains intact. GS-117
+authorization remains `SAFETY_LATCHED`; no COM access, reset, bootstrap,
+firmware deployment or motion injection occurred. The S3 image remains
+build-only, TC-001 remains 0/5, EventKey 123/1's approximately 6h53m delay is
+unresolved, and historical EventKey 126/1 remains supplemental evidence only.
+The 5-hour work budget was not approached; unrelated untracked files and
+historical ledgers remain preserved.

@@ -10451,3 +10451,45 @@ commit `5d0d02a89f35b189358d77207aea68fe67dfb6ba` was pushed on
 `feature/r1-commercial-baseline`; `git ls-remote origin` matched local HEAD.
 Tracked files are clean. All existing untracked assets and hardware evidence
 remain preserved and unstaged.
+
+### 2026-10-31 08:42 UTC — Agrim connectivity and TEST_ONLY APK delivery
+
+The current approved LAN is `Airtel_Agrim`: Windows is Private at
+`192.168.1.6/24`, phone `ZA2237MRHN` is `192.168.1.5` on the same SSID, and
+the existing trusted-network recovery task last returned 0. Its port-443
+mapping/listener is present. Existing backend health now passes PostgreSQL,
+local verified HTTPS and WSL-to-LAN HTTPS; phone TCP to `.6:443` passes. The
+local APK CA matches the active service CA, and the active cert validates for
+the IP and `.local` DNS SAN. No firewall/profile change was needed. These are
+transport/readiness observations, not evidence of a caregiver app login.
+
+The existing GS-177 CI workflow `41185329437` built and signature-verified a
+GS-179 TEST_ONLY APK for `https://192.168.1.6/`, using source
+`c19acab86d181296d0b8f951d9c5a912ede7e6ed` and the persistent installed-app
+signer. Browser E2E passed 92/92; registered caregiver API, Android dashboard
+and voice stages passed 23/19/29; physical remains NOT_RUN. Artifact
+`13036937381` SHA-256 is
+`f44df9a80674a0746446de96b5948cf33e3c4fa3031e1d751d1c1eb12cf322e7` and
+signer SHA-256 is
+`d336ae68479da03de932a44b16c8de730c86e3cf68aee52fe92261e74e596b85`. It
+bundles the already implemented Show/Hide module and the current TEST_ONLY CA.
+ADB `install -r` updated the existing package without clearing app data; a
+read-only pull confirmed the installed bytes exactly match the verified
+artifact and the original first-install time is preserved.
+
+The phone's foreground was WhatsApp before and after update. Parivar Saathi was
+not launched to avoid interrupting that activity. Consequently actual APK
+Login/Home/API and handset Show/Hide interaction remain **NOT_VERIFIED** even
+though laptop/phone transport is now restored. The four-digit TEST_ONLY PIN
+remains deferred: no distinct account provisioning or durable anti-guessing
+contract exists, and the current 16–256-character caregiver password policy
+was not weakened. Next Android step: open the updated app when the phone is
+available and capture a real TLS/API Login plus Home response and Show/Hide
+interaction.
+
+GS-117 remains **In Progress**, authorization `SAFETY_LATCHED`, TC-001 0/5.
+No hardware operation occurred; the S3 diagnostic image is still only built.
+Event 123/1 latency remains unresolved and 126/1 remains historical evidence.
+At this checkpoint, branch `feature/r1-commercial-baseline` is at
+`c19acab86d181296d0b8f951d9c5a912ede7e6ed`, matching `origin`; all existing
+untracked files, evidence and authorization ledgers are preserved.
