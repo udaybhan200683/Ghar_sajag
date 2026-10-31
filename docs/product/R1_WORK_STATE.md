@@ -1,3 +1,32 @@
+## GS-117 — approved provenance session stopped at authenticated rejoin guard — 2026-10-31
+
+OWNING_JIRA=GS-117; RELATED_JIRA=GS-179, GS-116, GS-130, GS-173
+OWNER_APPROVAL_REF=GS-117#11864
+BUG_CLASSIFICATION=TEST_INFRA_ONLY
+READINESS_OUTCOME=BLOCKED; TC-001=0/5
+REQUIREMENT_SOURCE=GS-117 physical fixture and TC-001 acceptance; owner approval comment 11864
+DECISION_IDS=NONE; no product acceptance or security rule changed
+TASK_SCOPE=One approved current C3/S3 image provenance read, one protected S3 bootstrap/rejoin observation, and the conditional TC-001 campaign only if every gate passed.
+OUT_OF_SCOPE=Firmware write/flash, erase, JEDEC, credentials, enrollment, ownership, unrelated DB changes, retries, or campaign after failed readiness.
+
+Existing functionality → actual gap → minimum change: the existing reviewed readback helper verifies the selected app, partition table and OTA selector; the stale fixture receipts needed a current observation. The existing helper was used unchanged and genuine owner-only receipts were written from its actual output. No source implementation changed.
+
+The single approved readback observation passed for both targets. C3 `c3-146393c5d158`/COM4 selected `ota_0` (seq 7, offset `0x20000`) and its 958,992-byte app matched `589dc9f98ef78fed97709e2ffb845b0a0eb6ccf5babfd9cc149743539932acb7`; partition table SHA-256 `219614d3586ae564ce51dfc462e6e7773b590abe41048a10bc513e1a7d799469`. S3 `hub-e072a1d38d34`/COM10 selected `ota_1` (seq 30, offset `0x420000`) and its 2,292,864-byte app matched `ff1116344cbc05d4c6fcc18a8f003d067b809ef6d90236fd90bba6f86ab052e5`; partition table SHA-256 `338f4a83ba90609b4ed0a04514f6378dc90b5d21769e186f49dc3086fd9feabc`. No JEDEC/capacity query, NVS/key/trust read, write or erase occurred. The subsequent S3 bootstrap boot log independently reported 16 MiB flash and 8 MiB PSRAM; C3 boot log reported 4 MiB. Fixture image receipt checks now pass.
+
+The one permitted protected bootstrap did **not** establish readiness. First failed guard: `standing_readiness_authenticated_liveness_not_verified`. C3 entered session 129; across nine `GET_STATE` observations both `runtime_live` and `sensing_live` remained 0, with retained/in-flight/pending injection all 0. C3 emitted bounded `GS117_DEV_REJOIN` attempts but no matching authenticated S3 rejoin was observed; S3 logged three `Authenticated control reply delivery failed` messages. Thus runtime liveness was not separately diagnosed as a firmware loop fault.
+
+S3 boot identity and TLS-pair validation passed (`valid=1`). The authenticated TEST_ONLY ingress recorded five `/v1/test/authority/refresh` responses with HTTP 200, and the signed-time server counted six requests. These are transport/server observations only. The S3 logged household-policy rejection and deterministic activity rules disabled because signed Home config/current lease/trusted time was unavailable. Target trusted-time acceptance and authority-lease installation therefore remain **NOT VERIFIED**; an HTTP 200 is not target acceptance. No C3/S3 event was injected and no database event was created. The phone was connected and the existing APK/package readiness check passed, but no new event was presented in Android.
+
+The successor authorization `gs117-provenance-20261031-3032726aa89e8077` is now safety-latched after 2 of 3 allowed procedure sessions (one successful observation, one failed bootstrap; one conditional campaign procedure remains unused but is unavailable while latched). Current status: `SAFETY_LATCHED`, one consecutive failure. All predecessor ledgers remain unchanged. Do not retry, clear the latch or start TC-001 under this policy. TC-001 remains **0/5**. Backend/PostgreSQL, caregiver HTTPS and LAN forwarding remain PASS. Temporary ingress/UDP listeners were stopped and absence verified.
+
+Private evidence: `/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/provenance-observation-20261031T051727Z/` (C3 readback SHA-256 `29c99ec5095c0889c68f4a928a382de7f0d64164eb30939b6e5e93365785a8b9`; S3 readback SHA-256 `8205d7e2b4c580c785c088e641c4cddeb38cbc8e1a339d1ff701076918050e4d`) and `/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/standing-authorization/bootstrap-85fb8d482e17dc33ce4f8dca/`. Raw image bytes and sanitized target observations remain private.
+
+No product source or firmware changed; broad regression suites were not rerun. Existing GS-117 135/135, framework 55/55 and mapping 22/22 evidence remains applicable to unchanged code. This session’s readback self-test, live fixture preflight, backend health, target identity, and service-stop checks passed; the physical readiness guard failed as above. Event 123/1’s approximately 6h53m delivery delay remains unresolved. GS-117 stays In Progress.
+
+Next: offline-trace the exact S3 configuration/time/authority rejection and the C3↔S3 rejoin failure from existing source and preserved evidence. Only after a reviewed cause/correction should an audited successor/disposition be considered; this consumed, latched authorization cannot be reused. No immediate hardware retry is authorized by this record.
+
+---
+
 ## GS-117 — successor readiness authorization implementation checkpoint — 2026-10-31
 
 OWNING_JIRA=GS-117; RELATED_JIRA=GS-116, GS-130, GS-179, GS-173

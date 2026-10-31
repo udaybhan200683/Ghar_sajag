@@ -4919,3 +4919,81 @@ Authorization remains `ACTIVE`, 1/2 sessions used, with one conditional
 campaign slot and no new safety failure. All pins match. The fixture still
 fails closed at `c3_installed_image_receipt_stale`; no hardware operation or
 campaign was performed.
+
+### 2026-10-31 05:17 UTC — owner-approved provenance refresh and readiness stop
+
+Owner approval: GS-117 comment `11864`. Preflight was PASS at canonical branch
+`feature/r1-commercial-baseline`, HEAD `16cc2e567afa39ac3332922d908e1b9d8a01bd65`;
+the remote matched before this evidence update. The exact approved device/Home/
+backend identities, active authorization and helper fingerprints matched.
+Android ADB listed `ZA2237MRHN`; the existing console package check reported the
+installed discovery-test APK ready. Backend/PostgreSQL, verified laptop HTTPS,
+and the trusted Private Wi-Fi/WSL `8445` route were healthy. No hardware access
+occurred before these checks.
+
+The approved read-only helper SHA-256 was
+`87fa118c5c345d8544c25f35b45966a6e41e5354fcfe9e1255dff019b620d25b`; its
+reviewed delta SHA-256 was
+`bebb36a47509237ff888b365841502ca02a9e8add3a099f9af1f7446af9e776d`. Its
+Windows self-test passed without opening a serial port. Under the one
+`observe` session, exact USB identities were rechecked before COM access. C3
+`read-mac` entered ROM and returned it to the existing app; both C3/S3 targeted
+readbacks passed. The C3 selected app was byte-for-byte equal to the trusted
+artifact in `ota_0` (seq 7, offset `0x20000`, 958,992 bytes); the S3 app was an
+exact match in `ota_1` (seq 30, offset `0x420000`, 2,292,864 bytes). Both
+partition-table hashes and OTA selectors matched the approved layout. No
+JEDEC query, capacity query, NVS/key/trust read, firmware write or erase was
+performed. New private receipts are linked in the mode-0600 owner fixture;
+capacity values in those receipts reference existing verified records. The
+subsequent actual boot log independently confirmed C3 4 MiB and S3 16 MiB flash
+with 8 MiB PSRAM. Exact fixture validation passed for the DEV input profile.
+
+The bounded, existing GS179 TEST_ONLY ingress and GS68 signed-time services
+were started on the trusted Private Wi-Fi network for the one protected
+bootstrap. Both were stopped afterward; WSL 8445 and Windows UDP 192.168.1.6:
+4468 were verified not listening. No permanent backend, certificate, router,
+firewall or PostgreSQL configuration changed.
+
+The one protected S3 bootstrap completed its child protocol but the parent
+failed the exact guard `standing_readiness_authenticated_liveness_not_verified`.
+Private evidence is
+`~/.local/state/ghar-sajag/gs117-tc001/standing-authorization/bootstrap-85fb8d482e17dc33ce4f8dca/`
+(child exit 0, valid sanitized response; parent guard failed) and the readback
+directory is
+`~/.local/state/ghar-sajag/gs117-tc001/provenance-observation-20261031T051727Z/`.
+The C3 entered session 129; all nine bounded `GET_STATE` samples retained
+`runtime_live=0`, `sensing_live=0`, `retained=0`, `in_flight=0`, and
+`pending_inject=0`. Bounded `GS117_DEV_REJOIN` messages were seen, but no S3
+authenticated rejoin record; the S3 logged three authenticated control-reply
+delivery failures. The log supports a failure before authenticated association
+readiness; it does not establish a NodeRuntime/sensing-loop defect.
+
+S3 boot/image identity, 16/8 MiB memory evidence and TLS pair validation
+(`valid=1`) passed. The real TEST_ONLY ingress received five
+`/v1/test/authority/refresh` requests and returned HTTP 200; the signed-time
+service counted six requests. These prove request transport/server response,
+not target installation. S3 logs reported a rejected desired household policy
+and deterministic rules disabled because signed Home config/current authority
+lease/trusted time was unavailable. Therefore target trusted-time acceptance
+and authority-lease installation are **NOT VERIFIED**. The precise rejected
+configuration clause is not present in sanitized target output; do not infer
+that HTTP 200 cleared it. CloudSync `submitted=0` is not a failure here because
+no event was queued.
+
+The current successor authorization is `SAFETY_LATCHED`: 2/3 sessions used,
+one observation PASS and one bootstrap guard failure; campaign procedure count
+is zero. The conditional campaign slot remains unused but cannot be invoked
+while the global latch is active. All historical predecessor authorization and
+failure ledgers remain unchanged. No motion input, TC-001 run, PostgreSQL event
+write, firmware change, credential change or enrollment change occurred.
+TC-001 remains **0/5**. Android was attached and installed-package readiness
+passed; no event was presented, so this is not Android event evidence.
+
+No source or firmware changed; no broad software suite or target build was
+rerun. Previously recorded GS-117 135/135, framework 55/55 and mapping 22/22
+results were reused because pinned code and contracts were unchanged. The
+readback helper self-test, backend/PostgreSQL health, actual fixture check and
+listener shutdown checks were executed in this session. Event 123/1's ~6h53m
+latency remains unresolved. Next action is offline source/evidence diagnosis of
+the S3 signed-time/authority/config rejection and C3↔S3 authenticated rejoin;
+no hardware retry may occur under the consumed latched successor.
