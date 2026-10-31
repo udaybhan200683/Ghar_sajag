@@ -4876,3 +4876,19 @@ through the existing source-review procedure before authorization can be used;
 the current authorization status presently fails closed on that temporary pin
 mismatch. No hardware operation, receipt refresh, or event injection occurred;
 TC-001 remains **0/5**.
+
+### 2026-10-31 04:40 UTC — reviewed controller pin update
+
+The existing audited source-update mechanism accepted the committed change and
+updated only the controller fingerprint. It recorded source-review SHA-256
+`77562044b1d89e8e26d26c5783732e2be589bf047f197f6917469e638840352e` and test
+receipt SHA-256
+`410acc60a7268f58244eaf35a8e2ed22fe46dc6870899f0a219f22a45a451490`. The
+review reran the GS-117 focused suite (**135/135 PASS**) and
+`make -C code feature-coverage-test` (**232 features / 287 modules / 27
+physical cases; 22/22 consistency tests PASS**). The authorization reports
+`ACTIVE`, one of two sessions used, one conditional campaign remaining and no
+new safety failure; the 29-session/3-failure predecessor latch is unchanged.
+`exact_fixture()` still fails closed with
+`c3_installed_image_receipt_stale`. No session was consumed and no hardware
+operation occurred.

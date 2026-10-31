@@ -52,6 +52,22 @@ No physical access, receipt renewal, bootstrap, event injection or TC-001 run
 occurred. TC-001 remains **0/5**. The remaining authorized campaign slot is
 preserved, and the predecessor safety-latched ledgers remain unchanged.
 
+#### 2026-10-31 04:40 UTC — source review completed
+
+The existing owner-audited source-update procedure recorded the committed
+controller change at `f79656236aaf110d8becdd0ec737c8da6b9e65e1`. Only the
+controller pin changed; the scope hash, device identities, allowed operations,
+session limit and historical ledgers were preserved. Review record SHA-256:
+`77562044b1d89e8e26d26c5783732e2be589bf047f197f6917469e638840352e`; focused
+test receipt SHA-256:
+`410acc60a7268f58244eaf35a8e2ed22fe46dc6870899f0a219f22a45a451490`.
+The recorded checks were GS-117 **135/135 PASS** and GS-130 consistency
+**232 features / 287 modules / 27 physical cases; 22/22 mapping tests PASS**.
+Authorization status is again `ACTIVE`, 1 of 2 sessions used, one campaign
+session remaining and zero current safety failures. The predecessor's
+29-session/3-failure latch remains preserved. The exact fixture still fails
+closed at `c3_installed_image_receipt_stale`; the campaign slot was not used.
+
 ## GS-117 — Persistent TEST_ONLY development mode and physical E2E — 2026-10-30
 
 OWNING_JIRA=GS-117; RELATED_JIRA=GS-116, GS-130, GS-179, GS-173
