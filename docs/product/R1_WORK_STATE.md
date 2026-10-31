@@ -10130,3 +10130,52 @@ Target time/authority acceptance remains unverified: the target produced authent
 No event was injected; TC-001 remains **0/5**. Bounded 8445/4468 services were stopped and both ports verified closed; the existing local console was preserved. The readiness CLI exited 1 only after saving the target result, when it tried to bind a second listener to the already-running `127.0.0.1:18791`; no pinned source was changed. Event 123/1's ~6h53m delivery delay remains unresolved. GS-117 remains In Progress.
 
 **Next:** offline-trace target signed-time/current-lease state and determine whether genuine current image/structured-ingress receipts can be collected within existing non-destructive authority. Reattach the authorized Android phone for its current APK receipt. Do not consume the remaining conditional campaign authorization unless all target trust, fixture, backend, and APK gates pass.
+
+### 2026-10-31 04:14 UTC — Android reconnected; readiness reconciled
+
+The authorized ADB phone is online, awake and unlocked. The existing observer
+reverified historical EventKey `c3-146393c5d158 / bedroom / 126 / 1` in the
+actual installed APK with Home `gs177-test-product`, origin
+`https://192.168.1.6/` and Backend API CONNECTED. Current installed APK bytes
+match the preserved trusted SHA-256
+`0b240966255618ad3466e17e8dcca40d71efbe84b0096cb1063ba9f4855e2d76`;
+signer-digest corroboration is retained, formal `apksigner verify` was not run.
+Private screenshot, accessibility and APK identity evidence are under
+`~/.local/state/ghar-sajag/gs117-tc001/android-attached-refresh-20261031T041212Z/`.
+This is historical-key Android evidence only. The app displays monitoring and
+source UNKNOWN / physical origin not verified.
+
+Correction to the preceding readiness interpretation: target CloudSync
+`state=3` maps to `CloudWorkerState::Ready`; the worker sets it only after a
+route and current Home/Hub/epoch binding are available. The S3 trust source
+requires an accepted signed-time proof/floor and an unexpired signed authority
+lease matching the same boot generation and credential binding. This proves
+time/authority acceptance during those target polls, not from HTTP 200 alone,
+and is not a standalone signed receipt or current campaign-time proof.
+`submitted=0` was expected because no event was queued. The generic activity
+rules warning does not identify the failed prerequisite. Household-config
+rejection can occur before HTTP; the trace has no `/config/desired` GET, and
+the exact clause was not recorded. The DEV version-0 motion path needs no
+Morning Routine policy. NodeHealth 503 is a separate additive status path with
+no preserved response body; it is consistent with the APK's UNKNOWN monitoring
+status but does not establish event CloudSync failure.
+
+Current C3/S3 image receipts are respectively 26.56h/26.60h old; the fixture
+allows 24h. Source inspection found the installed HIL `GET_STATE` reports the
+active OTA slot but not an image digest or partition-table digest. The C3
+GS-68 image-hash observer is an isolated profile that the build explicitly
+forbids composing with HIL controls. S3 boot evidence supplies a version and
+short ELF-hash prefix, not the full app/partition hashes required by the
+fixture. `exact_fixture()` therefore remains BLOCKED at
+`c3_current_installed_image_provenance_missing`. The readiness session is
+consumed; the active successor has one conditional campaign slot. TC-001 stays
+**0/5**; no C3/S3 operation or physical motion event occurred in this turn.
+
+**Next exact action:** owner authorization is needed for one targeted,
+read-only current-image/partition/OTA-selector observation on the identified
+C3/S3 because no existing non-destructive runtime path emits the required full
+receipts. Include any expected serial-reset effects and one existing S3
+protected bootstrap/C3 rejoin to restore and verify RAM-only configuration;
+only after that fixture passes may the remaining conditional five-run campaign
+be used. No C3/S3 operation or physical motion event occurred in this turn;
+the Android ADB observation was read-only. GS-117 remains In Progress.
