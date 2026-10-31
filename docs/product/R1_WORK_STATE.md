@@ -10033,3 +10033,68 @@ the minimal readiness sequencing change and config-rejection evidence gap.
 Re-evaluate the current-image fixture and campaign gates before injecting.
 Event 123/1's ~6h53m delay remains unresolved; real PIR and release acceptance
 remain separate.
+
+### 2026-10-31 02:56 UTC — GS-117 offline RCA; hardware remains stopped
+
+Canonical source remains `e69ee50e25b5cf5b570b2fdc8f44ef40e54bb91d`; no source
+change or hardware operation was made. The active DEV authorization is enabled
+and unrevoked but **SAFETY_LATCHED** (2 sessions, 1 consecutive safety failure).
+The current failure is `standing_readiness_authenticated_liveness_not_verified`.
+The only existing reviewed disposition accepts the exact earlier pre-operation
+serial-helper pin mismatch; it cannot disposition this post-operation missing
+rejoin. Keep the latch and both historical ledgers unchanged. No hardware may
+be operated until a valid explicit audited successor/disposition exists.
+
+The previous C3 observation showed increasing runtime/sensing counters, not a
+fresh authenticated rejoin. S3 was restarted while C3 remained link-ready; the
+negotiated C3 idle recovery timeout is 430 seconds, versus the ~81-second
+observation. The HIL reassociation request only acts before the C3 security link
+first becomes ready. This is an insufficient readiness sequence, not proof of
+authentication failure. A useful next bounded observation must restart C3
+after S3 bootstrap and observe the real S3 authenticated rejoin plus advancing
+counters.
+
+The S3 `desired household policy rejected` message is a local source-level
+precondition: the signed GS40 bootstrap has `fixture_home_id` but no
+`activity_home_id` (fields 17–20); the fetch routine rejects empty activity
+Home before HTTP. The ingress trace has no `/config/desired` request, only
+authority-refresh responses. TLS pair validation was `valid=1`; this message
+does not prove backend rejection. No desired routine policy row exists, but
+supported version-0/no-policy is sufficient for motion TC-001. Morning Routine
+configuration application remains a separate gap; no policy was seeded.
+
+The last C3 installed-image receipt (2026-10-30 01:40:47 UTC) and S3 receipt
+(01:38:46 UTC) are stale. Their recorded application hashes matched the
+approved images; the later S3 boot freshly reported 16 MiB flash, 8 MiB PSRAM
+and expected S3 image identity, but C3's current image was not freshly proven.
+The inactive owner-only readiness candidate is
+`~/.local/state/ghar-sajag/gs117-tc001/readiness-proposal-20261031/gs117-protected-bootstrap-development-v19-rejoin-candidate.py`,
+mode 0600, SHA-256
+`0429ee7f7293f319cd0538ca10d52c063613dd5b837116b63232491345a5ff55`. It
+refreshes helper pins, uses the observed S3 image, enables the existing bounded
+C3 restart after S3 bootstrap and observes for 90 seconds. Syntax check passed;
+not activated or executed. Active manifest remains pinned to the v18 parent
+`7cd38e60b291e12ee51572b30f55a83fc8fb393ca188328c06f8e3541eff7ccb`; pin
+maintenance does not clear the latch. No fresh receipt was fabricated.
+
+Event `123/1` still has an unresolved ~6h53m delivery delay: C3 injection and
+S3 class-0 admission passed; the original backend wait timed out after ~61
+seconds, and later PostgreSQL/API commit is confirmed. The retained ingress log
+does not include that EventKey, so retry/backlog root cause remains unknown.
+No timeout change or reliability PASS is claimed. TC-001 remains **0/5**;
+historical EventKey `126/1` is supplemental only. Details and evidence limits
+are in the dated GS-117 execution handoff section above.
+
+**Next action:** obtain one explicit owner decision to add an append-only,
+guard-specific disposition for this exact post-operation
+`standing_readiness_authenticated_liveness_not_verified` event and use it for
+one bounded readiness attempt. Preserve the failed record and all predecessor
+ledgers/counters; do not add a generic latch clear. The existing code only
+dispositions the earlier pre-operation pin mismatch. If it cannot record this
+disposition without resetting history, stop for a security/product decision.
+After approval, the readiness attempt may use the inactive reviewed candidate
+to bootstrap S3 once and restart/observe C3 once, with stop-on-first-failure.
+If readiness and fixture gates pass, the existing DEV scope already includes
+`tc001_campaign`, so run the existing five-event campaign under that scope and
+stop at its first non-PASS. No hardware action has been authorized/executed in
+this checkpoint. GS-117 remains In Progress.

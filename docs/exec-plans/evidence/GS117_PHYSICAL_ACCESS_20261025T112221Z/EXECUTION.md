@@ -4412,3 +4412,104 @@ Offline source analysis explains why the missing line is not by itself evidence 
 The existing fixture's first file-backed blocker remains `c3_current_installed_image_provenance_missing`; this session did not create a current C3 installed-image receipt. No fixture fields were fabricated. Bounded 8445 ingress and Windows 4468 signed-time services used for this session were stopped afterward; the 8445 listener and 4468 endpoint were verified absent. The existing backend/PostgreSQL services and current-source loopback GS-117 console remain available; `/api/status` returned HTTP 200. No source changed, so previously recorded 133/133 GS-117, 55/55 framework and 22/22 traceability results were reused. No new suite was run; documentation validation is `git diff --check`.
 
 **Next action:** retain the active safety latch and this failed readiness record. Review/disposition the exact guard through the existing audited mechanism; then review the minimal readiness sequencing change and config-rejection evidence gap before another bounded session. Only after the target observation, current fixture, live ingress, Android and campaign guards genuinely pass may the existing five-run campaign start. Do not count historical `126/1`; do not claim optical PIR. Event `123/1`'s ~6h53m delay remains a separate unresolved reliability issue.
+
+### 2026-10-31 02:56 UTC — offline readiness/root-cause review; latch retained
+
+No hardware, COM port, bootstrap, reset, injection or database operation was
+performed. Canonical source is unchanged at `e69ee50e25b5cf5b570b2fdc8f44ef40e54bb91d`;
+the remote branch matched before this evidence update. The GS117 console is the
+only matching long-lived process. Existing untracked work/evidence was left
+untouched.
+
+**Authorization stop.** The active DEV manifest is still enabled and unrevoked,
+but `development_status()` reports `SAFETY_LATCHED` (2 sessions, 1 consecutive
+safety failure). The exact latest guard is
+`standing_readiness_authenticated_liveness_not_verified`; the readiness parent
+raised after it failed to observe a fresh authenticated C3 rejoin. This is not
+evidence that authentication itself failed: runtime and sensing counters moved,
+but the required post-S3-start rejoin was not observed. The authorization code's
+only reviewed disposition is narrowly restricted to the exact pre-operation
+serial-helper pin mismatch (`dispose_reviewed_preoperation_pin_failure()`); it
+does not accept this post-operation readiness result. The conservative latch is
+therefore preserved. No classification, counter, ledger, prior authorization
+or failure evidence was changed. Current hardware operations remain prohibited
+until an explicit, audited successor/disposition is valid.
+
+**C3 rejoin root cause.** The S3 had been restarted while the already-running
+C3 remained link-ready. C3 source uses a negotiated 430,000 ms idle recovery
+timeout; the previous observation lasted about 81 seconds. The HIL reassociation
+request is consumed only in the C3 startup loop before `security_link.ready()`.
+Consequently the short observation did not test the later idle-recovery timeout
+and could not trigger the startup-only request. C3 runtime/sensing liveness is
+positive, but authenticated rejoin is unverified, not failed. The minimum useful
+next observation is a real C3 application restart/rejoin after S3 is ready,
+followed by its authenticated S3 rejoin evidence and bounded live counters.
+
+An inactive owner-only candidate parent exists at
+`~/.local/state/ghar-sajag/gs117-tc001/readiness-proposal-20261031/gs117-protected-bootstrap-development-v19-rejoin-candidate.py`
+(mode 0600, SHA-256
+`0429ee7f7293f319cd0538ca10d52c063613dd5b837116b63232491345a5ff55`). It is
+not pinned or activated. Relative to the existing v7 candidate, its reviewed
+changes refresh the serial/evidence-helper pins, require the observed S3 image
+identity, enable the existing bounded C3 reset after S3 bootstrap, and observe
+for 90 seconds (120-second child timeout). Syntax validation passed; it was not
+executed. The active DEV manifest still pins the v18 parent at SHA-256
+`7cd38e60b291e12ee51572b30f55a83fc8fb393ca188328c06f8e3541eff7ccb`; changing
+that pin does not clear the safety latch. The predecessor failed ledgers remain
+immutable.
+
+**S3 policy rejection.** The target logged `TEST_ONLY desired household policy
+rejected` and disabled deterministic activity rules, while TLS pair validation
+was `valid=1`. Source review shows `gs40_test_only_fetch_household_config()`
+returns locally before issuing HTTP when `activity_home_id` is empty. The
+protected bootstrap supplies signed `fixture_home_id` but omits activity
+fields 17–20, so the captured ingress has authority-refresh HTTP 200s and no
+`/config/desired` GET. This is a local signed-config precondition, not evidence
+of backend policy rejection or a failed TLS/authentication check. The current
+Home has no desired routine-policy row; supported version-0/no-policy remains
+sufficient for the motion-event TC-001 path. Do not seed a policy or count this
+as applied configuration. A nonzero configurable Morning Routine policy needs
+a correctly authorized signed activity configuration separately.
+
+**Image receipts and delivery reliability.** C3's last owner-only installed-
+image receipt is stale (observed 2026-10-30 01:40:47 UTC); its recorded binary
+matches approved image `589dc9…32acb7`, but no current receipt exists. S3's
+last receipt is also stale (2026-10-30 01:38:46 UTC); the later protected boot
+did observe 16 MiB flash, 8 MiB PSRAM and the expected S3 application identity,
+but did not freshly prove C3's installed image. A bounded C3 reboot/rejoin may
+provide fresh runtime image/version/OTA-slot evidence alongside prior verified
+application-write provenance; it must not be represented as a binary readback.
+No receipt was fabricated.
+
+Event `123/1` remains an unresolved ~6h53m delay. Its original campaign record
+proves C3 injection and S3 class-0 admission, then a ~61-second backend timeout;
+the later PostgreSQL/API commit is real. The preserved 87-row ingress trace
+does not include `123/1`, so it cannot distinguish missing retry attempts from
+transport/backlog timing. Existing CloudSync retry intervals (1/5/30/120/300
+seconds, capped) and 5-second worker cadence do not explain the delay by
+themselves. No root cause or latency acceptance is claimed; no timeout was
+changed.
+
+No product/firmware source fix is justified from the available evidence. The
+authorization module has no disposition path for this post-operation readiness
+guard; its existing API accepts only the exact prior pre-operation pin failure.
+TC-001 remains 0/5; historical Android `126/1` is supplemental only. Before
+hardware access, the owner must explicitly approve a narrow, append-only
+disposition path for this exact `standing_readiness_authenticated_liveness_not_verified`
+record, with the original failure and safety history preserved, and authorize
+one bounded successor readiness attempt using the candidate above. This is a
+real readiness failure (the required rejoin was not demonstrated), not a
+security failure and not a reason to erase or relabel the failure. The scoped
+review must not become a generic latch-clear operation. If the code cannot
+record such a disposition under the existing owner-consent mechanism without
+resetting prior counters, stop and request a product/security decision.
+
+That approved readiness attempt would be limited to the known TEST_ONLY
+C3/S3/Home/backend, one protected S3 bootstrap/reset, one C3 application reset
+and GET_STATE/rejoin observation, with current identity/image/time/auth checks
+and stop-on-first-failure. It authorizes no flash, erase, credential or
+enrollment change. If readiness and fixture acceptance then pass, the currently
+approved Development Mode already lists `tc001_campaign`; the existing
+five-run controller may proceed under that scope, stopping at its first
+non-PASS. No physical operation is authorized by this record. No new campaign
+or readiness run was started.
