@@ -4492,24 +4492,21 @@ changed.
 
 No product/firmware source fix is justified from the available evidence. The
 authorization module has no disposition path for this post-operation readiness
-guard; its existing API accepts only the exact prior pre-operation pin failure.
-TC-001 remains 0/5; historical Android `126/1` is supplemental only. Before
-hardware access, the owner must explicitly approve a narrow, append-only
-disposition path for this exact `standing_readiness_authenticated_liveness_not_verified`
-record, with the original failure and safety history preserved, and authorize
-one bounded successor readiness attempt using the candidate above. This is a
-real readiness failure (the required rejoin was not demonstrated), not a
-security failure and not a reason to erase or relabel the failure. The scoped
-review must not become a generic latch-clear operation. If the code cannot
-record such a disposition under the existing owner-consent mechanism without
-resetting prior counters, stop and request a product/security decision.
+guard; its only reviewed disposition accepts the exact prior pre-operation pin
+failure. TC-001 remains 0/5; historical Android `126/1` is supplemental only.
+Do not clear, relabel or reset the current latch/counters. The legitimate path
+is one explicitly owner-approved, audit-linked successor authorization with a
+new approval reference, leaving the existing scope and all its records
+unchanged. This is a real readiness failure (required rejoin was not
+demonstrated), not evidence that authentication failed.
 
-That approved readiness attempt would be limited to the known TEST_ONLY
-C3/S3/Home/backend, one protected S3 bootstrap/reset, one C3 application reset
-and GET_STATE/rejoin observation, with current identity/image/time/auth checks
-and stop-on-first-failure. It authorizes no flash, erase, credential or
-enrollment change. If readiness and fixture acceptance then pass, the currently
-approved Development Mode already lists `tc001_campaign`; the existing
-five-run controller may proceed under that scope, stopping at its first
-non-PASS. No physical operation is authorized by this record. No new campaign
-or readiness run was started.
+The single approval should cover at most two bounded operations on the same
+TEST_ONLY fixture: (1) one readiness session using the candidate above, with
+one protected S3 bootstrap/reset and one C3 application reset/GET_STATE/rejoin
+observation; (2) only if readiness and exact fixture acceptance pass, one
+existing campaign of up to five fresh C3 HIL events, stopping on the first
+non-PASS. Keep all current image, identity, TLS, time, authority, durability,
+API and actual-APK guards. No flash, erase, credential, enrollment or ownership
+change is included. The existing failure scope remains SAFETY_LATCHED; no
+hardware operation is authorized by this record and no readiness or campaign
+was started.

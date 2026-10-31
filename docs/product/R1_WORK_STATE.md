@@ -10085,16 +10085,16 @@ No timeout change or reliability PASS is claimed. TC-001 remains **0/5**;
 historical EventKey `126/1` is supplemental only. Details and evidence limits
 are in the dated GS-117 execution handoff section above.
 
-**Next action:** obtain one explicit owner decision to add an append-only,
-guard-specific disposition for this exact post-operation
-`standing_readiness_authenticated_liveness_not_verified` event and use it for
-one bounded readiness attempt. Preserve the failed record and all predecessor
-ledgers/counters; do not add a generic latch clear. The existing code only
-dispositions the earlier pre-operation pin mismatch. If it cannot record this
-disposition without resetting history, stop for a security/product decision.
-After approval, the readiness attempt may use the inactive reviewed candidate
-to bootstrap S3 once and restart/observe C3 once, with stop-on-first-failure.
-If readiness and fixture gates pass, the existing DEV scope already includes
-`tc001_campaign`, so run the existing five-event campaign under that scope and
-stop at its first non-PASS. No hardware action has been authorized/executed in
-this checkpoint. GS-117 remains In Progress.
+**Next action:** obtain one explicit owner approval for an audit-linked
+successor authorization with a new approval reference, preserving the present
+latched scope, its original failure record and all predecessor ledgers/counters
+unchanged. Do not clear/relabel the latch or reset counters. The existing code
+has no disposition for this post-operation guard (only the earlier exact
+pre-operation pin mismatch). The approval should cover at most two bounded
+operations on this exact TEST_ONLY fixture: one readiness session using the
+inactive reviewed candidate (one S3 bootstrap/reset, one C3 restart/GET_STATE
+and rejoin observation); then, only if readiness and fixture gates pass, one
+existing campaign of up to five fresh events, stopping at the first non-PASS.
+No flash, erase, credential, enrollment or ownership change is needed or
+included. No hardware action has been authorized/executed in this checkpoint.
+GS-117 remains In Progress.
