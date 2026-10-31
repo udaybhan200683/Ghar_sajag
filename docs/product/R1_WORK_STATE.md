@@ -10528,4 +10528,5 @@ build-only and Event 123/1's ~6h53m delay remains unresolved. Local/remote
 checkpoint before this documentation update was
 `98bc237f161d3e5052860313e3848eb6c2332e48`; unrelated untracked evidence and
 generated assets remain preserved. Jira statuses GS-117/GS-177/GS-179 are
-still In Progress.
+still In Progress. Comments 11877 (GS-177), 11878 (GS-179), and 11879 (GS-117)
+were posted and read back.

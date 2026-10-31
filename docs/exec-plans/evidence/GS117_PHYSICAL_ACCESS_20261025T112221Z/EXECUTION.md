@@ -5444,3 +5444,5 @@ GS-117 remains In Progress, hardware authorization remains
 used. Event 123/1's approximately 6h53m delivery delay remains unresolved.
 Next: complete the actual Login and handset Show/Hide checks after the owner
 prepares the Login form; retain the authenticated Home evidence independently.
+Jira progress comments 11877 (GS-177), 11878 (GS-179), and 11879 (GS-117)
+were posted and read back; all three issues remain In Progress.
