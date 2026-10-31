@@ -5596,3 +5596,72 @@ the applicable audited disposition or a replacement audit-linked successor;
 the same latched session cannot authorize another hardware operation.
 GS-117 Jira comment 11885 records this stop and was read back; issue status
 remains In Progress.
+
+### 2026-10-31 18:11 UTC — replacement successor stopped at C3 ROM connection
+
+The owner-approved replacement scope in Jira comment `GS-117#11886` was
+activated through the existing append-only mechanism after offline preflight.
+Activation ID: `gs117diag20261031_18d3ac1dba9383cd16adee34`; scope ID:
+`0587b995484650ede008672aa6cb3211346a22da41be004e8602b0ce02c7a074`.
+The scope contains one `application_flash` and one protected bootstrap, with no
+motion or TC-001 entitlement. The old #11884 policy/ledger and predecessor
+ledger were not rewritten. Their hashes remain respectively
+`2d7f01d340d74d638f5ab7af30e12ed6f05c0eb310065107f4e90ec4d2d86bce`,
+`99d8ddf5aaf00ccccba06777dc45f9b20341faad536ce008a88c6e9187d041ae`, and
+`bdc7f7e1ea56bf094b57a2f3960371beaa912de54bd9848b5d6be35b738a729d`.
+
+Before reserving the replacement session, the private one-shot wrapper was
+corrected to read the helper digest from the active authorization manifest,
+hash the helper bytes, and compare values exactly; helper identity remains
+separate from the S3 firmware-image digest. The earlier mistyped one-off wrapper
+was not present in the repository, so no tracked source was changed. Offline
+preflight also caught and corrected WSL-path-to-PowerShell conversion; the
+Windows Python/ESP-IDF 6.0.3 tool check now requires its success marker and
+reports OTA0 `0x20000/0x400000` and OTA1 `0x420000/0x400000`. Focused private
+wrapper/procedure tests passed 12/12, Python compilation passed, and the exact
+generated write/verify/selector snippets compiled before reservation. The
+canonical helper SHA-256 was
+`87fa118c5c345d8544c25f35b45966a6e41e5354fcfe9e1255dff019b620d25b`; the
+approved diagnostic image SHA-256 and size remained
+`d1e15266b89bfd14ea17d92d3616d2d2bb334d024693ccb0be00232aa23a8d10` and
+2,303,136 bytes. A supplemental activation receipt initially landed beside
+authorization ledgers; it was moved byte-for-byte to the private
+`activation-receipts/` subdirectory so the status reader would not parse it as
+a legacy session ledger. Receipt SHA-256 stayed
+`f644986198178a51cc62cf0bcae39fe8d1a576f2fa610e221470ef407b406ff7`. A fresh
+read then confirmed #11886 ACTIVE, 0/2 sessions, with motion and campaign
+permission false. These offline corrections did not alter policy validation
+or historical ledgers.
+
+The one `application_flash` session then stopped at C3 pre-deployment image
+verification. Windows USB enumeration matched COM4 and serial
+`14:63:93:C5:D1:58`. The approved helper opened COM4 and attempted its one
+`esptool.detect_chip` connection using the pinned C3 `connect_mode="no-reset"`.
+It received `Invalid head of packet (0x57)` before any flash read. The helper
+receipt records `flash_reads: []`; COM10 was not opened, and no firmware, OTA
+metadata, partition table, bootloader, NVS, credential, trust, enrollment or
+ownership data was written. No reset, bootstrap, motion injection or campaign
+occurred. The exact source of byte `0x57` is not established; the earliest
+confirmed failure is ROM-loader connection under the helper's no-reset mode,
+not an observed USB identity mismatch or ESP-NOW challenge failure.
+
+The authorization context recorded this exception as `AUTHORIZATION_SAFETY`;
+it is preserved unchanged. Current #11886 status is `SAFETY_LATCHED`: 1/2
+sessions, one consecutive failure, zero reviewed dispositions. Its policy
+SHA-256 is `c6b006eb760c85d5ba53b9670e53dcc75a97bdf9ce74d9499eca6879d519da16`,
+session ledger SHA-256 is
+`f716527229f56e2db514dcd137fe8d2c069f416313a5539503fa9a4b16a01112`, and
+append-only audit SHA-256 is
+`af60bfd30cc6b1900db018e1b71d8c50852a8b3da753641669e272ca1be07cb1`.
+Evidence is preserved privately at
+`~/.local/state/ghar-sajag/gs117-tc001/s3-diagnostic-replacement-20261031/physical-execution/application-flash-20261031T181137Z/`;
+the C3 receipt SHA-256 is
+`d38147f15378372cac185085c4aada723ff61303e115864115dc23e768028f7f` and the
+esptool log SHA-256 is
+`127ee190573a265a81b75311e389a3ea0ddbd13423abcc39d6db2ed54d683b21`. No
+retry or disposition was attempted. The S3 diagnostic image remains
+build-only/not installed; authenticated rejoin and S3 target time/authority
+were not observed; TC-001 remains 0/5; and Event 123/1's approximately 6h53m
+delay remains unresolved. GS-117 remains In Progress. Further hardware access
+requires an applicable audited recovery or a newly approved bounded successor
+that resolves the C3 readback precondition.

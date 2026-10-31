@@ -10624,3 +10624,57 @@ audited disposition or a replacement audit-linked successor for the same
 bounded diagnostic, preserving this failed session and all historical ledgers.
 GS-117 Jira comment 11885 records this stop and was read back; the issue
 remains In Progress.
+
+### 2026-10-31 18:11 UTC — replacement diagnostic successor consumed at C3 readback
+
+Owner approval `GS-117#11886` was recorded and activated through the existing
+audited successor mechanism (activation
+`gs117diag20261031_18d3ac1dba9383cd16adee34`, scope
+`0587b995484650ede008672aa6cb3211346a22da41be004e8602b0ce02c7a074`). Its
+scope allowed one S3 application-only diagnostic deployment and one protected
+bootstrap, but no motion or TC-001. Previous latches and ledgers remain
+preserved.
+
+The manual helper-hash duplication that stopped the preceding #11884 attempt
+is removed from the private one-shot wrapper: it now reads the canonical helper
+pin from the authorization manifest and independently hashes/compares the
+helper. Offline preflight caught a WSL/PowerShell path conversion defect before
+session reservation; that was corrected, and the Windows Python/IDF tool check
+now requires a success marker. Focused offline tests: 12/12 PASS; wrapper and
+activation scripts compile; no hardware/session call is made by preflight.
+The approved helper SHA-256 is
+`87fa118c5c345d8544c25f35b45966a6e41e5354fcfe9e1255dff019b620d25b`; the S3
+candidate remains `d1e15266b89bfd14ea17d92d3616d2d2bb334d024693ccb0be00232aa23a8d10`
+(2,303,136 bytes). The activation receipt was moved byte-for-byte into a
+private `activation-receipts/` directory after its top-level `.json` location
+caused the existing ledger reader to treat it as legacy session history; its
+SHA-256 is unchanged.
+
+The single #11886 `application_flash` session stopped before S3 access or any
+write. COM4 enumeration matched C3 serial `14:63:93:C5:D1:58`, but the pinned
+readback helper uses `esptool.detect_chip(..., connect_mode="no-reset")` for
+C3. The ROM-loader connection returned `Invalid head of packet (0x57)` and the
+receipt records no flash reads. The source of byte `0x57` remains unknown. No
+COM10 access, S3 deployment, OTA-selector change, reset, bootstrap, motion
+injection or TC-001 event occurred. The auth layer recorded
+`AUTHORIZATION_SAFETY`; current successor status is `SAFETY_LATCHED` (1/2
+sessions, one failure, zero dispositions). This ledger entry is retained
+without reclassification. The old #11884 ledger hash remains
+`99d8ddf5aaf00ccccba06777dc45f9b20341faad536ce008a88c6e9187d041ae`; the
+predecessor ledger remains
+`bdc7f7e1ea56bf094b57a2f3960371beaa912de54bd9848b5d6be35b738a729d`.
+Private raw evidence is under
+`~/.local/state/ghar-sajag/gs117-tc001/s3-diagnostic-replacement-20261031/physical-execution/application-flash-20261031T181137Z/`.
+
+GS-117 remains In Progress and TC-001 remains 0/5. The diagnostic image is
+build-only/not installed; S3 trusted-time/current-authority acceptance and
+authenticated rejoin were not observed. Event 123/1's ~6h53m delivery delay
+remains unresolved. No product source, firmware, APK, credentials, backend or
+database changed. No additional hardware operation is permitted under the
+latched successor. The next action is offline review of the pinned C3
+readback/no-reset precondition, followed by a single new owner-approved,
+audit-linked scope if a reset-aware C3 provenance method is required. Source
+HEAD before this documentation change was
+`f52b2b95ce533a3eabe02b026dfd705600ffe00c` on
+`feature/r1-commercial-baseline`; remote matched and unrelated untracked files
+were preserved.
