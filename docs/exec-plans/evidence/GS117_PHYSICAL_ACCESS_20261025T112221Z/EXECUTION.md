@@ -5446,3 +5446,83 @@ Next: complete the actual Login and handset Show/Hide checks after the owner
 prepares the Login form; retain the authenticated Home evidence independently.
 Jira progress comments 11877 (GS-177), 11878 (GS-179), and 11879 (GS-117)
 were posted and read back; all three issues remain In Progress.
+
+## 2026-10-31 09:19 UTC — connected handset confirmed; sign-in and hardware guards remain
+
+Canonical repo/worktree and preflight were reverified at
+`8ef67d5f4698816fc3ffda5a8557c225a63a8b0b` on
+`feature/r1-commercial-baseline`; origin matched. Existing untracked assets and
+prior private evidence remain preserved.
+
+The owner reports that the phone shows Connected. Read-only Windows ADB
+confirms `ZA2237MRHN` is online, unlocked, and foregrounding the installed
+Parivar Saathi `MainActivity`; the current UI hierarchy contains `CONNECTED`
+and no Login form. The expected Home ID was not present in this latest compact
+snapshot, so the prior two-snapshot `gs177-test-product` Home/API PASS remains
+the applicable Home-specific evidence. No logout, credential entry, password
+capture, app-data change, reinstall, or network change occurred. A fresh
+password Login and physical Show/Hide remain `NOT_VERIFIED`; the owner must
+prepare Sign in through the app's normal Logout path when ready. The user has
+not authorized us to initiate Logout.
+
+### TEST_ONLY PIN security review (proposal only)
+
+Current source still requires a 16–256-character caregiver password, stored
+with scrypt. Login failures are durably limited by a hash of normalized email
+plus source IP: five failures block that pair for 15 minutes. This per-IP
+policy alone is insufficient for a four-digit secret because attempts can be
+distributed across source IPs. Sessions are server-issued, 12-hour, Secure,
+HttpOnly, SameSite=Strict cookies and current account/Home membership/role/
+epoch are rechecked. The separate GS-76 `HumanAuthenticationBoundary` remains
+an inactive verifier interface; it is not the Connected Lite TEST_ONLY login
+route. Canonical security/release sources do not define a four-digit PIN
+credential or its lifecycle.
+
+Recommended design, not implemented: retain `/auth/login` and its password
+policy unchanged; add a separate endpoint visible only when a server-side
+TEST_ONLY deployment setting enables it and the server confirms an active
+account with exactly one eligible caregiver/admin membership in a TEST_ONLY
+Home. Provision/rotate/revoke a per-account/per-Home PIN only through an
+operator-only hidden-input procedure; store a salted KDF hash with a
+server-held pepper, never the PIN. Never accept a client `test_only` flag as
+authorization. Reuse the existing secure server session and current Home
+authorization checks; PIN rotation/revocation must revoke the account's
+existing sessions. Add a durable account-wide failure budget shared across
+source IPs and process restarts, retaining the current per-IP limiter as an
+additional bound. A proposed initial cap is five failed PIN attempts per
+account per rolling 24 hours; password login remains the recovery path. The
+numeric cap/window and operator recovery semantics require owner approval
+before implementation. Required tests include valid PIN, wrong/malformed PIN,
+cross-Home and non-TEST_ONLY denial, account-wide multi-IP/restart throttling,
+rotation/revocation, session expiry, and production-config route absence.
+
+### GS-117 successor diagnostic scope prepared (not activated)
+
+Read-only authorization status is `SAFETY_LATCHED`: 2 of 3 sessions recorded,
+1 session nominally remaining, 1 safety failure, 0 reviewed dispositions, and
+`blocked=true`. This does not permit hardware access. The existing predecessor
+and current ledgers remain unchanged. To resume, one owner-approved,
+audit-linked TEST_ONLY successor is required for only this exact fixture:
+C3 `c3-146393c5d158` / COM4 / `14:63:93:C5:D1:58`; S3
+`hub-e072a1d38d34` / COM10 / `E0:72:A1:D3:8D:34`; Home
+`gs177-test-product`; backend `192.168.1.6`.
+
+Prepared request scope: verify device identity and current image evidence; if
+the candidate's source/build provenance is still valid, install only the
+existing TEST_ONLY S3 application image SHA-256
+`d1e15266b89bfd14ea17d92d3616d2d2bb334d024693ccb0be00232aa23a8d10` using the
+reviewed app-only deployment and retained-slot rollback safeguards; run one
+protected S3 bootstrap only if needed; perform one deliberate C3 restart and
+one 90-second observation; capture stage-specific challenge send diagnostics,
+target-side trusted-time/current-authority acceptance and authenticated
+RejoinFinal/liveness. No NVS/credential/enrollment/ownership change, erase,
+eFuse change, motion injection, or event campaign is included. This is a draft
+scope only: no successor was created or activated, no hardware operation was
+performed, and TC-001 remains 0/5. After diagnostics, any physical event
+campaign still requires a valid active authorization and all current guards.
+
+No source code or test ran/changed in this continuation. Previously validated
+Show/Hide implementation and CI artifact remain reused; no APK rebuild or
+reinstall was done. Jira remains In Progress. The next immediate action is for
+the owner to prepare the sign-in form and enter test credentials directly on
+the phone; no credentials should be shared in chat.

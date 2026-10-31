@@ -10530,3 +10530,44 @@ checkpoint before this documentation update was
 generated assets remain preserved. Jira statuses GS-117/GS-177/GS-179 are
 still In Progress. Comments 11877 (GS-177), 11878 (GS-179), and 11879 (GS-117)
 were posted and read back.
+
+### 2026-10-31 09:19 UTC — Android login boundary and GS-117 successor scope
+
+ADB again sees authorized handset `ZA2237MRHN` online/unlocked with installed
+Parivar Saathi foreground. The owner reports Connected, and the latest safe UI
+snapshot confirms `CONNECTED` with no Login form. It did not expose the expected
+Home ID; preserve the earlier actual APK two-snapshot Home
+`gs177-test-product`/API PASS as the Home-specific evidence. No Logout was
+initiated because it revokes the active server session and the owner has not
+authorized remote logout. Fresh password Login and phone Show/Hide remain
+`NOT_VERIFIED`; owner must use normal Logout and enter credentials directly on
+the phone when ready. Existing network and APK evidence are reused; no server,
+firewall, app-data or APK change occurred.
+
+PIN review found no canonical four-digit credential contract. Existing password
+login (16–256 characters, scrypt) and 12-hour Secure/HttpOnly/SameSite=Strict
+server sessions remain unchanged. The durable lockout is five failures per
+normalized-email/source-IP pair for 15 minutes; that alone is not sufficient
+for a low-entropy PIN under distributed IP attempts. The inactive GS-76 human
+verifier does not provide a PIN mechanism. A proposed separate per-account and
+per-TEST_ONLY-Home credential, server-only TEST_ONLY gate, operator-only
+provision/rotate/revoke path, salted KDF plus server pepper, existing scoped
+server session, account-wide durable multi-IP limit, and unchanged password
+fallback is recorded in the GS-117 execution handoff. Proposal only; a
+quantitative PIN attempt/window cap and recovery semantics need approval before
+implementation.
+
+Read-only GS-117 authorization status remains `SAFETY_LATCHED` (2/3 sessions,
+one nominal session remaining, one failure, zero reviewed dispositions,
+blocked). No hardware access is allowed. A draft exact-fixture request for one
+S3 app-only diagnostic install with rollback, at most one protected bootstrap,
+one C3 restart, one 90-second authenticated rejoin observation and target
+time/authority/send-stage evidence is recorded in EXECUTION.md; it is not
+created/activated, and excludes motion injection. TC-001 remains 0/5, the S3
+image remains build-only, and Event 123/1's ~6h53m latency remains unresolved.
+
+No source changed and no software tests/builds were rerun. Context preflight
+PASS; starting local/remote HEAD was
+`8ef67d5f4698816fc3ffda5a8557c225a63a8b0b`. Existing untracked files and
+historical authorization ledgers remain untouched. Jira status remains
+In Progress for GS-117/GS-177/GS-179.
