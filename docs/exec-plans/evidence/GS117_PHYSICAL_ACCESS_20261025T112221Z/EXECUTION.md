@@ -5215,3 +5215,33 @@ the existing watcher correctly refuses the current Public profile for the
 owner-approved `Yogi` SSID; the phone remains on `Airtel_Agrim`. No Login
 request was captured from the installed APK. GS-117 stays `SAFETY_LATCHED`,
 TC-001 0/5, and no hardware action was taken.
+
+### 2026-10-31 07:59 UTC — CI browser and Android APK package verification
+
+The push at `6813bee1978589f09029397e277d24bd2ed5d9e2` triggered existing
+GitHub Actions run `41182431768`, which completed successfully. Chromium
+browser/offline-startup regression passed. Registered stages reported
+`gs177-connected-lite-api` 23, `gs177-android-dashboard` 19 and
+`gs177-voice-prototype` 29 checks; the framework report says
+`SOFTWARE PASS PHYSICAL NOT_RUN`. The workflow built and signature-verified
+`in.gharsajag.caregiver` and uploaded artifact ID `13035483200`.
+
+The artifact is a staging-origin APK (`https://parivar-saathi-lite-staging.onrender.com`)
+signed with the workflow-generated debug key, not the currently installed
+handset identity or the local GS-179 origin. CI signer SHA-256 is
+`620661801c7020caf2d6810e072245599a062840d528874abe4b6c5f798541cd`; APK
+SHA-256 is `870e4fc91a1f4b9b420f9229657c95c5059e6804c10275c2596abe1267bdda86`.
+The packaged `assets/password_visibility.mjs` hash exactly matches the source
+(`3fc3bedb0c39cd8789c881c512cb26ee236a9b314acddc446978b1819000d3d1`). The
+artifact was not installed: it is signed with a workflow-generated debug key
+and targets staging, while no same-signer local-origin update was built or
+verified. The Yogi/phone network prerequisite also remains unmet. Thus CI
+proves source packaging/signature and browser behavior, not real phone Login
+or handset Show/Hide. The artifact remains available at the run's uploaded
+artifact ID; no credentials were exposed.
+
+After this push, local and origin branch HEAD both equal
+`6813bee1978589f09029397e277d24bd2ed5d9e2`; tracked worktree is clean. All
+previous unrelated untracked files remain preserved. CI follow-up Jira
+comments `11871` (GS-177) and `11872` (GS-117) were posted and read back;
+GS-179 remains In Progress with comment `11869` documenting the network guard.

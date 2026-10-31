@@ -10389,3 +10389,24 @@ performed. GS-117 remains safety-latched and TC-001 remains 0/5; no hardware
 was accessed. Detailed network and Show/Hide evidence remains in the linked
 GS-117 execution record. Jira comments 11868 (GS-177), 11869 (GS-179) and
 11870 (GS-117) were posted and read back; all three remain In Progress.
+
+### 2026-10-31 07:59 UTC — CI APK package verified; physical Login pending
+
+Commit `6813bee1978589f09029397e277d24bd2ed5d9e2` is pushed and matches
+origin. Existing GitHub workflow `41182431768` completed successfully:
+Chromium browser/offline-startup regression passed; registered caregiver/API,
+Android-dashboard and voice-prototype stages passed with 23, 19 and 29 checks;
+the report explicitly says physical `NOT_RUN`. The signed APK artifact
+`13035483200` targets the staging Render origin and uses the workflow-generated
+debug signer. Its SHA-256 is
+`870e4fc91a1f4b9b420f9229657c95c5059e6804c10275c2596abe1267bdda86`; bundled
+Show/Hide helper bytes match the source. It was not installed on the physical
+phone, so actual local-backend Login and handset UI remain unverified.
+
+The approved Yogi network remains Public, and ADB reports the phone on
+`Airtel_Agrim`; the existing guard prevents LAN forwarding recovery until the
+owner restores Yogi to Private through Windows' normal admin UI and joins the
+phone to that LAN. No firewall/proxy/network or app data changed. GS-117
+authorization is still safety-latched and TC-001 remains 0/5. CI follow-up
+comments 11871 (GS-177) and 11872 (GS-117) were posted/read back; GS-179
+comment 11869 retains the exact trusted-Wi-Fi guard result.
