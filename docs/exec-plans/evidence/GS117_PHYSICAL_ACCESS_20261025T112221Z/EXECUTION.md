@@ -4571,3 +4571,82 @@ the old manifest/ledger snapshots. Revalidate candidate and procedure hashes,
 USB identities, Android and service readiness before exactly one authorized
 readiness session. Run the existing campaign only if target and fixture gates
 all pass.
+
+## 2026-10-31 — owner-approved successor readiness executed
+
+Owner approval is recorded in GS-117 comment 11859 with reference
+`OWNER_CHAT_GS117_SUCCESSOR_20261031`. The exact candidate hash
+`0429ee7f7293f319cd0538ca10d52c063613dd5b837116b63232491345a5ff55` and the
+approved procedure pins were reverified before execution. The audit-linked
+successor activation is `gs117-successor-20261031-540ad2341b5bae7bb09effea6f5027f0`,
+record hash `bb8bbaa22bec420157058add8b4b711841ae84f7328d5fe5762d4eefbf336eca`.
+It permits one readiness bootstrap and one conditional campaign slot. The
+successor ledger now records one completed `protected_gs40_bootstrap` session,
+zero new safety failures, and `TARGET_OBSERVATION_PASS`; the successor remains
+active with one session slot unused. The prior 2-session/1-failure latched
+scope is unchanged (ledger SHA-256
+`7071654319aadceda417a6431b136105035659a8c85b0d6406e9b42d3204ba69`). The
+older 29-session/3-failure blocked scope is also preserved. The first 67
+append-only audit entries retain their prior prefix hash
+`90174c553ad0c21acbf958740e608b57eb57e5daaeb9b8a55f975a12e79c88b4`; three
+successor activation/reservation/completion records were appended.
+
+The authorized observation ran from 2026-10-31 03:50:49Z to 03:52:51Z. The
+private result directory is
+`~/.local/state/ghar-sajag/gs117-tc001/standing-authorization/bootstrap-3e1d1732f282d938502bc282/`
+(directory mode 0700; child and result JSON files mode 0600). The candidate
+reported actual S3 flash 16 MiB and PSRAM 8 MiB, post-reset boot verified at
+app offset `0x420000`, app version `8acab96-dirty`, ELF SHA prefix `7584a1f80`,
+and a successful TLS pair check (`valid=1`). C3 session 127 runtime and sensing
+counters both advanced `1347 → 1852`; S3 serial evidence recorded authenticated
+rejoin for `c3-146393c5d158`, Bedroom, session 127. This establishes target
+observation and fresh authenticated C3–S3 rejoin/liveness for this session; it
+does not provide a full installed-binary SHA receipt.
+
+The S3 log also records authenticated TEST_ONLY HTTPS requests with HTTP 200,
+and the host trace records authority-refresh HTTP 200 responses. These are not
+proof that signed time or the refreshed authority lease was accepted by the
+target. The same target log says deterministic activity rules were disabled
+because signed Home configuration, a current lease, or trusted time was
+unavailable; the household-policy fetch was rejected. NodeHealth returned 503,
+and CloudSync reported state 3 with `submitted=0`, `completed=0`. The bounded
+signed-time host served 28 requests, but no target-bound signed-time acceptance
+receipt or current authority-installation receipt was produced. Structured
+authenticated ingress evidence is `MISSING`.
+
+The unchanged owner fixture remains `FIXTURE_PENDING`, with exact first
+fixture error `c3_current_installed_image_provenance_missing`: the latest C3
+installed-image receipt is from 2026-10-30 01:40:47Z and is older than the
+fixture's 24-hour freshness limit. The S3 receipt is also stale (2026-10-30
+01:38:46Z); its new boot observations do not replace the full image/partition
+receipt. No receipt timestamp or hash was altered. ADB reported no attached
+Android device at the campaign preflight, so the actual APK stage could not be
+refreshed. The phone is not needed for readiness observation; it is required
+for campaign APK verification.
+
+No motion event was injected; TC-001 remains **0/5**. The campaign did not
+start because target trusted-time/authority acceptance, fresh installed-image
+provenance/fixture acceptance, structured ingress evidence, and live Android
+observation were not all established. The readiness command printed and
+durably saved its target/fixture result, then exited 1 when its CLI fell through
+to creating a second console listener on already occupied
+`127.0.0.1:18791` (`OSError: [Errno 98] Address already in use`). This is a
+post-observation wrapper failure, not a target-observation failure; the
+existing console process was left intact. No pinned source was modified.
+
+The bounded physical ingress and signed-time services used for this session
+were stopped after evidence collection; ports 8445 and 4468 were verified
+closed. The pre-existing loopback console remains on port 18791. No firmware
+readback, flash, erase, credential/enrollment/ownership change, or database
+mutation occurred. The existing session-118 backlog and EventKey 126/1 remain
+historical evidence only; Event 123/1's approximately 6h53m delivery delay is
+still unresolved.
+
+**Next:** do not use the remaining conditional campaign slot. First complete
+offline analysis of why the target lacks usable trusted-time/current-lease
+state and whether the existing approved procedures can provide current C3/S3
+installed-image and structured ingress receipts without prohibited readback.
+Refresh Android evidence when the authorized phone is attached. Only attempt
+TC-001 after every existing fixture, target trust, backend, and APK gate passes;
+otherwise prepare a narrowly scoped new authorization for any required
+operation outside the consumed readiness scope. GS-117 remains In Progress.

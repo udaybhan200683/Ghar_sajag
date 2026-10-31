@@ -10118,3 +10118,15 @@ existing campaign of up to five fresh events, stopping at the first non-PASS.
 No flash, erase, credential, enrollment or ownership change is needed or
 included. No hardware action has been authorized/executed in this checkpoint.
 GS-117 remains In Progress.
+
+### 2026-10-31 — owner-approved successor readiness result
+
+Owner approval is recorded at GS-117 comment 11859 (`OWNER_CHAT_GS117_SUCCESSOR_20261031`). The one audit-linked successor is active and its single readiness session is consumed: the scope records one successful protected bootstrap/target observation, zero new safety failures, and one conditional campaign session remains. All predecessor ledgers and failure latches remain intact; the original 67-record audit prefix hash is unchanged. Exact activation, ledger hashes and evidence path are recorded in the GS-117 execution handoff.
+
+Result: `TARGET_OBSERVATION_PASS / FIXTURE_PENDING`, not `TC001_READY`. Actual S3 reported 16 MiB flash/8 MiB PSRAM, post-reset app at `0x420000`, version `8acab96-dirty`, ELF prefix `7584a1f80`, and TLS pair `valid=1`. C3 session 127 runtime/sensing counters advanced `1347→1852`, and S3 logged authenticated Bedroom rejoin for the expected C3. This is current runtime/rejoin evidence, not a full installed-image hash receipt.
+
+Target time/authority acceptance remains unverified: the target produced authenticated TEST_ONLY HTTP 200 authority-refresh requests, but its log also reports deterministic rules disabled because signed Home config/current lease/trusted time was unavailable and records a household-policy rejection. Host signed-time request count was 28 but no target-bound acceptance receipt exists. NodeHealth returned 503; CloudSync submitted/completed zero events; structured ingress evidence is missing. The exact fixture still fails at `c3_current_installed_image_provenance_missing` because its installed-image receipt is over 24 hours old; the S3 receipt is also stale. The Android phone was not present in ADB at campaign preflight. It is not required for readiness observation, but actual Android observation is required for campaign acceptance.
+
+No event was injected; TC-001 remains **0/5**. Bounded 8445/4468 services were stopped and both ports verified closed; the existing local console was preserved. The readiness CLI exited 1 only after saving the target result, when it tried to bind a second listener to the already-running `127.0.0.1:18791`; no pinned source was changed. Event 123/1's ~6h53m delivery delay remains unresolved. GS-117 remains In Progress.
+
+**Next:** offline-trace target signed-time/current-lease state and determine whether genuine current image/structured-ingress receipts can be collected within existing non-destructive authority. Reattach the authorized Android phone for its current APK receipt. Do not consume the remaining conditional campaign authorization unless all target trust, fixture, backend, and APK gates pass.
