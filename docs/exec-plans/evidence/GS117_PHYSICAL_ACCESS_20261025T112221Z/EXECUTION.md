@@ -5665,3 +5665,14 @@ were not observed; TC-001 remains 0/5; and Event 123/1's approximately 6h53m
 delay remains unresolved. GS-117 remains In Progress. Further hardware access
 requires an applicable audited recovery or a newly approved bounded successor
 that resolves the C3 readback precondition.
+
+Post-session offline search found an older private readback helper at
+`~/.local/state/ghar-sajag/gs117-tc001/current-image-readback-20261027T131908Z/readback_once.py`
+(SHA-256 `b8e643a973c696d8ec3cd159cfaa260472567631b2631ad016bdba89bf8c448a`).
+It uses `connect_mode="default-reset"`, but it calls `esptool.cmds.read_flash`,
+whereas the current pinned helper deliberately uses direct stub reads to avoid
+the extra flash-size/JEDEC path. It is not the currently authorized helper and
+was not used. Do not substitute it as-is. Any next procedure must be reviewed
+for the exact C3 reset and application-restoration sequence, retain bounded
+direct reads without JEDEC, and have its exact helper hash authorized before
+another session is activated.

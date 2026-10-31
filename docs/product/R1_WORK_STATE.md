@@ -10678,3 +10678,14 @@ HEAD before this documentation change was
 `f52b2b95ce533a3eabe02b026dfd705600ffe00c` on
 `feature/r1-commercial-baseline`; remote matched and unrelated untracked files
 were preserved.
+
+Post-session offline source search found an older private readback helper
+`~/.local/state/ghar-sajag/gs117-tc001/current-image-readback-20261027T131908Z/readback_once.py`
+(SHA-256 `b8e643a973c696d8ec3cd159cfaa260472567631b2631ad016bdba89bf8c448a`)
+that uses `connect_mode="default-reset"`. It calls `esptool.cmds.read_flash`,
+while the currently pinned helper intentionally reads through the stub directly
+to avoid the extra flash-size/JEDEC path. The older helper is not authorized by
+the current scope and was not used; do not substitute it as-is. Before another
+successor is requested, reconcile the exact C3 reset/application-restoration
+sequence and preserve bounded direct reads without JEDEC, then review/pin the
+exact helper. No new hardware action is permitted under #11886.
