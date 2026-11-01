@@ -10734,3 +10734,56 @@ reset, readback, flash, bootstrap or event injection occurred. TC-001 remains
 an owner resolution of the no-erase/no-JEDEC versus existing OTA deployment
 procedure conflict; only then can a complete bounded procedure and exact
 successor scope be finalized.
+
+### 2026-11-01 03:04 UTC — GS-117 bounded S3 OTA procedure review (offline only)
+
+The owner authorized offline procedure engineering only. The #11886
+`SAFETY_LATCHED` authorization remains unchanged (1/2 sessions, one safety
+failure, zero dispositions); no successor was prepared or activated. No board
+was accessed, reset, read, flashed or bootstrapped, no event was injected, and
+TC-001 remains 0/5.
+
+The prior private S3 deployment wrapper is disabled offline; the IDF 6.0.3
+procedure it invoked erases the full
+4 MiB OTA0 partition; `otatool` rewrites the full 8 KiB OTA selector; esptool
+CLI default geometry detection invokes flash-ID/JEDEC; and seven ROM sessions
+lack an explicit normal-app restore. A model-only alternative proposes erasing
+and writing only OTA0 `0x20000..0x252fff` (2,303,136 image bytes plus 2,912
+`0xff` pad) and only the inactive 4 KiB OTA selector sector with an IDF-style
+`NEW` record. The selected OTA1 image and active selector remain untouched.
+Direct esptool 5.4.0 stub APIs can use explicit, verified 16 MiB geometry
+without the inspected flash-ID path. The API retries individual failed 1 KiB
+blocks up to three total attempts; the proposal bounds whole-operation retry
+at zero and reset pulses at C3=3 / S3=5.
+
+Deployment is a hard **NO-GO**: same-device historical bootloader SHA-256
+`ae304441aaaad2b52765d48f4b37752f2ab26a65a480f5f1f9586cd54ebe1580` has no
+trusted build mapping proving installed ESP-IDF OTA rollback. The candidate
+application's rollback-enabled build setting cannot establish bootloader
+behavior; GS-D029 requires automatic rollback. The candidate binary remains
+build-only (`d1e15266b89bfd14ea17d92d3616d2d2bb334d024693ccb0be00232aa23a8d10`,
+2,303,136 bytes; metadata `c51a0f3-dirty`). No executable direct-stub writer
+or physical rollback qualification exists, so no authorization-ready contract
+is issued.
+
+Private offline planner/tool-source tests passed 73/73; Python compilation
+passed. One intermediate model run exposed a stale 32-byte selector-write test
+fixture, and another negative test used a different-length vector instead of
+isolating digest mismatch; both were corrected and the final suite passed.
+The private `--execute` guard test passed. Offline `--preflight` exited 0 but
+reported `deployment_ready=false`, `session_reservation=NONE`,
+`hardware_access=NONE`, and `SAFETY_LATCHED`; generated partition layout check
+was offline only. The non-executable private review JSON is SHA-256
+`b3678b70bcadbba32e5c7f2ca73f8071d9974c0975f04d3f5633651637476111`. Full
+source-path findings, ranges, reset/retry bounds and limitations are in the
+[GS-117 execution evidence](../exec-plans/evidence/GS117_PHYSICAL_ACCESS_20261025T112221Z/EXECUTION.md).
+
+GS-117 remains In Progress. The next action is to establish trusted provenance
+for the exact installed S3 bootloader and its rollback configuration; if that
+cannot be established without a bootloader change, stop at the locked GS-D029
+rollback requirement. ESP-NOW challenge delivery is still unobserved, Event
+123/1's roughly 6h53m latency remains unresolved, and real optical PIR plus
+recovery acceptance remain outstanding. Pre-edit checkpoint: canonical branch
+`feature/r1-commercial-baseline`, local and remote HEAD
+`1cb3a11fb9441e79a0958e26b17058687a1d0c66`; unrelated untracked work was
+preserved.

@@ -5737,3 +5737,128 @@ reset, read, flashed or bootstrapped; no event was injected; TC-001 remains
 the conflict between the strict no-erase/no-JEDEC boundary and the existing
 deployment procedure, and a complete reset/restore-safe deployment path is
 reviewed. GS-117 remains In Progress.
+
+### 2026-11-01 — bounded S3 application-only OTA procedure reviewed offline
+
+The owner authorized offline engineering/review only. This does not authorize
+COM access, readback, reset, bootstrap, flash or erase. The prior #11886 scope
+remains `SAFETY_LATCHED` (1/2 sessions, one safety failure, zero reviewed
+dispositions); no ledger, latch or failure was changed. No hardware operation
+or TC-001 event occurred. TC-001 remains 0/5.
+
+The previous private application writer is incompatible and its wrapper is
+disabled offline: IDF
+6.0.3 `ParttoolTarget.write_partition` first erases the whole 4 MiB OTA0
+partition; `OtatoolTarget.switch_ota_partition` writes the complete 8 KiB
+`otadata` partition and leaves selector state dependent on old bytes; the
+esptool CLI `keep` read/write/verify paths run flash-size detection through
+`flash_id`/JEDEC; its seven command sessions reset before connecting and do not
+explicitly restore normal application boot. The private wrapper now rejects
+`--execute` before preflight/session reservation, and its old live readback and
+table-check entry points raise an offline-only error. This is a private local
+guard, not a repository deployment implementation.
+
+The offline design permits only the minimum erasures needed for reliable NOR
+updates; it does not impose a blanket no-erase rule and grants no present write
+permission. The proposed direct-stub sequence uses the pinned esptool 5.4.0
+API, with explicit 16 MiB geometry only after the exact fixture's trusted
+capacity guard passes. Source inspection confirms direct `flash_begin`,
+`flash_block`, `flash_finish`, stub `read_flash` and explicit
+`flash_set_parameters(16 MiB)` do not invoke `flash_id`; ESP32ROM's erase-size
+method returns the requested size. Do not use the CLI/parttool/otatool paths
+above for this proposal. The current esptool setting retries a failed 1 KiB
+block up to three total attempts (two retries); the proposed executor must pin
+that setting, with no whole-deployment retry. The proposed maximum is 6,768
+block transmissions (2,252 application blocks plus four selector blocks,
+three attempts each).
+
+If a later, separately authorized procedure is implemented, its proposed S3
+application operation is limited to inactive OTA0 offset `0x20000`, erase and
+write size `0x233000`, end-exclusive `0x253000`: the pinned 2,303,136-byte
+diagnostic image plus 2,912 `0xff` padding bytes. This covers 563 flash
+sectors / 2,252 1 KiB blocks and leaves the remaining inactive slot tail
+untouched. Before selection, the complete padded range must read back exactly.
+The proposal updates only the *inactive* 4 KiB `otadata` copy, using fresh
+on-target sequence/copy data and IDF 6.0.3's sequence/CRC semantics, state
+`NEW`, and a full 4 KiB sector erase/write. It preserves the current selected
+copy. The historical example was active copy 1, sequence 30, OTA1; it would
+target copy 0 at `0xf000`, sequence 31, OTA0. These example selector values
+are not an authorization pin and must be recomputed from fresh target bytes.
+No full OTA slot, both selector sectors, bootloader, partition table, NVS,
+trust, credentials, enrollment, ownership, OTA1, outbox or state region is in
+the proposed write set.
+
+The proposed bounded read set for S3 is bootloader `0x0000/0x8000`, partition
+table `0x8000/0x1000`, both OTA selector copies `0xf000/0x2000`, and the
+selected active OTA1 app partition `0x420000/0x400000`; fresh partition data
+must confirm every range. Existing historical bytes show OTA1 image SHA-256
+`ff1116344cbc05d4c6fcc18a8f003d067b809ef6d90236fd90bba6f86ab052e5` and
+bootloader SHA-256
+`ae304441aaaad2b52765d48f4b37752f2ab26a65a480f5f1f9586cd54ebe1580`. That
+historical bootloader digest has no trusted source/build mapping proving
+`CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y`. The candidate app's rollback config
+does not prove the installed bootloader's behavior. Prior physical evidence
+also explicitly did not claim automatic bootloader rollback. Since GS-D029
+requires automatic ESP-IDF OTA rollback, this is a hard NO-GO for selector
+activation or deployment until rollback-enabled installed-bootloader
+provenance is established. Do not replace it with manual selector recovery.
+
+The separate C3 reset-aware readback candidate remains SHA-256
+`d1895a348612ae93395fb03ceb69517619c85ecde8fb8a7b9ea89af0d0064ca4`; its
+previous 22/22 mocked cases are reused, not rerun. It has not been physically
+qualified or authorized. No COM4 access occurred in this review.
+
+The candidate image remains build-only, SHA-256
+`d1e15266b89bfd14ea17d92d3616d2d2bb334d024693ccb0be00232aa23a8d10`, size
+2,303,136 bytes. TEST_ONLY target/profile, UART0, 16 MiB build geometry and
+rollback configuration are present in generated build configuration. The
+project metadata says `c51a0f3-dirty`; diagnostic source is commit
+`70d577ead4d19b72691adc71097bb7a0f73fb903` and TEST_ONLY profile correction is
+`5d0d02a89f35b189358d77207aea68fe67dfb6ba`. The digest pins the exact binary,
+but the dirty marker limits clean source-tree reproduction; preserve this
+qualification limitation.
+
+The model-only reset budget is C3 three reset pulses (one ROM entry, one
+normal-app restore, one later rejoin restart) and S3 five (prewrite ROM entry,
+candidate boot, rollback-triggering reset, postrollback ROM entry, final
+normal-app restore), two S3 ROM sessions, zero deployment retries. A later
+physical execution must prove old-app runtime and exact identity after
+rollback; USB re-enumeration alone is insufficient. The prewrite candidate
+must not call `esp_ota_mark_app_valid_cancel_rollback`; on a rollback-capable
+installed bootloader, IDF changes `NEW` to `PENDING_VERIFY` on first boot and
+marks it `ABORTED` after the following unconfirmed reset, returning to the
+retained old selector. If selector update is interrupted before a valid record
+is committed, the still-valid active selector remains selected; after a valid
+`NEW` record, rollback depends on that verified bootloader.
+
+Offline-only private model and installed-tool-source tests
+(`test_s3_ota_plan.py` and `test_s3_procedure_review.py`): 73/73 PASS. The
+executed command was `python3 -m py_compile s3_ota_plan.py test_s3_ota_plan.py
+test_s3_procedure_review.py application_flash_once.py && python3 -m unittest -q
+test_s3_ota_plan test_s3_procedure_review` in the private offline-preflight
+directory. These private tests are not registered product regressions and do
+not establish target behavior. The existing C3 helper's prior 22/22 mocked
+suite was reused, not rerun. Intermediate runs exposed two stale fixtures: one
+expected a 32-byte selector write, and one used a different-length vector for
+the digest-mismatch case. Both were corrected to test a complete-sector write
+and same-length digest failure; the final suite passed. The private wrapper's `--execute`
+rejection test PASS. A fresh
+`--preflight` exited 0 as a read-only result but reported
+`NO_GO_ROLLBACK_PROVENANCE_AND_DEPLOYMENT_NOT_READY`,
+`deployment_ready=false`, `session_reservation=NONE`, `hardware_access=NONE`,
+and `SAFETY_LATCHED`. Its local generated-table check confirmed OTA0
+`0x20000/0x400000` and OTA1 `0x420000/0x400000`; this is not hardware evidence.
+The planner, test harness, wrapper and review JSON remain private under
+`~/.local/state/ghar-sajag/gs117-tc001/s3-diagnostic-replacement-20261031/offline-preflight/`;
+the non-executable review JSON SHA-256 is
+`b3678b70bcadbba32e5c7f2ca73f8071d9974c0975f04d3f5633651637476111`. No
+product firmware or repository execution code changed.
+
+No authorization-ready contract or successor is prepared because the
+installed-bootloader rollback proof and executable/physically qualified
+writer remain absent. The next action is to establish trusted provenance for
+the exact installed S3 bootloader and its rollback configuration; if that
+cannot be established without changing the bootloader, stop at the GS-D029
+boundary. ESP-NOW challenge delivery remains unobserved; Event 123/1's roughly
+6h53m delivery delay remains unresolved; TC-001 remains 0/5 and GS-117 remains
+In Progress.
