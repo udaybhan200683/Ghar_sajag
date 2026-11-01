@@ -5908,3 +5908,49 @@ recovery must then be qualified under valid active authorization. If this
 decision is not approved, remain NO-GO until exact rollback-enabled bootloader
 provenance or another GS-D029-compliant path is established. No code, policy,
 authorization or hardware state changed in this search.
+
+### 2026-11-01 10:02 UTC — approved no-flash v16 observation stopped before activation
+
+Jira GS-117 comment `#11892` was read directly and confirms the owner's
+approval for one existing-firmware v16 readiness observation despite the
+historical C3/S3 image receipts exceeding 24 hours. The approval is not itself
+an active entitlement; it requires a new audit-linked successor, and it does
+not authorize TC-001. The original `#11886` authorization remains
+`SAFETY_LATCHED` (one session used of two, one safety failure, zero reviewed
+dispositions). A read-only `--dev-policy-status` check returned that status
+and owner reference `GS-117#11886`; no successor was activated.
+
+The approved private v16 procedure exists at
+`~/.local/state/ghar-sajag/gs117-tc001/standing-readiness-prepared/gs117-protected-bootstrap-development-v16.py`
+and its SHA-256 matches the approved value
+`edfaab749ee11f66cba0a8441ea58e835f6ead78e07b045118a794adb4593572`. Its
+startup guard at lines 26–27 requires the tracked serial helper to hash to
+`d9871114be3c6c0d56d0e77cdbe686797f63e04219d150b2c82374c92496338e`, but the
+current helper `code/tools/local/gs117_tc001_serial_windows.py` hashes to
+`fc2a30f5b0407d1f0f2300552476991575128cb2b66aa3cdd29a9533a608ceaa`. The
+v16 script would exit with `REVIEWED_SERIAL_HELPER_CHANGED`. The existing
+parent `standing_readiness(development=True)` reserves the one-use session
+before launching the child (see `code/tools/local/gs117_tc001_console.py`), so
+activating/reserving this known-incompatible procedure would consume and latch
+the successor without an observation. It was not activated or run. The only
+local `activate_successor.py` inspected is specifically bound to the earlier
+`#11886` application-flash scope and is not applicable to `#11892`.
+
+The receipt-age guard is a post-observation fixture check; per `#11892`, stale
+receipts do not block this diagnostic observation but keep fixture status
+`FIXTURE_PENDING` and prevent any `TC001_READY` claim. The historical C3/S3
+receipt hashes remain
+`589dc9f98ef78fed97709e2ffb845b0a0eb6ccf5babfd9cc149743539932acb7` and
+`ff1116344cbc05d4c6fcc18a8f003d067b809ef6d90236fd90bba6f86ab052e5`; they
+were not refreshed. The long-running PID 514326 is the loopback console
+listener on `127.0.0.1:18791` and held no serial descriptors; no concurrent
+hardware session was found.
+
+Outcome: **BLOCKED before successor activation and hardware access**. No serial
+port was opened, no reset/bootstrap occurred, no readiness observation or
+tests were run, and TC-001 remains 0/5. Source and authorization records were
+not modified. Context preflight passed; local/remote HEAD at the start was
+`afd9df3e92cf8d14ab330590c22be82017ab802f`. No duplicate approval was
+requested. Next: reconcile the v16 dependency pin through the existing review
+process; if that changes the approved procedure identity, get approval for
+that exact updated procedure before activating a successor.

@@ -10823,3 +10823,37 @@ or another D029-compliant recovery path is available.
 Delivery checkpoint: documentation commit `8e8c71991a74f8682d6cca0db5e9831af9553e98`
 is pushed; local and remote HEAD matched at verification. Tracked files are
 clean, and all 79 pre-existing untracked entries remain preserved.
+
+### 2026-11-01 10:02 UTC — approved v16 readiness observation blocked offline
+
+Jira GS-117 comment `#11892` was read back directly and approves one no-flash
+v16 authenticated-rejoin/readiness observation despite the age of existing
+C3/S3 image receipts. It does not authorize a TC-001 event or constitute an
+active entitlement. The existing `#11886` scope remains `SAFETY_LATCHED`; its
+one consumed session, one safety failure and zero reviewed dispositions were
+left unchanged.
+
+The exact approved v16 bootstrap script hash matches
+`edfaab749ee11f66cba0a8441ea58e835f6ead78e07b045118a794adb4593572`, but its
+nested serial-helper guard expects
+`d9871114be3c6c0d56d0e77cdbe686797f63e04219d150b2c82374c92496338e` while the
+current tracked helper is
+`fc2a30f5b0407d1f0f2300552476991575128cb2b66aa3cdd29a9533a608ceaa`. The
+existing readiness wrapper reserves its one-use authorization before running
+the child script, which would exit `REVIEWED_SERIAL_HELPER_CHANGED`. No
+successor was activated or reserved, avoiding a predictable consumed/latching
+failure. The prior latched policy remains unavailable. The local one-off
+successor helper is scoped to `#11886` application flashing and was not reused.
+
+The existing 24-hour fixture-receipt check runs after target observation;
+under `#11892`, observation may be recorded while fixture status remains
+`FIXTURE_PENDING`. The receipts were not refreshed and no `TC001_READY` or
+readiness result is claimed. Session 127/129 physical evidence remains
+historical; no new C3/S3 observation occurred. TC-001 remains 0/5. Context
+preflight PASS; no source/tests, authorization records, hardware, Jira or Git
+state changed during diagnosis. Untracked and ignored work was preserved.
+
+Next action: reconcile the existing v16 helper dependency through the existing
+review process, then validate and activate only an exact approved procedure;
+any changed procedure identity requires its own explicit approval. No repeat
+approval request for unchanged scope was made.
