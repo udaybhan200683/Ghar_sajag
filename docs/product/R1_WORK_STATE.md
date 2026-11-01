@@ -10819,3 +10819,7 @@ acceptance gaps remain.
 Next exact action: obtain the owner decision on the TEST_ONLY manual-recovery
 scope. If rejected, do not deploy until exact installed-bootloader provenance
 or another D029-compliant recovery path is available.
+
+Delivery checkpoint: documentation commit `8e8c71991a74f8682d6cca0db5e9831af9553e98`
+is pushed; local and remote HEAD matched at verification. Tracked files are
+clean, and all 79 pre-existing untracked entries remain preserved.
