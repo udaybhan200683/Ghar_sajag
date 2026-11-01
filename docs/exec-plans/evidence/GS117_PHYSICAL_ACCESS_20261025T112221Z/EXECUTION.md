@@ -5862,3 +5862,49 @@ cannot be established without changing the bootloader, stop at the GS-D029
 boundary. ESP-NOW challenge delivery remains unobserved; Event 123/1's roughly
 6h53m delivery delay remains unresolved; TC-001 remains 0/5 and GS-117 remains
 In Progress.
+
+### 2026-11-01 08:17 UTC — installed S3 bootloader provenance search closed
+
+The exact historical installed S3 bootloader digest is
+`ae304441aaaad2b52765d48f4b37752f2ab26a65a480f5f1f9586cd54ebe1580`.
+Preserved `s3-predeploy/bootloader.bin` and `s3-postdeploy/bootloader.bin`
+under the 2026-10-26 cache-deploy evidence both hash to this value; their
+manifests record the digest under `backups.bootloader.sha256`. The manifests
+contain device/security backup metadata but no build ID, source commit,
+sdkconfig hash or rollback configuration provenance. A later preserved
+post-deploy copy has the same digest.
+
+The bounded artifact search hashed 95 `bootloader.bin` files across the four
+existing `/home/udaybhan/projects/Ghar_sajag*` project roots; none matches the
+installed digest. The current diagnostic build bootloader is
+`e7431b3e79d08b039a756beca3d585519021c346e09b787fc4389f92aabdd71f`, with
+`BOOTLOADER_APP_ROLLBACK_ENABLE=true`; its bytes do not match the installed
+bootloader. Other preserved rollback-enabled S3 build outputs also have
+different hashes. Git history contains the tracked S3 rollback-enabled
+configuration default, but no source/build mapping for the installed digest.
+The previously recorded installed digest therefore remains
+`INSTALLED_S3_BOOTLOADER_ROLLBACK_NOT_PROVEN`; matching version/configuration
+without matching bytes is insufficient.
+
+GS-D029 remains LOCKED for automatic ESP-IDF application rollback in
+commercial FOTA; GS-D030's S3 development direction does not waive it. Jira
+#11840/#11852 approved the existing persistent, revocable TEST_ONLY mode and
+app-only development flashing in principle, and that mode is implemented in
+the existing authorization module. Its read-only current status is
+`SAFETY_LATCHED` (one of two sessions used, one safety failure, zero reviewed
+dispositions). It is not an available hardware entitlement. No separately
+scoped, verified manual-recovery contract for an S3 diagnostic image was
+found. The exact #11886 latch and predecessor ledgers remain unchanged.
+
+Proposed owner decision, not yet approved: permit one identified, isolated
+`GS117_DEV_TEST_ONLY` direct-ROM S3 diagnostic installation to use a separately
+implemented and validated manual recovery path that selects the retained
+previous application if the diagnostic image fails. This is explicitly not
+automatic rollback, does not satisfy or alter GS-D029, and cannot qualify
+commercial FOTA. Before any hardware authorization, the recovery tool must
+prove bounded selector/app operations, preserved old-app availability,
+interruption/failure handling and normal-application restoration; hardware
+recovery must then be qualified under valid active authorization. If this
+decision is not approved, remain NO-GO until exact rollback-enabled bootloader
+provenance or another GS-D029-compliant path is established. No code, policy,
+authorization or hardware state changed in this search.

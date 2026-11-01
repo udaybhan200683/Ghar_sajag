@@ -10787,3 +10787,35 @@ recovery acceptance remain outstanding. Pre-edit checkpoint: canonical branch
 `feature/r1-commercial-baseline`, local and remote HEAD
 `1cb3a11fb9441e79a0958e26b17058687a1d0c66`; unrelated untracked work was
 preserved.
+
+### 2026-11-01 08:17 UTC — GS-117 installed bootloader provenance result
+
+Starting checkpoint: canonical branch `feature/r1-commercial-baseline`, HEAD
+`d32fa4bfcc02c0f1fd5b788acb46612e4d307d78`; tracked tree clean. Existing
+untracked assets and private evidence were preserved. Context preflight PASS.
+
+The historical installed S3 bootloader digest
+`ae304441aaaad2b52765d48f4b37752f2ab26a65a480f5f1f9586cd54ebe1580` is
+corroborated by identical preserved pre/post readback binaries and manifests,
+but no manifest carries its build/source/configuration mapping. A bounded
+search hashed 95 bootloader binaries across four existing Ghar Sajag project
+roots and found no matching build artifact. The current TEST_ONLY diagnostic
+build has rollback enabled but a different bootloader hash. Result:
+`INSTALLED_S3_BOOTLOADER_ROLLBACK_NOT_PROVEN`.
+
+GS-D029 automatic rollback remains locked for commercial FOTA. Existing
+owner-approved TEST_ONLY development mode supports app-only flashing in
+principle, but the current mode reports `SAFETY_LATCHED` (1/2 sessions, one
+safety failure, zero reviewed dispositions); do not use it for hardware. No
+separate, verified manual-recovery contract exists. Proposed owner decision:
+approve or reject one isolated diagnostic-only direct-ROM deployment with a
+manually executed, separately tested restore to the retained previous app.
+Any such path must remain explicitly outside commercial FOTA, must not claim
+to satisfy GS-D029, and requires a validated recovery tool and later valid
+hardware authorization. No decision, source change or hardware operation was
+made. GS-117 stays In Progress, TC-001 0/5; ESP-NOW, PIR/recovery and latency
+acceptance gaps remain.
+
+Next exact action: obtain the owner decision on the TEST_ONLY manual-recovery
+scope. If rejected, do not deploy until exact installed-bootloader provenance
+or another D029-compliant recovery path is available.
