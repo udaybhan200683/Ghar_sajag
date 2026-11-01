@@ -10689,3 +10689,48 @@ the current scope and was not used; do not substitute it as-is. Before another
 successor is requested, reconcile the exact C3 reset/application-restoration
 sequence and preserve bounded direct reads without JEDEC, then review/pin the
 exact helper. No new hardware action is permitted under #11886.
+
+### 2026-11-01 — GS-117 C3 reset-aware readback and S3 deployment audit
+
+GS-117 remains Highest / In Progress; TC-001 is 0/5. The existing installed-
+image freshness guard is a development-fixture receipt-age check, not a claim
+that firmware expires. Current acceptance requires exact installed-image
+identity evidence. No trusted device-side attestation was found to replace the
+expired active-image receipt. Full-chip readback is not required: the bounded
+evidence is the partition table, OTA selector, and exact selected active app
+image bytes, excluding inactive app, NVS and unrelated flash.
+
+The latest C3 attempt failed before flash access because the helper requested a
+`no-reset` ROM connection without establishing ROM/stub mode; esptool reported
+`Invalid head of packet (0x57)`. The source of that byte remains unknown. A
+normal app responding to ROM sync is a strong hypothesis only. Candidate
+`readback_once_v3.py` was prepared privately (SHA-256
+`d1895a348612ae93395fb03ceb69517619c85ecde8fb8a7b9ea89af0d0064ca4`) using
+the pinned IDF 6.0.3 USB-JTAG reset strategy and esptool 5.4.0. It allows one
+ROM-entry attempt, requires RAM stub, reads only exact bounded regions through
+the direct stub API, then deasserts BOOT and issues one USB-aware EN reset. It
+checks USB re-enumeration, not application runtime; a protected target
+observation remains necessary. Its private offline harness passed 22/22 mocked
+cases after Python compilation. No hardware was accessed. The candidate is not
+yet authorized or committed.
+
+The combined readback-plus-diagnostic deployment is **BLOCKED** by an exact
+scope/tool mismatch found in the existing private deployment wrapper. IDF
+6.0.3 `ParttoolTarget.write_partition` erases the 4 MiB OTA0 app slot before
+writing. `OtatoolTarget.switch_ota_partition` erases and rewrites the 8 KiB
+OTA selector. The wrapper's seven esptool command invocations each use
+default-reset before and no-reset after, with no final explicit normal-app
+restore. The write, verify and read CLI paths reach `detect_flash_size()` and
+the flash-ID/JEDEC query. The current instructions prohibit both erase and
+JEDEC operations. No new successor request or authorization activation was
+made because this exact procedure is not compliant and does not establish a
+complete S3 runtime restoration sequence.
+
+Read-only authorization status remains #11886 `SAFETY_LATCHED`: 1/2 sessions,
+one safety failure, zero reviewed dispositions. Historical latches and ledgers
+remain unchanged; no failure was reclassified. No C3/S3 port was opened, no
+reset, readback, flash, bootstrap or event injection occurred. TC-001 remains
+0/5. No authorization-classifier change is proposed. The next required step is
+an owner resolution of the no-erase/no-JEDEC versus existing OTA deployment
+procedure conflict; only then can a complete bounded procedure and exact
+successor scope be finalized.

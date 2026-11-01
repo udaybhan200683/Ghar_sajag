@@ -1652,3 +1652,24 @@ commercial security requirements, physical acceptance, or GS-173 release gates.
 No new LOCKED product decision is introduced; `CONTEXT_VERSION` is unchanged.
 See the dated GS-117 execution record and `R1_WORK_STATE.md` for source, tests,
 activation state and remaining physical acceptance.
+
+### 2026-11-01 GS117 reset-aware provenance procedure review — evidence only
+
+The #11886 C3 ROM-loader attempt used `no-reset` without evidence that ROM/stub
+mode had been established. A private reset-aware candidate now has focused
+offline mocked coverage (22/22) and uses bounded direct RAM-stub reads without
+flash-ID/JEDEC calls; it is not yet authorized. Canonical installed-image
+identity remains required while current receipts are stale, but no full-chip
+dump or firmware reinstall is required. The 24-hour check is the local
+development-fixture observation TTL.
+
+The existing IDF 6.0.3 S3 app-only wrapper was traced to application-slot and
+OTA-selector erase operations plus esptool flash-size detection through the
+flash-ID path. It also has seven separate default-reset command sessions and
+no explicit final app restore. This conflicts with the current no-erase and
+no-JEDEC execution boundary, so no successor was requested or activated.
+The #11886 latch and all historical ledgers remain unchanged; no hardware was
+accessed. This records procedure evidence and a blocker only: it introduces no
+new product or security requirement, makes no authorization change, and does
+not change `CONTEXT_VERSION`. See the dated GS-117 execution evidence and
+`R1_WORK_STATE.md`.

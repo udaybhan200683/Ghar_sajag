@@ -5676,3 +5676,64 @@ was not used. Do not substitute it as-is. Any next procedure must be reviewed
 for the exact C3 reset and application-restoration sequence, retain bounded
 direct reads without JEDEC, and have its exact helper hash authorized before
 another session is activated.
+
+### 2026-11-01 — reset-aware readback reviewed; S3 deployment scope conflict
+
+The current fixture requires a fresh installed-image identity receipt for both
+devices. The canonical TC-001 decision requires the exact installed image, but
+does not require a full-chip dump. The 24-hour age limit is the local fixture's
+receipt freshness guard (`IMAGE_RECEIPT_MAX_AGE_SECONDS`), not firmware expiry.
+No independent device-side attestation that could replace the stale active-image
+readback was found. A bounded receipt must cover the verified partition table,
+OTA selector and exact selected active-application bytes; it need not read the
+inactive app, NVS or unrelated flash.
+
+The #11886 C3 failure is confirmed at ROM-loader synchronization:
+`connect_mode="no-reset"` was used without a prior step establishing ROM/stub
+mode, then esptool returned `Invalid head of packet (0x57)` before any flash
+read. The byte's source is unknown. A normal-running application emitting
+non-ROM bytes is a strong hypothesis, not a proven cause. No evidence indicates
+image corruption or an ESP-NOW failure in that operation.
+
+An unapproved private readback candidate was prepared at
+`~/.local/state/ghar-sajag/gs117-tc001/provenance-refresh-20261101/candidate/readback_once_v3.py`
+(SHA-256 `d1895a348612ae93395fb03ceb69517619c85ecde8fb8a7b9ea89af0d0064ca4`).
+Against the pinned ESP-IDF 6.0.3 / esptool 5.4.0 source, it uses one
+`default-reset` connection attempt for USB-JTAG ROM entry, requires the RAM
+stub, and reads only bounded direct-stub ranges. It makes one USB-aware EN
+reset with BOOT deasserted to request normal application boot, then checks exact
+USB re-enumeration. That enumeration does not prove app runtime; a later
+authorized protected target observation is still required. Readback budget is
+one ROM-entry reset plus one normal-boot restoration reset per target, with no
+retry. The candidate has no write, erase, flash-ID or JEDEC path.
+
+Focused private offline validation was rerun with the pinned Python environment:
+`py_compile` passed and **22/22 mocked cases passed**, covering C3/S3 bounded
+read success, identity and artifact mismatches, read/connection failures,
+restoration, OTA/table parsing, wrapper receipt compatibility, and the actual
+esptool direct-stub read/reset source paths. The harness reports
+`HARDWARE_ACCESS=NONE; COM_PORTS_OPENED=NONE`. This is not physical validation,
+and the helper hash is not yet authorized.
+
+The existing private `application_flash_once.py` was also traced against the
+installed IDF 6.0.3 `parttool.py`, `otatool.py` and esptool 5.4.0 sources. Its
+OTA0 application `write_partition` erases the 4 MiB inactive app slot before
+`write-flash`; selector switching erases and rewrites the 8 KiB `otadata`
+partition. Its seven separate esptool invocations use the default
+reset-before behavior and `after=no-reset`, and the wrapper has no final
+normal-application restore step. `write-flash`, `verify-flash` and `read-flash`
+reach `detect_flash_size()` and the SPI flash-ID (`flash_id`) path. Therefore
+this existing deployment sequence violates the current explicit no-erase and
+no-JEDEC restrictions, has a larger reset footprint than the proposed single
+observation, and does not leave the S3 demonstrably running the diagnostic app.
+It must not be executed or covered by another authorization as currently
+written. The diagnostic artifact remains build-only.
+
+Authorization status was read without modifying it: #11886 remains
+`SAFETY_LATCHED` (1/2 sessions, one failure, zero reviewed dispositions). No
+classifier, ledger or predecessor record was changed. No board was accessed,
+reset, read, flashed or bootstrapped; no event was injected; TC-001 remains
+0/5. A replacement hardware authorization is not ready until the owner resolves
+the conflict between the strict no-erase/no-JEDEC boundary and the existing
+deployment procedure, and a complete reset/restore-safe deployment path is
+reviewed. GS-117 remains In Progress.
