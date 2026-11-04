@@ -74,6 +74,28 @@ function Get-Ipv4Network([string]$Address, [int]$PrefixLength) {
     return (([System.Net.IPAddress]::new($network)).ToString() + "/" + $PrefixLength)
 }
 
+function Test-EquivalentIpv4Scope($Actual, [string]$Expected) {
+    $values=@($Actual)
+    if ($values.Count -ne 1) { return $false }
+    $normalized=@()
+    foreach($value in @([string]$values[0],$Expected)) {
+        $parts=$value.Split('/')
+        if($parts.Count -ne 2){return $false}
+        $address=$null
+        if(-not [Net.IPAddress]::TryParse($parts[0],[ref]$address) -or $address.AddressFamily -ne 'InterNetwork'){return $false}
+        $prefix=0
+        if($parts[1].Contains('.')) {
+            $mask=$null
+            if(-not [Net.IPAddress]::TryParse($parts[1],[ref]$mask) -or $mask.AddressFamily -ne 'InterNetwork'){return $false}
+            $bits=($mask.GetAddressBytes()|ForEach-Object {[Convert]::ToString($_,2).PadLeft(8,'0')}) -join ''
+            if($bits -notmatch '^1*0*$'){return $false}
+            $prefix=($bits -replace '0','').Length
+        } elseif(-not [int]::TryParse($parts[1],[ref]$prefix) -or $prefix -lt 0 -or $prefix -gt 32){return $false}
+        $normalized+=Get-Ipv4Network $parts[0] $prefix
+    }
+    return $normalized[0] -eq $normalized[1]
+}
+
 function Get-PortProxyRows {
     $output = & netsh.exe interface portproxy show v4tov4 2>&1
     if ($LASTEXITCODE -ne 0) { Stop-WithError "portproxy_query_failed" }
@@ -316,7 +338,7 @@ function Get-PhysicalObservation($State) {
     $expectedProfile=if($profile -eq 'DomainAuthenticated'){'Domain'}else{$profile}
     $firewall=($null -ne $rule -and
         (@($addressFilter.LocalAddress) -join ',') -eq '192.168.1.6' -and
-        (@($addressFilter.RemoteAddress) -join ',') -eq '192.168.1.0/24' -and
+        (Test-EquivalentIpv4Scope $addressFilter.RemoteAddress '192.168.1.0/24') -and
         (@($rule.Profile) -join ',') -eq $expectedProfile -and $rule.EdgeTraversalPolicy -eq 'Block')
     $rows=@(Get-PortProxyRows | Where-Object ListenPort -eq 8445)
     $owned=($rows.Count -eq 0 -or ($rows.Count -eq 1 -and
@@ -669,7 +691,7 @@ if ($Action -eq "Start") {
             $_.LocalAddress -ne '192.168.1.6' -or $_.OwningProcess -notin @(4,$helper.ProcessId)
         }).Count -gt 0) { Stop-WithError 'physical_session_port_conflict' }
         if ((@($addressFilter.LocalAddress) -join ',') -ne '192.168.1.6' -or
-            (@($addressFilter.RemoteAddress) -join ',') -ne '192.168.1.0/24' -or
+            -not (Test-EquivalentIpv4Scope $addressFilter.RemoteAddress '192.168.1.0/24') -or
             (@($existingRule.Profile) -join ',') -ne $firewallProfile -or
             $existingRule.EdgeTraversalPolicy -ne 'Block' -or
             @(Get-PortProxyRows | Where-Object { $_.ListenPort -eq 8445 -and $_.ListenAddress -ne '192.168.1.6' }).Count -gt 0) {
@@ -693,7 +715,7 @@ if ($Action -eq "Start") {
         $currentFirewallAddress = $existingRule | Get-NetFirewallAddressFilter
         $needsFirewallScopeUpdate =
             ((@($currentFirewallAddress.LocalAddress) -join ",") -ne $actualAddress) -or
-            ((@($currentFirewallAddress.RemoteAddress) -join ",") -ne $scope) -or
+            (-not (Test-EquivalentIpv4Scope $currentFirewallAddress.RemoteAddress $scope)) -or
             ((@($existingRule.Profile) -join ",") -ne $firewallProfile)
         if ($needsFirewallScopeUpdate) {
             $oldFirewallAddress = $currentFirewallAddress

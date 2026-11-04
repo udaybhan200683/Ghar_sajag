@@ -24,7 +24,7 @@ function Get-ScheduledTask {param($TaskName,$ErrorAction) return @{Name=$TaskNam
 $tokens=$null;$errors=$null
 $tree=[Management.Automation.Language.Parser]::ParseFile('__SOURCE__',[ref]$tokens,[ref]$errors)
 if($errors.Count){throw ($errors|Out-String)}
-foreach($name in @('Is-Rfc1918','Get-PhysicalSessionDecision','Close-PhysicalSession','Register-PhysicalSessionTasks','Invoke-PhysicalSessionTick','Get-PhysicalSessionWindow','Get-PhysicalAuthority')) {
+foreach($name in @('Is-Rfc1918','Get-Ipv4Network','Test-EquivalentIpv4Scope','Get-PhysicalSessionDecision','Close-PhysicalSession','Register-PhysicalSessionTasks','Invoke-PhysicalSessionTick','Get-PhysicalSessionWindow','Get-PhysicalAuthority')) {
  $node=$tree.Find({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true)
  . ([scriptblock]::Create($node.Extent.Text))
 }
@@ -166,7 +166,7 @@ function New-NetFirewallRule {throw 'unexpected firewall creation'}
 function Set-NetFirewallRule {throw 'unexpected firewall change'}
 function netsh.exe { $script:calls+=($args -join ' ');$global:LASTEXITCODE=0 }
 $all=@()
-foreach($case in @('healthy','dormant','nat-change','rollback','firewall','other-row','wrong-ip','conflict','caregiver443')) {
+foreach($case in @('healthy','dormant','nat-change','rollback','firewall','other-row','wrong-ip','conflict','caregiver443','mask-scope')) {
  $Action='Start';$EndpointKind='PhysicalHubIngress';$SessionRestricted=$true
  $actualAddress='192.168.1.6';$profile=@{Name='Airtel_Agrim'};$ipInfo=@{PrefixLength=24}
  $ListenPort=8445;$TargetPort=8445;$scope='192.168.1.0/24';$firewallProfile='Private'
@@ -177,6 +177,7 @@ foreach($case in @('healthy','dormant','nat-change','rollback','firewall','other
  $script:healthy=($case -eq 'healthy' -or $case -eq 'conflict');$script:wait=($case -ne 'rollback');$script:calls=@()
  if($case -eq 'nat-change'){$WslAddress='172.18.1.2'}
  if($case -eq 'firewall'){$script:remote='Any'}
+ if($case -eq 'mask-scope'){$script:remote='192.168.1.0/255.255.255.0'}
  if($case -eq 'wrong-ip'){$actualAddress='192.168.1.7'}
  if($case -eq 'conflict'){$script:owner=999}
  if($case -eq 'other-row'){$script:rows+= [pscustomobject]@{ListenAddress='192.168.1.7';ListenPort=8445;TargetAddress='172.17.152.10';TargetPort=8445}}
@@ -189,7 +190,7 @@ ConvertTo-Json -InputObject $all -Depth 5 -Compress
         by={x['name']:x for x in result}
         self.assertEqual(by['healthy']['calls'],[])
         self.assertEqual(by['healthy']['error'],'')
-        for case in ('dormant','nat-change'):
+        for case in ('dormant','nat-change','mask-scope'):
             self.assertEqual(len(by[case]['calls']),2)
             self.assertEqual(by[case]['error'],'')
         self.assertIn('connectaddress=172.18.1.2',by['nat-change']['calls'][-1])
@@ -204,7 +205,7 @@ ConvertTo-Json -InputObject $all -Depth 5 -Compress
             for call in case['calls']:
                 self.assertIn('listenport=8445',call)
                 self.assertIn('listenaddress=192.168.1.6',call)
-        print('CASE GS179-SESSION-REPAIR-001 PASS scenarios=9')
+        print('CASE GS179-SESSION-REPAIR-001 PASS scenarios=10')
 
     def test_existing_authorization_and_service_identity_projection(self):
         import json,os,subprocess,hashlib
@@ -377,6 +378,21 @@ ConvertTo-Json -InputObject $results -Compress
 """)
         self.assertEqual(result,['physical_session_inputs_invalid','physical_session_authority_helper_changed'])
         print('CASE GS179-SESSION-HELPER-PIN-001 PASS')
+
+    def test_windows_firewall_mask_notation_is_equivalent_without_scope_widening(self):
+        result=self.powershell(r"""
+@(
+ (Test-EquivalentIpv4Scope @('192.168.1.0/255.255.255.0') '192.168.1.0/24'),
+ (Test-EquivalentIpv4Scope @('192.168.1.0/24') '192.168.1.0/24'),
+ (Test-EquivalentIpv4Scope @('192.168.1.0/255.255.0.0') '192.168.1.0/24'),
+ (Test-EquivalentIpv4Scope @('192.168.2.0/24') '192.168.1.0/24'),
+ (Test-EquivalentIpv4Scope @('Any') '192.168.1.0/24'),
+ (Test-EquivalentIpv4Scope @('192.168.1.0/24','10.0.0.0/8') '192.168.1.0/24'),
+ (Test-EquivalentIpv4Scope @('192.168.1.0/255.0.255.0') '192.168.1.0/24')
+)|ConvertTo-Json -Compress
+""")
+        self.assertEqual(result,[True,True,False,False,False,False,False])
+        print('CASE GS179-SESSION-FIREWALL-NORMALIZATION-001 PASS')
 
 if __name__ == "__main__":
     unittest.main()
