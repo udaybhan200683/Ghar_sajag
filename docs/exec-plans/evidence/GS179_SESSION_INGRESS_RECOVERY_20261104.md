@@ -1,6 +1,6 @@
 # GS-179 session-scoped physical ingress recovery — decision boundary
 
-Status: software IMPLEMENTED; controlled deployment APPROVED in GS-179#11907 and executed; temporary tasks/exposure CLOSED. Actual Windows qualification PARTIAL (details below); GS-117 observation NOT_RUN.
+Status: software IMPLEMENTED; controlled deployment APPROVED in GS-179#11907 and executed; temporary tasks/exposure CLOSED. Actual Windows qualification PARTIAL; new two-window execution BLOCKED by existing authority contract (latest result below); GS-117 observation NOT_RUN.
 Owning implementation: GS-179. Product dependency: GS-117 (Highest / In Progress).
 Starting canonical HEAD: 57ea0b436ffffa21576109b9f1e6445df2033e2c.
 
@@ -131,3 +131,22 @@ The short expiry qualification consumed this activation's nonrenewable network w
 Private execution evidence: `/home/udaybhan/.local/state/ghar-sajag/gs179-live-20261104T155650Z/` (preaudit, healthy tick/task audit, session-start, controller-loss, expiry-start, final-audit and cleanup/authority receipts). Existing service run: `~/.local/state/ghar-sajag/gs117-tc001/services-live-20261104T160230Z/`. Task-owned ingress, signed-time process and replacement controller were shut down after qualification; existing backend/PostgreSQL/443 services were preserved. Full original Windows listener-loss trigger remains UNCONFIRMED.
 
 Result Jira comments: GS-179#11908 and GS-117#11909 posted and independently read back. Final context preflight and `git diff --check` PASS; private receipt consistency/owned-process shutdown checks PASS. No additional hardware or broad software test run.
+
+
+## Two-window approval preflight — 2026-11-04 16:28 UTC
+
+GS-117#11910 and GS-179#11911 were read directly and confirm both distinct, non-overlapping network windows are APPROVED. No duplicate approval is requested. Their explicit stop condition applies: the current implementation cannot represent independent network-only authority while retaining the existing hardware successor unchanged. This is an implementation/authorization-interface incompatibility, not missing owner consent.
+
+Exact evidence:
+
+- `code/tools/local/gs179_verified_endpoint.py:physical_ingress_authority` requires `approval_ref == policy['owner_approval_ref']` and a bootstrap-only hardware scope. It returns the hardware `authorization_scope_id` and `development_mode.activation_id` as network scope/activation. Read-only calls with GS-117#11910 and GS-179#11911 both rejected `physical_session_authorization_scope_mismatch` before service checks. The Windows `Get-PhysicalAuthority` interface additionally accepts GS-117 references only; no independent approved network-window input exists.
+- `gs179-windows-lan-proxy.ps1:Get-PhysicalSessionWindow` clamps every new receipt for the same scope/activation to the earliest saved deadline. Running this actual production function offline against the preserved expired receipt rejected `physical_session_scope_window_expired`, as required. A fresh receipt GUID or a different controller/service directory cannot create an independent authority-bound window.
+- `gs117_hil_authorization.py:_development_scope_id` derives consent scope from profile/owner approval/fixture identity. Changing the active hardware approval or activation to manufacture network scopes would replace the preserved hardware successor. The approved task expressly prohibits that workaround. The existing interface has no network-only consent operation.
+
+Current hardware authority remains ACTIVE,0/1 sessions used, scope `ceb3955662e14f75cf2078dbf0b0f046e76a4c742e2eb301c76b86832719be7d`; #11886 ledger digest unchanged. Approved v18/helper and GS179 source hashes match the last reviewed checkpoint. Current read-only Windows check: only `.6:443` listens, fixed192.168.1.6/24 retained; no8445 listener. No UAC, services, new scope/activation, tasks, forwarding mutation or hardware operation was attempted in this task. No prior success cases or broad suites were rerun.
+
+Window A BLOCKED before start; rollback/revocation/SYSTEM attribution remain NOT_RUN/UNVERIFIED from prior qualification. Window B BLOCKED/not started; no cleanup needed for either new window. Physical observation NOT_RUN, rejoin/liveness UNKNOWN, firmware unchanged, receipts STALE, TC001_READY NO, TC-0010/5. Prior cleanup evidence remains valid. Next task is the smallest correction to the existing GS179 authority binding so separately approved network-only windows can reference, without replacing or increasing, the unchanged GS117 hardware entitlement. No correction was implemented because this execution approval explicitly requires stopping at this contract conflict.
+
+New evidence: `~/.local/state/ghar-sajag/gs179-two-window-preflight-20261104T162736Z/result.json`. Actual new checks: two production authority-reference rejection checks, actual production expired-deadline guard, hash/status/ledger integrity, read-only Windows listener/IP checks; all behaved fail-closed. Historical Windows10/10, networking15/15 and mapping22/22 remain reused, not newly executed. Starting canonical local/remote HEAD `a643af1f9aa275ff9ebb84ac9047259c06b187df`; preflight PASS, tracked source unchanged, unrelated files preserved.
+
+Result comments GS-179#11912 and GS-117#11913 posted and read back. Documentation diff check PASS; no source regression suite rerun because source/test files are unchanged.
