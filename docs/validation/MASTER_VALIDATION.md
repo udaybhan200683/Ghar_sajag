@@ -1104,3 +1104,8 @@ optical qualification or physical event acceptance. Exact source/image, commands
 receipts, safety state and next operation: existing GS117 EXECUTION.md final handoff
 and cache-deployment-20261026.json. Documentary mapping updates after campaigns
 are separately checked; executable source hashes remain unchanged.
+
+
+## GS-179 opt-in physical-ingress recovery software qualification (2026-11-04)
+
+The registered `gs179-physical-session-offline` stage is explicitly invoked with `make -C code gs179-physical-session-offline-test`; it executes PowerShell production functions with mocked OS mutations and the existing authority projection using temporary receipts. PowerShell must exist; missing tooling is a failure, not a skipped PASS. This platform-specific suite is outside portable fast/release auto-discovery and never registers tasks, changes network state or opens board ports. It does not establish privileged Windows recovery/cleanup or GS-117 physical readiness. The existing verified-endpoint, GS-117 console, GS-179 PostgreSQL/security and framework/traceability regressions remain applicable. See `docs/exec-plans/evidence/GS179_SESSION_INGRESS_RECOVERY_20261104.md` for the exact new source/session lifecycle, pending elevated deployment approval and required actual-Windows qualification.

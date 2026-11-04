@@ -1673,3 +1673,8 @@ accessed. This records procedure evidence and a blocker only: it introduces no
 new product or security requirement, makes no authorization change, and does
 not change `CONTEXT_VERSION`. See the dated GS-117 execution evidence and
 `R1_WORK_STATE.md`.
+
+
+### 2026-11-04 implementation-status note — GS-179 physical-ingress recovery
+
+The owner authorized implementation/offline validation of opt-in bounded 8445 recovery using existing GS-179 mechanisms. The software adds per-session reconciliation and independent Task Scheduler expiry/startup cleanup referencing existing GS-117 DEV authority. It is NOT_ENABLED and requires separate reviewed privileged deployment approval; #11900 remains one exact refresh only. No new LOCKED product/security decision or hardware entitlement is created. The installed default 443 Watch remains separate. GS-D029, GS-D030, GS-173 and all physical acceptance/freshness requirements remain in force. Source/deployment details and qualification evidence: `docs/exec-plans/evidence/GS179_SESSION_INGRESS_RECOVERY_20261104.md`.

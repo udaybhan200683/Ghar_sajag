@@ -800,3 +800,8 @@ gs114-c3-s3-c8-p9-build:
 # All cached production objects retain generated-header and source/header dependencies.
 $(HOST_TEST_OBJECTS): Makefile build/gs40_generated/gs/node_health_config.hpp
 -include $(HOST_TEST_OBJECTS:.o=.d)
+
+# Explicit PowerShell production-function mocks; no task/network/board mutation.
+.PHONY: gs179-physical-session-offline-test
+gs179-physical-session-offline-test:
+	python3 tests/windows/gs179_physical_session_test.py

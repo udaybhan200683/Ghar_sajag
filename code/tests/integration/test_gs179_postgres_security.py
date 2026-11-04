@@ -428,7 +428,7 @@ class LaptopServiceLifecycleBoundary(unittest.TestCase):
                           source.index('function Stop-WithError')]
         for required in ('$ListenPort = 8445', '$TargetPort = 8445',
                          '$RuleName = "GS117-Physical-Hub-mTLS"',
-                         '$Action -notin @("Audit", "Start", "Stop")'):
+                         '$Action -notlike "Session*" -and $Action -notin @("Audit", "Start", "Stop")'):
             self.assertIn(required, physical)
         self.assertNotIn("18791", source)
         self.assertIn('if ($Action -in @("Start", "Stop", "Watch")) { Assert-Administrator }', source)
@@ -455,10 +455,19 @@ class LaptopServiceLifecycleBoundary(unittest.TestCase):
                          "portproxy add", "portproxy delete"):
             self.assertGreater(start.index(mutation), 0)
         self.assertIn("if ($needsFirewallScopeUpdate)", start)
-        self.assertLess(source.index('if ($Action -eq "UnregisterWatch")'),
-                        source.index("Unregister-ScheduledTask"))
-        self.assertLess(source.index('if ($Action -eq "RegisterWatch")'),
-                        source.index("Register-ScheduledTask"))
+        # Inspect executed branches, not earlier definitions of session helpers.
+        unregister = source[source.index('if ($Action -eq "UnregisterWatch")'):
+                            source.index('if ($Action -eq "RegisterWatch")')]
+        self.assertLess(unregister.index("Assert-Administrator"),
+                        unregister.index("Unregister-ScheduledTask"))
+        register = source[source.index('if ($Action -eq "RegisterWatch")'):
+                          source.index('# Rollback must remain available')]
+        self.assertLess(register.index("Assert-Administrator"),
+                        register.index("Register-ScheduledTask"))
+        session = source[source.index("if ($Action -like 'Session*')"):
+                         source.index('if ($Action -eq "UnregisterWatch")')]
+        self.assertLess(session.index("Assert-Administrator"),
+                        session.index("Register-PhysicalSessionTasks $state"))
 
     def test_proxy_start_repairs_dormant_mapping_and_fails_closed_without_listener(self):
         source = WINDOWS_PROXY.read_text(encoding="utf-8")

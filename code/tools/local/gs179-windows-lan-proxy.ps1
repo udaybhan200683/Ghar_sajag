@@ -1,12 +1,19 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet("Audit", "Start", "Stop", "Watch", "RegisterWatch", "UnregisterWatch")]
+    [ValidateSet("Audit", "Start", "Stop", "Watch", "RegisterWatch", "UnregisterWatch", "SessionStart", "SessionTick", "SessionClose")]
     [string]$Action,
     [string]$WslAddress = "",
     [string]$PreviousWslAddress = "",
     [string]$LinuxScriptPath = "",
     [ValidateSet("Caregiver", "PhysicalHubIngress")]
-    [string]$EndpointKind = "Caregiver"
+    [string]$EndpointKind = "Caregiver",
+    [string]$SessionFile = "",
+    [string]$ApprovalRef = "",
+    [int]$ControllerPid = 0,
+    [string]$ServiceDirectory = "",
+    [string]$AuthorityHelperSha256 = "",
+    [ValidateRange(1, 3600)][int]$SessionSeconds = 3600,
+    [switch]$SessionRestricted
 )
 
 $ErrorActionPreference = "Stop"
@@ -19,7 +26,7 @@ $RuleDisplayName = "Ghar Sajag GS-179 Local Validation HTTPS"
 if ($EndpointKind -eq "PhysicalHubIngress") {
     # Explicit GS-117 TEST_ONLY data ingress; never the loopback test console.
     # Reuse the same Private/Domain Wi-Fi, subnet and administrator guards.
-    if ($Action -notin @("Audit", "Start", "Stop")) {
+    if ($Action -notlike "Session*" -and $Action -notin @("Audit", "Start", "Stop")) {
         throw "GS179-WINDOWS-PROXY BLOCKED: physical_hub_ingress_watch_not_enabled"
     }
     $RuleName = "GS117-Physical-Hub-mTLS"
@@ -159,6 +166,318 @@ function Test-TrustedWifiProfile($Category) {
     return (Get-NetworkCategoryName $Category) -in @("Private", "DomainAuthenticated")
 }
 
+
+# Opt-in session actions are never reached by the installed default 443 Watch.
+# State and a pinned script snapshot are administrator/SYSTEM writable only.
+function Get-PhysicalSessionWindow($Prior, [string]$Scope, [string]$Activation, [DateTimeOffset]$Now, [int]$Seconds) {
+    if ($Seconds -lt 1 -or $Seconds -gt 3600) { Stop-WithError 'physical_session_duration_invalid' }
+    $start=$Now;$deadline=$Now.AddSeconds($Seconds)
+    foreach($old in @($Prior)) {
+        if($old.scope -eq $Scope -and $old.activation -eq $Activation) {
+            $priorStart=[DateTimeOffset]::Parse($old.started)
+            $priorEnd=[DateTimeOffset]::Parse($old.deadline)
+            if($priorStart -lt $start){$start=$priorStart}
+            if($priorEnd -lt $deadline){$deadline=$priorEnd}
+        }
+    }
+    if($Now -ge $deadline -or $Now -lt $start -or ($deadline-$start).TotalSeconds -gt 3600) {
+        Stop-WithError 'physical_session_scope_window_expired'
+    }
+    return [pscustomobject]@{started=$start.ToString('o');deadline=$deadline.ToString('o')}
+}
+
+function Get-PhysicalSessionDecision($State, $Observation, [DateTimeOffset]$Now) {
+    if ($Now -ge [DateTimeOffset]::Parse($State.deadline) -or
+        $Now -lt [DateTimeOffset]::Parse($State.started) -or
+        ([DateTimeOffset]::Parse($State.deadline) - [DateTimeOffset]::Parse($State.started)).TotalSeconds -gt 3600 -or
+        ([DateTimeOffset]::Parse($State.deadline) - [DateTimeOffset]::Parse($State.started)).TotalSeconds -le 0 -or
+        -not $Observation.authorized -or -not $Observation.services -or
+        -not $Observation.cleanupReady -or -not $Observation.administrator -or
+        $Observation.scope -ne $State.scope -or $Observation.activation -ne $State.activation -or
+        $Observation.controller -ne $State.controller -or
+        $Observation.service -ne $State.service -or $Observation.timeProcess -ne $State.timeProcess -or
+        $Observation.address -ne '192.168.1.6' -or $Observation.prefix -ne 24 -or $Observation.wifi -ne 'Airtel_Agrim' -or
+        $Observation.profile -notin @('Private','DomainAuthenticated') -or
+        -not $Observation.firewall -or -not $Observation.routeOwned -or
+        $Observation.target -notmatch '^172\.(1[6-9]|2[0-9]|3[01])\.\d{1,3}\.\d{1,3}$' -or
+        -not (Is-Rfc1918 $Observation.target) -or $Observation.conflict) {
+        return 'CLOSE'
+    }
+    if ($Observation.target -eq $State.target -and $Observation.listening) { return 'KEEP' }
+    return 'REPAIR'
+}
+
+function Assert-PhysicalSessionFile([string]$Path) {
+    $base = 'C:\ProgramData\GharSajag\PhysicalIngress'
+    if ([IO.Path]::GetDirectoryName($Path) -ne $base -or
+        [IO.Path]::GetFileName($Path) -notmatch '^[a-f0-9]{32}\.json$') {
+        Stop-WithError 'physical_session_path_invalid'
+    }
+    foreach ($item in @($base,$Path)) {
+        if ((Get-Item -LiteralPath $item).Attributes -band [IO.FileAttributes]::ReparsePoint) {
+            Stop-WithError 'physical_session_reparse_point'
+        }
+        $acl=Get-Acl -LiteralPath $item
+        if ($acl.Owner -notin @('BUILTIN\Administrators','NT AUTHORITY\SYSTEM') -or
+            @($acl.Access | Where-Object {
+                $_.AccessControlType -ne 'Allow' -or
+                $_.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value -notin @('S-1-5-18','S-1-5-32-544')
+            }).Count -gt 0) { Stop-WithError 'physical_session_acl_invalid' }
+    }
+}
+
+function Save-PhysicalSession($State) {
+    $temp=$SessionFile+'.tmp'
+    $State | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $temp -Encoding UTF8
+    $acl=Get-Acl -LiteralPath $temp
+    $acl.SetOwner([Security.Principal.SecurityIdentifier]::new('S-1-5-32-544'))
+    Set-Acl -LiteralPath $temp -AclObject $acl
+    Move-Item -LiteralPath $temp -Destination $SessionFile -Force
+    $eventPath=$SessionFile+'.events.jsonl'
+    if ((Test-Path $eventPath) -and ((Get-Item $eventPath).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+        Stop-WithError 'physical_session_event_reparse_point'
+    }
+    [ordered]@{at=[DateTimeOffset]::UtcNow.ToString('o');scope=$State.scope;
+        deadline=$State.deadline;closed=$State.closed;decision=$State.lastDecision} |
+        ConvertTo-Json -Compress | Add-Content -LiteralPath $eventPath -Encoding UTF8
+    $eventAcl=Get-Acl $eventPath
+    $eventAcl.SetOwner([Security.Principal.SecurityIdentifier]::new('S-1-5-32-544'))
+    Set-Acl -LiteralPath $eventPath -AclObject $eventAcl
+
+}
+
+function Close-PhysicalSession($State) {
+    # No firewall removal and no matching by port alone. Keep expiry/retry tasks
+    # if cleanup fails so a failed netsh invocation cannot silently end recovery.
+    foreach ($row in @(Get-PortProxyRows | Where-Object { $State.exposureOwned -and -not $State.closed })) {
+        if ($row.ListenAddress -eq '192.168.1.6' -and $row.ListenPort -eq 8445 -and
+            $row.TargetPort -eq 8445 -and $row.TargetAddress -in @($State.targets)) {
+            & netsh.exe interface portproxy delete v4tov4 listenaddress=192.168.1.6 listenport=8445 | Out-Null
+            if ($LASTEXITCODE -ne 0) { Stop-WithError 'physical_session_cleanup_failed' }
+        }
+    }
+    $State.closed=$true
+    Save-PhysicalSession $State
+    foreach ($name in @($State.tickTask,$State.expiryTask)) {
+        if (Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue) {
+            Unregister-ScheduledTask -TaskName $name -Confirm:$false -ErrorAction Stop
+        }
+    }
+}
+
+function Register-PhysicalSessionTasks($state) {
+    try {
+        $exe=Join-Path $PSHOME 'powershell.exe'
+        $expiryArgs="-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$($state.script)`" -Action SessionClose -EndpointKind PhysicalHubIngress -SessionFile `"$SessionFile`""
+        $tickArgs="-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$($state.script)`" -Action SessionTick -EndpointKind PhysicalHubIngress -SessionFile `"$SessionFile`""
+        $settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 2) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+        # Independent SYSTEM expiry/startup cleanup survives WSL/controller exit.
+        Register-ScheduledTask -TaskName $state.expiryTask -Action (New-ScheduledTaskAction -Execute $exe -Argument $expiryArgs) `
+            -Trigger @((New-ScheduledTaskTrigger -Once -At ([DateTimeOffset]::Parse($state.deadline)).LocalDateTime),(New-ScheduledTaskTrigger -AtStartup)) `
+            -User 'SYSTEM' -RunLevel Highest -Settings $settings -ErrorAction Stop | Out-Null
+        $state.expiryHash=Get-PhysicalTaskHash $state.expiryTask
+        $state.timeProcess=(Get-PhysicalObservation $state).timeProcess
+        Save-PhysicalSession $state
+        Register-ScheduledTask -TaskName $state.tickTask -Action (New-ScheduledTaskAction -Execute $exe -Argument $tickArgs) `
+            -Trigger (New-ScheduledTaskTrigger -Once -At ([DateTimeOffset]::Parse($state.started)).AddSeconds(1).LocalDateTime -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration (New-TimeSpan -Seconds ([Math]::Max(60,([int]([DateTimeOffset]::Parse($state.deadline)-[DateTimeOffset]::Parse($state.started)).TotalSeconds))))) `
+            -User ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -RunLevel Highest -Settings $settings -ErrorAction Stop | Out-Null
+    } catch { Close-PhysicalSession $state;throw }
+}
+
+function Get-PhysicalTaskHash([string]$Name) {
+    $xml=Export-ScheduledTask -TaskName $Name -ErrorAction Stop
+    $sha=[Security.Cryptography.SHA256]::Create()
+    try { return ([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($xml)))).Replace('-','') } finally { $sha.Dispose() }
+}
+
+function Get-PhysicalAuthority([string]$Reference,[int]$PidValue,[string]$Directory,[string]$ExpectedHelper) {
+    if ($Reference -notmatch '^GS-117#[0-9]+$' -or $PidValue -lt 1 -or
+        $Directory -notmatch '^/home/udaybhan/\.local/state/ghar-sajag/gs117-tc001/[A-Za-z0-9_-]+$' -or
+        $ExpectedHelper -notmatch '^[a-fA-F0-9]{64}$') {
+        Stop-WithError 'physical_session_inputs_invalid'
+    }
+    $helper='\\wsl.localhost\Ubuntu\home\udaybhan\projects\Ghar_sajag_r1\code\tools\local\gs179_verified_endpoint.py'
+    if ((Get-FileHash $helper -Algorithm SHA256).Hash -ne $ExpectedHelper) {
+        Stop-WithError 'physical_session_authority_helper_changed'
+    }
+    $wsl=Join-Path ([Environment]::SystemDirectory) 'wsl.exe'
+    $raw=& $wsl --exec /usr/bin/python3 /home/udaybhan/projects/Ghar_sajag_r1/code/tools/local/gs179_verified_endpoint.py `
+        --physical-ingress-authority $Reference --controller-pid $PidValue --service-directory $Directory
+    if ($LASTEXITCODE -ne 0) { Stop-WithError 'physical_session_authority_or_services_unavailable' }
+    return ($raw | ConvertFrom-Json)
+}
+
+function Get-PhysicalObservation($State) {
+    $authority=Get-PhysicalAuthority $State.approval $State.pid $State.directory $State.authorityHelperSha256
+    $wifi=Get-ActiveWifiState $false
+    $rule=Get-ExactFirewallRule
+    $addressFilter=$rule | Get-NetFirewallAddressFilter
+    $profile=Get-NetworkCategoryName $wifi.Profile.NetworkCategory
+    $expectedProfile=if($profile -eq 'DomainAuthenticated'){'Domain'}else{$profile}
+    $firewall=($null -ne $rule -and
+        (@($addressFilter.LocalAddress) -join ',') -eq '192.168.1.6' -and
+        (@($addressFilter.RemoteAddress) -join ',') -eq '192.168.1.0/24' -and
+        (@($rule.Profile) -join ',') -eq $expectedProfile -and $rule.EdgeTraversalPolicy -eq 'Block')
+    $rows=@(Get-PortProxyRows | Where-Object ListenPort -eq 8445)
+    $owned=($rows.Count -eq 0 -or ($rows.Count -eq 1 -and
+        $rows[0].ListenAddress -eq '192.168.1.6' -and $rows[0].TargetPort -eq 8445 -and
+        $rows[0].TargetAddress -in @($State.targets)))
+    $listeners=@(Get-NetTCPConnection -State Listen -LocalPort 8445 -ErrorAction SilentlyContinue)
+    # A portproxy listener is owned by IP Helper (svchost) or the System stack.
+    $iphelper=Get-CimInstance Win32_Service -Filter "Name='iphlpsvc'"
+    $conflict=@($listeners|Where-Object {
+        $_.LocalAddress -ne '192.168.1.6' -or $_.OwningProcess -notin @(4,$iphelper.ProcessId)
+    }).Count -gt 0
+    $udp=@(Get-NetUDPEndpoint -LocalAddress '192.168.1.6' -LocalPort 4468 -ErrorAction SilentlyContinue)
+    $timeProcess=if($udp.Count -eq 1){
+        $proc=Get-Process -Id $udp[0].OwningProcess -ErrorAction Stop
+        $identity=Get-CimInstance Win32_Process -Filter "ProcessId=$($proc.Id)"
+        if ($identity.ExecutablePath -ne 'C:\Users\DELL\AppData\Local\Programs\Python\Python312\python.exe' -or
+            $identity.CommandLine -notlike '*from gs40_test_bootstrap import SignedTimeService*' -or
+            $identity.CommandLine -notlike '*from gs68_signed_time_fixture import TestOnlySignedTimeFixture*') {
+            Stop-WithError 'physical_session_signed_time_identity_mismatch'
+        }
+        "$($proc.Id):$($proc.StartTime.ToUniversalTime().Ticks)"
+    }else{''}
+    $client=New-Object Net.Sockets.TcpClient
+    try {
+        $connect=$client.BeginConnect($authority.wsl_address,8445,$null,$null)
+        $ready=$connect.AsyncWaitHandle.WaitOne(1500)
+        if($ready){$client.EndConnect($connect)}
+    } finally { $client.Dispose() }
+    return [pscustomobject]@{ authorized=$true;services=($ready -and $timeProcess -ne '');
+        cleanupReady=((Get-FileHash $State.script -Algorithm SHA256).Hash -eq $State.scriptHash -and
+            (Get-ScheduledTask -TaskName $State.expiryTask -ErrorAction Stop).State -ne 'Disabled' -and
+            (Get-PhysicalTaskHash $State.expiryTask) -eq $State.expiryHash);
+        administrator=$true;scope=$authority.scope_id;activation=$authority.activation;
+        controller=$authority.controller_start;service="$($authority.service_pid):$($authority.service_start):$($authority.service_sha256)";
+        timeProcess=$timeProcess;address=$wifi.IpInfo.IPAddress;prefix=$wifi.IpInfo.PrefixLength;wifi=$wifi.Profile.Name;profile=$profile;
+        firewall=$firewall;routeOwned=$owned;conflict=$conflict;target=$authority.wsl_address;
+        listening=($listeners.Count -eq 1 -and $rows.Count -eq 1 -and $rows[0].TargetAddress -eq $authority.wsl_address) }
+}
+
+
+function Repair-PhysicalSessionRoute($State, [string]$Previous) {
+    & $PSCommandPath -Action Start -EndpointKind PhysicalHubIngress -WslAddress $State.target -PreviousWslAddress $Previous -SessionRestricted
+    if ($LASTEXITCODE -ne 0) { throw 'physical_session_repair_failed' }
+}
+
+function Invoke-PhysicalSessionTick($State) {
+    if ($State.closed -or [DateTimeOffset]::UtcNow -ge [DateTimeOffset]::Parse($State.deadline)) {
+        Close-PhysicalSession $State
+        return [pscustomobject]@{Decision='CLOSE';ExitCode=0}
+    }
+    try {
+        $observation=Get-PhysicalObservation $State
+        $decision=Get-PhysicalSessionDecision $State $observation ([DateTimeOffset]::UtcNow)
+        $State | Add-Member -NotePropertyName lastDecision -NotePropertyValue $decision -Force
+        if ($decision -eq 'CLOSE') {
+            Close-PhysicalSession $State
+            return [pscustomobject]@{Decision='CLOSE';ExitCode=2}
+        }
+        if ($decision -eq 'REPAIR') {
+            $previous=$State.target
+            $State.targets=@(@($State.targets)+$observation.target|Select-Object -Unique)
+            $State.target=$observation.target
+            Save-PhysicalSession $State
+            Repair-PhysicalSessionRoute $State $previous
+        }
+        Save-PhysicalSession $State
+        return [pscustomobject]@{Decision=$decision;ExitCode=0;Deadline=$State.deadline}
+    } catch { Close-PhysicalSession $State;throw }
+}
+
+if ($Action -like 'Session*') {
+    if ($EndpointKind -ne 'PhysicalHubIngress') { Stop-WithError 'physical_session_endpoint_required' }
+    Assert-Administrator
+    if ($Action -eq 'SessionStart') {
+        if ($SessionFile) { Stop-WithError 'physical_session_file_generated_only' }
+        $authority=Get-PhysicalAuthority $ApprovalRef $ControllerPid $ServiceDirectory $AuthorityHelperSha256
+        $base='C:\ProgramData\GharSajag\PhysicalIngress'
+        foreach($folder in @('C:\ProgramData\GharSajag',$base)) {
+        if (-not (Test-Path $folder)) {
+            New-Item -ItemType Directory -Path $folder | Out-Null
+            $acl=New-Object Security.AccessControl.DirectorySecurity
+            $acl.SetAccessRuleProtection($true,$false)
+            $acl.SetOwner([Security.Principal.SecurityIdentifier]::new('S-1-5-32-544'))
+            foreach($sid in @('S-1-5-18','S-1-5-32-544')) {
+                $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new(
+                    [Security.Principal.SecurityIdentifier]::new($sid),'FullControl','ContainerInherit,ObjectInherit','None','Allow'))
+            }
+            Set-Acl -LiteralPath $folder -AclObject $acl
+        }
+        $folderItem=Get-Item -LiteralPath $folder
+        $folderAcl=Get-Acl -LiteralPath $folder
+        if ($folderItem.Attributes -band [IO.FileAttributes]::ReparsePoint -or
+            $folderAcl.Owner -notin @('BUILTIN\Administrators','NT AUTHORITY\SYSTEM') -or
+            @($folderAcl.Access|Where-Object {
+                $_.AccessControlType -ne 'Allow' -or
+                $_.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value -notin @('S-1-5-18','S-1-5-32-544')
+            }).Count -gt 0) { Stop-WithError 'physical_session_parent_acl_invalid' }
+        }
+        $baseItem=Get-Item -LiteralPath $base
+        $baseAcl=Get-Acl -LiteralPath $base
+        if ($baseItem.Attributes -band [IO.FileAttributes]::ReparsePoint -or
+            $baseAcl.Owner -notin @('BUILTIN\Administrators','NT AUTHORITY\SYSTEM') -or
+            @($baseAcl.Access|Where-Object {
+                $_.AccessControlType -ne 'Allow' -or
+                $_.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value -notin @('S-1-5-18','S-1-5-32-544')
+            }).Count -gt 0) { Stop-WithError 'physical_session_directory_acl_invalid' }
+        # Validate the protected base before placing executable/state files in it.
+        $id=[Guid]::NewGuid().ToString('N');$SessionFile=Join-Path $base ($id+'.json')
+        $now=[DateTimeOffset]::UtcNow
+        $prior=@(Get-ChildItem $base -Filter '*.json' | ForEach-Object {
+            Assert-PhysicalSessionFile $_.FullName
+            Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json
+        })
+        $window=Get-PhysicalSessionWindow $prior $authority.scope_id $authority.activation $now $SessionSeconds
+        $state=[pscustomobject]@{approval=$ApprovalRef;pid=$ControllerPid;directory=$ServiceDirectory;authorityHelperSha256=$AuthorityHelperSha256;
+            scope=$authority.scope_id;activation=$authority.activation;controller=$authority.controller_start;
+            service="$($authority.service_pid):$($authority.service_start):$($authority.service_sha256)";timeProcess='';
+            started=$window.started;deadline=$window.deadline;
+            target=$authority.wsl_address;targets=@($authority.wsl_address);closed=$false;exposureOwned=$false;expiryHash='';
+            ownerSid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;
+            tickTask="GharSajag-PhysicalIngress-$id-Tick";expiryTask="GharSajag-PhysicalIngress-$id-Expiry";
+            script=(Join-Path $base ($id+'.ps1'));scriptHash=(Get-FileHash $PSCommandPath -Algorithm SHA256).Hash}
+        Save-PhysicalSession $state
+        try {
+        Assert-PhysicalSessionFile $SessionFile
+        if (@(Get-ChildItem $base -Filter '*.json' | Where-Object {
+            $_.FullName -ne $SessionFile -and -not ((Get-Content $_.FullName -Raw|ConvertFrom-Json).closed)
+        }).Count -gt 0) { Stop-WithError 'physical_session_already_exists' }
+        Copy-Item -LiteralPath $PSCommandPath -Destination $state.script
+        $scriptAcl=Get-Acl $state.script
+        $scriptAcl.SetOwner([Security.Principal.SecurityIdentifier]::new('S-1-5-32-544'))
+        Set-Acl -LiteralPath $state.script -AclObject $scriptAcl
+        if ((Get-FileHash $state.script -Algorithm SHA256).Hash -ne $state.scriptHash) {
+            Stop-WithError 'physical_session_snapshot_changed'
+        }
+        Register-PhysicalSessionTasks $state
+        $state.exposureOwned=$true;Save-PhysicalSession $state
+        # No exposure before both independent cleanup and reconciliation exist.
+        & $state.script -Action SessionTick -EndpointKind PhysicalHubIngress -SessionFile $SessionFile
+        exit $LASTEXITCODE
+        } catch { Close-PhysicalSession $state;throw }
+    }
+    Assert-PhysicalSessionFile $SessionFile
+    $state=Get-Content -LiteralPath $SessionFile -Raw|ConvertFrom-Json
+    if ((Get-FileHash $PSCommandPath -Algorithm SHA256).Hash -ne $state.scriptHash -or
+        $PSCommandPath -ne $state.script) { Stop-WithError 'physical_session_script_identity_mismatch' }
+    if ($Action -eq 'SessionTick' -and [Security.Principal.WindowsIdentity]::GetCurrent().User.Value -ne $state.ownerSid) {
+        Stop-WithError 'physical_session_owner_mismatch'
+    }
+    # Serialize cleanup and reconciliation, including an expiry racing a repair.
+    $lock=[IO.File]::Open($SessionFile+'.lock','OpenOrCreate','ReadWrite','None')
+    try {
+        $state=Get-Content -LiteralPath $SessionFile -Raw|ConvertFrom-Json
+        if ($Action -eq 'SessionClose') { Close-PhysicalSession $state;exit 0 }
+        $result=Invoke-PhysicalSessionTick $state
+        $result | ConvertTo-Json -Compress
+        exit $result.ExitCode
+    } finally { $lock.Dispose() }
+    exit 0
+}
+
 if ($Action -eq "UnregisterWatch") {
     Assert-Administrator
     Unregister-ScheduledTask -TaskName $WatchTaskName -Confirm:$false -ErrorAction SilentlyContinue
@@ -222,7 +541,7 @@ if ($Action -eq "Stop") {
         $_.TargetAddress -in $knownTargets
     })
     foreach ($owned in $ownedMaps) {
-        & netsh.exe interface portproxy delete v4tov4 listenaddress=$owned.ListenAddress listenport=$owned.ListenPort | Out-Null
+        & netsh.exe interface portproxy delete v4tov4 listenaddress=$($owned.ListenAddress) listenport=$($owned.ListenPort) | Out-Null
         if ($LASTEXITCODE -ne 0) { Stop-WithError "portproxy_delete_failed" }
     }
     $existingRule = Get-ExactFirewallRule
@@ -339,6 +658,24 @@ if ($Action -eq "Start") {
     if (-not $wslPrivate -or $WslAddress -notmatch '^172\.(1[6-9]|2[0-9]|3[0-1])\.[0-9]{1,3}\.[0-9]{1,3}$') {
         Stop-WithError "current_wsl_nat_ipv4_required"
     }
+    if ($SessionRestricted) {
+        if ($EndpointKind -ne 'PhysicalHubIngress' -or $actualAddress -ne '192.168.1.6' -or
+            $profile.Name -ne 'Airtel_Agrim' -or $ipInfo.PrefixLength -ne 24 -or $null -eq $existingRule) {
+            Stop-WithError 'physical_session_network_scope_mismatch'
+        }
+        $addressFilter=$existingRule | Get-NetFirewallAddressFilter
+        $helper=Get-CimInstance Win32_Service -Filter "Name='iphlpsvc'"
+        if (@(Get-NetTCPConnection -State Listen -LocalPort 8445 -ErrorAction SilentlyContinue | Where-Object {
+            $_.LocalAddress -ne '192.168.1.6' -or $_.OwningProcess -notin @(4,$helper.ProcessId)
+        }).Count -gt 0) { Stop-WithError 'physical_session_port_conflict' }
+        if ((@($addressFilter.LocalAddress) -join ',') -ne '192.168.1.6' -or
+            (@($addressFilter.RemoteAddress) -join ',') -ne '192.168.1.0/24' -or
+            (@($existingRule.Profile) -join ',') -ne $firewallProfile -or
+            $existingRule.EdgeTraversalPolicy -ne 'Block' -or
+            @(Get-PortProxyRows | Where-Object { $_.ListenPort -eq 8445 -and $_.ListenAddress -ne '192.168.1.6' }).Count -gt 0) {
+            Stop-WithError 'physical_session_firewall_or_mapping_mismatch'
+        }
+    }
     $occupied = @(Get-NetTCPConnection -State Listen -LocalAddress $actualAddress -LocalPort $ListenPort -ErrorAction SilentlyContinue)
     if ($occupied.Count -gt 0 -and $mapRows.Count -eq 0) { Stop-WithError "wifi_https_port_already_owned_by_another_process" }
     if ($mapRows.Count -gt 1) { Stop-WithError "ambiguous_existing_portproxy_entries" }
@@ -412,8 +749,8 @@ if ($Action -eq "Start") {
         }
         if ($originalMappingRemoved -and $mapRows.Count -eq 1) {
             & netsh.exe interface portproxy add v4tov4 `
-                listenaddress=$mapRows[0].ListenAddress listenport=$mapRows[0].ListenPort `
-                connectaddress=$mapRows[0].TargetAddress connectport=$mapRows[0].TargetPort | Out-Null
+                listenaddress=$($mapRows[0].ListenAddress) listenport=$($mapRows[0].ListenPort) `
+                connectaddress=$($mapRows[0].TargetAddress) connectport=$($mapRows[0].TargetPort) | Out-Null
         }
         if ($createdFirewall) { Remove-NetFirewallRule -Name $RuleName -ErrorAction SilentlyContinue }
         elseif ($null -ne $oldFirewallAddress) {
@@ -433,7 +770,7 @@ if ($Action -eq "Start") {
         $_.TargetPort -eq $TargetPort -and $_.TargetAddress -in $knownTargets
     })
     foreach ($stale in $staleMaps) {
-        & netsh.exe interface portproxy delete v4tov4 listenaddress=$stale.ListenAddress listenport=$stale.ListenPort | Out-Null
+        & netsh.exe interface portproxy delete v4tov4 listenaddress=$($stale.ListenAddress) listenport=$($stale.ListenPort) | Out-Null
         if ($LASTEXITCODE -ne 0) { Stop-WithError "stale_owned_portproxy_cleanup_failed" }
     }
     [pscustomobject]@{ Action = "Start"; WifiName = $profile.Name; WifiAddress = $actualAddress; `

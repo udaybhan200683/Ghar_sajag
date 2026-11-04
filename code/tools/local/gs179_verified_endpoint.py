@@ -152,3 +152,100 @@ def verify_caregiver_origin_alias(canonical_origin: str, apk_origin: str,
             "canonical_origin": "https://" + canonical_host,
             "apk_origin": "https://" + apk_host,
             "route_ipv4": route, "server_cert_sha256": expected_hash}
+
+
+def physical_ingress_authority(approval_ref, controller_pid, service_directory):
+    """Read existing DEV authority and bounded launcher receipts; never reserve it.
+
+    This is a projection for the Windows network utility, not hardware consent.
+    A network session cannot renew the DEV scope or start/restart its services.
+    """
+    import json
+    import os
+    import stat
+    import gs117_hil_authorization as auth
+
+    def private_json(path):
+        info = path.lstat()
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or
+                info.st_mode & 0o077):
+            raise ValueError("physical_session_receipt_not_private")
+        return json.loads(path.read_text())
+
+    policy = auth.load_development()
+    if (policy['owner_approval_ref'] != approval_ref or
+            policy['procedures'] != ['protected_gs40_bootstrap'] or
+            policy.get('max_sessions') != 1 or policy.get('max_retries') != 0 or
+            policy.get('observation_seconds') != 90 or
+            policy.get('max_bootstraps_per_session') != 1 or
+            policy.get('motion_injection_authorized') is not False):
+        raise ValueError('physical_session_authorization_scope_mismatch')
+    status = auth.development_status()
+    if status['status'] != 'ACTIVE':
+        # A reserved session is pessimistically blocked until completion. Admit
+        # only its live lock holder, with no failure, during its bounded child.
+        ledger, _ = auth._development_ledger_path(auth.DEV_STATE, policy)
+        row = private_json(ledger)
+        import fcntl
+        from datetime import datetime, timezone
+        age = (datetime.now(timezone.utc) - datetime.fromisoformat(row['started_at'])).total_seconds()
+        with (auth.DEV_STATE / 'session.lock').open('r') as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                held = True
+            else:
+                held = False
+        if (not held or row.get('failure') or row.get('completed_at') or
+                row.get('procedure') != 'protected_gs40_bootstrap' or not 0 <= age <= 150):
+            raise ValueError('physical_session_authorization_ended')
+    proc = Path('/proc') / str(int(controller_pid))
+    if proc.stat().st_uid != os.getuid():
+        raise ValueError('physical_session_controller_owner_mismatch')
+    controller_start = proc.joinpath('stat').read_text().rsplit(')', 1)[1].split()[19]
+    if proc.joinpath('stat').read_text().rsplit(')', 1)[1].split()[0] == 'Z':
+        raise ValueError('physical_session_controller_exited')
+    directory = Path(service_directory)
+    allowed = Path.home() / '.local/state/ghar-sajag/gs117-tc001'
+    if (directory.is_symlink() or directory.parent.resolve() != allowed.resolve() or
+            directory.stat().st_uid != os.getuid() or directory.stat().st_mode & 0o077):
+        raise ValueError('physical_session_service_directory_invalid')
+    manifest = private_json(directory / 'launch-manifest.json')
+    process = next(p for p in manifest['processes'] if p['script'] == 'gs117-active-ingress.py')
+    script = directory / process['script']
+    if script.is_symlink() or hashlib.sha256(script.read_bytes()).hexdigest() != process['sha256']:
+        raise ValueError('physical_session_service_script_changed')
+    ingress_proc = Path('/proc') / str(int(process['pid']))
+    if (ingress_proc.stat().st_uid != os.getuid() or
+            str(script).encode() not in ingress_proc.joinpath('cmdline').read_bytes().split(b'\0')):
+        raise ValueError('physical_session_service_identity_mismatch')
+    runtime = private_json(directory / 'ingress-runtime-status.json')
+    from datetime import datetime, timezone
+    if (runtime['pid'] != process['pid'] or
+            not 0 <= (datetime.now(timezone.utc) - datetime.fromisoformat(runtime['at'])).total_seconds() <= 10 or
+            any(runtime['status'].get(key) != 'YES' for key in
+                ('listener_ready', 'postgres_ready', 'trusted_time_ready')) or
+            runtime['status'].get('profile') != 'GS179_TEST_ONLY'):
+        raise ValueError('physical_session_service_expired_or_unready')
+    return {'approval_ref': approval_ref, 'scope_id': status['authorization_scope_id'],
+            'activation': policy['development_mode']['activation_id'],
+            'controller_start': controller_start, 'wsl_address': wsl_ipv4(),
+            'service_pid': process['pid'],
+            'service_start': ingress_proc.joinpath('stat').read_text().rsplit(')', 1)[1].split()[19],
+            'service_sha256': process['sha256']}
+
+
+if __name__ == '__main__':
+    import argparse
+    import json
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--physical-ingress-authority', required=True)
+    parser.add_argument('--controller-pid', required=True, type=int)
+    parser.add_argument('--service-directory', required=True)
+    args = parser.parse_args()
+    try:
+        print(json.dumps(physical_ingress_authority(
+            args.physical_ingress_authority, args.controller_pid, args.service_directory)))
+    except Exception as error:
+        print(json.dumps({'error': type(error).__name__}))
+        raise SystemExit(2)
