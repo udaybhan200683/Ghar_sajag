@@ -12,6 +12,8 @@ param(
     [int]$ControllerPid = 0,
     [string]$ServiceDirectory = "",
     [string]$AuthorityHelperSha256 = "",
+    [ValidateSet('', 'A', 'B')][string]$NetworkWindow = '',
+    [string]$NetworkApprovalSha256 = '',
     [ValidateRange(1, 3600)][int]$SessionSeconds = 3600,
     [switch]$SessionRestricted
 )
@@ -208,6 +210,20 @@ function Get-PhysicalSessionWindow($Prior, [string]$Scope, [string]$Activation, 
     return [pscustomobject]@{started=$start.ToString('o');deadline=$deadline.ToString('o')}
 }
 
+function Assert-PhysicalWindowOrder($Prior, [string]$ApprovalHash, [string]$Window) {
+    if (-not $Window) { return } # Old receipts retain their original contract.
+    if (@($Prior | Where-Object { -not $_.closed }).Count -gt 0) {
+        Stop-WithError 'physical_session_already_exists'
+    }
+    if ($Window -eq 'A' -and @($Prior | Where-Object {
+        $_.networkApprovalSha256 -eq $ApprovalHash -and $_.networkWindow -eq 'B'
+    }).Count -gt 0) { Stop-WithError 'network_window_order_invalid' }
+    if ($Window -eq 'B' -and @($Prior | Where-Object {
+        $_.networkApprovalSha256 -eq $ApprovalHash -and $_.networkWindow -eq 'A' -and
+        $_.closed -and $_.exposureOwned
+    }).Count -eq 0) { Stop-WithError 'network_window_a_cleanup_required' }
+}
+
 function Get-PhysicalSessionDecision($State, $Observation, [DateTimeOffset]$Now) {
     if ($Now -ge [DateTimeOffset]::Parse($State.deadline) -or
         $Now -lt [DateTimeOffset]::Parse($State.started) -or
@@ -260,7 +276,8 @@ function Save-PhysicalSession($State) {
         Stop-WithError 'physical_session_event_reparse_point'
     }
     [ordered]@{at=[DateTimeOffset]::UtcNow.ToString('o');scope=$State.scope;
-        deadline=$State.deadline;closed=$State.closed;decision=$State.lastDecision} |
+        deadline=$State.deadline;closed=$State.closed;decision=$State.lastDecision;
+        closureSid=$State.closureSid} |
         ConvertTo-Json -Compress | Add-Content -LiteralPath $eventPath -Encoding UTF8
     $eventAcl=Get-Acl $eventPath
     $eventAcl.SetOwner([Security.Principal.SecurityIdentifier]::new('S-1-5-32-544'))
@@ -279,6 +296,8 @@ function Close-PhysicalSession($State) {
         }
     }
     $State.closed=$true
+    $State | Add-Member -NotePropertyName closureSid -NotePropertyValue ([Security.Principal.WindowsIdentity]::GetCurrent().User.Value) -Force
+    $State | Add-Member -NotePropertyName closedAt -NotePropertyValue ([DateTimeOffset]::UtcNow.ToString('o')) -Force
     Save-PhysicalSession $State
     foreach ($name in @($State.tickTask,$State.expiryTask)) {
         if (Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue) {
@@ -312,25 +331,33 @@ function Get-PhysicalTaskHash([string]$Name) {
     try { return ([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($xml)))).Replace('-','') } finally { $sha.Dispose() }
 }
 
-function Get-PhysicalAuthority([string]$Reference,[int]$PidValue,[string]$Directory,[string]$ExpectedHelper) {
+function Get-PhysicalAuthority([string]$Reference,[int]$PidValue,[string]$Directory,[string]$ExpectedHelper,
+    [string]$Window='', [string]$ApprovalHash='') {
     if ($Reference -notmatch '^GS-117#[0-9]+$' -or $PidValue -lt 1 -or
         $Directory -notmatch '^/home/udaybhan/\.local/state/ghar-sajag/gs117-tc001/[A-Za-z0-9_-]+$' -or
         $ExpectedHelper -notmatch '^[a-fA-F0-9]{64}$') {
         Stop-WithError 'physical_session_inputs_invalid'
+    }
+    if (($Window -and ($Window -notin @('A','B') -or $Reference -ne 'GS-117#11910' -or
+            $ApprovalHash -notmatch '^[a-f0-9]{64}$')) -or
+        (-not $Window -and ($ApprovalHash -or $Reference -eq 'GS-117#11910'))) {
+        Stop-WithError 'physical_session_network_inputs_invalid'
     }
     $helper='\\wsl.localhost\Ubuntu\home\udaybhan\projects\Ghar_sajag_r1\code\tools\local\gs179_verified_endpoint.py'
     if ((Get-FileHash $helper -Algorithm SHA256).Hash -ne $ExpectedHelper) {
         Stop-WithError 'physical_session_authority_helper_changed'
     }
     $wsl=Join-Path ([Environment]::SystemDirectory) 'wsl.exe'
+    $networkArgs=@()
+    if ($Window) { $networkArgs=@('--network-window',$Window,'--network-approval-sha256',$ApprovalHash) }
     $raw=& $wsl --exec /usr/bin/python3 /home/udaybhan/projects/Ghar_sajag_r1/code/tools/local/gs179_verified_endpoint.py `
-        --physical-ingress-authority $Reference --controller-pid $PidValue --service-directory $Directory
+        --physical-ingress-authority $Reference --controller-pid $PidValue --service-directory $Directory @networkArgs
     if ($LASTEXITCODE -ne 0) { Stop-WithError 'physical_session_authority_or_services_unavailable' }
     return ($raw | ConvertFrom-Json)
 }
 
 function Get-PhysicalObservation($State) {
-    $authority=Get-PhysicalAuthority $State.approval $State.pid $State.directory $State.authorityHelperSha256
+    $authority=Get-PhysicalAuthority $State.approval $State.pid $State.directory $State.authorityHelperSha256 $State.networkWindow $State.networkApprovalSha256
     $wifi=Get-ActiveWifiState $false
     $rule=Get-ExactFirewallRule
     $addressFilter=$rule | Get-NetFirewallAddressFilter
@@ -414,7 +441,7 @@ if ($Action -like 'Session*') {
     Assert-Administrator
     if ($Action -eq 'SessionStart') {
         if ($SessionFile) { Stop-WithError 'physical_session_file_generated_only' }
-        $authority=Get-PhysicalAuthority $ApprovalRef $ControllerPid $ServiceDirectory $AuthorityHelperSha256
+        $authority=Get-PhysicalAuthority $ApprovalRef $ControllerPid $ServiceDirectory $AuthorityHelperSha256 $NetworkWindow $NetworkApprovalSha256
         $base='C:\ProgramData\GharSajag\PhysicalIngress'
         foreach($folder in @('C:\ProgramData\GharSajag',$base)) {
         if (-not (Test-Path $folder)) {
@@ -452,8 +479,11 @@ if ($Action -like 'Session*') {
             Assert-PhysicalSessionFile $_.FullName
             Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json
         })
+        Assert-PhysicalWindowOrder $prior $NetworkApprovalSha256 $NetworkWindow
         $window=Get-PhysicalSessionWindow $prior $authority.scope_id $authority.activation $now $SessionSeconds
         $state=[pscustomobject]@{approval=$ApprovalRef;pid=$ControllerPid;directory=$ServiceDirectory;authorityHelperSha256=$AuthorityHelperSha256;
+            networkWindow=$NetworkWindow;networkApprovalSha256=$NetworkApprovalSha256;
+            hardwareScope=$authority.hardware_scope;hardwareActivation=$authority.hardware_activation;
             scope=$authority.scope_id;activation=$authority.activation;controller=$authority.controller_start;
             service="$($authority.service_pid):$($authority.service_start):$($authority.service_sha256)";timeProcess='';
             started=$window.started;deadline=$window.deadline;

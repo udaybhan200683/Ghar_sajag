@@ -154,7 +154,130 @@ def verify_caregiver_origin_alias(canonical_origin: str, apk_origin: str,
             "route_ipv4": route, "server_cert_sha256": expected_hash}
 
 
-def physical_ingress_authority(approval_ref, controller_pid, service_directory):
+# Source-reviewed owner approval snapshots. These pins are evidence of the
+# current two-window grant, not a general string-based consent issuer.
+NETWORK_APPROVAL_PINS = {
+    'GS-117#11910': '2a41347dc380d05642c7f409b61e2eb43454cc365f7e6316831cba5d9cd2daa9',
+    'GS-179#11911': '0b55b62765af17c7792a314820e4d78b1540ddcb4581b13161ef3dfef13beb47',
+}
+NETWORK_OWNER = '712020:d1785a8a-5bf2-4556-a451-0805ddb6af74'
+
+
+def _network_private_json(path):
+    import os, stat, json
+    path = Path(path)
+    info = path.lstat()
+    if (path.is_symlink() or not stat.S_ISREG(info.st_mode) or
+            info.st_uid != os.getuid() or info.st_mode & 0o077):
+        raise ValueError('network_approval_not_private')
+    return json.loads(path.read_text())
+
+
+def _network_approval_path():
+    import gs117_hil_authorization as auth
+    return auth.DEV_STATE / 'gs179-network-11910-11911.json'
+
+
+def record_network_window_approval(comments):
+    """Record reviewed owner snapshots once through the EXISTING private audit.
+
+    No hardware activation, policy update, session reservation or renewal.
+    A source-reviewed grant cannot be reissued with different hardware binding.
+    """
+    import json, os, fcntl
+    from datetime import datetime, timezone
+    import gs117_hil_authorization as auth
+    if (set(comments) != set(NETWORK_APPROVAL_PINS) or
+            any(c.get('author') != NETWORK_OWNER or
+                hashlib.sha256(c.get('body', '').encode()).hexdigest() != NETWORK_APPROVAL_PINS[ref]
+                for ref, c in comments.items())):
+        raise ValueError('network_owner_approval_not_reviewed')
+    policy = auth.load_development()
+    status = auth.development_status()
+    if (status['status'] != 'ACTIVE' or status['sessions'] != 0 or
+            status['session_limit'] != 1 or policy['owner_approval_ref'] != 'GS-117#11897'):
+        raise ValueError('network_hardware_binding_invalid')
+    record = dict(schema='GS179_NETWORK_WINDOWS_V1', owner_uid=os.getuid(),
+                  approval_ref='GS-117#11910', approval_comments=comments,
+                  hardware_scope=status['authorization_scope_id'],
+                  hardware_activation=policy['development_mode']['activation_id'],
+                  hardware_policy_sha256=auth.digest(auth.DEV_POLICY),
+                  windows={'A': {'purpose': 'NETWORK_ONLY', 'max_seconds': 3600},
+                           'B': {'purpose': 'EXISTING_OBSERVATION_ONLY', 'max_seconds': 3600}})
+    path = _network_approval_path()
+    # Same audit lock and private/O_NOFOLLOW file rules as existing authority.
+    with (auth.DEV_STATE / 'session.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        raw = (json.dumps(record, sort_keys=True) + '\n').encode()
+        sha = hashlib.sha256(raw).hexdigest()
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, 'wb') as out:
+            out.write(raw); out.flush(); os.fsync(out.fileno())
+        event = dict(event='gs179_network_approval_reviewed', at_utc=datetime.now(timezone.utc).isoformat(),
+                     network_approval_sha256=sha, hardware_scope=record['hardware_scope'],
+                     hardware_activation=record['hardware_activation'])
+        event['record_sha256'] = auth._canonical_record_sha256(event)
+        auth._append_private_audit(auth.DEV_MODE_AUDIT, event)
+    return {'path': str(path), 'sha256': sha}
+
+
+def _network_window_binding(window, expected_sha256, policy, status):
+    import os, re
+    import gs117_hil_authorization as auth
+    path = _network_approval_path()
+    if window not in ('A', 'B') or not re.fullmatch('[a-f0-9]{64}', expected_sha256 or ''):
+        raise ValueError('network_window_input_invalid')
+    record = _network_private_json(path)
+    if auth.digest(path) != expected_sha256:
+        raise ValueError('network_approval_changed')
+    if (record.get('schema') != 'GS179_NETWORK_WINDOWS_V1' or record.get('owner_uid') != os.getuid() or
+            record.get('approval_ref') != 'GS-117#11910' or
+            set(record.get('approval_comments', {})) != set(NETWORK_APPROVAL_PINS) or
+            any(c.get('author') != NETWORK_OWNER or
+                hashlib.sha256(c.get('body', '').encode()).hexdigest() != NETWORK_APPROVAL_PINS[ref]
+                for ref, c in record['approval_comments'].items()) or
+            record.get('windows') != {'A': {'purpose': 'NETWORK_ONLY', 'max_seconds': 3600},
+                                     'B': {'purpose': 'EXISTING_OBSERVATION_ONLY', 'max_seconds': 3600}} or
+            record.get('hardware_policy_sha256') != auth.digest(auth.DEV_POLICY) or
+            record.get('hardware_scope') != status['authorization_scope_id'] or
+            record.get('hardware_activation') != policy['development_mode']['activation_id']):
+        raise ValueError('network_approval_binding_mismatch')
+    events = auth._read_private_audit(auth.DEV_MODE_AUDIT)
+    matching = [e for e in events if e.get('event') == 'gs179_network_approval_reviewed' and
+                e.get('network_approval_sha256') == expected_sha256]
+    if (len(matching) != 1 or matching[0].get('record_sha256') != auth._canonical_record_sha256(matching[0]) or
+            matching[0].get('hardware_scope') != record['hardware_scope'] or
+            matching[0].get('hardware_activation') != record['hardware_activation']):
+        raise ValueError('network_approval_audit_missing')
+    for e in events:
+        if (e.get('event') == 'gs179_network_window_revoked' and
+                e.get('network_approval_sha256') == expected_sha256 and e.get('window') == window):
+            raise ValueError('network_window_revoked')
+    return dict(scope_id=hashlib.sha256((expected_sha256 + ':' + window).encode()).hexdigest(),
+                activation=expected_sha256, network_window=window, network_approval_sha256=expected_sha256,
+                hardware_scope=record['hardware_scope'], hardware_activation=record['hardware_activation'],
+                hardware_operations_authorized=False)
+
+
+def revoke_network_window(window, expected_sha256, reason):
+    """Append network-only revocation; never touch the hardware policy/ledger."""
+    import fcntl
+    from datetime import datetime, timezone
+    import gs117_hil_authorization as auth
+    if not isinstance(reason, str) or not reason.strip() or len(reason) > 240:
+        raise ValueError('network_revocation_reason_required')
+    with (auth.DEV_STATE / 'session.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        _network_window_binding(window, expected_sha256, auth.load_development(), auth.development_status())
+        event = dict(event='gs179_network_window_revoked', window=window,
+                     network_approval_sha256=expected_sha256, reason=reason,
+                     at_utc=datetime.now(timezone.utc).isoformat())
+        event['record_sha256'] = auth._canonical_record_sha256(event)
+        auth._append_private_audit(auth.DEV_MODE_AUDIT, event)
+
+
+def physical_ingress_authority(approval_ref, controller_pid, service_directory,
+                               network_window='', network_approval_sha256=''):
     """Read existing DEV authority and bounded launcher receipts; never reserve it.
 
     This is a projection for the Windows network utility, not hardware consent.
@@ -173,7 +296,7 @@ def physical_ingress_authority(approval_ref, controller_pid, service_directory):
         return json.loads(path.read_text())
 
     policy = auth.load_development()
-    if (policy['owner_approval_ref'] != approval_ref or
+    if ((policy['owner_approval_ref'] != approval_ref if not network_window else approval_ref != 'GS-117#11910') or
             policy['procedures'] != ['protected_gs40_bootstrap'] or
             policy.get('max_sessions') != 1 or policy.get('max_retries') != 0 or
             policy.get('observation_seconds') != 90 or
@@ -181,6 +304,10 @@ def physical_ingress_authority(approval_ref, controller_pid, service_directory):
             policy.get('motion_injection_authorized') is not False):
         raise ValueError('physical_session_authorization_scope_mismatch')
     status = auth.development_status()
+    network = (_network_window_binding(network_window, network_approval_sha256, policy, status)
+               if network_window else None)
+    if network_window == 'A' and status['status'] != 'ACTIVE':
+        raise ValueError('network_qualification_hardware_not_idle')
     if status['status'] != 'ACTIVE':
         # A reserved session is pessimistically blocked until completion. Admit
         # only its live lock holder, with no failure, during its bounded child.
@@ -232,7 +359,7 @@ def physical_ingress_authority(approval_ref, controller_pid, service_directory):
             'controller_start': controller_start, 'wsl_address': wsl_ipv4(),
             'service_pid': process['pid'],
             'service_start': ingress_proc.joinpath('stat').read_text().rsplit(')', 1)[1].split()[19],
-            'service_sha256': process['sha256']}
+            'service_sha256': process['sha256'], **(network or {})}
 
 
 if __name__ == '__main__':
@@ -242,10 +369,13 @@ if __name__ == '__main__':
     parser.add_argument('--physical-ingress-authority', required=True)
     parser.add_argument('--controller-pid', required=True, type=int)
     parser.add_argument('--service-directory', required=True)
+    parser.add_argument('--network-window', default='', choices=('', 'A', 'B'))
+    parser.add_argument('--network-approval-sha256', default='')
     args = parser.parse_args()
     try:
         print(json.dumps(physical_ingress_authority(
-            args.physical_ingress_authority, args.controller_pid, args.service_directory)))
+            args.physical_ingress_authority, args.controller_pid, args.service_directory,
+            args.network_window, args.network_approval_sha256)))
     except Exception as error:
         print(json.dumps({'error': type(error).__name__}))
         raise SystemExit(2)

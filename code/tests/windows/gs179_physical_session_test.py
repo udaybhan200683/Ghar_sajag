@@ -24,7 +24,7 @@ function Get-ScheduledTask {param($TaskName,$ErrorAction) return @{Name=$TaskNam
 $tokens=$null;$errors=$null
 $tree=[Management.Automation.Language.Parser]::ParseFile('__SOURCE__',[ref]$tokens,[ref]$errors)
 if($errors.Count){throw ($errors|Out-String)}
-foreach($name in @('Is-Rfc1918','Get-Ipv4Network','Test-EquivalentIpv4Scope','Get-PhysicalSessionDecision','Close-PhysicalSession','Register-PhysicalSessionTasks','Invoke-PhysicalSessionTick','Get-PhysicalSessionWindow','Get-PhysicalAuthority')) {
+foreach($name in @('Is-Rfc1918','Get-Ipv4Network','Test-EquivalentIpv4Scope','Get-PhysicalSessionDecision','Close-PhysicalSession','Register-PhysicalSessionTasks','Invoke-PhysicalSessionTick','Get-PhysicalSessionWindow','Get-PhysicalAuthority','Assert-PhysicalWindowOrder')) {
  $node=$tree.Find({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true)
  . ([scriptblock]::Create($node.Extent.Text))
 }
@@ -378,6 +378,80 @@ ConvertTo-Json -InputObject $results -Compress
 """)
         self.assertEqual(result,['physical_session_inputs_invalid','physical_session_authority_helper_changed'])
         print('CASE GS179-SESSION-HELPER-PIN-001 PASS')
+
+    def test_network_window_order_and_independent_deadlines(self):
+        result=self.powershell(r"""
+function Stop-WithError($r){throw $r}
+$at=[DateTimeOffset]::Parse('2026-11-04T10:00:00Z')
+$a=[pscustomobject]@{networkApprovalSha256='approved';networkWindow='A';scope='network-A';activation='approval';started=$at.ToString('o');deadline=$at.AddSeconds(60).ToString('o');closed=$false;exposureOwned=$true}
+$failures=@()
+foreach($mode in @('overlap','B-before-A','B-wrong-grant')) {
+ try {
+  if($mode -eq 'overlap'){Assert-PhysicalWindowOrder @($a) 'approved' 'B'}
+  if($mode -eq 'B-before-A'){Assert-PhysicalWindowOrder @() 'approved' 'B'}
+  if($mode -eq 'B-wrong-grant'){$a.closed=$true;Assert-PhysicalWindowOrder @($a) 'other' 'B'}
+  throw 'expected rejection'
+ }catch{$failures+=$_.Exception.Message}
+}
+$a.closed=$true;Assert-PhysicalWindowOrder @($a) 'approved' 'B'
+$b=Get-PhysicalSessionWindow @($a) 'network-B' 'approval' $at.AddMinutes(2) 3600
+$expired=$false;try{Get-PhysicalSessionWindow @($a) 'network-A' 'approval' $at.AddMinutes(2) 3600|Out-Null}catch{$expired=$true}
+@{failures=$failures;B=$b;Aexpired=$expired}|ConvertTo-Json -Depth 4 -Compress
+""")
+        self.assertEqual(result['failures'],['physical_session_already_exists','network_window_a_cleanup_required','network_window_a_cleanup_required'])
+        self.assertTrue(result['Aexpired'])
+        self.assertIn('11:02:00',result['B']['deadline'])
+        print('CASE GS179-NETWORK-WINDOW-ORDER-001 PASS')
+
+    def test_independent_network_approval_audit_binding_and_revocation(self):
+        import os,json,hashlib,subprocess,copy
+        from unittest.mock import patch
+        from datetime import datetime,timezone
+        import gs179_verified_endpoint as endpoint
+        import gs117_hil_authorization as auth
+        with tempfile.TemporaryDirectory() as temp:
+            home=Path(temp);state=home/'authority';state.mkdir(mode=0o700)
+            policy_path=state/'hardware.json';policy_path.write_text('UNCHANGED HARDWARE');policy_path.chmod(0o600)
+            audit=state/'audit.jsonl';audit.touch(mode=0o600)
+            status={'status':'ACTIVE','sessions':0,'session_limit':1,'authorization_scope_id':'hardware-scope'}
+            policy=dict(owner_approval_ref='GS-117#11897',procedures=['protected_gs40_bootstrap'],max_sessions=1,max_retries=0,observation_seconds=90,max_bootstraps_per_session=1,motion_injection_authorized=False,development_mode={'activation_id':'hardware-activation'})
+            comments={k:{'author':endpoint.NETWORK_OWNER,'body':k+' reviewed owner grant'} for k in endpoint.NETWORK_APPROVAL_PINS}
+            pins={k:hashlib.sha256(v['body'].encode()).hexdigest() for k,v in comments.items()}
+            directory=home/'.local/state/ghar-sajag/gs117-tc001/services-test';directory.mkdir(parents=True,mode=0o700)
+            script=directory/'gs117-active-ingress.py';script.write_text('import time;time.sleep(60)')
+            child=subprocess.Popen([sys.executable,str(script)])
+            try:
+                for name,row in [('launch-manifest.json',{'processes':[{'script':script.name,'pid':child.pid,'sha256':hashlib.sha256(script.read_bytes()).hexdigest()}]}),('ingress-runtime-status.json',{'pid':child.pid,'at':datetime.now(timezone.utc).isoformat(),'status':{'listener_ready':'YES','postgres_ready':'YES','trusted_time_ready':'YES','profile':'GS179_TEST_ONLY'}})]:
+                    f=directory/name;f.write_text(json.dumps(row));f.chmod(0o600)
+                with patch.object(auth,'DEV_STATE',state),patch.object(auth,'DEV_POLICY',policy_path),patch.object(auth,'DEV_MODE_AUDIT',audit),patch.object(auth,'load_development',return_value=policy),patch.object(auth,'development_status',return_value=status),patch.object(Path,'home',return_value=home),patch.object(endpoint,'NETWORK_APPROVAL_PINS',pins),patch.object(endpoint,'wsl_ipv4',return_value='172.17.152.10'),patch.object(auth,'development_session',side_effect=AssertionError('network cannot reserve hardware')):
+                    bad=copy.deepcopy(comments);next(iter(bad.values()))['body']='fabricated'
+                    with self.assertRaisesRegex(ValueError,'not_reviewed'):endpoint.record_network_window_approval(bad)
+                    grant=endpoint.record_network_window_approval(comments);sha=grant['sha256']
+                    with self.assertRaises(FileExistsError):endpoint.record_network_window_approval(comments)
+                    a=endpoint.physical_ingress_authority('GS-117#11910',os.getpid(),str(directory),'A',sha)
+                    b=endpoint.physical_ingress_authority('GS-117#11910',os.getpid(),str(directory),'B',sha)
+                    self.assertNotEqual(a['scope_id'],b['scope_id']);self.assertNotEqual(a['scope_id'],'hardware-scope')
+                    self.assertEqual(a['hardware_scope'],b['hardware_scope']);self.assertFalse(a['hardware_operations_authorized']);self.assertFalse(b['hardware_operations_authorized'])
+                    for ref,window,pin in [('GS-117#other','A',sha),('GS-117#11910','X',sha),('GS-117#11910','A','f'*64)]:
+                        with self.assertRaises(ValueError):endpoint.physical_ingress_authority(ref,os.getpid(),str(directory),window,pin)
+                    original=audit.read_text();audit.write_text('')
+                    with self.assertRaisesRegex(ValueError,'audit_missing'):endpoint._network_window_binding('A',sha,policy,status)
+                    audit.write_text(original)
+                    before=policy_path.read_bytes();policy_path.write_text('REPLACED')
+                    with self.assertRaisesRegex(ValueError,'binding_mismatch'):endpoint._network_window_binding('B',sha,policy,status)
+                    policy_path.write_bytes(before)
+                    status['status']='SAFETY_LATCHED'
+                    with self.assertRaises((ValueError,OSError)):endpoint.physical_ingress_authority('GS-117#11910',os.getpid(),str(directory),'B',sha)
+                    status['status']='ACTIVE'
+                    with self.assertRaises(OSError):endpoint.physical_ingress_authority('GS-117#11910',99999999,str(directory),'B',sha)
+                    endpoint.revoke_network_window('A',sha,'controlled network-only revocation')
+                    with self.assertRaisesRegex(ValueError,'revoked'):endpoint.physical_ingress_authority('GS-117#11910',os.getpid(),str(directory),'A',sha)
+                    endpoint.physical_ingress_authority('GS-117#11910',os.getpid(),str(directory),'B',sha)
+                    self.assertEqual(policy_path.read_bytes(),before);self.assertEqual(status['sessions'],0);self.assertEqual(status['session_limit'],1)
+                    record=Path(grant['path']);record.chmod(0o644)
+                    with self.assertRaisesRegex(ValueError,'not_private'):endpoint._network_window_binding('B',sha,policy,status)
+                print('CASE GS179-NETWORK-AUTHORITY-001 PASS')
+            finally:child.terminate();child.wait(timeout=5)
 
     def test_windows_firewall_mask_notation_is_equivalent_without_scope_widening(self):
         result=self.powershell(r"""
