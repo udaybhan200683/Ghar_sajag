@@ -10987,3 +10987,42 @@ context PASS. Source/build hashes and actual report paths are in the linked
 evidence; delivery commit/origin equality follow final validated staging.
 Next: review that pinned future diagnostic proposal and prerequisites; do not
 clear/reissue consent, deploy or run another observation under this record.
+
+
+### 2026-11-05 — GS117 diagnostic deployment readiness review
+
+Read-only review at `f0842403188c26ae980a92309aa7d04f718add65`; local and origin
+HEAD match, tracked tree clean, all79 previously preserved untracked entries
+unchanged. The retained C3/S3 diagnostic BIN/ELF hashes and source adapter hashes
+match the final build report; paired package embeds C3 and both images fit the
+generated OTA slots. These images are BUILT_ONLY and have not been installed.
+The build metadata points to source HEAD113d45d; final target-source hashes match
+and only host collector accounting changed after target compilation.
+
+Readiness recommendation is CONDITIONAL_GO for preparing a new separately
+authorized diagnostic package, but NO_GO for installation or physical execution
+now. Reasons: #11897 is SAFETY_LATCHED1/1, installed-image receipts are STALE,
+the current installed S3 bootloader's automatic app rollback is unproven, and the
+new images have no candidate-specific installation/restore procedure. The
+90-second scan may observe only one or two arbitrary channels; a no-overlap run
+must be inconclusive. S3 owner-level accepted-RX logs are useful positive proof,
+but absence remains ambiguous without callback/queue-drop counters. Any timing,
+reset or image scope change requires separate approval.
+
+The final Node30/32, Hub53/56, and contract48/50 aggregate reports remain FAIL.
+Fixture text assertion: TEST_INFRA_ONLY for GS-116/GS-130; clean migration:
+DEFER_POST_R1 for abandoned development formats under the release contract, but
+the registered Hub stage remains failing pending GS-116/GS-173 disposition;
+P0 PARTIAL: R1 product/release blocker due missing production Hub TLS/credential
+and enrollment-generation binding and physical qualification NOT_RUN (GS-148,
+GS-76, GS-130/GS-116/GS-173). None blocks an isolated radio diagnostic, but P0
+and physical acceptance remain required for product completion.
+
+Full review and exact prerequisites: [GS117 diagnostic deployment review](../exec-plans/evidence/GS117_DIAGNOSTIC_DEPLOYMENT_REVIEW_20261105.md).
+No tests or builds rerun; no hardware, firmware, authorization, network or
+private evidence changed. Session134 radio root cause/watchdog causality remain
+NOT_PROVEN; firmware unchanged, receipts STALE, `TC001_READY=NO`, TC-0010/5.
+GS-117 remains Highest/In Progress. Next: resolve the same-channel and S3
+negative-receive evidence plan and candidate rollback/receipt prerequisites,
+then seek a new, exact owner-approved hardware scope. Do not reuse or clear
+#11897 or #11886.
