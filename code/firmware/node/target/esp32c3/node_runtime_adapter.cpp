@@ -79,9 +79,27 @@ constexpr Milliseconds kHealthIntervalMs =
 #define GS_NODE_PROGRESS_LOG ESP_LOGD
 #endif
 
+// Evidence-only instrumentation in the already isolated TEST_ONLY profile.
+#if GS_HIL_CONTROL && !GS_HIL_BUILD && !GS_BAT_C8_PHYSICAL_WAKE
+#define GS117_SEND_DIAGNOSTICS 1
+#else
+#define GS117_SEND_DIAGNOSTICS 0
+#endif
 struct SendResult {
     bool accepted_by_radio{false};
+#if GS117_SEND_DIAGNOSTICS
+    bool callback_peer_known{false};
+    std::array<std::uint8_t, 6> callback_peer{};
+    std::int64_t callback_us{0};
+    std::uint32_t callback_sequence{0};
+#endif
 };
+#if GS117_SEND_DIAGNOSTICS
+static_assert(sizeof(SendResult) <= 32, "TEST_ONLY callback evidence must stay bounded");
+std::atomic<std::uint32_t> g_security_callback_sequence{0};
+std::uint64_t g_diag_boot_session{0};  // Set before owner start, never written by callbacks.
+bool g_diag_prior_callback_timeout{false};  // Owner-only evidence, never a send decision.
+#endif
 
 StaticQueue_t g_ack_queue_state{};
 StaticQueue_t g_control_queue_state{};
@@ -200,15 +218,33 @@ void receive_callback(const esp_now_recv_info_t* info, const std::uint8_t* data,
 }
 
 #if ESP_IDF_VERSION_MAJOR >= 6
-void send_callback(const esp_now_send_info_t*, esp_now_send_status_t status) {
+void send_callback(const esp_now_send_info_t* info, esp_now_send_status_t status) {
 #else
-void send_callback(const std::uint8_t*, esp_now_send_status_t status) {
+void send_callback(const std::uint8_t* mac, esp_now_send_status_t status) {
 #endif
     // FOTA ACK sends use the same peer and produce indistinguishable MAC
     // callbacks. They belong to the control-plane worker, not NodeRuntime.
     if (g_security_phase.load(std::memory_order_acquire)) {
         if (g_security_send_queue != nullptr) {
-            const SendResult result{status == ESP_NOW_SEND_SUCCESS};
+            SendResult result{status == ESP_NOW_SEND_SUCCESS};
+#if GS117_SEND_DIAGNOSTICS
+#if ESP_IDF_VERSION_MAJOR >= 6
+            const auto* peer = info == nullptr ? nullptr : info->des_addr;
+#else
+            const auto* peer = mac;
+#endif
+            result.callback_peer_known = peer != nullptr;
+            if (peer != nullptr)
+                std::memcpy(result.callback_peer.data(), peer, result.callback_peer.size());
+            result.callback_us = esp_timer_get_time();
+            result.callback_sequence = g_security_callback_sequence.fetch_add(
+                1U, std::memory_order_relaxed) + 1U;
+#elif ESP_IDF_VERSION_MAJOR >= 6
+            (void)info;
+#else
+            (void)mac;
+#endif
+            // Bounded copy only: no logging, allocation, parsing or blocking here.
             (void)xQueueOverwrite(g_security_send_queue, &result);
         }
         return;
@@ -507,31 +543,116 @@ bool send_security_message(const NodeSecurityLink::Outbound& outbound,
     std::vector<security::wire::Packet> packets;
     std::uint32_t transaction = esp_random();
     if (transaction == 0) transaction = 1;
-    if (!security::wire::fragment(message, transaction, packets)) return false;
-    // In-service rejoin runs in the sensing owner. Its authenticated Hello
-    // and Final fit one ESP-NOW packet; never block PIR sampling for a MAC
-    // callback during recovery. The scheduled retry handles a lost packet.
-    if (!wait_for_callback && packets.size() != 1U) return false;
-    if (!esp_now_is_peer_exist(outbound.destination.data())) {
+#if GS117_SEND_DIAGNOSTICS
+    const auto started_us = esp_timer_get_time();
+    const auto requested_channel = g_radio_channel.load(std::memory_order_acquire);
+    std::uint8_t actual_channel = 0;
+    wifi_second_chan_t secondary{};
+    const auto channel_read = esp_wifi_get_channel(&actual_channel, &secondary);
+    bool existing_peer = false;
+    bool peer_add_attempted = false;
+    esp_err_t peer_add_result = ESP_OK;
+    esp_err_t submission_result = ESP_OK;
+    bool submitted = false;
+    bool callback_seen = false;
+    SendResult callback{};
+    std::int64_t submission_us = 0;
+    std::size_t packet_index = 0;
+    unsigned pending_before_reset = 0;
+    const auto finish = [&](bool result, const char* stage, esp_err_t error) {
+        esp_now_peer_info_t peer{};
+        const auto peer_read = esp_now_get_peer(outbound.destination.data(), &peer);
+        // ESP-IDF's callback has no application transaction identifier. Even a
+        // same-peer callback in this time window is NOT proven to belong to tx.
+        const char* correlation = !callback_seen ? "none" :
+            !callback.callback_peer_known ? "peer_unknown" :
+            callback.callback_peer != outbound.destination ? "wrong_peer" :
+            callback.callback_us < submission_us ? "before_submit" :
+            g_diag_prior_callback_timeout ? "ambiguous_after_timeout" :
+            "same_peer_window_no_txid";
+        ESP_LOGI(kTag,
+            "GS117_DEV_TX boot_session=%llu session=%llu kind=%u tx=%u packet=%u/%u "
+            "peer=%02x%02x%02x%02x%02x%02x requested_ch=%u actual_ch=%u channel_read=%s "
+            "existing_peer=%d peer_add_attempted=%d peer_add=%s peer_add_code=0x%x peer_read=%s peer_ch=%u peer_if=%u peer_encrypt=%d "
+            "submitted=%d submit=%s submit_code=0x%x cb_seen=%d cb_ok=%d cb_seq=%u cb_peer=%02x%02x%02x%02x%02x%02x "
+            "submit_us=%lld cb_us=%lld correlation=%s pending_before_reset=%u "
+            "stage=%s error=%s error_code=0x%x elapsed_us=%lld",
+            static_cast<unsigned long long>(g_diag_boot_session),
+            static_cast<unsigned long long>(g_session_id), static_cast<unsigned>(message.kind),
+            static_cast<unsigned>(transaction), static_cast<unsigned>(packet_index),
+            static_cast<unsigned>(packets.size()),
+            outbound.destination[0], outbound.destination[1], outbound.destination[2],
+            outbound.destination[3], outbound.destination[4], outbound.destination[5],
+            static_cast<unsigned>(requested_channel), static_cast<unsigned>(actual_channel),
+            esp_err_to_name(channel_read), existing_peer, peer_add_attempted,
+            esp_err_to_name(peer_add_result), static_cast<unsigned>(peer_add_result), esp_err_to_name(peer_read),
+            static_cast<unsigned>(peer.channel), static_cast<unsigned>(peer.ifidx), peer.encrypt,
+            submitted, esp_err_to_name(submission_result), static_cast<unsigned>(submission_result),
+            callback_seen, callback.accepted_by_radio,
+            static_cast<unsigned>(callback.callback_sequence),
+            callback.callback_peer[0], callback.callback_peer[1], callback.callback_peer[2],
+            callback.callback_peer[3], callback.callback_peer[4], callback.callback_peer[5],
+            static_cast<long long>(submission_us), static_cast<long long>(callback.callback_us),
+            correlation, pending_before_reset, stage, esp_err_to_name(error), static_cast<unsigned>(error),
+            static_cast<long long>(esp_timer_get_time() - started_us));
+        return result;
+    };
+#else
+    const auto finish = [](bool result, const char*, esp_err_t) { return result; };
+#endif
+    if (!security::wire::fragment(message, transaction, packets))
+        return finish(false, "wire_fragment", ESP_ERR_INVALID_SIZE);
+    // Preserve the nonblocking in-service path and the original retry policy.
+    if (!wait_for_callback && packets.size() != 1U)
+        return finish(false, "nonwaiting_fragment_count", ESP_ERR_INVALID_SIZE);
+    const bool peer_exists = esp_now_is_peer_exist(outbound.destination.data());
+#if GS117_SEND_DIAGNOSTICS
+    existing_peer = peer_exists;
+#endif
+    if (!peer_exists) {
         esp_now_peer_info_t peer{};
         std::memcpy(peer.peer_addr, outbound.destination.data(), outbound.destination.size());
         peer.channel = 0;
         peer.ifidx = WIFI_IF_STA;
-        peer.encrypt = false;  // Application AEAD protects runtime after rejoin.
-        if (esp_now_add_peer(&peer) != ESP_OK) return false;
+        peer.encrypt = false;
+        const auto added = esp_now_add_peer(&peer);
+#if GS117_SEND_DIAGNOSTICS
+        peer_add_attempted = true;
+        peer_add_result = added;
+#endif
+        if (added != ESP_OK) return finish(false, "peer_add", added);
     }
     for (const auto& packet : packets) {
+#if GS117_SEND_DIAGNOSTICS
+        ++packet_index;
+        pending_before_reset += uxQueueMessagesWaiting(g_security_send_queue);
+        callback_seen = false;
+        callback = {};
+#endif
         (void)xQueueReset(g_security_send_queue);
-        if (esp_now_send(outbound.destination.data(), packet.bytes.data(),
-                         packet.size) != ESP_OK) return false;
+#if GS117_SEND_DIAGNOSTICS
+        submission_us = esp_timer_get_time();
+#endif
+        const auto sent = esp_now_send(outbound.destination.data(), packet.bytes.data(), packet.size);
+#if GS117_SEND_DIAGNOSTICS
+        submission_result = sent;
+        submitted = sent == ESP_OK;
+#endif
+        if (sent != ESP_OK) return finish(false, "esp_now_submit", sent);
         if (submitted_to_radio != nullptr) *submitted_to_radio = true;
         if (!wait_for_callback) continue;
         SendResult result;
-        if (xQueueReceive(g_security_send_queue, &result,
-                          pdMS_TO_TICKS(kSendCallbackTimeoutMs)) != pdTRUE ||
-            !result.accepted_by_radio) return false;
+        const bool received = xQueueReceive(g_security_send_queue, &result,
+                          pdMS_TO_TICKS(kSendCallbackTimeoutMs)) == pdTRUE;
+#if GS117_SEND_DIAGNOSTICS
+        callback_seen = received;
+        if (received) callback = result;
+        else g_diag_prior_callback_timeout = true;
+#endif
+        if (!received) return finish(false, "callback_timeout", ESP_ERR_TIMEOUT);
+        if (!result.accepted_by_radio) return finish(false, "callback_negative", ESP_FAIL);
     }
-    return true;
+    return finish(true, wait_for_callback ? "callback_positive" : "submitted_only", ESP_OK);
 }
 
 bool send_rejoin_message(const NodeSecurityLink::Outbound& outbound,
@@ -546,8 +667,18 @@ bool send_rejoin_message(const NodeSecurityLink::Outbound& outbound,
         channel = discovery.current_channel();
     }
     if (channel) {
-        if (!gs::connectivity::IndiaWifiProfileV1::allows_channel(*channel) ||
-            set_node_radio_channel(*channel) != ESP_OK) return false;
+        const auto changed = gs::connectivity::IndiaWifiProfileV1::allows_channel(*channel)
+            ? set_node_radio_channel(*channel) : ESP_ERR_INVALID_ARG;
+        if (changed != ESP_OK) {
+#if GS117_SEND_DIAGNOSTICS
+            ESP_LOGI(kTag, "GS117_DEV_TX boot_session=%llu session=%llu kind=%u requested_ch=%u stage=channel_set error=%s error_code=0x%x",
+                static_cast<unsigned long long>(g_diag_boot_session),
+                static_cast<unsigned long long>(g_session_id),
+                static_cast<unsigned>(outbound.message.kind), static_cast<unsigned>(*channel),
+                esp_err_to_name(changed), static_cast<unsigned>(changed));
+#endif
+            return false;
+        }
     }
     const bool delivered = send_security_message(outbound, wait_for_callback, submitted_to_radio);
 #if GS_HIL_CONTROL && !GS_HIL_BUILD && !GS_BAT_C8_PHYSICAL_WAKE
@@ -978,7 +1109,19 @@ void owner_task(void*) {
         // Security callbacks are not application completion. Drain them only
         // in the owner; the receive budget also protects the callback timeout.
         SendResult security_send_result;
-        while (xQueueReceive(g_security_send_queue, &security_send_result, 0) == pdTRUE) {}
+        while (xQueueReceive(g_security_send_queue, &security_send_result, 0) == pdTRUE) {
+#if GS117_SEND_DIAGNOSTICS
+            ESP_LOGI(kTag, "GS117_DEV_CALLBACK boot_session=%llu session=%llu cb_seq=%u cb_us=%lld cb_ok=%d peer_known=%d peer=%02x%02x%02x%02x%02x%02x correlation=unattributed_no_txid",
+                static_cast<unsigned long long>(g_diag_boot_session),
+                static_cast<unsigned long long>(g_session_id),
+                static_cast<unsigned>(security_send_result.callback_sequence),
+                static_cast<long long>(security_send_result.callback_us),
+                security_send_result.accepted_by_radio, security_send_result.callback_peer_known,
+                security_send_result.callback_peer[0], security_send_result.callback_peer[1],
+                security_send_result.callback_peer[2], security_send_result.callback_peer[3],
+                security_send_result.callback_peer[4], security_send_result.callback_peer[5]);
+#endif
+        }
 #endif
         const auto ack_drops = g_ack_queue_drops.exchange(0U, std::memory_order_relaxed);
         ++sensing_liveness;
@@ -2154,6 +2297,9 @@ esp_err_t start_runtime_adapter() {
         return ESP_FAIL;
     }
     g_session_id = *session;
+#if GS117_SEND_DIAGNOSTICS
+    g_diag_boot_session = *session;
+#endif
 #if GS_GS68_NODE_OBSERVER
     gs::node::target::gs68::publish_runtime_state(
         nullptr, nullptr, nullptr, g_session_id,

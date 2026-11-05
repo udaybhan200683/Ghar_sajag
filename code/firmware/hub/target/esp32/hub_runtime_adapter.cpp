@@ -809,6 +809,27 @@ bool send_security_message(const HubSecurityLink::Outbound& outbound,
     return true;
 }
 
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+void log_gs117_security_receive(const ReceivedFrame& frame,
+        const std::optional<HubSecurityLink::Outbound>& outbound) {
+    if (frame.size < 4 || frame.bytes[0] != 0x47 || frame.bytes[1] != 0x53 ||
+        frame.bytes[2] != 1 || (frame.bytes[3] != 6 && frame.bytes[3] != 8)) return;
+    std::uint8_t actual_channel = 0;
+    wifi_second_chan_t secondary{};
+    const auto readback = esp_wifi_get_channel(&actual_channel, &secondary);
+    // Wire kind/source are untrusted until accept() returns an authenticated
+    // response. No outbound can also mean incomplete fragmentation, not rejection.
+    ESP_LOGI(kTag, "GS117_DEV_RADIO role=s3 state=security_rx wire_kind=%u source=%02x%02x%02x%02x%02x%02x rx_ch=%u sta_ch=%u read=%s response_kind=%u validation=%s",
+        static_cast<unsigned>(frame.bytes[3]), frame.source_mac[0], frame.source_mac[1],
+        frame.source_mac[2], frame.source_mac[3], frame.source_mac[4], frame.source_mac[5],
+        static_cast<unsigned>(frame.channel), static_cast<unsigned>(actual_channel),
+        esp_err_to_name(readback), outbound ? static_cast<unsigned>(outbound->message.kind) : 0U,
+        !outbound ? "no_outbound" :
+        outbound->message.kind == security::wire::Kind::RejoinChallenge ? "challenge_ready" :
+        outbound->message.kind == security::wire::Kind::RejoinAck ? "ack_ready" : "other");
+}
+#endif
+
 void secure_owner_task(void*) {
     ESP_LOGI(kTag, "GS40 config=%s heartbeat=%u offline=%u", deployment::sha256,
              deployment::policy.heartbeat_seconds, deployment::policy.offline_seconds);
@@ -841,7 +862,7 @@ void secure_owner_task(void*) {
     }
 #endif
     for (const auto& mac : security_link.enrolled_macs()) {
-        if (!add_runtime_peer(mac)) {
+        if (add_runtime_peer(mac) != ESP_OK) {
             ESP_LOGE(kTag, "Could not restore enrolled ESP-NOW peer");
             vTaskDelete(nullptr);
             return;
@@ -1239,6 +1260,13 @@ void secure_owner_task(void*) {
         stopped.aborted = true;
         (void)xQueueOverwrite(g_fota_ack_queue, &stopped);
     };
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    std::uint8_t owner_channel = 0;
+    wifi_second_chan_t owner_secondary{};
+    const auto owner_channel_result = esp_wifi_get_channel(&owner_channel, &owner_secondary);
+    ESP_LOGI(kTag, "GS117_DEV_RADIO role=s3 state=owner_ready channel=%u read=%s",
+        static_cast<unsigned>(owner_channel), esp_err_to_name(owner_channel_result));
+#endif
     ESP_LOGI(kTag, "Authenticated Hub owner started enrolled=%u storage_epoch=%u",
              static_cast<unsigned>(security_link.enrolled_macs().size()),
              static_cast<unsigned>(*runtime.authoritative_storage_epoch()));
@@ -1451,6 +1479,9 @@ void secure_owner_task(void*) {
             const auto outbound = security_link.accept(control.source_mac,
                 control.bytes.data(), control.size,
                 static_cast<std::uint64_t>(esp_timer_get_time() / 1000));
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+            log_gs117_security_receive(control, outbound);
+#endif
             if (const auto replaced = security_link.take_replaced_node()) {
                 if (fota_guard.active() && fota_guard.radio_mac() == replaced->radio_mac)
                     abort_fota();
@@ -2245,6 +2276,13 @@ esp_err_t start_runtime_adapter() {
     }
 #endif
     if ((result = initialize_esp_now()) != ESP_OK) return result;
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    std::uint8_t observed_channel = 0;
+    wifi_second_chan_t observed_secondary{};
+    const auto observed_channel_result = esp_wifi_get_channel(&observed_channel, &observed_secondary);
+    ESP_LOGI(kTag, "GS117_DEV_RADIO role=s3 state=esp_now_ready channel=%u read=%s",
+        static_cast<unsigned>(observed_channel), esp_err_to_name(observed_channel_result));
+#endif
 #if GS_HIL_BUILD
     if (xTaskCreate(owner_task, "gs_hub_owner", 8192, nullptr, 8, nullptr) != pdPASS) {
 #else

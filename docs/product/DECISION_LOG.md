@@ -1702,3 +1702,19 @@ Normal Windows UAC and remaining approved A qualification passed; actual B obser
 ### 2026-11-05 investigation-status clarification — GS117 session134
 
 Offline source/probe analysis establishes authentication-gated liveness semantics but no unique radio cause or watchdog causal link. Existing collector timing (90s plus10s drain) and evidence-filter limitations are now explicit; no retrospective authorization expansion or altered acceptance is implied. A return-status defect in newer uninstalled S3 diagnostics is excluded from the installed ELF. Proposed minimal corrections and regression plans are recorded in `docs/exec-plans/evidence/GS117_SESSION134_OFFLINE_RCA_20261105.md`; no production/firmware/policy change is implemented. GS-D029/030/173, context version, latches, expired windows and TC001 requirements remain unchanged.
+
+
+### 2026-11-05 implementation-status note — GS117 offline diagnostic corrections
+
+Owner-authorized offline corrections enforce one90-second observation deadline,
+retain bounded TWDT task/CPU evidence with separate host/target clock labels, and
+add TEST_ONLY C3 send-stage/S3 receive-readiness diagnostics. The verified newer
+uninstalled S3 owner `esp_err_t` predicate is corrected; it is excluded from
+session134 by its installed ELF. No radio/channel/authentication/retry or storage
+contract change, watchdog runtime fix, firmware deployment, networking operation
+or new hardware authority is implied. Source/tests/qualification and the proposed
+future diagnostic prerequisites are recorded in
+`docs/exec-plans/evidence/GS117_DIAGNOSTIC_CORRECTIONS_20261105.md`. Session134 RF
+cause/watchdog causality remain NOT_PROVEN; consumed latches/old pins unchanged.
+This is implementation evidence, not a new LOCKED requirement or exception;
+GS-D029/030/173 and CONTEXT_VERSION remain unchanged.

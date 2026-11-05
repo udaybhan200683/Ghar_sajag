@@ -10956,3 +10956,34 @@ Current#11897 hardware authorization SAFETY_LATCHED1/1 used, one failure, zero d
 [Focused report](../exec-plans/evidence/GS117_SESSION134_OFFLINE_RCA_20261105.md), starting local/remote6fe356754d84eb53f4eaca83f4a6d17d84b07a35/context PASS. No production/test source changes or hardware/network/auth operations. Source-pinned C3 reached post-retune send on ch3/4; exact peer/submit/callback/timeout cause remains unknown. Zero liveness is strongly consistent with initial authenticated-ready gate before sampling/counter publication, not sensor failure. Only two slow-scan channels observed; no current S3 channel. Watchdog is inside a13.306s CloudSync call;100-record host scan reads300 bodies/prefixes regardless batch1/4/16. Flash/idle pressure is supported, causal radio link/deadlock unproven. v18 missing activity Home TLV17 separately explains rejected desired policy; successful127 also rejected it.
 
 Two previous reporting assumptions corrected: observed20 lines is not a tail cap (filter/first300); helper90s phase adds10s collection (fake clock100.04s, child103712ms). Newer uninstalled70d577e S3 peer-return predicate inversion reproduced; installed exact ELF uses old Boolean behavior and excludes it as session134 cause. Full minimum correction/diagnostic and regression plan in report, NOT implemented. Existing host tests newly PASS: GS58 Wi-Fi77, rejoin, segmented outbox runtime, GS40 bootstrap91; private send17/filter-clock/scan probes passed, and uninstalled-source bug reproduced. Preliminary probe failures/limitations preserved. Network qualification remains PASS/separate. Hardware#11897 remains SAFETY_LATCHED1/1; historical#11886/original captures unchanged, firmware unchanged, receipts STALE, TC001_READY NO, TC0010/5. Next: review minimal existing collector/diagnostic changes with registered tests (single90s deadline, complete bounded TWDT and send-stage evidence), not another physical attempt or infrastructure implementation.
+
+
+### 2026-11-05 — GS117 diagnostic corrections implemented offline
+
+Owner-authorized existing collector/TEST_ONLY target corrections are implemented
+and offline-tested: one absolute90s deadline after separately permitted bootstrap
+(no extra10s drain), bounded TWDT task/CPU/backtrace/timestamp/loss retention,
+precise C3 send stages and explicit callback ambiguity, S3 channel/receive-ready
+evidence, and the verified newer uninstalled S3 owner `esp_err_t != ESP_OK` fix.
+No channel/retry/authentication/protocol/storage or watchdog runtime change.
+[Implementation, hashes, validation and future proposal](../exec-plans/evidence/GS117_DIAGNOSTIC_CORRECTIONS_20261105.md).
+
+Final focused PASS: collector16, radio3/87 assertions, GS117136, USB profile4,
+framework55, mapping22, ASan/UBSan87; paired production/diagnostic C3/S3 target
+compiles4/4. Final Node30/32, Hub53/56, contract48/50 stages PASS; overall all
+three gates FAIL on existing fixture assertion/P0 PARTIAL and Hub migration.
+Final source fingerprint7e77cc8b..., unchanged throughout each campaign. Prior
+provisional failures/timeouts retained; no false full gate/release/physical PASS.
+
+Exact97 authorization/audit and51 original session134 evidence hashes unchanged;
+all79 original untracked entries and original v18/pins preserved. No hardware,
+firmware deployment, network/configuration or authorization operation. #11897
+SAFETY_LATCHED1/1 and historical#11886 intact; installed firmware unchanged,
+receipts STALE, TC001_READY NO, TC0010/5. Radio root cause/watchdog causality
+still NOT_PROVEN. GS179 qualified networking remains separate/unchanged.
+
+Canonical worktree/branch, starting local/remote113d45d09f7ae258a88bcdd3a14b1272fbb4dd62;
+context PASS. Source/build hashes and actual report paths are in the linked
+evidence; delivery commit/origin equality follow final validated staging.
+Next: review that pinned future diagnostic proposal and prerequisites; do not
+clear/reissue consent, deploy or run another observation under this record.

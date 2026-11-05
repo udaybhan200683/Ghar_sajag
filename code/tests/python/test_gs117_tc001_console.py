@@ -2699,7 +2699,6 @@ class TC001Test(unittest.TestCase):
                 resets = []
 
                 def fake_clock():
-                    clock_value[0] += 1.0
                     return clock_value[0]
 
                 result = tc_serial.observe(
@@ -2707,7 +2706,7 @@ class TC001Test(unittest.TestCase):
                      "query_s3_status": query_s3, "s3_boot_reset": reset_s3},
                     serial_factory=lambda: next(stream_iter),
                     port_finder=lambda: [boards["c3"], boards["s3"]],
-                    clock=fake_clock, sleep=lambda _seconds: None,
+                    clock=fake_clock, sleep=lambda seconds: clock_value.__setitem__(0, clock_value[0] + seconds),
                     boot_reset=lambda stream: resets.append(stream))
                 self.assertEqual(resets, [fake_streams[0]] if reset_s3 else [])
                 self.assertEqual(fake_streams[0].writes,
@@ -2728,7 +2727,6 @@ class TC001Test(unittest.TestCase):
         clock_value = [0.0]
 
         def fake_clock():
-            clock_value[0] += 1.0
             return clock_value[0]
 
         result = tc_serial.observe(
@@ -2737,11 +2735,13 @@ class TC001Test(unittest.TestCase):
              "observation_seconds": 10},
             serial_factory=lambda: next(stream_iter),
             port_finder=lambda: [boards["c3"], boards["s3"]],
-            clock=fake_clock, sleep=lambda _seconds: None,
-            bootstrap_exchange=lambda _stream, **_kwargs: 7323)
+            clock=fake_clock, sleep=lambda seconds: clock_value.__setitem__(0, clock_value[0] + seconds),
+            bootstrap_exchange=lambda _stream, **_kwargs: (clock_value.__setitem__(0, clock_value[0] + 0.5) or 7323))
         self.assertEqual(result["bootstrap_host_write_bytes"], 7323)
         self.assertGreater(result["bootstrap_exchange_ms"], 0)
-        self.assertGreaterEqual(clock_value[0], 20)
+        # One observation budget; the former extra10s bootstrap drain is forbidden.
+        self.assertLess(clock_value[0], 11)
+        self.assertLess(result["phase_timing"]["observation_elapsed_ms"], 10100)
 
         fake_streams = [FakeSerial(), FakeSerial()]
         stream_iter = iter(fake_streams)
@@ -2756,7 +2756,7 @@ class TC001Test(unittest.TestCase):
             {"c3": boards["c3"], "s3": boards["s3"], "s3_boot_reset": True},
             serial_factory=lambda: next(stream_iter),
             port_finder=lambda: [boards["c3"], boards["s3"]],
-            clock=fake_clock, sleep=lambda _seconds: None,
+            clock=fake_clock, sleep=lambda seconds: clock_value.__setitem__(0, clock_value[0] + seconds),
             boot_reset=after_reset, bootstrap_exchange=exchange)
 
         # GS117-RECOVERY-STATUS-001: sample live counters without reopening ports.
@@ -2768,7 +2768,7 @@ class TC001Test(unittest.TestCase):
              "observation_seconds": 30, "c3_status_interval_seconds": 5},
             serial_factory=lambda: next(stream_iter),
             port_finder=lambda: [boards["c3"], boards["s3"]],
-            clock=fake_clock, sleep=lambda _seconds: None)
+            clock=fake_clock, sleep=lambda seconds: clock_value.__setitem__(0, clock_value[0] + seconds))
         self.assertGreater(result["c3_status_queries"], 1)
         self.assertLessEqual(result["c3_status_queries"], 6)
         self.assertEqual(fake_streams[0].writes, [])
@@ -2873,7 +2873,6 @@ class TC001Test(unittest.TestCase):
                 iterator = iter(streams)
                 tick = [0.0]
                 def clock():
-                    tick[0] += 1.0
                     return tick[0]
 
                 result = tc_serial.observe(
@@ -2881,7 +2880,7 @@ class TC001Test(unittest.TestCase):
                      "s3_boot_reset": False, "observation_seconds": 10},
                     serial_factory=lambda: next(iterator),
                     port_finder=lambda: [boards["c3"], boards["s3"]],
-                    clock=clock, sleep=lambda _seconds: None)
+                    clock=clock, sleep=lambda seconds: tick.__setitem__(0, tick[0] + seconds))
                 self.assertEqual(result["s3_config_receive_pending"], bool(startup))
                 self.assertEqual(result["s3_status_command_ready"], ready in startup)
                 self.assertFalse(result["s3_status_command_sent"])
@@ -2937,12 +2936,12 @@ class TC001Test(unittest.TestCase):
                 tc_serial.observe({"c3": {}, "s3": {}, "c3_status_interval_seconds": interval})
 
     def test_development_observation_window_is_explicit_and_still_bounded(self):
-        config = {"profile": "GS117_DEV_TEST_ONLY", "observation_seconds": 120,
+        config = {"profile": "GS117_DEV_TEST_ONLY", "observation_seconds": 90,
                   "c3": {"port": "COM4", "serial_number": "14:63:93:C5:D1:58"},
                   "s3": {"port": "COM10", "serial_number": "E0:72:A1:D3:8D:34"}}
         with self.assertRaisesRegex(ValueError, "VERIFIED_USB_INTERFACE_MISMATCH"):
             tc_serial.observe(config, port_finder=lambda: [])
-        for profile, duration in (("GS117_DEV_TEST_ONLY", 121), ("GS179_TEST_ONLY", 61)):
+        for profile, duration in (("GS117_DEV_TEST_ONLY", 91), ("GS179_TEST_ONLY", 61)):
             with self.subTest(profile=profile), self.assertRaisesRegex(ValueError, "SECONDS_OUT_OF_RANGE"):
                 tc_serial.observe({**config, "profile": profile, "observation_seconds": duration})
 

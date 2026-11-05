@@ -8,6 +8,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -35,7 +36,7 @@ _RESPONSE_FIELDS = frozenset({
     "s3_status_command_sent", "bootstrap_host_write_bytes", "bootstrap_exchange_ms",
     "bootstrap_timeline", "observation", "node_id", "hub_id", "home_id", "liveness",
     "status", "flash_size_bytes", "psram_size_bytes", "evidence_lines", "s3_memory_capacity",
-    "app_offset", "app_version", "elf_sha256_prefix",
+    "app_offset", "app_version", "elf_sha256_prefix", "serial_capture", "phase_timing",
 })
 _TIMELINE_FIELDS = frozenset({
     "stage", "status", "reason", "elapsed_ms", "bytes", "response_bytes",
@@ -55,6 +56,39 @@ def _text(value: str) -> str:
     return _LONG_TOKEN.sub("[REDACTED_TOKEN]", value)
 
 
+_CAPTURE_METADATA_FIELDS = frozenset({
+    "c3", "s3", "records", "boot_markers", "boot_epoch", "line_index",
+    "host_received_at", "host_monotonic", "target_uptime_ms", "bytes_read",
+    "filtered_lines", "dropped_lines", "truncated_chars", "pending_truncated_chars",
+    "late_read_bytes", "deadline_overruns", "boot_markers_dropped", "unterminated_tail_chars",
+})
+_PHASE_METADATA_FIELDS = frozenset({
+    "clock", "observation_budget_ms", "bootstrap_elapsed_ms",
+    "observation_start_monotonic", "observation_deadline_monotonic",
+    "observation_end_monotonic", "observation_elapsed_ms", "remaining_ms",
+    "termination_reason", "cleanup_elapsed_ms", "cleanup_errors",
+})
+
+
+def _safe_metadata(value: Any, fields: frozenset[str], depth: int = 0) -> Any:
+    # Dedicated, bounded schema: metadata does not open the general response
+    # allowlist to arbitrary keys, objects, credential fields or raw UART text.
+    if depth > 5:
+        return "[TRUNCATED]"
+    if value is None or type(value) in (bool, int):
+        return value
+    if type(value) is float:
+        return value if math.isfinite(value) else None
+    if isinstance(value, str):
+        return _text(value[:160])
+    if isinstance(value, list):
+        return [_safe_metadata(v, fields, depth + 1) for v in value[:MAX_LINES_PER_DEVICE]]
+    if isinstance(value, dict):
+        return {k: _safe_metadata(v, fields, depth + 1)
+                for k, v in value.items() if k in fields}
+    return "[UNSUPPORTED_VALUE]"
+
+
 def _safe_value(value: Any, *, timeline: bool = False, depth: int = 0) -> Any:
     if depth > 5:
         return "[TRUNCATED]"
@@ -68,8 +102,12 @@ def _safe_value(value: Any, *, timeline: bool = False, depth: int = 0) -> Any:
                 for item in value[:limit]]
     if isinstance(value, dict):
         allowed = _TIMELINE_FIELDS if timeline else _RESPONSE_FIELDS
-        return {str(key): _safe_value(item, timeline=(key == "bootstrap_timeline"),
-                                      depth=depth + 1)
+        return {str(key): (_safe_metadata(item, _CAPTURE_METADATA_FIELDS)
+                           if key == "serial_capture" else
+                           _safe_metadata(item, _PHASE_METADATA_FIELDS)
+                           if key == "phase_timing" else
+                           _safe_value(item, timeline=(key == "bootstrap_timeline"),
+                                       depth=depth + 1))
                 for key, item in list(value.items()) if key in allowed}
     return "[UNSUPPORTED_VALUE]"
 

@@ -1,5 +1,6 @@
 """Physical-wake qualification can run without the unrelated UART HIL controls."""
 from pathlib import Path
+import ast
 import subprocess
 import tempfile
 import unittest
@@ -46,8 +47,19 @@ int main() { return 0; }
         self.assertIn('"HIL_AWAKE_TEST_ONLY"', control_source)
         self.assertIn('if (!returned_from_light_sleep) vTaskDelay(pdMS_TO_TICKS(kPirPollMs));', adapter)
         serial_helper=(ROOT/'tools/local/gs117_tc001_serial_windows.py').read_text()
-        self.assertIn('for stream in reversed(streams):\n            if stream.is_open:\n                stream.close()',
-                      serial_helper)
+        observe = next(node for node in ast.parse(serial_helper).body
+                       if isinstance(node, ast.FunctionDef) and node.name == 'observe')
+        cleanup = next(node.finalbody for node in observe.body
+                       if isinstance(node, ast.Try) and node.finalbody)
+        loops = [node for statement in cleanup for node in ast.walk(statement)
+                 if isinstance(node, ast.For) and ast.unparse(node.iter) == 'reversed(streams)']
+        self.assertEqual(len(loops), 1)
+        calls = [node.func for node in ast.walk(loops[0])
+                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)]
+        self.assertTrue(any(ast.unparse(call) == 'stream.close' for call in calls))
+        # The existing registered collector tests execute close failures and
+        # prove the other handle is still closed. Cleanup must never sample.
+        self.assertFalse(any(call.attr in {'read', 'write', 'flush'} for call in calls))
         self.assertIn('if c3_stream.is_open:\n            c3_stream.close()', serial_helper)
 
     def test_get_state_remains_enabled_in_both_hil_profiles(self):

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -31,17 +32,96 @@ def ports() -> list[dict[str, str]]:
             for item in list_ports.comports() if re.fullmatch(r"COM[0-9]+", item.device)]
 
 
-def collect(stream, pending: str, lines: list[str]) -> str:
-    pending += stream.read(stream.in_waiting or 1).decode("utf-8", "replace")
+MAX_CAPTURE_LINES = 300
+MAX_CAPTURE_CHARS = 1024
+MAX_SERIAL_CHUNK = 4096
+MAX_PENDING_CHARS = 2048
+OBSERVATION_IO_MARGIN_SECONDS = 0.005
+_DISCARD_PARTIAL = "\x00GS117_DISCARD_PARTIAL"
+
+
+def capture_state():
+    # Line text stays in the existing ordered list. Metadata refers to its index;
+    # do not duplicate UART text or retain an unbounded raw stream.
+    return {"records": [], "boot_markers": [], "boot_epoch": 0,
+            "bytes_read": 0, "filtered_lines": 0, "dropped_lines": 0,
+            "truncated_chars": 0, "pending_truncated_chars": 0,
+            "late_read_bytes": 0, "deadline_overruns": 0, "boot_markers_dropped": 0,
+            "unterminated_tail_chars": 0}
+
+
+def collect(stream, pending: str, lines: list[str], *, capture=None,
+            deadline=None, clock=None, wall_clock=None) -> str:
+    clock = time.monotonic if clock is None else clock
+    if deadline is not None:
+        remaining = deadline - clock()
+        if remaining <= OBSERVATION_IO_MARGIN_SECONDS:
+            return pending
+        # Windows pySerial read uses this bounded timeout; no new reader thread
+        # or cancellation mechanism owns the COM handle.
+        stream.timeout = min(0.1, remaining - OBSERVATION_IO_MARGIN_SECONDS)
+    size = min(MAX_SERIAL_CHUNK, max(1, stream.in_waiting))
+    if deadline is not None and clock() >= deadline:
+        return pending
+    data = stream.read(size)
+    received = clock() if capture is not None or deadline is not None else None
+    if capture is not None:
+        capture["bytes_read"] += len(data)
+    if deadline is not None and received > deadline:
+        if capture is not None:
+            capture["late_read_bytes"] += len(data)
+            capture["deadline_overruns"] += 1  # Empty late reads also violate the budget.
+        return pending  # A driver overrun is reported, never accepted as in-budget evidence.
+    decoded = data.decode("utf-8", "replace")
+    if pending == _DISCARD_PARTIAL:
+        # Drop an entire overlong partial line, not just its credential label.
+        # Otherwise the next chunk could expose a secret suffix as a new line.
+        if capture is not None:
+            capture["pending_truncated_chars"] += len(decoded.split("\n", 1)[0])
+        if "\n" not in decoded:
+            return _DISCARD_PARTIAL
+        pending = ""
+        decoded = decoded.split("\n", 1)[1]
+    pending += decoded
     fragments = pending.split("\n")
+    host_time = (datetime.fromtimestamp((time.time if wall_clock is None else wall_clock)(),
+                                      timezone.utc).isoformat()
+                 if capture is not None else None)
     for line in fragments[:-1]:
         safe = "".join(c for c in line if 32 <= ord(c) < 127).strip()
-        if re.search(r"HIL_(?:READY|STATE|OK|ERROR|FIXTURE)|GS117_TEST_ONLY|GS117_DEV_REJOIN|GS40T/1|PIR -> NodeRuntime|NodeMessage sent|Application ACK|authenticated|durable|CloudSync|COMMITTED|HubRuntime|HubSecurity|gs_hub_product|gs_hub_runtime|ESP-NOW|outbox|storage|mount|Wi-Fi|STA_START|firmware|image|boot:|ESP-ROM|rst:|panic|abort\(\)|Backtrace|app_init:|SPI\s+Flash(?:\s+Size)?\s*[:=]|esp_psram|octal_psram|spiram|assert failed:|Guru Meditation Error|Stack canary|stack overflow", safe, re.I):
-            safe = re.sub(r"(?i)(credential|secret|private.key|session.key|installer.code|wifi_psk|password|token|authorization|ssid|certificate)\s*[:=]\s*\S+",
-                          r"\1=[REDACTED]", safe)
-            if len(lines) < 300:
-                lines.append(safe[:1024])
-    return fragments[-1][-2048:]
+        if re.search(r"HIL_(?:READY|STATE|OK|ERROR|FIXTURE)|GS117_TEST_ONLY|GS117_DEV_(?:REJOIN|TX|CALLBACK|RADIO)|GS40T/1|PIR -> NodeRuntime|NodeMessage sent|Application ACK|authenticated|durable|CloudSync|COMMITTED|HubRuntime|HubSecurity|gs_hub_product|gs_hub_runtime|ESP-NOW|outbox|storage|mount|Wi-Fi|STA_START|firmware|image|boot:|ESP-ROM|rst:|panic|abort\(\)|Backtrace|app_init:|SPI\s+Flash(?:\s+Size)?\s*[:=]|esp_psram|octal_psram|spiram|assert failed:|Guru Meditation Error|Stack canary|stack overflow|\btask_wdt\b|Task watchdog|Tasks currently running|CPU\s+[0-9]+:|^\s*(?:0x[0-9a-f]+[: ]+){2,}", safe, re.I):
+            # Keep challenge nonce/public-key parsing compatible with bootstrap.
+            # The existing bootstrap-evidence redactor removes those fields before persistence.
+            safe = re.sub(r"(?i)(\b(?:credential|secret|private[_. -]?key|session[_. -]?key|installer[_. -]?code|wifi_psk|psk|password|token|authorization|ssid|certificate|payload|authentication|encrypted[_ -]?(?:envelope|config))\s*[:=]\s*)(\"[^\"]*\"|'[^']*'|\S+)",
+                          r"\1[REDACTED]", safe)
+            if capture is not None:
+                # Marker epochs are serial evidence boundaries, NOT a physical reset count.
+                # Never infer a reset by comparing two boards' uptime clocks.
+                if re.search(r"ESP-ROM:|rst:0x|boot: ESP-IDF", safe):
+                    capture["boot_epoch"] += 1
+                    if len(capture["boot_markers"]) < 16:
+                        capture["boot_markers"].append({"boot_epoch": capture["boot_epoch"],
+                            "host_received_at": host_time, "host_monotonic": received})
+                    else:
+                        capture["boot_markers_dropped"] += 1
+                capture["truncated_chars"] += max(0, len(safe) - MAX_CAPTURE_CHARS)
+            if len(lines) < MAX_CAPTURE_LINES:
+                if capture is not None:
+                    uptime = re.search(r"^[IWEVD]\s*\(([0-9]+)\)", safe)
+                    capture["records"].append({"line_index": len(lines),
+                        "host_received_at": host_time, "host_monotonic": received,
+                        "target_uptime_ms": int(uptime[1]) if uptime else None,
+                        "boot_epoch": capture["boot_epoch"]})
+                lines.append(safe[:MAX_CAPTURE_CHARS])
+            elif capture is not None:
+                capture["dropped_lines"] += 1
+        elif capture is not None:
+            capture["filtered_lines"] += 1
+    if capture is not None:
+        capture["pending_truncated_chars"] += max(0, len(fragments[-1]) - MAX_PENDING_CHARS)
+    if len(fragments[-1]) > MAX_PENDING_CHARS:
+        return _DISCARD_PARTIAL
+    return fragments[-1]
 
 
 def exact_port(board: dict, candidates: list[dict]) -> bool:
@@ -317,7 +397,7 @@ def s3_memory_capacity(lines: list[str]) -> dict:
 
 def observe(config: dict, *, serial_factory=None, port_finder=None,
             clock=None, sleep=None, boot_reset=None, bootstrap_exchange=None,
-            fixture_exchange=None) -> dict:
+            fixture_exchange=None, wall_clock=None) -> dict:
     """Reset-aware, bounded status observation; never sends an event command."""
     c3, s3 = config["c3"], config["s3"]
     query_s3_status = config.get("query_s3_status", False)
@@ -337,7 +417,7 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
             "psram_size_bytes": 8 * 1024 * 1024}:
         raise ValueError("TC001_S3_MEMORY_PROFILE_EXPECTATION_INVALID")
     observation_seconds = config.get("observation_seconds", 10)
-    observation_limit = 120 if config.get("profile") == "GS117_DEV_TEST_ONLY" else 60
+    observation_limit = 90 if config.get("profile") == "GS117_DEV_TEST_ONLY" else 60
     if type(observation_seconds) is not int or not 10 <= observation_seconds <= observation_limit:
         raise ValueError("TC001_OBSERVATION_SECONDS_OUT_OF_RANGE")
     c3_status_interval_seconds = config.get("c3_status_interval_seconds", 0)
@@ -356,6 +436,31 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
     # Opening a USB serial endpoint can reset some boards. DTR/RTS are held low
     # before open, but this does not assert that the interface is reset-free.
     streams = []
+    c3_lines, s3_lines = [], []
+    captures = {"c3": capture_state(), "s3": capture_state()}
+    c3_tail = s3_tail = ""
+    timing = {"observation_budget_ms": observation_seconds * 1000,
+              "clock": "host_monotonic", "termination_reason": "not_started"}
+    observation_started = None
+    deadline = None
+    bootstrap_evidence = {}
+    bootstrap_exchange_ms = None
+    bootstrap_tx_bytes = None
+    c3_status_queries = 0
+    s3_config_receive_pending = s3_status_command_ready = s3_status_command_sent = False
+
+    def snapshot():
+        # Finalize already-read buffers without further UART sampling. Do not
+        # retain an incomplete credential-bearing line or hide its omission.
+        for board, tail in (("c3", c3_tail), ("s3", s3_tail)):
+            captures[board]["unterminated_tail_chars"] = (
+                0 if tail == _DISCARD_PARTIAL else len(tail))
+        return {"c3": c3_lines, "s3": s3_lines, "serial_capture": captures,
+                "phase_timing": timing, "c3_status_queries": c3_status_queries,
+                "s3_config_receive_pending": s3_config_receive_pending,
+                "s3_status_command_ready": s3_status_command_ready,
+                "s3_status_command_sent": s3_status_command_sent}
+
     try:
         for board in (s3, c3):
             stream = serial_factory()
@@ -365,8 +470,8 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
             stream.write_timeout = 1
             stream.dtr = False
             stream.rts = False
-            stream.open()
             streams.append(stream)
+            stream.open()
         c3_stream, s3_stream = streams[1], streams[0]
         # Opt-in only under the exact fixture's reset-aware inspection approval.
         # Reuse Espressif's native-USB reset sequence; never enter a flash
@@ -399,74 +504,85 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
         if config.get("c3_boot_reset"):
             from esptool.reset import HardReset
             HardReset(c3_stream, uses_usb=True).reset()
-        c3_lines: list[str] = []
-        s3_lines: list[str] = []
+        # The approved observation starts here, AFTER separately permitted reset
+        # and bootstrap. Every read/query/drain shares this one absolute budget.
+        observation_started = clock()
+        deadline = observation_started + observation_seconds
+        timing.update({"bootstrap_elapsed_ms": bootstrap_exchange_ms or 0,
+                       "observation_start_monotonic": observation_started,
+                       "observation_deadline_monotonic": deadline,
+                       "termination_reason": "running"})
         c3_tail = s3_tail = ""
-        deadline = clock() + 4
-        while clock() < deadline:
-            c3_tail = collect(c3_stream, c3_tail, c3_lines)
-            s3_tail = collect(s3_stream, s3_tail, s3_lines)
+
+        def sample_pair():
+            nonlocal c3_tail, s3_tail
+            c3_tail = collect(c3_stream, c3_tail, c3_lines, capture=captures["c3"],
+                              deadline=deadline, clock=clock, wall_clock=wall_clock)
+            s3_tail = collect(s3_stream, s3_tail, s3_lines, capture=captures["s3"],
+                              deadline=deadline, clock=clock, wall_clock=wall_clock)
+            if any(value["deadline_overruns"] for value in captures.values()):
+                raise ValueError("TC001_SERIAL_READ_EXCEEDED_OBSERVATION_DEADLINE")
             readiness_guard(config, c3_lines, s3_lines)
-            sleep(0.02)
-        c3_stream.write(b"GET_STATE\n")
-        c3_stream.flush()
-        c3_status_queries = 1
+
+        def query(stream, command):
+            remaining = deadline - clock()
+            if remaining <= OBSERVATION_IO_MARGIN_SECONDS:
+                return False
+            stream.write_timeout = min(1.0, remaining - OBSERVATION_IO_MARGIN_SECONDS)
+            written = stream.write(command)
+            # write_timeout bounds this operation. flush() can wait indefinitely
+            # on a Windows driver and is not part of a bounded observation.
+            if written is not None and written != len(command):
+                raise ValueError("TC001_STATUS_WRITE_INCOMPLETE")
+            if clock() > deadline:
+                raise ValueError("TC001_SERIAL_WRITE_EXCEEDED_OBSERVATION_DEADLINE")
+            return True
+
+        warmup_deadline = min(deadline, observation_started + 4)
+        while clock() < warmup_deadline:
+            sample_pair()
+            sleep(max(0, min(0.02, warmup_deadline - clock())))
+        if query(c3_stream, b"GET_STATE\n"):
+            c3_status_queries += 1
         s3_config_receive_pending = any("GS40T/1 CHALLENGE" in line for line in s3_lines)
         s3_status_command_ready = any(
             "HIL_FIXTURE_READY" in line and "FIXTURE_STATUS" in line for line in s3_lines)
-        s3_status_command_sent = False
-        if query_s3_status:
-            # GS40 TEST_ONLY boot waits for the encrypted, length-prefixed
-            # configuration envelope before HubRuntime/fixture command parsing
-            # starts. Sending plain-text FIXTURE_STATUS into that receiver is
-            # interpreted as an invalid envelope length and aborts startup.
-            # Send only after the running firmware advertises this exact
-            # command; otherwise retain passive boot evidence and fail closed.
-            if s3_status_command_ready and not s3_config_receive_pending:
-                s3_stream.write(b"FIXTURE_STATUS\n")
-                s3_stream.flush()
-                s3_status_command_sent = True
-        deadline = clock() + observation_seconds - 4
+        if query_s3_status and s3_status_command_ready and not s3_config_receive_pending:
+            s3_status_command_sent = query(s3_stream, b"FIXTURE_STATUS\n")
         next_c3_status = (clock() + c3_status_interval_seconds
                           if c3_status_interval_seconds else None)
         while clock() < deadline:
-            c3_tail = collect(c3_stream, c3_tail, c3_lines)
-            s3_tail = collect(s3_stream, s3_tail, s3_lines)
-            readiness_guard(config, c3_lines, s3_lines)
+            sample_pair()
             if next_c3_status is not None and clock() >= next_c3_status:
-                c3_stream.write(b"GET_STATE\n")
-                c3_stream.flush()
-                c3_status_queries += 1
+                if query(c3_stream, b"GET_STATE\n"):
+                    c3_status_queries += 1
                 next_c3_status = clock() + c3_status_interval_seconds
-            sleep(0.02)
+            sleep(max(0, min(0.02, deadline - clock())))
+        timing.update({"observation_end_monotonic": clock(),
+                       "observation_elapsed_ms": (clock() - observation_started) * 1000,
+                       "remaining_ms": max(0, (deadline - clock()) * 1000),
+                       "termination_reason": "deadline"})
+        result = snapshot()
         if not any("HIL_STATE role=c3" in line for line in c3_lines):
             raise ValueError("TC001_INSTALLED_C3_HIL_STATUS_NOT_OBSERVED")
-        result = {"c3": c3_lines, "s3": s3_lines,
-                  "c3_status_queries": c3_status_queries,
-                  "s3_config_receive_pending": s3_config_receive_pending,
-                  "s3_status_command_ready": s3_status_command_ready,
-                  "s3_status_command_sent": s3_status_command_sent}
+        if any(value[key] for value in captures.values() for key in (
+                "dropped_lines", "truncated_chars", "pending_truncated_chars",
+                "boot_markers_dropped", "unterminated_tail_chars")):
+            # A bounded capture is allowed to lose data, but never to masquerade
+            # as complete readiness evidence. Preserve its counters/partial data.
+            raise ValueError("TC001_DIAGNOSTIC_CAPTURE_INCOMPLETE")
         if fixture_exchange is not None:
+            # Legacy explicit commissioning is a distinct separately approved
+            # phase, never used by the GS117 Bootstrap readiness procedure.
             result["commissioning"] = fixture_exchange(c3_stream, s3_stream,
                 c3_lines, s3_lines, clock=clock, sleep=sleep,
                 expected_public_key=config.get("expected_node_public_key"))
         if bootstrap_tx_bytes is not None:
-            # This confirms only host API acceptance; target receipt is proven
-            # separately by its GS40 RX/policy response in the captured logs.
             result["bootstrap_host_write_bytes"] = bootstrap_tx_bytes
             result["bootstrap_exchange_ms"] = bootstrap_exchange_ms
             result["bootstrap_timeline"] = bootstrap_evidence
-            # GS40's authenticated receiver has a 60-second device-side
-            # deadline. Preserve that entire observation window after the
-            # host has delivered the challenge-bound frame, then allow a short
-            # bounded margin for the target's fixed rejection/startup log.
-            deadline = clock() + 10
-            while clock() < deadline:
-                c3_tail = collect(c3_stream, c3_tail, c3_lines)
-                s3_tail = collect(s3_stream, s3_tail, s3_lines)
-                readiness_guard(config, c3_lines, s3_lines)
-                sleep(0.02)
-            result["s3"] = s3_lines
+        # No further serial collection after the observation deadline, including
+        # bootstrap's former unconditional ten-second drain.
         bootstrap_memory = bootstrap_evidence.get("s3_memory_capacity", {})
         memory_lines = list(bootstrap_memory.get("evidence_lines", [])) + s3_lines
         memory = s3_memory_capacity(memory_lines)
@@ -480,10 +596,33 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
             raise error
         result["s3_memory_capacity"] = memory
         return result
+    except BaseException as error:
+        if observation_started is not None:
+            timing.update({"observation_end_monotonic": clock(),
+                           "observation_elapsed_ms": (clock() - observation_started) * 1000,
+                           "remaining_ms": max(0, (deadline - clock()) * 1000),
+                           "termination_reason": (str(error) if isinstance(error, ValueError) and
+                               re.fullmatch(r"[A-Z0-9_]{1,160}", str(error)) else
+                               type(error).__name__)})
+        partial = getattr(error, "captured_observation", {})
+        error.captured_observation = {**snapshot(), **partial}
+        raise
     finally:
+        cleanup_start = clock()
+        errors = 0
+        original_error = sys.exc_info()[1]
         for stream in reversed(streams):
-            if stream.is_open:
-                stream.close()
+            try:
+                if stream.is_open:
+                    stream.close()
+            except BaseException:
+                errors += 1  # Close the other handle even if one driver fails.
+        timing["cleanup_elapsed_ms"] = (clock() - cleanup_start) * 1000
+        timing["cleanup_errors"] = errors
+        if errors and original_error is None:
+            error = ValueError("TC001_SERIAL_CLEANUP_FAILED")
+            error.captured_observation = snapshot()
+            raise error
 
 
 def observe_node(config: dict) -> dict:
@@ -1192,7 +1331,7 @@ if __name__ == "__main__":
         else:
             raise ValueError("TC001_SERIAL_ACTION_NOT_ALLOWED")
         print(json.dumps(value))
-    except Exception as error:
+    except BaseException as error:
         failure = {"error": str(error) if isinstance(error, ValueError) else type(error).__name__}
         if hasattr(error, "captured_observation"):
             failure["observation"] = error.captured_observation

@@ -241,3 +241,14 @@ remain open. Event123/1's approximately6h53m delay remains unresolved.
 Delivery: GS-117 comment11922 posted and independently read back. Canonical
 execution/work-state and GS179 cross-reference synchronized. Documentation-only
 commit follows validated diff/context checks; no permanent source/test changes.
+
+
+## Subsequent owner-authorized offline correction
+
+The proposed timing/retention/send-evidence corrections and the newer uninstalled
+S3 owner predicate are now implemented offline. See
+[implementation and validation](GS117_DIAGNOSTIC_CORRECTIONS_20261105.md) for exact
+source/artifact identities, executed checks and remaining failures. The RCA's
+original evidence, missing TWDT lines and unknown radio/watchdog causality are
+unchanged. New diagnostics are not retroactive session134 observations. No
+firmware was installed, hardware authorization changed, or new attempt performed.

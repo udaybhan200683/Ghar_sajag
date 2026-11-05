@@ -1,0 +1,208 @@
+// Host boundary mocks only. @...@ bodies are injected verbatim from production
+// source by test_gs117_diagnostic_radio.py; no ESP/RTOS/RF qualification implied.
+#include <array>
+#include <atomic>
+#include <cstdarg>
+#include <cstdio>
+#include <cstring>
+#include <iostream>
+#include <optional>
+#include <stdexcept>
+#include <string>
+#include <vector>
+#include "firmware/common/security/commissioning_wire.hpp"
+#include "firmware/common/connectivity/india_wifi_profile.hpp"
+namespace security = gs::security;
+using esp_err_t = int;
+constexpr int ESP_OK=0, ESP_FAIL=-1, ESP_ERR_INVALID_SIZE=0x104,
+    ESP_ERR_INVALID_ARG=0x102, ESP_ERR_TIMEOUT=0x107, WIFI_IF_STA=0,
+    pdTRUE=1, kSendCallbackTimeoutMs=1000;
+using wifi_second_chan_t = int;
+enum esp_now_send_status_t { ESP_NOW_SEND_SUCCESS, ESP_NOW_SEND_FAIL };
+struct esp_now_send_info_t { std::uint8_t* des_addr; const std::uint8_t* data; };
+struct esp_now_peer_info_t {
+    std::uint8_t peer_addr[6]{}; std::uint8_t channel{}; unsigned ifidx{}; bool encrypt{};
+};
+struct NodeSecurityLink {
+    struct Outbound { std::array<std::uint8_t,6> destination{}; security::wire::Message message; };
+};
+struct HubSecurityLink { using Mac=std::array<std::uint8_t,6>; using Outbound=NodeSecurityLink::Outbound; };
+struct ReceivedFrame {std::uint16_t size{};std::array<std::uint8_t,250> bytes{};
+    std::array<std::uint8_t,6> source_mac{};std::uint8_t channel{};};
+std::uint64_t g_session_id=134;
+std::atomic<std::uint8_t> g_radio_channel{3};
+std::atomic<bool> g_security_phase{true}, g_control_plane_active{false};
+std::atomic<unsigned> g_send_queue_drops{0};
+int queue_handles[2]{};
+void* g_security_send_queue=&queue_handles[0];
+void* g_send_queue=&queue_handles[1];
+constexpr const char* kTag="probe";
+@SEND_RESULT@
+
+std::optional<SendResult> security_queue, application_queue;
+std::vector<std::string> logs;
+long long now_us=100000, callback_offset=0;
+int peer_result=0, submit_result=0, readback_result=0, retune_result=0;
+int callback_mode=1, adds=0, sends=0, last_wait=0, deleted=0;
+bool peer_exists=true, wrong_peer=false, peer_unknown=false;
+std::uint8_t actual_channel=3;
+esp_now_peer_info_t captured_peer{};
+std::vector<HubSecurityLink::Mac> enrolled{{{1,2,3,4,5,6}}};
+struct SecurityLinkFixture { auto enrolled_macs(){return enrolled;} } security_link;
+int checks=0;
+void check(bool ok,const char* label) {
+    if(!ok) throw std::runtime_error(label);
+    ++checks;
+}
+void log_line(const char*,const char* format,...) __attribute__((format(printf,2,3)));
+void log_line(const char*,const char* format,...) {
+    char data[2048];va_list args;va_start(args,format);
+    const int size=std::vsnprintf(data,sizeof(data),format,args);va_end(args);
+    check(size>=0 && size<1024,"bounded_log_line");
+    check(std::strstr(data,"TOP_SECRET_AUTH_PAYLOAD")==nullptr,"no_callback_payload_leak");
+    logs.emplace_back(data);
+}
+#define ESP_LOGI(...) log_line(__VA_ARGS__)
+#define ESP_LOGE(...) log_line(__VA_ARGS__)
+const char* esp_err_to_name(int error) {
+    switch(error){case ESP_OK:return "ESP_OK";case ESP_FAIL:return "ESP_FAIL";
+    case ESP_ERR_TIMEOUT:return "ESP_ERR_TIMEOUT";case ESP_ERR_INVALID_SIZE:return "ESP_ERR_INVALID_SIZE";
+    case ESP_ERR_INVALID_ARG:return "ESP_ERR_INVALID_ARG";default:return "MOCK_ERROR";}
+}
+long long esp_timer_get_time(){return now_us;}
+std::uint32_t esp_random(){return 22;}
+int pdMS_TO_TICKS(int ms){return ms;}
+int esp_wifi_get_channel(std::uint8_t* channel,wifi_second_chan_t*) {
+    if(readback_result==0){*channel=actual_channel;}
+    return readback_result;
+}
+int set_node_radio_channel(std::uint8_t channel) {
+    if(retune_result==0){g_radio_channel=channel;actual_channel=channel;}return retune_result;
+}
+bool esp_now_is_peer_exist(const std::uint8_t*){return peer_exists;}
+int esp_now_add_peer(const esp_now_peer_info_t* peer) {
+    ++adds;captured_peer=*peer;if(peer_result==0)peer_exists=true;return peer_result;
+}
+int esp_now_get_peer(const std::uint8_t*,esp_now_peer_info_t* peer) {
+    if(!peer_exists){return ESP_FAIL;}
+    *peer=captured_peer;return ESP_OK;
+}
+int xQueueOverwrite(void*,const SendResult* value){security_queue=*value;return pdTRUE;}
+int xQueueSend(void*,const SendResult* value,int){application_queue=*value;return pdTRUE;}
+unsigned uxQueueMessagesWaiting(void*){return security_queue.has_value()?1:0;}
+void xQueueReset(void*){security_queue.reset();}
+int xQueueReceive(void*,SendResult* value,int ticks) {
+    last_wait=ticks;
+    if(!security_queue){now_us+=ticks*1000LL;return 0;}
+    *value=*security_queue;security_queue.reset();return pdTRUE;
+}
+void vTaskDelete(void*){++deleted;}
+@CALLBACK@
+
+void callback_for(const std::uint8_t* peer,bool success) {
+    const auto count=logs.size();
+#if ESP_IDF_VERSION_MAJOR >= 6
+    const char* secret="TOP_SECRET_AUTH_PAYLOAD";
+    esp_now_send_info_t info{const_cast<std::uint8_t*>(peer),reinterpret_cast<const std::uint8_t*>(secret)};
+    send_callback(peer_unknown?nullptr:&info,success?ESP_NOW_SEND_SUCCESS:ESP_NOW_SEND_FAIL);
+#else
+    send_callback(peer_unknown?nullptr:peer,success?ESP_NOW_SEND_SUCCESS:ESP_NOW_SEND_FAIL);
+#endif
+    check(count==logs.size(),"no_callback_logging");
+}
+int esp_now_send(const std::uint8_t* peer,const std::uint8_t*,std::size_t) {
+    ++sends;now_us+=100;
+    if(submit_result==0 && callback_mode>=0){
+        const long long saved=now_us;now_us+=callback_offset;
+        const std::uint8_t other[6]={9,9,9,9,9,9};
+        callback_for(wrong_peer?other:peer,callback_mode==1);now_us=saved;
+    }
+    return submit_result;
+}
+@SECURITY_SEND@
+@REJOIN@
+@PEER@
+@HUB_RECEIVE@
+void restore_owner_peers(){
+@OWNER_LOOP@
+}
+
+void reset() {
+    security_queue.reset();application_queue.reset();logs.clear();
+    peer_result=submit_result=readback_result=retune_result=0;
+    adds=sends=last_wait=deleted=0;callback_mode=1;callback_offset=0;
+    peer_exists=true;wrong_peer=peer_unknown=false;now_us=100000;
+    g_radio_channel=actual_channel=3;g_security_phase=true;
+#if GS117_SEND_DIAGNOSTICS
+    g_diag_boot_session=123;g_diag_prior_callback_timeout=false;
+#endif
+}
+bool logged(const char* value) {
+    for(const auto& line:logs)if(line.find(value)!=std::string::npos)return true;
+    return false;
+}
+int main(){try{
+    NodeSecurityLink::Outbound out;out.destination={1,2,3,4,5,6};
+    out.message.kind=security::wire::Kind::RejoinHello;out.message.body.assign(121,0x55);
+    reset();bool submitted=false;
+    check(send_security_message(out,true,&submitted)&&submitted&&sends==1&&last_wait==1000,"positive_behavior");
+#if GS117_SEND_DIAGNOSTICS
+    check(logged("stage=callback_positive")&&logged("tx=22")&&logged("boot_session=123 session=134"),"positive_evidence");
+    check(logged("same_peer_window_no_txid"),"do_not_claim_transaction_correlation");
+#else
+    check(logs.empty(),"production_profile_diagnostics_disabled");
+#endif
+    reset();peer_exists=false;check(send_security_message(out)&&adds==1&&captured_peer.channel==0&&captured_peer.ifidx==WIFI_IF_STA&&!captured_peer.encrypt,"new_peer_behavior");
+    reset();check(send_security_message(out)&&adds==0,"existing_peer_behavior");
+    reset();peer_exists=false;peer_result=ESP_FAIL;check(!send_security_message(out)&&sends==0,"peer_failure_behavior");
+#if GS117_SEND_DIAGNOSTICS
+    check(logged("stage=peer_add")&&logged("peer_add=ESP_FAIL"),"peer_failure_stage");
+    check(logged("peer_add_code=0xffffffff")&&logged("error_code=0xffffffff"),"exact_peer_error_code");
+#endif
+    reset();submit_result=ESP_FAIL;check(!send_security_message(out,true,&submitted)&&!submitted,"submission_failure_behavior");
+#if GS117_SEND_DIAGNOSTICS
+    check(logged("stage=esp_now_submit")&&logged("submit=ESP_FAIL"),"submission_stage");
+    check(logged("submit_code=0xffffffff"),"exact_submission_error_code");
+#endif
+    reset();callback_mode=0;check(!send_security_message(out,true,&submitted)&&submitted,"negative_callback_behavior");
+#if GS117_SEND_DIAGNOSTICS
+    check(logged("stage=callback_negative")&&logged("cb_seen=1 cb_ok=0"),"negative_callback_evidence");
+#endif
+    reset();callback_mode=-1;check(!send_security_message(out)&&last_wait==1000,"timeout_behavior");
+#if GS117_SEND_DIAGNOSTICS
+    check(logged("stage=callback_timeout"),"timeout_evidence");
+    callback_for(out.destination.data(),true);callback_mode=1;logs.clear();
+    check(send_security_message(out)&&logged("pending_before_reset=1")&&logged("ambiguous_after_timeout"),"late_same_peer_ambiguity_not_hidden");
+    reset();wrong_peer=true;check(send_security_message(out)&&logged("correlation=wrong_peer"),"wrong_peer_reported_without_changing_legacy_return");
+    reset();peer_unknown=true;check(send_security_message(out)&&logged("correlation=peer_unknown"),"unknown_peer_reported");
+    reset();callback_offset=-1000;check(send_security_message(out)&&logged("correlation=before_submit"),"old_callback_reported");
+    reset();readback_result=ESP_FAIL;check(send_security_message(out)&&logged("actual_ch=0 channel_read=ESP_FAIL"),"readback_failure_does_not_change_send");
+    reset();actual_channel=7;check(send_security_message(out)&&logged("requested_ch=3 actual_ch=7"),"channel_inconsistency_visible");
+#endif
+    reset();callback_mode=0;check(send_security_message(out,false)&&last_wait==0,"nonwaiting_submission_only");
+    check(security_queue.has_value()&&!security_queue->accepted_by_radio,"nonwaiting_queue_preserved");
+    reset();auto bad=out;bad.message.body.clear();check(!send_security_message(bad)&&sends==0,"fragment_failure_behavior");
+#if GS117_SEND_DIAGNOSTICS
+    check(logged("stage=wire_fragment"),"fragment_failure_evidence");
+#endif
+    reset();bad=out;bad.message.body.resize(300);check(!send_security_message(bad,false)&&sends==0,"nonwaiting_multifragment_guard");
+    reset();gs::connectivity::IndiaWifiChannelDiscovery discovery;retune_result=ESP_FAIL;
+    check(!send_rejoin_message(out,discovery)&&sends==0,"retune_failure_behavior");
+#if GS117_SEND_DIAGNOSTICS
+    check(logged("stage=channel_set"),"retune_failure_evidence");
+#endif
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    reset();ReceivedFrame rx;rx.size=133;rx.bytes[0]=0x47;rx.bytes[1]=0x53;rx.bytes[2]=1;rx.bytes[3]=6;rx.channel=3;
+    std::optional<HubSecurityLink::Outbound> response;
+    log_gs117_security_receive(rx,response);check(logged("state=security_rx")&&logged("validation=no_outbound"),"receive_is_not_authentication");
+    response=out;response->message.kind=security::wire::Kind::RejoinChallenge;
+    log_gs117_security_receive(rx,response);check(logged("validation=challenge_ready"),"authenticated_response_evidence");
+    logs.clear();rx.size=2;log_gs117_security_receive(rx,response);check(logs.empty(),"malformed_header_never_trusted");
+#endif
+    reset();restore_owner_peers();check(deleted==0&&adds==0,"owner_existing_peer");
+    reset();peer_exists=false;restore_owner_peers();check(deleted==0&&adds==1,"owner_new_peer");
+    reset();peer_exists=false;peer_result=ESP_FAIL;restore_owner_peers();check(deleted==1,"owner_failed_peer");
+    for(const auto& line:logs)check(line.find("TOP_SECRET_AUTH_PAYLOAD")==std::string::npos,"no_auth_payload_log");
+    std::cout<<"GS117 RADIO DIAGNOSTICS checks="<<checks<<" PASS\n";
+    return 0;
+}catch(const std::exception& error){std::cerr<<error.what()<<"\n";return 1;}}
