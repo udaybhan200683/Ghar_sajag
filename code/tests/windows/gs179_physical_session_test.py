@@ -24,7 +24,7 @@ function Get-ScheduledTask {param($TaskName,$ErrorAction) return @{Name=$TaskNam
 $tokens=$null;$errors=$null
 $tree=[Management.Automation.Language.Parser]::ParseFile('__SOURCE__',[ref]$tokens,[ref]$errors)
 if($errors.Count){throw ($errors|Out-String)}
-foreach($name in @('Is-Rfc1918','Get-Ipv4Network','Test-EquivalentIpv4Scope','Get-PhysicalSessionDecision','Close-PhysicalSession','Register-PhysicalSessionTasks','Invoke-PhysicalSessionTick','Get-PhysicalSessionWindow','Get-PhysicalAuthority','Assert-PhysicalWindowOrder')) {
+foreach($name in @('Is-Rfc1918','Get-Ipv4Network','Test-EquivalentIpv4Scope','Get-PhysicalSessionDecision','Close-PhysicalSession','Register-PhysicalSessionTasks','Invoke-PhysicalSessionTick','Get-PhysicalSessionWindow','Get-PhysicalAuthority','Assert-PhysicalWindowOrder','Continue-PhysicalDevelopmentLease','Set-PhysicalExpiryTask')) {
  $node=$tree.Find({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true)
  . ([scriptblock]::Create($node.Extent.Text))
 }
@@ -98,9 +98,12 @@ function netsh.exe { $script:deleted+=($args -join ' ');$global:LASTEXITCODE=0;i
 function Stop-WithError($reason){throw $reason}
 function Save-PhysicalSession($s){$script:saved++}
 function Unregister-ScheduledTask {param($TaskName,[switch]$Confirm,$ErrorAction) $script:tasks+=$TaskName}
+function Get-ScheduledTask {param($TaskName,$ErrorAction) if($TaskName -notin $script:tasks){return @{Name=$TaskName}}}
 $state=[pscustomobject]@{targets=@('172.17.152.10');tickTask='own-tick';expiryTask='own-expiry';closed=$false;exposureOwned=$true}
 Close-PhysicalSession $state
 $success=@{deleted=@($script:deleted);tasks=@($script:tasks);saved=$script:saved;closed=$state.closed}
+Close-PhysicalSession $state
+if($script:deleted.Count -ne 1 -or $script:saved -ne 1 -or $script:tasks.Count -ne 2){throw 'cleanup_not_idempotent'}
 # Cleanup failure must retain the independent task and unclosed state.
 $script:deleted=@();$script:tasks=@();$script:saved=0;$script:fail=$true;$state.closed=$false
 try{Close-PhysicalSession $state;throw 'expected failure'}catch{if($_.Exception.Message -ne 'physical_session_cleanup_failed'){throw}}
@@ -385,9 +388,10 @@ function Stop-WithError($r){throw $r}
 $at=[DateTimeOffset]::Parse('2026-11-04T10:00:00Z')
 $a=[pscustomobject]@{networkApprovalSha256='approved';networkWindow='A';scope='network-A';activation='approval';started=$at.ToString('o');deadline=$at.AddSeconds(60).ToString('o');closed=$false;exposureOwned=$true}
 $failures=@()
-foreach($mode in @('overlap','B-before-A','B-wrong-grant')) {
+foreach($mode in @('overlap','DEV-overlap','B-before-A','B-wrong-grant')) {
  try {
   if($mode -eq 'overlap'){Assert-PhysicalWindowOrder @($a) 'approved' 'B'}
+  if($mode -eq 'DEV-overlap'){Assert-PhysicalWindowOrder @($a) 'outer' 'DEV'}
   if($mode -eq 'B-before-A'){Assert-PhysicalWindowOrder @() 'approved' 'B'}
   if($mode -eq 'B-wrong-grant'){$a.closed=$true;Assert-PhysicalWindowOrder @($a) 'other' 'B'}
   throw 'expected rejection'
@@ -398,7 +402,7 @@ $b=Get-PhysicalSessionWindow @($a) 'network-B' 'approval' $at.AddMinutes(2) 3600
 $expired=$false;try{Get-PhysicalSessionWindow @($a) 'network-A' 'approval' $at.AddMinutes(2) 3600|Out-Null}catch{$expired=$true}
 @{failures=$failures;B=$b;Aexpired=$expired}|ConvertTo-Json -Depth 4 -Compress
 """)
-        self.assertEqual(result['failures'],['physical_session_already_exists','network_window_a_cleanup_required','network_window_a_cleanup_required'])
+        self.assertEqual(result['failures'],['physical_session_already_exists','physical_session_already_exists','network_window_a_cleanup_required','network_window_a_cleanup_required'])
         self.assertTrue(result['Aexpired'])
         self.assertIn('11:02:00',result['B']['deadline'])
         print('CASE GS179-NETWORK-WINDOW-ORDER-001 PASS')
@@ -452,6 +456,149 @@ $expired=$false;try{Get-PhysicalSessionWindow @($a) 'network-A' 'approval' $at.A
                     with self.assertRaisesRegex(ValueError,'not_private'):endpoint._network_window_binding('B',sha,policy,status)
                 print('CASE GS179-NETWORK-AUTHORITY-001 PASS')
             finally:child.terminate();child.wait(timeout=5)
+
+    def test_five_day_outer_clock_and_hardware_isolation(self):
+        import hashlib,json
+        from datetime import datetime,timezone,timedelta
+        from unittest.mock import patch
+        import gs179_verified_endpoint as e
+        import gs117_hil_authorization as a
+        with tempfile.TemporaryDirectory() as temp:
+            state=Path(temp);state.chmod(0o700);audit=state/'audit.jsonl';audit.touch(mode=0o600)
+            hardware=state/'hardware.json';hardware.write_text('unchanged one-use hardware');hardware.chmod(0o600)
+            clock=[datetime(2026,11,5,tzinfo=timezone.utc)]
+            comments={ref:{'author':e.NETWORK_OWNER,'body':ref+' approved 120h'} for ref in e.DEV_NETWORK_APPROVAL_PINS}
+            pins={ref:hashlib.sha256(c['body'].encode()).hexdigest() for ref,c in comments.items()}
+            with patch.object(a,'DEV_STATE',state),patch.object(a,'DEV_MODE_AUDIT',audit),patch.object(a,'DEV_POLICY',hardware),patch.object(a,'load_development',return_value={'identity':{'home_id':'fixture'}}),patch.object(e,'DEV_NETWORK_APPROVAL_PINS',pins),patch.object(e,'_network_utc',side_effect=lambda now=None:now or clock[0]),patch.object(a,'development_session',side_effect=AssertionError('no hardware reservation')):
+                grant=e.record_development_network_authorization(comments);before=Path(grant['path']).read_bytes()
+                sha=grant['sha256'];origin=clock[0]
+                with patch.object(a,'_environment_is_release_qualified',return_value=True):
+                    with self.assertRaisesRegex(ValueError,'release_environment'):e.development_network_authority(sha)
+                for hours in [0,8,24,48,72,96,119.99]:
+                    clock[0]=origin+timedelta(hours=hours)
+                    self.assertFalse(e.development_network_authority(sha)['hardware_operations_authorized'])
+                    with self.assertRaises(FileExistsError):e.record_development_network_authorization(comments)
+                    self.assertEqual(Path(grant['path']).read_bytes(),before)
+                Path(grant['path']).unlink()
+                with self.assertRaisesRegex(ValueError,'already_issued'):e.record_development_network_authorization(comments)
+                Path(grant['path']).write_bytes(before);Path(grant['path']).chmod(0o600)
+                clock[0]=origin+timedelta(hours=120)
+                with self.assertRaisesRegex(ValueError,'expired'):e.development_network_authority(sha)
+                clock[0]=origin-timedelta(seconds=1)
+                with self.assertRaisesRegex(ValueError,'clock_invalid'):e.development_network_authority(sha)
+                clock[0]=origin+timedelta(hours=96)
+                # Outer authority is independent of the one-use hardware status.
+                with patch.object(a,'load_development',side_effect=ValueError('hardware unavailable')):
+                    self.assertEqual(e.development_network_authority(sha)['expires_at'],grant['expires_at'])
+                e.revoke_development_network_authorization(sha,'owner test revocation')
+                with self.assertRaisesRegex(ValueError,'revoked'):e.development_network_authority(sha)
+                self.assertEqual(hardware.read_text(),'unchanged one-use hardware')
+                self.assertEqual(Path(grant['path']).read_bytes(),before)
+            print('CASE GS179-DEV-120H-001 PASS')
+
+    def test_five_day_sublease_idle_resume_renewal_and_integrity(self):
+        import hashlib,json
+        from datetime import datetime,timezone,timedelta
+        from unittest.mock import patch
+        import gs179_verified_endpoint as e
+        import gs117_hil_authorization as a
+        with tempfile.TemporaryDirectory() as temp:
+            state=Path(temp);state.chmod(0o700);audit=state/'audit.jsonl';audit.touch(mode=0o600)
+            clock=[datetime(2026,11,5,tzinfo=timezone.utc)];origin=clock[0]
+            comments={ref:{'author':e.NETWORK_OWNER,'body':ref+' approved five-day networking'} for ref in e.DEV_NETWORK_APPROVAL_PINS}
+            pins={ref:hashlib.sha256(c['body'].encode()).hexdigest() for ref,c in comments.items()}
+            service=dict(controller_start='123',service_pid=456,service_start='789',service_sha256='a'*64,wsl_address='172.17.152.10')
+            with patch.object(a,'DEV_STATE',state),patch.object(a,'DEV_MODE_AUDIT',audit),patch.object(a,'load_development',return_value={'identity':{}}),patch.object(e,'DEV_NETWORK_APPROVAL_PINS',pins),patch.object(e,'_network_utc',side_effect=lambda now=None:now or clock[0]),patch.object(e,'_physical_service_identity',return_value=service):
+                grant=e.record_development_network_authorization(comments);sha=grant['sha256']
+                first=e.issue_development_sublease(sha,123,'services');lease=first['lease_id']
+                path=state/('gs179-sublease-'+lease+'.json');before=path.read_bytes()
+                for minutes in [20,40,57]:
+                    clock[0]=origin+timedelta(minutes=minutes);e.note_development_activity(lease,sha,123,'services')
+                clock[0]=origin+timedelta(minutes=59)
+                next_lease=e.issue_development_sublease(sha,123,'services',predecessor_lease_id=lease)
+                self.assertNotEqual(lease,next_lease['lease_id'])
+                # Handoff must not manufacture a new activity heartbeat.
+                clock[0]=origin+timedelta(minutes=87)
+                with self.assertRaisesRegex(ValueError,'idle'):e.development_sublease_authority(next_lease['lease_id'],sha,123,'services')
+                with self.assertRaisesRegex(ValueError,'expired'):e.note_development_activity(lease,sha,123,'services')
+                self.assertEqual(path.read_bytes(),before)
+                # Overnight inactivity expires exposure, never the outer grant.
+                clock[0]=origin+timedelta(hours=24)
+                fresh=e.issue_development_sublease(sha,123,'services');fid=fresh['lease_id']
+                e.development_sublease_authority(fid,sha,123,'services')
+                with self.assertRaisesRegex(ValueError,'binding_invalid'):e.development_sublease_authority(fid,sha,124,'services')
+                with patch.object(e,'_physical_service_identity',return_value={**service,'controller_start':'replaced'}):
+                    with self.assertRaisesRegex(ValueError,'identity_changed'):e.development_sublease_authority(fid,sha,123,'services')
+                f=state/('gs179-sublease-'+fid+'.json');f.chmod(0o644)
+                with self.assertRaisesRegex(ValueError,'not_private'):e.development_sublease_authority(fid,sha,123,'services')
+                f.chmod(0o600)
+                raw=f.read_bytes();f.write_text('{}')
+                with self.assertRaises(ValueError):e.development_sublease_authority(fid,sha,123,'services')
+                f.write_bytes(raw)
+                with self.assertRaisesRegex(ValueError,'duration_invalid'):e.issue_development_sublease(sha,123,'services',seconds=3601)
+                clock[0]=origin+timedelta(hours=120)-timedelta(seconds=10)
+                last=e.issue_development_sublease(sha,123,'services')
+                self.assertEqual(last['deadline'],grant['expires_at'])
+                clock[0]=origin+timedelta(hours=120)
+                with self.assertRaisesRegex(ValueError,'expired'):e.issue_development_sublease(sha,123,'services')
+                self.assertEqual(path.read_bytes(),before)
+            print('CASE GS179-DEV-SUBLEASE-001 PASS')
+
+    def test_dev_deadline_is_anchored_and_never_extends_shorter_receipts(self):
+        result=self.powershell(r"""
+function Stop-WithError($r){throw $r}
+$at=[DateTimeOffset]::Parse('2026-11-05T00:00:00Z')
+$end=$at.AddHours(1).ToString('o')
+$normal=Get-PhysicalSessionWindow @() 'lease' 'outer' $at.AddMinutes(2) 3600 $at.ToString('o') $end
+$short=Get-PhysicalSessionWindow @() 'lease' 'outer' $at.AddMinutes(2) 30 $at.ToString('o') $end
+$prior=[pscustomobject]@{scope='lease';activation='outer';started=$short.started;deadline=$short.deadline;closed=$true}
+$repeat=Get-PhysicalSessionWindow @($prior) 'lease' 'outer' $at.AddSeconds(125) 3600 $at.ToString('o') $end
+$expired=$false;try{Get-PhysicalSessionWindow @() 'lease' 'outer' $at.AddHours(1) 3600 $at.ToString('o') $end|Out-Null}catch{$expired=$true}
+@{normal=$normal;short=$short;repeat=$repeat;expired=$expired}|ConvertTo-Json -Depth 4 -Compress
+""")
+        self.assertIn('01:00:00',result['normal']['deadline'])
+        self.assertIn('00:02:30',result['short']['deadline'])
+        self.assertEqual(result['short'],result['repeat']);self.assertTrue(result['expired'])
+        print('CASE GS179-DEV-DEADLINE-001 PASS')
+
+    def test_system_idle_cleanup_is_bounded_independent_and_does_not_renew_authority(self):
+        result=self.powershell(r"""
+$SessionFile='C:\protected\lease.json';$script:registered=@()
+function New-ScheduledTaskSettingsSet {param([switch]$StartWhenAvailable,$MultipleInstances,$ExecutionTimeLimit,$RestartCount,$RestartInterval) return @{} }
+function New-ScheduledTaskAction {param($Execute,$Argument) return @{args=$Argument} }
+function New-ScheduledTaskTrigger {param([switch]$Once,$At,[switch]$AtStartup) return @{once=$Once.IsPresent;startup=$AtStartup.IsPresent;at=$At} }
+function Register-ScheduledTask {param($TaskName,$Action,$Trigger,$User,$RunLevel,$Settings,$ErrorAction,[switch]$Force) $script:registered+=@{user=$User;action=$Action;triggers=@($Trigger);update=$Force.IsPresent} }
+function Get-PhysicalTaskHash($name){return 'pinned'}
+$state=[pscustomobject]@{expiryTask='own';script='C:\protected\snapshot.ps1';expiryHash='';deadline='2026-11-05T01:00:00Z';cleanupDeadline='2026-11-05T00:30:00Z'}
+Set-PhysicalExpiryTask $state
+# Explicit work can move idle cleanup, but never the immutable lease deadline.
+$state.cleanupDeadline='2026-11-05T00:45:00Z';Set-PhysicalExpiryTask $state -Update
+@{tasks=$script:registered;deadline=$state.deadline;hash=$state.expiryHash}|ConvertTo-Json -Depth 7 -Compress
+""")
+        self.assertEqual([r['user'] for r in result['tasks']],['SYSTEM','SYSTEM'])
+        self.assertEqual([r['update'] for r in result['tasks']],[False,True])
+        for row in result['tasks']:
+            self.assertIn('SessionClose',row['action']['args']);self.assertNotIn('SessionStart',row['action']['args'])
+            self.assertTrue(any(t['startup'] for t in row['triggers']))
+        self.assertIn('01:00:00',result['deadline']);self.assertEqual(result['hash'],'pinned')
+        print('CASE GS179-DEV-IDLE-SYSTEM-001 PASS')
+
+    def test_operator_handoff_closes_before_opening_and_cleanup_is_idempotent(self):
+        result=self.powershell(r"""
+$script:order=@();$script:fail=$false
+function Get-PhysicalAuthority {$script:order+='issue';return @{lease_id=('a'*64)}}
+function Close-PhysicalSession($s){$script:order+='close';if($script:fail){throw 'cleanup_failed'}}
+function Invoke-TestSnapshot {$script:order+='open';$global:LASTEXITCODE=0}
+$state=[pscustomobject]@{approval='GS-179#11916';pid=12;directory='/services';authorityHelperSha256=('b'*64);networkWindow='DEV';networkApprovalSha256=('c'*64);networkLeaseId=('d'*64);script='Invoke-TestSnapshot'}
+Continue-PhysicalDevelopmentLease $state
+$success=@($script:order);$script:order=@();$script:fail=$true
+try{Continue-PhysicalDevelopmentLease $state;throw 'expected failure'}catch{if($_.Exception.Message -ne 'cleanup_failed'){throw}}
+@{success=$success;failure=@($script:order)}|ConvertTo-Json -Compress
+""")
+        self.assertEqual(result['success'],['issue','close','open'])
+        self.assertEqual(result['failure'],['issue','close'])
+        # Existing cleanup test also exercises exact route isolation/retry.
+        print('CASE GS179-DEV-HANDOFF-001 PASS')
 
     def test_windows_firewall_mask_notation_is_equivalent_without_scope_widening(self):
         result=self.powershell(r"""

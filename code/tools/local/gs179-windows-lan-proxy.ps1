@@ -12,8 +12,9 @@ param(
     [int]$ControllerPid = 0,
     [string]$ServiceDirectory = "",
     [string]$AuthorityHelperSha256 = "",
-    [ValidateSet('', 'A', 'B')][string]$NetworkWindow = '',
+    [ValidateSet('', 'A', 'B', 'DEV')][string]$NetworkWindow = '',
     [string]$NetworkApprovalSha256 = '',
+    [string]$NetworkLeaseId = '',
     [ValidateRange(1, 3600)][int]$SessionSeconds = 3600,
     [switch]$SessionRestricted
 )
@@ -193,7 +194,8 @@ function Test-TrustedWifiProfile($Category) {
 
 # Opt-in session actions are never reached by the installed default 443 Watch.
 # State and a pinned script snapshot are administrator/SYSTEM writable only.
-function Get-PhysicalSessionWindow($Prior, [string]$Scope, [string]$Activation, [DateTimeOffset]$Now, [int]$Seconds) {
+function Get-PhysicalSessionWindow($Prior, [string]$Scope, [string]$Activation, [DateTimeOffset]$Now, [int]$Seconds,
+    [string]$LeaseStarted='', [string]$LeaseDeadline='') {
     if ($Seconds -lt 1 -or $Seconds -gt 3600) { Stop-WithError 'physical_session_duration_invalid' }
     $start=$Now;$deadline=$Now.AddSeconds($Seconds)
     foreach($old in @($Prior)) {
@@ -203,6 +205,14 @@ function Get-PhysicalSessionWindow($Prior, [string]$Scope, [string]$Activation, 
             if($priorStart -lt $start){$start=$priorStart}
             if($priorEnd -lt $deadline){$deadline=$priorEnd}
         }
+    }
+    if ($LeaseStarted -or $LeaseDeadline) {
+        $issued=[DateTimeOffset]::Parse($LeaseStarted);$end=[DateTimeOffset]::Parse($LeaseDeadline)
+        if ($Now -lt $issued -or $Now -ge $end -or ($end-$issued).TotalSeconds -gt 3600) {
+            Stop-WithError 'physical_session_scope_window_expired'
+        }
+        if($issued -lt $start){$start=$issued}
+        if($end -lt $deadline){$deadline=$end}
     }
     if($Now -ge $deadline -or $Now -lt $start -or ($deadline-$start).TotalSeconds -gt 3600) {
         Stop-WithError 'physical_session_scope_window_expired'
@@ -288,7 +298,8 @@ function Save-PhysicalSession($State) {
 function Close-PhysicalSession($State) {
     # No firewall removal and no matching by port alone. Keep expiry/retry tasks
     # if cleanup fails so a failed netsh invocation cannot silently end recovery.
-    foreach ($row in @(Get-PortProxyRows | Where-Object { $State.exposureOwned -and -not $State.closed })) {
+    if (-not $State.closed) {
+    foreach ($row in @(Get-PortProxyRows | Where-Object { $State.exposureOwned })) {
         if ($row.ListenAddress -eq '192.168.1.6' -and $row.ListenPort -eq 8445 -and
             $row.TargetPort -eq 8445 -and $row.TargetAddress -in @($State.targets)) {
             & netsh.exe interface portproxy delete v4tov4 listenaddress=192.168.1.6 listenport=8445 | Out-Null
@@ -299,6 +310,7 @@ function Close-PhysicalSession($State) {
     $State | Add-Member -NotePropertyName closureSid -NotePropertyValue ([Security.Principal.WindowsIdentity]::GetCurrent().User.Value) -Force
     $State | Add-Member -NotePropertyName closedAt -NotePropertyValue ([DateTimeOffset]::UtcNow.ToString('o')) -Force
     Save-PhysicalSession $State
+    }
     foreach ($name in @($State.tickTask,$State.expiryTask)) {
         if (Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue) {
             Unregister-ScheduledTask -TaskName $name -Confirm:$false -ErrorAction Stop
@@ -306,17 +318,25 @@ function Close-PhysicalSession($State) {
     }
 }
 
+function Set-PhysicalExpiryTask($state, [switch]$Update) {
+    $exe=Join-Path $PSHOME 'powershell.exe'
+    $expiryArgs="-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$($state.script)`" -Action SessionClose -EndpointKind PhysicalHubIngress -SessionFile `"$SessionFile`""
+    $settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 2) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+    $at=if($state.cleanupDeadline){$state.cleanupDeadline}else{$state.deadline}
+    $force=@{};if($Update){$force=@{Force=$true}}
+    Register-ScheduledTask -TaskName $state.expiryTask -Action (New-ScheduledTaskAction -Execute $exe -Argument $expiryArgs) `
+        -Trigger @((New-ScheduledTaskTrigger -Once -At ([DateTimeOffset]::Parse($at)).LocalDateTime),(New-ScheduledTaskTrigger -AtStartup)) `
+        -User 'SYSTEM' -RunLevel Highest -Settings $settings -ErrorAction Stop @force | Out-Null
+    $state.expiryHash=Get-PhysicalTaskHash $state.expiryTask
+}
+
 function Register-PhysicalSessionTasks($state) {
     try {
         $exe=Join-Path $PSHOME 'powershell.exe'
-        $expiryArgs="-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$($state.script)`" -Action SessionClose -EndpointKind PhysicalHubIngress -SessionFile `"$SessionFile`""
         $tickArgs="-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$($state.script)`" -Action SessionTick -EndpointKind PhysicalHubIngress -SessionFile `"$SessionFile`""
         $settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 2) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
         # Independent SYSTEM expiry/startup cleanup survives WSL/controller exit.
-        Register-ScheduledTask -TaskName $state.expiryTask -Action (New-ScheduledTaskAction -Execute $exe -Argument $expiryArgs) `
-            -Trigger @((New-ScheduledTaskTrigger -Once -At ([DateTimeOffset]::Parse($state.deadline)).LocalDateTime),(New-ScheduledTaskTrigger -AtStartup)) `
-            -User 'SYSTEM' -RunLevel Highest -Settings $settings -ErrorAction Stop | Out-Null
-        $state.expiryHash=Get-PhysicalTaskHash $state.expiryTask
+        Set-PhysicalExpiryTask $state
         $state.timeProcess=(Get-PhysicalObservation $state).timeProcess
         Save-PhysicalSession $state
         Register-ScheduledTask -TaskName $state.tickTask -Action (New-ScheduledTaskAction -Execute $exe -Argument $tickArgs) `
@@ -332,15 +352,18 @@ function Get-PhysicalTaskHash([string]$Name) {
 }
 
 function Get-PhysicalAuthority([string]$Reference,[int]$PidValue,[string]$Directory,[string]$ExpectedHelper,
-    [string]$Window='', [string]$ApprovalHash='') {
-    if ($Reference -notmatch '^GS-117#[0-9]+$' -or $PidValue -lt 1 -or
+    [string]$Window='', [string]$ApprovalHash='', [string]$LeaseId='', [switch]$IssueNext) {
+    if ($Reference -notmatch '^GS-(117|179)#[0-9]+$' -or $PidValue -lt 1 -or
         $Directory -notmatch '^/home/udaybhan/\.local/state/ghar-sajag/gs117-tc001/[A-Za-z0-9_-]+$' -or
         $ExpectedHelper -notmatch '^[a-fA-F0-9]{64}$') {
         Stop-WithError 'physical_session_inputs_invalid'
     }
-    if (($Window -and ($Window -notin @('A','B') -or $Reference -ne 'GS-117#11910' -or
+    if ($Window -eq 'DEV') {
+        if ($Reference -ne 'GS-179#11916' -or $ApprovalHash -notmatch '^[a-f0-9]{64}$' -or
+            $LeaseId -notmatch '^[a-f0-9]{64}$') { Stop-WithError 'physical_session_network_inputs_invalid' }
+    } elseif (($Window -and ($Window -notin @('A','B') -or $Reference -ne 'GS-117#11910' -or
             $ApprovalHash -notmatch '^[a-f0-9]{64}$')) -or
-        (-not $Window -and ($ApprovalHash -or $Reference -eq 'GS-117#11910'))) {
+        (-not $Window -and ($ApprovalHash -or $Reference -notmatch '^GS-117#' -or $Reference -eq 'GS-117#11910')) -or $LeaseId -or $IssueNext) {
         Stop-WithError 'physical_session_network_inputs_invalid'
     }
     $helper='\\wsl.localhost\Ubuntu\home\udaybhan\projects\Ghar_sajag_r1\code\tools\local\gs179_verified_endpoint.py'
@@ -350,6 +373,8 @@ function Get-PhysicalAuthority([string]$Reference,[int]$PidValue,[string]$Direct
     $wsl=Join-Path ([Environment]::SystemDirectory) 'wsl.exe'
     $networkArgs=@()
     if ($Window) { $networkArgs=@('--network-window',$Window,'--network-approval-sha256',$ApprovalHash) }
+    if ($Window -eq 'DEV') { $networkArgs+=@('--network-lease-id',$LeaseId) }
+    if ($IssueNext) { $networkArgs+='--issue-development-sublease' }
     $raw=& $wsl --exec /usr/bin/python3 /home/udaybhan/projects/Ghar_sajag_r1/code/tools/local/gs179_verified_endpoint.py `
         --physical-ingress-authority $Reference --controller-pid $PidValue --service-directory $Directory @networkArgs
     if ($LASTEXITCODE -ne 0) { Stop-WithError 'physical_session_authority_or_services_unavailable' }
@@ -357,7 +382,7 @@ function Get-PhysicalAuthority([string]$Reference,[int]$PidValue,[string]$Direct
 }
 
 function Get-PhysicalObservation($State) {
-    $authority=Get-PhysicalAuthority $State.approval $State.pid $State.directory $State.authorityHelperSha256 $State.networkWindow $State.networkApprovalSha256
+    $authority=Get-PhysicalAuthority $State.approval $State.pid $State.directory $State.authorityHelperSha256 $State.networkWindow $State.networkApprovalSha256 $State.networkLeaseId
     $wifi=Get-ActiveWifiState $false
     $rule=Get-ExactFirewallRule
     $addressFilter=$rule | Get-NetFirewallAddressFilter
@@ -398,7 +423,7 @@ function Get-PhysicalObservation($State) {
         cleanupReady=((Get-FileHash $State.script -Algorithm SHA256).Hash -eq $State.scriptHash -and
             (Get-ScheduledTask -TaskName $State.expiryTask -ErrorAction Stop).State -ne 'Disabled' -and
             (Get-PhysicalTaskHash $State.expiryTask) -eq $State.expiryHash);
-        administrator=$true;scope=$authority.scope_id;activation=$authority.activation;
+        administrator=$true;scope=$authority.scope_id;activation=$authority.activation;activityDeadline=$authority.activity_deadline;
         controller=$authority.controller_start;service="$($authority.service_pid):$($authority.service_start):$($authority.service_sha256)";
         timeProcess=$timeProcess;address=$wifi.IpInfo.IPAddress;prefix=$wifi.IpInfo.PrefixLength;wifi=$wifi.Profile.Name;profile=$profile;
         firewall=$firewall;routeOwned=$owned;conflict=$conflict;target=$authority.wsl_address;
@@ -409,6 +434,18 @@ function Get-PhysicalObservation($State) {
 function Repair-PhysicalSessionRoute($State, [string]$Previous) {
     & $PSCommandPath -Action Start -EndpointKind PhysicalHubIngress -WslAddress $State.target -PreviousWslAddress $Previous -SessionRestricted
     if ($LASTEXITCODE -ne 0) { throw 'physical_session_repair_failed' }
+}
+
+function Continue-PhysicalDevelopmentLease($State) {
+    # Operator-only, activity-validated close-before-open handoff. SYSTEM expiry
+    # never renews. No task or privilege survives the individual lease closure.
+    $next=Get-PhysicalAuthority $State.approval $State.pid $State.directory $State.authorityHelperSha256 `
+        $State.networkWindow $State.networkApprovalSha256 $State.networkLeaseId -IssueNext
+    Close-PhysicalSession $State
+    & $State.script -Action SessionStart -EndpointKind PhysicalHubIngress -ApprovalRef $State.approval `
+        -ControllerPid $State.pid -ServiceDirectory $State.directory -AuthorityHelperSha256 $State.authorityHelperSha256 `
+        -NetworkWindow DEV -NetworkApprovalSha256 $State.networkApprovalSha256 -NetworkLeaseId $next.lease_id -SessionSeconds 3600
+    if ($LASTEXITCODE -ne 0) { throw 'development_network_handoff_failed' }
 }
 
 function Invoke-PhysicalSessionTick($State) {
@@ -424,12 +461,28 @@ function Invoke-PhysicalSessionTick($State) {
             Close-PhysicalSession $State
             return [pscustomobject]@{Decision='CLOSE';ExitCode=2}
         }
+        if ($State.networkWindow -eq 'DEV') {
+            $idleEnd=[DateTimeOffset]::Parse($observation.activityDeadline)
+            $leaseEnd=[DateTimeOffset]::Parse($State.deadline)
+            if($idleEnd -gt $leaseEnd){$idleEnd=$leaseEnd}
+            if($idleEnd -gt [DateTimeOffset]::Parse($State.cleanupDeadline)) {
+                $State.cleanupDeadline=$idleEnd.ToString('o')
+                Set-PhysicalExpiryTask $State -Update
+                Save-PhysicalSession $State
+            }
+        }
         if ($decision -eq 'REPAIR') {
             $previous=$State.target
             $State.targets=@(@($State.targets)+$observation.target|Select-Object -Unique)
             $State.target=$observation.target
             Save-PhysicalSession $State
             Repair-PhysicalSessionRoute $State $previous
+        }
+        if ($State.networkWindow -eq 'DEV' -and $State.allowHandoff -and
+            [DateTimeOffset]::Parse($State.outerDeadline) -gt [DateTimeOffset]::Parse($State.deadline) -and
+            ([DateTimeOffset]::Parse($State.deadline)-[DateTimeOffset]::UtcNow).TotalSeconds -le 60) {
+            Continue-PhysicalDevelopmentLease $State
+            return [pscustomobject]@{Decision='HANDOFF';ExitCode=0}
         }
         Save-PhysicalSession $State
         return [pscustomobject]@{Decision=$decision;ExitCode=0;Deadline=$State.deadline}
@@ -441,7 +494,7 @@ if ($Action -like 'Session*') {
     Assert-Administrator
     if ($Action -eq 'SessionStart') {
         if ($SessionFile) { Stop-WithError 'physical_session_file_generated_only' }
-        $authority=Get-PhysicalAuthority $ApprovalRef $ControllerPid $ServiceDirectory $AuthorityHelperSha256 $NetworkWindow $NetworkApprovalSha256
+        $authority=Get-PhysicalAuthority $ApprovalRef $ControllerPid $ServiceDirectory $AuthorityHelperSha256 $NetworkWindow $NetworkApprovalSha256 $NetworkLeaseId
         $base='C:\ProgramData\GharSajag\PhysicalIngress'
         foreach($folder in @('C:\ProgramData\GharSajag',$base)) {
         if (-not (Test-Path $folder)) {
@@ -480,9 +533,15 @@ if ($Action -like 'Session*') {
             Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json
         })
         Assert-PhysicalWindowOrder $prior $NetworkApprovalSha256 $NetworkWindow
-        $window=Get-PhysicalSessionWindow $prior $authority.scope_id $authority.activation $now $SessionSeconds
+        $window=Get-PhysicalSessionWindow $prior $authority.scope_id $authority.activation $now $SessionSeconds `
+            $authority.lease_started $authority.lease_deadline
+        $cleanupDeadline=$window.deadline
+        if($NetworkWindow -eq 'DEV' -and [DateTimeOffset]::Parse($authority.activity_deadline) -lt [DateTimeOffset]::Parse($cleanupDeadline)) {
+            $cleanupDeadline=$authority.activity_deadline
+        }
         $state=[pscustomobject]@{approval=$ApprovalRef;pid=$ControllerPid;directory=$ServiceDirectory;authorityHelperSha256=$AuthorityHelperSha256;
             networkWindow=$NetworkWindow;networkApprovalSha256=$NetworkApprovalSha256;
+            networkLeaseId=$NetworkLeaseId;outerDeadline=$authority.outer_deadline;cleanupDeadline=$cleanupDeadline;allowHandoff=($NetworkWindow -eq 'DEV' -and $SessionSeconds -eq 3600);
             hardwareScope=$authority.hardware_scope;hardwareActivation=$authority.hardware_activation;
             scope=$authority.scope_id;activation=$authority.activation;controller=$authority.controller_start;
             service="$($authority.service_pid):$($authority.service_start):$($authority.service_sha256)";timeProcess='';

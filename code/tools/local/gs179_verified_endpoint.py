@@ -161,6 +161,192 @@ NETWORK_APPROVAL_PINS = {
     'GS-179#11911': '0b55b62765af17c7792a314820e4d78b1540ddcb4581b13161ef3dfef13beb47',
 }
 NETWORK_OWNER = '712020:d1785a8a-5bf2-4556-a451-0805ddb6af74'
+DEV_NETWORK_APPROVAL_PINS = {
+    'GS-179#11916': '3028184134ebd78e5d6a9f0b6879f3cc7ea35acd98f3926290e45a464895f711',
+    'GS-117#11917': 'fab63d513982653ce2155834c8e170d7cc1f0936917a1db7bad58184f6c43111',
+}
+DEV_NETWORK_SECONDS = 432000
+NETWORK_IDLE_SECONDS = 1800
+
+
+def _network_utc(now=None):
+    from datetime import datetime, timezone
+    value = now or datetime.now(timezone.utc)
+    if value.tzinfo is None:
+        raise ValueError('network_clock_not_utc')
+    return value
+
+
+def _network_event(event, **fields):
+    import gs117_hil_authorization as auth
+    record = dict(event=event, at_utc=_network_utc().isoformat(), **fields)
+    record['record_sha256'] = auth._canonical_record_sha256(record)
+    auth._append_private_audit(auth.DEV_MODE_AUDIT, record)
+
+
+def _network_write_once(path, record):
+    import os, json
+    raw = (json.dumps(record, sort_keys=True) + '\n').encode()
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, 'wb') as out:
+        out.write(raw); out.flush(); os.fsync(out.fileno())
+    return hashlib.sha256(raw).hexdigest()
+
+
+def record_development_network_authorization(comments, *, now=None):
+    """Issue this reviewed five-day consent ONCE; never change hardware consent."""
+    import os, fcntl
+    from datetime import timedelta
+    import gs117_hil_authorization as auth
+    if (set(comments) != set(DEV_NETWORK_APPROVAL_PINS) or
+            any(c.get('author') != NETWORK_OWNER or
+                hashlib.sha256(c.get('body', '').encode()).hexdigest() != DEV_NETWORK_APPROVAL_PINS[ref]
+                for ref, c in comments.items())):
+        raise ValueError('network_owner_approval_not_reviewed')
+    policy = auth.load_development()  # Existing trusted fixture/owner audit path.
+    at = _network_utc(now)
+    record = dict(schema='GS179_DEV_TEST_ONLY', owner_uid=os.getuid(),
+                  approval_ref='GS-179#11916', approval_comments=comments,
+                  activated_at=at.isoformat(), expires_at=(at + timedelta(seconds=DEV_NETWORK_SECONDS)).isoformat(),
+                  hardware_operations_authorized=False, identity=policy['identity'])
+    path = auth.DEV_STATE / 'gs179-development-11916-11917.json'
+    with (auth.DEV_STATE / 'session.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if path.exists():
+            raise FileExistsError(path)
+        if any(e.get('event') == 'gs179_development_authorized' for e in auth._read_private_audit(auth.DEV_MODE_AUDIT)):
+            raise ValueError('development_network_already_issued_record_missing')
+        sha = _network_write_once(path, record)
+        _network_event('gs179_development_authorized', authorization_sha256=sha, approval_ref='GS-179#11916')
+    return dict(path=str(path), sha256=sha, activated_at=record['activated_at'], expires_at=record['expires_at'])
+
+
+def development_network_authority(expected_sha256, *, now=None):
+    import os
+    from datetime import datetime
+    import gs117_hil_authorization as auth
+    if auth._environment_is_release_qualified():
+        raise ValueError('development_network_release_environment')
+    path = auth.DEV_STATE / 'gs179-development-11916-11917.json'
+    record = _network_private_json(path)
+    if auth.digest(path) != expected_sha256:
+        raise ValueError('network_approval_changed')
+    if (record.get('schema') != 'GS179_DEV_TEST_ONLY' or record.get('owner_uid') != os.getuid() or
+            record.get('approval_ref') != 'GS-179#11916' or record.get('hardware_operations_authorized') is not False or
+            set(record.get('approval_comments', {})) != set(DEV_NETWORK_APPROVAL_PINS) or
+            any(c.get('author') != NETWORK_OWNER or hashlib.sha256(c.get('body', '').encode()).hexdigest() != DEV_NETWORK_APPROVAL_PINS[ref]
+                for ref, c in record['approval_comments'].items())):
+        raise ValueError('development_network_approval_invalid')
+    events = auth._read_private_audit(auth.DEV_MODE_AUDIT)
+    relevant = [e for e in events if e.get('authorization_sha256') == expected_sha256]
+    if (any(e.get('record_sha256') != auth._canonical_record_sha256(e) for e in relevant) or
+            sum(e.get('event') == 'gs179_development_authorized' and e.get('approval_ref') == 'GS-179#11916' for e in relevant) != 1 or
+            sum(e.get('event') == 'gs179_development_authorized' for e in events) != 1):
+        raise ValueError('network_approval_audit_missing')
+    if any(e.get('event') == 'gs179_development_revoked' for e in relevant):
+        raise ValueError('development_network_revoked')
+    at = _network_utc(now)
+    start, end = (datetime.fromisoformat(record[k]) for k in ('activated_at', 'expires_at'))
+    if (end-start).total_seconds() != DEV_NETWORK_SECONDS or not start <= at < end:
+        raise ValueError('development_network_expired_or_clock_invalid')
+    return record
+
+
+def revoke_development_network_authorization(expected_sha256, reason):
+    import fcntl
+    import gs117_hil_authorization as auth
+    if not isinstance(reason, str) or not reason.strip() or len(reason) > 240:
+        raise ValueError('network_revocation_reason_required')
+    with (auth.DEV_STATE / 'session.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        development_network_authority(expected_sha256)
+        _network_event('gs179_development_revoked', authorization_sha256=expected_sha256, reason=reason)
+
+
+def issue_development_sublease(expected_sha256, controller_pid, service_directory, *, seconds=3600, now=None,
+                              predecessor_lease_id=None):
+    """Prepare an immutable lease; only guarded Windows admission exposes a port.
+
+    The Windows protected receipt remains the exclusive ACTIVE ownership record.
+    Issuing a candidate cannot bypass its global non-overlap/cleanup guards.
+    """
+    import fcntl
+    from datetime import datetime, timedelta
+    import gs117_hil_authorization as auth
+    if not isinstance(seconds, int) or not 1 <= seconds <= 3600:
+        raise ValueError('physical_session_duration_invalid')
+    with (auth.DEV_STATE / 'session.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        outer = development_network_authority(expected_sha256, now=now)
+        service = _physical_service_identity(controller_pid, service_directory)
+        at = _network_utc(now)
+        end = min(at + timedelta(seconds=seconds), datetime.fromisoformat(outer['expires_at']))
+        activity_at = at.isoformat()
+        if predecessor_lease_id:
+            development_sublease_authority(predecessor_lease_id, expected_sha256, controller_pid, service_directory, now=at)
+            previous = auth.DEV_STATE / ('gs179-sublease-' + predecessor_lease_id + '.activity.json')
+            activity_at = _network_private_json(previous)['at']
+        sequence = 1 + sum(e.get('event') == 'gs179_sublease_issued' for e in auth._read_private_audit(auth.DEV_MODE_AUDIT))
+        record = dict(authorization_sha256=expected_sha256, sequence=sequence,
+                      controller_pid=controller_pid, service_directory=service_directory,
+                      service=service, started=at.isoformat(), deadline=end.isoformat(), activity_origin=activity_at)
+        lease_id = auth._canonical_record_sha256(record)
+        record['lease_id'] = lease_id
+        path = auth.DEV_STATE / ('gs179-sublease-' + lease_id + '.json')
+        sha = _network_write_once(path, record)
+        _network_write_once(path.with_suffix('.activity.json'), {'lease_id': lease_id, 'at': activity_at})
+        _network_event('gs179_sublease_issued', authorization_sha256=expected_sha256,
+                       lease_id=lease_id, lease_sha256=sha)
+    return dict(lease_id=lease_id, started=record['started'], deadline=record['deadline'])
+
+
+def development_sublease_authority(lease_id, expected_sha256, controller_pid, service_directory, *, now=None):
+    import re
+    from datetime import datetime, timedelta
+    import gs117_hil_authorization as auth
+    outer = development_network_authority(expected_sha256, now=now)
+    if not re.fullmatch('[a-f0-9]{64}', lease_id or ''):
+        raise ValueError('network_lease_id_invalid')
+    path = auth.DEV_STATE / ('gs179-sublease-' + lease_id + '.json')
+    record = _network_private_json(path)
+    base = dict(record); base.pop('lease_id', None)
+    issued = [e for e in auth._read_private_audit(auth.DEV_MODE_AUDIT) if
+              e.get('event') == 'gs179_sublease_issued' and e.get('lease_id') == lease_id]
+    if (auth._canonical_record_sha256(base) != lease_id or len(issued) != 1 or
+            issued[0].get('record_sha256') != auth._canonical_record_sha256(issued[0]) or
+            issued[0].get('lease_sha256') != auth.digest(path) or
+            record.get('authorization_sha256') != expected_sha256 or
+            record.get('controller_pid') != controller_pid or record.get('service_directory') != service_directory):
+        raise ValueError('network_sublease_binding_invalid')
+    at = _network_utc(now)
+    start, end = (datetime.fromisoformat(record[k]) for k in ('started', 'deadline'))
+    activity = _network_private_json(path.with_suffix('.activity.json'))
+    last = datetime.fromisoformat(activity['at'])
+    if (activity.get('lease_id') != lease_id or not start <= at < end or
+            not datetime.fromisoformat(record['activity_origin']) <= last <= at or
+            not 0 < (end-start).total_seconds() <= 3600 or
+            end > datetime.fromisoformat(outer['expires_at']) or (at-last).total_seconds() >= NETWORK_IDLE_SECONDS):
+        raise ValueError('network_sublease_expired_or_idle')
+    service = _physical_service_identity(controller_pid, service_directory)
+    if service != record['service']:
+        raise ValueError('network_sublease_service_identity_changed')
+    return dict(scope_id=lease_id, activation=expected_sha256, **service,
+                lease_started=record['started'], lease_deadline=record['deadline'],
+                activity_deadline=(last + timedelta(seconds=NETWORK_IDLE_SECONDS)).isoformat(),
+                outer_deadline=outer['expires_at'], hardware_operations_authorized=False)
+
+
+def note_development_activity(lease_id, expected_sha256, controller_pid, service_directory, *, now=None):
+    """Explicit work only; polling/ticks NEVER manufacture development activity."""
+    import fcntl
+    import gs117_hil_authorization as auth
+    with (auth.DEV_STATE / 'session.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        development_sublease_authority(lease_id, expected_sha256, controller_pid, service_directory, now=now)
+        path = auth.DEV_STATE / ('gs179-sublease-' + lease_id + '.activity.json')
+        auth._atomic_private_json(path, dict(lease_id=lease_id, at=_network_utc(now).isoformat()))
+        _network_event('gs179_development_activity', authorization_sha256=expected_sha256,
+                       lease_id=lease_id, controller_pid=controller_pid)
 
 
 def _network_private_json(path):
@@ -276,8 +462,44 @@ def revoke_network_window(window, expected_sha256, reason):
         auth._append_private_audit(auth.DEV_MODE_AUDIT, event)
 
 
+
+def _physical_service_identity(controller_pid, service_directory):
+    import os
+    private_json = _network_private_json
+    proc = Path('/proc') / str(int(controller_pid))
+    if proc.stat().st_uid != os.getuid():
+        raise ValueError('physical_session_controller_owner_mismatch')
+    controller_start = proc.joinpath('stat').read_text().rsplit(')', 1)[1].split()[19]
+    if proc.joinpath('stat').read_text().rsplit(')', 1)[1].split()[0] == 'Z':
+        raise ValueError('physical_session_controller_exited')
+    directory = Path(service_directory)
+    allowed = Path.home() / '.local/state/ghar-sajag/gs117-tc001'
+    if (directory.is_symlink() or directory.parent.resolve() != allowed.resolve() or
+            directory.stat().st_uid != os.getuid() or directory.stat().st_mode & 0o077):
+        raise ValueError('physical_session_service_directory_invalid')
+    manifest = private_json(directory / 'launch-manifest.json')
+    process = next(p for p in manifest['processes'] if p['script'] == 'gs117-active-ingress.py')
+    script = directory / process['script']
+    if script.is_symlink() or hashlib.sha256(script.read_bytes()).hexdigest() != process['sha256']:
+        raise ValueError('physical_session_service_script_changed')
+    ingress_proc = Path('/proc') / str(int(process['pid']))
+    if (ingress_proc.stat().st_uid != os.getuid() or
+            str(script).encode() not in ingress_proc.joinpath('cmdline').read_bytes().split(b'\0')):
+        raise ValueError('physical_session_service_identity_mismatch')
+    runtime = private_json(directory / 'ingress-runtime-status.json')
+    from datetime import datetime, timezone
+    if (runtime['pid'] != process['pid'] or
+            not 0 <= (datetime.now(timezone.utc) - datetime.fromisoformat(runtime['at'])).total_seconds() <= 10 or
+            any(runtime['status'].get(key) != 'YES' for key in
+                ('listener_ready', 'postgres_ready', 'trusted_time_ready')) or
+            runtime['status'].get('profile') != 'GS179_TEST_ONLY'):
+        raise ValueError('physical_session_service_expired_or_unready')
+    return dict(controller_start=controller_start, wsl_address=wsl_ipv4(), service_pid=process['pid'],
+                service_start=ingress_proc.joinpath('stat').read_text().rsplit(')', 1)[1].split()[19],
+                service_sha256=process['sha256'])
+
 def physical_ingress_authority(approval_ref, controller_pid, service_directory,
-                               network_window='', network_approval_sha256=''):
+                               network_window='', network_approval_sha256='', network_lease_id=''):
     """Read existing DEV authority and bounded launcher receipts; never reserve it.
 
     This is a projection for the Windows network utility, not hardware consent.
@@ -287,6 +509,14 @@ def physical_ingress_authority(approval_ref, controller_pid, service_directory,
     import os
     import stat
     import gs117_hil_authorization as auth
+
+    if network_window == 'DEV':
+        if approval_ref != 'GS-179#11916':
+            raise ValueError('development_network_reference_invalid')
+        return {'approval_ref': approval_ref, **development_sublease_authority(
+            network_lease_id, network_approval_sha256, controller_pid, service_directory)}
+    if network_lease_id:
+        raise ValueError('network_lease_id_not_applicable')
 
     def private_json(path):
         info = path.lstat()
@@ -326,40 +556,9 @@ def physical_ingress_authority(approval_ref, controller_pid, service_directory,
         if (not held or row.get('failure') or row.get('completed_at') or
                 row.get('procedure') != 'protected_gs40_bootstrap' or not 0 <= age <= 150):
             raise ValueError('physical_session_authorization_ended')
-    proc = Path('/proc') / str(int(controller_pid))
-    if proc.stat().st_uid != os.getuid():
-        raise ValueError('physical_session_controller_owner_mismatch')
-    controller_start = proc.joinpath('stat').read_text().rsplit(')', 1)[1].split()[19]
-    if proc.joinpath('stat').read_text().rsplit(')', 1)[1].split()[0] == 'Z':
-        raise ValueError('physical_session_controller_exited')
-    directory = Path(service_directory)
-    allowed = Path.home() / '.local/state/ghar-sajag/gs117-tc001'
-    if (directory.is_symlink() or directory.parent.resolve() != allowed.resolve() or
-            directory.stat().st_uid != os.getuid() or directory.stat().st_mode & 0o077):
-        raise ValueError('physical_session_service_directory_invalid')
-    manifest = private_json(directory / 'launch-manifest.json')
-    process = next(p for p in manifest['processes'] if p['script'] == 'gs117-active-ingress.py')
-    script = directory / process['script']
-    if script.is_symlink() or hashlib.sha256(script.read_bytes()).hexdigest() != process['sha256']:
-        raise ValueError('physical_session_service_script_changed')
-    ingress_proc = Path('/proc') / str(int(process['pid']))
-    if (ingress_proc.stat().st_uid != os.getuid() or
-            str(script).encode() not in ingress_proc.joinpath('cmdline').read_bytes().split(b'\0')):
-        raise ValueError('physical_session_service_identity_mismatch')
-    runtime = private_json(directory / 'ingress-runtime-status.json')
-    from datetime import datetime, timezone
-    if (runtime['pid'] != process['pid'] or
-            not 0 <= (datetime.now(timezone.utc) - datetime.fromisoformat(runtime['at'])).total_seconds() <= 10 or
-            any(runtime['status'].get(key) != 'YES' for key in
-                ('listener_ready', 'postgres_ready', 'trusted_time_ready')) or
-            runtime['status'].get('profile') != 'GS179_TEST_ONLY'):
-        raise ValueError('physical_session_service_expired_or_unready')
     return {'approval_ref': approval_ref, 'scope_id': status['authorization_scope_id'],
             'activation': policy['development_mode']['activation_id'],
-            'controller_start': controller_start, 'wsl_address': wsl_ipv4(),
-            'service_pid': process['pid'],
-            'service_start': ingress_proc.joinpath('stat').read_text().rsplit(')', 1)[1].split()[19],
-            'service_sha256': process['sha256'], **(network or {})}
+            **_physical_service_identity(controller_pid, service_directory), **(network or {})}
 
 
 if __name__ == '__main__':
@@ -369,13 +568,21 @@ if __name__ == '__main__':
     parser.add_argument('--physical-ingress-authority', required=True)
     parser.add_argument('--controller-pid', required=True, type=int)
     parser.add_argument('--service-directory', required=True)
-    parser.add_argument('--network-window', default='', choices=('', 'A', 'B'))
+    parser.add_argument('--network-window', default='', choices=('', 'A', 'B', 'DEV'))
     parser.add_argument('--network-approval-sha256', default='')
+    parser.add_argument('--network-lease-id', default='')
+    parser.add_argument('--issue-development-sublease', action='store_true')
     args = parser.parse_args()
     try:
-        print(json.dumps(physical_ingress_authority(
-            args.physical_ingress_authority, args.controller_pid, args.service_directory,
-            args.network_window, args.network_approval_sha256)))
+        if args.issue_development_sublease:
+            if args.physical_ingress_authority != 'GS-179#11916' or args.network_window != 'DEV':
+                raise ValueError('development_network_reference_invalid')
+            value = issue_development_sublease(args.network_approval_sha256, args.controller_pid,
+                args.service_directory, predecessor_lease_id=args.network_lease_id)
+        else:
+            value = physical_ingress_authority(args.physical_ingress_authority, args.controller_pid,
+                args.service_directory, args.network_window, args.network_approval_sha256, args.network_lease_id)
+        print(json.dumps(value))
     except Exception as error:
         print(json.dumps({'error': type(error).__name__}))
         raise SystemExit(2)
