@@ -1,3 +1,10 @@
+## GS-117 trust-source setup proposal — 2026-11-06 (not approved)
+
+The available Jira connector is owner-authenticated and read-write; it cannot
+supply distinct reviewer control to the local issuer. A separated Jira reviewer
+and read-only local verifier credential is proposed in the existing GS-117
+handoff. No trust-policy decision, credential setup or implementation occurred.
+
 ## GS-117 scoped receipt and one-event issuer — 2026-11-06 (implementation evidence only)
 
 Owner approval #11933 remains the authority for its original conditional

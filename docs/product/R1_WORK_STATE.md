@@ -1,3 +1,18 @@
+## GS-117 — external trust setup prerequisite — 2026-11-06
+
+Authenticated Jira investigation works through the owner-connected read-write
+MCP integration, but the local issuer cannot independently verify its responses.
+Codex can write as that same owner, so this is not distinct reviewer control.
+No local Jira verifier/credential interface was found in the checked interfaces.
+Proposed single setup decision: Jira review authority outside Codex write control,
+plus owner-provisioned read-only API access for the local verifier and a genuine
+source/hash/test-digest review. This is not another Scope A/B approval. Details:
+[existing GS-117 handoff](../exec-plans/evidence/GS117_ONE_EVENT_USB_ANDROID_READINESS_20261106.md).
+No source/tests/grants/hardware changed; issuer BLOCKED, A/B NOT_RUN, firmware
+unchanged, receipts STALE, historical latches preserved, TC001_READY NO, TC-001 0/5.
+Next: owner establishes the separated Jira read/review setup before a narrow
+issuer adapter can be implemented and independently reviewed.
+
 ## GS-117 — issuer security review blocked — 2026-11-06
 
 Owner approval #11933 still covers only its original two scopes. The new

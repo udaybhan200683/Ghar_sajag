@@ -1,5 +1,53 @@
 # GS-117 — One-event USB-to-Android readiness — 2026-11-06
 
+## Trust-source availability and minimal external prerequisite — 2026-11-06
+
+Result: **BLOCKED; no existing independently consumable trust mechanism found**.
+The authenticated Atlassian connector successfully returned the owner account
+`712020:d1785a8a-5bf2-4556-a451-0805ddb6af74`, the actual #11933 approval,
+and #11936 review finding. Resource discovery reports Jira **read-write** access.
+This is a usable interactive source for investigation, but the local Python
+issuer has no authenticated Jira client/credential interface or verifiable
+connector attestation. A copied connector response would again be caller JSON.
+Moreover, Codex can add comments through this same owner account: author ID
+alone cannot distinguish an independent owner review from an agent-written
+comment. This task's Jira result comment must never serve as source approval.
+
+Targeted availability checks found no `acli`/`jira` executable, no Jira/Atlassian
+environment variable names, and no standard local acli/Jira/Atlassian config
+directory. Relevant canonical tool source has no Jira REST/authentication client.
+No credential values or connector credential stores were inspected or exported.
+These observations establish no configured local verifier in the examined
+interfaces; they do not claim no credential exists anywhere on the laptop.
+
+**One proposed owner-controlled setup decision:** use the existing Jira Cloud
+service with separated review-write and verifier-read authority. The owner
+selects a review account whose write credentials are unavailable to Codex
+(or removes Codex write access as that reviewer), and provisions read-only Jira
+API access for the local verifier through an owner-controlled credential store.
+The owner independently records a source review in Jira identifying the exact
+issuer commit, source/tool fingerprints, reviewed test outputs and report digest.
+The existing test runner may produce those outputs; an independently authored
+review must endorse their source binding and digest. The issuer must fetch the
+actual approval and review directly over authenticated HTTPS, validate authors,
+current content and scope, and match the local test report to the reviewed digest.
+No new approval of unchanged #11933 hardware scope is requested.
+
+This is a proposed setup, not an implemented or activated trust source. Credential
+provisioning, separated reviewer control and genuine source review require owner
+participation; Codex cannot create those independently by copying JSON or posting
+as the owner. After setup, only the existing issuer verification inputs need a
+narrow adapter and focused forgery/replay/crash tests, followed by source review.
+Product pipeline, receipt collector, controller, scope limits and historical
+ledgers can remain unchanged. No identity framework was implemented.
+
+Current preflight PASS at starting local/origin `bbe094f9117b88fea79ce09bb46ced56b221d504`.
+No source changed and no tests were rerun: prior 53/53 receipt/issuer, 180/180
+console, 55/55 framework and 22/22 mapping remain historical results, not trust
+qualification. Scope A/B remain absent and NOT_RUN; no hardware/grant/network
+operation occurred. Firmware unchanged; receipts STALE; #11897 SAFETY_LATCHED
+1/1 and #11886 preserved; TC001_READY NO; formal TC-001 0/5.
+
 ## Independent issuer security review — BLOCKED — 2026-11-06
 
 The scoped issue/activate implementation is **not approved for use**. Jira
