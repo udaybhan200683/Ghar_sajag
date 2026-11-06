@@ -139,7 +139,8 @@ class StandingAuthorizationTest(unittest.TestCase):
                  allowed_operations=selected_procedures,
                  prohibited_operations=hil_auth.DEV_PROHIBITED, max_sessions=max_sessions,
                  development_mode_enabled=True, images=hil_auth.DEV_IMAGES,
-                 motion_injection_authorized=('tc001_campaign' in selected_procedures))
+                 motion_injection_authorized=bool(
+                     {'tc001_campaign', 'motion_event_once'}.intersection(selected_procedures)))
         if selected_procedures != hil_auth.DEV_OPERATIONS:
             p['procedure_session_limits'] = {name: 1 for name in selected_procedures}
         p['owner_approval_ref'] = 'unit-test-consent-only'
@@ -222,6 +223,37 @@ class StandingAuthorizationTest(unittest.TestCase):
         status = hil_auth.development_status(path)
         self.assertEqual(status['status'], 'SESSION_LIMIT_REACHED')
         self.assertEqual(status['sessions_remaining'], 0)
+
+    def test_motion_event_once_authority_is_an_isolated_one_use_operation(self):
+        path, policy = self.development_policy(
+            procedures=['motion_event_once'], max_sessions=1)
+        self.assertTrue(hil_auth._development_motion_event_once_scope_valid(
+            hil_auth.load_development(path)))
+        state = path.parent / 'development-authorization'
+        with self.assertRaisesRegex(ValueError, 'operation_not_authorized'):
+            with hil_auth.session('tc001_campaign', path, state, _development=True):
+                self.fail('one-event authority must not authorize the five-run campaign')
+        with hil_auth.session('motion_event_once', path, state, _development=True) as (_p, row):
+            row['functional_outcome'] = 'PASS'
+        with self.assertRaisesRegex(ValueError, 'failure_latched_or_limit_reached'):
+            with hil_auth.session('motion_event_once', path, state, _development=True):
+                self.fail('one-use motion authority was reusable')
+        status = hil_auth.development_status(path)
+        self.assertEqual(status['sessions'], 1)
+        self.assertEqual(status['procedures'], ['motion_event_once'])
+        self.assertEqual(status['sessions_remaining'], 0)
+        ledger, _scope = hil_auth._development_ledger_path(state, policy)
+        self.assertEqual(json.loads(ledger.read_text())['procedure_counts'],
+                         {'motion_event_once': 1})
+
+        combined_path, _combined = self.development_policy(
+            procedures=['protected_gs40_bootstrap', 'motion_event_once'], max_sessions=2)
+        with self.assertRaisesRegex(ValueError, 'must_be_single_use'):
+            with hil_auth.session('motion_event_once', combined_path,
+                                  combined_path.parent / 'development-authorization',
+                                  _development=True):
+                self.fail('combined bootstrap scope must not authorize the one-event action')
+        self.assertEqual(hil_auth.development_status(combined_path)['sessions'], 0)
 
     def test_development_subset_rejects_unbounded_duplicate_and_mismatched_scopes(self):
         path, policy = self.development_policy(
@@ -320,6 +352,7 @@ class StandingAuthorizationTest(unittest.TestCase):
             'test_dev_consent_revocation_identity_and_procedure_guards',
             'test_activation_record_binds_reviewed_commit_and_source_pins',
             'test_campaign_safety_failure_latches_and_denies_next_operation',
+            *sorted(hil_auth.DEV_MOTION_EVENT_PIN_REVIEW_TESTS),
         ]
         commit = 'a' * 40
         with (patch.object(hil_auth, '_current_development_commit', return_value=commit),
@@ -343,6 +376,47 @@ class StandingAuthorizationTest(unittest.TestCase):
         self.assertEqual(status['sessions'], 0)
         self.assertFalse(status['blocked'])
 
+    def test_motion_event_source_pin_review_requires_and_records_single_use_negatives(self):
+        path, policy = self.development_policy(
+            procedures=['motion_event_once'], max_sessions=1,
+            validator_text='before one-event authorization validator\n')
+        validator_path = Path(policy['validator']['path'])
+        validator_path.write_text('reviewed one-event authorization validator\n')
+        audit_path = Path(policy['activation_audit_path'])
+        audit_before = audit_path.read_bytes()
+        general_negatives = [
+            'test_dev_consent_revocation_identity_and_procedure_guards',
+            'test_activation_record_binds_reviewed_commit_and_source_pins',
+            'test_campaign_safety_failure_latches_and_denies_next_operation',
+        ]
+        with (patch.object(hil_auth, '_current_development_commit', return_value='9' * 40),
+              patch.object(hil_auth, '_run_development_review_tests',
+                           side_effect=self._review_test_receipt)):
+            with self.assertRaisesRegex(ValueError, 'negative_tests_missing'):
+                hil_auth.review_development_source_updates(
+                    'Reviewed the one-event authorization pin with missing operation-specific negatives.',
+                    general_negatives, path=path)
+        self.assertEqual(audit_path.read_bytes(), audit_before)
+        self.assertEqual(json.loads(path.read_text())['validator']['sha256'],
+                         policy['validator']['sha256'])
+
+        reviewed_negatives = sorted(set(general_negatives) |
+                                    hil_auth.DEV_MOTION_EVENT_PIN_REVIEW_TESTS)
+        with (patch.object(hil_auth, '_current_development_commit', return_value='9' * 40),
+              patch.object(hil_auth, '_run_development_review_tests',
+                           side_effect=self._review_test_receipt)):
+            result = hil_auth.review_development_source_updates(
+                'Reviewed the isolated one-event scope, operation-specific negatives, and source pins.',
+                reviewed_negatives, path=path)
+        self.assertEqual(result['status'], 'SOURCE_UPDATE_RECORDED')
+        rows = [json.loads(line) for line in audit_path.read_text().splitlines()]
+        review = next(row for row in rows if row.get('event') == 'development_mode_source_reviewed')
+        self.assertIs(review['single_event_scope_reviewed'], True)
+        self.assertTrue(hil_auth.DEV_MOTION_EVENT_PIN_REVIEW_TESTS.issubset(
+            set(review['reviewed_negative_tests'])))
+        self.assertEqual(hil_auth.load_development(path)['validator']['sha256'],
+                         hil_auth.digest(validator_path))
+
     def test_reviewed_pin_update_fails_closed_if_manifest_backup_changes(self):
         path, policy = self.development_policy(validator_text='before\n')
         original_policy_bytes = path.read_bytes()
@@ -351,6 +425,7 @@ class StandingAuthorizationTest(unittest.TestCase):
             'test_dev_consent_revocation_identity_and_procedure_guards',
             'test_activation_record_binds_reviewed_commit_and_source_pins',
             'test_campaign_safety_failure_latches_and_denies_next_operation',
+            *sorted(hil_auth.DEV_MOTION_EVENT_PIN_REVIEW_TESTS),
         ]
         with (patch.object(hil_auth, '_current_development_commit', return_value='e'*40),
               patch.object(hil_auth, '_run_development_review_tests', side_effect=self._review_test_receipt)):
@@ -376,7 +451,8 @@ class StandingAuthorizationTest(unittest.TestCase):
                 'Reviewed authorization source update with authenticated policy backup validation.',
                 ['test_dev_consent_revocation_identity_and_procedure_guards',
                  'test_activation_record_binds_reviewed_commit_and_source_pins',
-                 'test_campaign_safety_failure_latches_and_denies_next_operation'], path=path)
+                 'test_campaign_safety_failure_latches_and_denies_next_operation',
+                 *sorted(hil_auth.DEV_MOTION_EVENT_PIN_REVIEW_TESTS)], path=path)
         audit = Path(policy['activation_audit_path'])
         review = next(row for row in map(json.loads, audit.read_text().splitlines())
                       if row.get('event') == 'development_mode_source_reviewed')
@@ -408,6 +484,7 @@ class StandingAuthorizationTest(unittest.TestCase):
             'test_dev_consent_revocation_identity_and_procedure_guards',
             'test_activation_record_binds_reviewed_commit_and_source_pins',
             'test_campaign_safety_failure_latches_and_denies_next_operation',
+            *sorted(hil_auth.DEV_MOTION_EVENT_PIN_REVIEW_TESTS),
             'test_not_a_registered_regression',
         ]
         with patch.object(hil_auth, '_current_development_commit', return_value='b'*40):
@@ -451,6 +528,7 @@ class StandingAuthorizationTest(unittest.TestCase):
             'test_dev_consent_revocation_identity_and_procedure_guards',
             'test_activation_record_binds_reviewed_commit_and_source_pins',
             'test_campaign_safety_failure_latches_and_denies_next_operation',
+            *sorted(hil_auth.DEV_MOTION_EVENT_PIN_REVIEW_TESTS),
         ]
         with (patch.object(hil_auth, '_current_development_commit', return_value='c' * 40),
               patch.object(hil_auth, '_run_development_review_tests', side_effect=self._review_test_receipt)):
@@ -496,6 +574,7 @@ class StandingAuthorizationTest(unittest.TestCase):
                 'test_dev_consent_revocation_identity_and_procedure_guards',
                 'test_activation_record_binds_reviewed_commit_and_source_pins',
                 'test_campaign_safety_failure_latches_and_denies_next_operation',
+            *sorted(hil_auth.DEV_MOTION_EVENT_PIN_REVIEW_TESTS),
             ]
             with (patch.object(hil_auth, '_current_development_commit', return_value='d' * 40),
                   patch.object(hil_auth, '_run_development_review_tests', side_effect=self._review_test_receipt)):
@@ -1237,7 +1316,8 @@ class TC001Test(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'identity_mismatch'):tc.development_input_trial(fixture)
 
     def test_reusable_dev_campaign_consent_preserves_identity_checks(self):
-        policy = {'identity': hil_auth.IDENTITY, 'owner_approval_ref': 'unit-dev-consent'}
+        policy = {'identity': hil_auth.IDENTITY, 'owner_approval_ref': 'unit-dev-consent',
+                  'procedures': ['tc001_campaign']}
         fixture = {'home_id': hil_auth.IDENTITY['home_id'], 'physical_device_id': hil_auth.IDENTITY['c3']['device_id'],
             'hub_id': hil_auth.IDENTITY['s3']['device_id'],
             **{r: dict(hil_auth.IDENTITY[r]) for r in ('c3','s3')}}
@@ -1248,6 +1328,161 @@ class TC001Test(unittest.TestCase):
             fixture['home_id'] = 'other-home'
             with self.assertRaisesRegex(ValueError, 'identity_mismatch'):
                 tc.campaign_approval(Path('/unused'), fixture)
+
+    @staticmethod
+    def _motion_fixture():
+        return {
+            'home_id': hil_auth.IDENTITY['home_id'],
+            'physical_device_id': hil_auth.IDENTITY['c3']['device_id'],
+            'hub_id': hil_auth.IDENTITY['s3']['device_id'],
+            'installation_epoch': 1,
+            'c3': dict(hil_auth.IDENTITY['c3']),
+            's3': dict(hil_auth.IDENTITY['s3']),
+            'phone_receipt': {'package': 'in.gharsajag.caregiver',
+                              'signer_sha256': 'a' * 64,
+                              'backend_origin': 'https://192.168.1.6'},
+        }
+
+    def test_motion_event_readiness_requires_fresh_one_use_fixture_authority(self):
+        fixture = self._motion_fixture()
+        policy = {'identity': hil_auth.IDENTITY, 'owner_approval_ref': 'GS-117#future-one-use',
+                  'procedures': ['motion_event_once'], 'allowed_operations': ['motion_event_once'],
+                  'procedure_session_limits': {'motion_event_once': 1}, 'max_sessions': 1,
+                  'motion_injection_authorized': True}
+        active = {'status': 'ACTIVE', 'sessions': 0, 'sessions_remaining': 1,
+                  'blocked': False, 'authorization_scope_id': 'b' * 64}
+        with (patch.object(hil_auth, 'load_development', return_value=policy),
+              patch.object(hil_auth, 'development_status', return_value=active)):
+            self.assertEqual(tc.motion_event_once_authorization(fixture)['status'], 'PASS')
+            wrong = dict(fixture, hub_id='wrong-hub')
+            with self.assertRaisesRegex(ValueError, 'fixture_identity_mismatch'):
+                tc.motion_event_once_authorization(wrong)
+            invalid_scope = dict(policy, procedures=['protected_gs40_bootstrap'],
+                                 allowed_operations=['protected_gs40_bootstrap'],
+                                 procedure_session_limits={'protected_gs40_bootstrap': 1},
+                                 motion_injection_authorized=False)
+            with patch.object(hil_auth, 'load_development', return_value=invalid_scope), \
+                 self.assertRaisesRegex(ValueError, 'single_use'):
+                tc.motion_event_once_authorization(fixture)
+
+            with patch.object(Path, 'exists', return_value=True), \
+                 self.assertRaisesRegex(ValueError, 'campaign_operation_not_authorized'):
+                tc.campaign_approval(Path('/unused'), fixture)
+
+        for status in (
+                dict(active, sessions=1, sessions_remaining=0, status='SESSION_LIMIT_REACHED'),
+                dict(active, blocked=True, status='SAFETY_LATCHED'),
+                dict(active, status='REVOKED')):
+            with (patch.object(hil_auth, 'load_development', return_value=policy),
+                  patch.object(hil_auth, 'development_status', return_value=status),
+                  self.assertRaisesRegex(ValueError, 'not_fresh')):
+                tc.motion_event_once_authorization(fixture)
+
+    def test_single_event_controller_reserves_once_and_never_falls_back_to_campaign(self):
+        fixture = self._motion_fixture()
+        builder = StandingAuthorizationTest(methodName='test_motion_event_once_authority_is_an_isolated_one_use_operation')
+        builder.setUp()
+        self.addCleanup(builder.doCleanups)
+        path, _policy = builder.development_policy(procedures=['motion_event_once'], max_sessions=1)
+        state = path.parent / 'development-authorization'
+        controller = tc.Controller()
+        controller.lock.acquire()
+        report = {'run_id': 'TC001-USB-ONE-EVENT-unit', 'execution_kind': 'SINGLE_EVENT',
+                  'overall': 'BLOCKED', 'stages': {name: {'status': 'NOT_VERIFIED',
+                                                          'reason': 'not reached'}
+                                                   for name in tc.STAGES}}
+        calls = []
+
+        def execute_once(current, **kwargs):
+            calls.append(kwargs)
+            current['overall'] = 'PASS'
+            return None
+
+        real_session = hil_auth.session
+        with (patch.object(hil_auth, 'DEV_POLICY', path),
+              patch.object(hil_auth, 'DEV_STATE', state),
+              patch.object(hil_auth, 'development_session',
+                           side_effect=lambda procedure: real_session(
+                               procedure, path, state, _development=True)),
+              patch.object(tc, 'exact_fixture', return_value=fixture),
+              patch.object(controller, 'execute', side_effect=execute_once),
+              patch.object(controller, 'execute_campaign', side_effect=AssertionError('campaign fallback')),
+              patch.object(controller, 'save')):
+            controller.execute_motion_event_once(report)
+
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0], {'fixture_override': fixture, 'release_lock': False})
+        self.assertEqual(report['authorization_outcome'], 'AUTHORIZED_SCOPE_OPERATION')
+        self.assertTrue(report['authorization_session_consumed'])
+        self.assertEqual(hil_auth.development_status(path)['sessions'], 1)
+        self.assertFalse(controller.lock.locked())
+
+    def test_single_event_missing_or_stale_preflight_never_invokes_execute(self):
+        controller = tc.Controller()
+        calls = []
+        report = {'run_id': 'TC001-USB-ONE-EVENT-blocked', 'execution_kind': 'SINGLE_EVENT',
+                  'overall': 'BLOCKED', 'stages': {name: {'status': 'NOT_VERIFIED',
+                                                          'reason': 'not reached'}
+                                                   for name in tc.STAGES}}
+        with (patch.object(tc, 'exact_fixture', side_effect=ValueError('stale_installed_image_receipt')),
+              patch.object(controller, 'execute', side_effect=lambda *_a, **_k: calls.append('execute')),
+              patch.object(controller, 'save')):
+            controller.lock.acquire()
+            controller.execute_motion_event_once(report)
+        self.assertEqual(calls, [])
+        self.assertEqual(report['authorization_outcome'], 'PRESESSION_GUARD_DENIED')
+        self.assertEqual(report['functional_outcome'], 'NOT_RUN')
+        self.assertIn('stale_installed_image_receipt', report['stop_reason'])
+        self.assertFalse(controller.lock.locked())
+
+        report = {'run_id': 'TC001-USB-ONE-EVENT-no-auth', 'execution_kind': 'SINGLE_EVENT',
+                  'overall': 'BLOCKED', 'stages': {name: {'status': 'NOT_VERIFIED',
+                                                          'reason': 'not reached'}
+                                                   for name in tc.STAGES}}
+        absent_policy = Path(self.dev_temp.name) / 'no-owner-grant.json'
+        with (patch.object(hil_auth, 'DEV_POLICY', absent_policy),
+              patch.object(tc, 'exact_fixture', return_value=self._motion_fixture()),
+              patch.object(controller, 'execute', side_effect=lambda *_a, **_k: calls.append('execute')),
+              patch.object(controller, 'save')):
+            controller.lock.acquire()
+            controller.execute_motion_event_once(report)
+        self.assertEqual(calls, [])
+        self.assertEqual(report['authorization_outcome'], 'PRESESSION_GUARD_DENIED')
+        self.assertEqual(report['functional_outcome'], 'NOT_RUN')
+        self.assertFalse(controller.lock.locked())
+
+    def test_single_event_fixture_change_after_reservation_consumes_scope_without_execute(self):
+        fixture = self._motion_fixture()
+        changed_fixture = json.loads(json.dumps(fixture))
+        changed_fixture['s3']['image_sha256'] = 'c' * 64
+        builder = StandingAuthorizationTest(methodName='test_motion_event_once_authority_is_an_isolated_one_use_operation')
+        builder.setUp()
+        self.addCleanup(builder.doCleanups)
+        path, _policy = builder.development_policy(procedures=['motion_event_once'], max_sessions=1)
+        state = path.parent / 'development-authorization'
+        controller = tc.Controller()
+        report = {'run_id': 'TC001-USB-ONE-EVENT-fixture-change', 'execution_kind': 'SINGLE_EVENT',
+                  'overall': 'BLOCKED', 'stages': {name: {'status': 'NOT_VERIFIED',
+                                                          'reason': 'not reached'}
+                                                   for name in tc.STAGES}}
+        calls = []
+        real_session = hil_auth.session
+        with (patch.object(hil_auth, 'DEV_POLICY', path),
+              patch.object(hil_auth, 'DEV_STATE', state),
+              patch.object(hil_auth, 'development_session',
+                           side_effect=lambda procedure: real_session(
+                               procedure, path, state, _development=True)),
+              patch.object(tc, 'exact_fixture', side_effect=[fixture, changed_fixture]),
+              patch.object(controller, 'execute', side_effect=lambda *_a, **_k: calls.append('execute')),
+              patch.object(controller, 'save')):
+            controller.lock.acquire()
+            controller.execute_motion_event_once(report)
+
+        self.assertEqual(calls, [])
+        self.assertEqual(report['authorization_outcome'], 'SAFETY_FAILURE')
+        self.assertTrue(report['authorization_session_consumed'])
+        self.assertEqual(hil_auth.development_status(path)['sessions'], 1)
+        self.assertFalse(controller.lock.locked())
 
     def test_node_only_payload_keeps_both_identities_and_bounded_duration(self):
         fixture = {r: {'port': port, 'usb_hwid': 'test-hwid', 'serial_number': serial}
@@ -3279,6 +3514,30 @@ class TC001Test(unittest.TestCase):
                     self.assertEqual(rejected.exception.code, 403)
                     rejected.exception.close()
                 start.assert_not_called()
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+
+    def test_loopback_one_event_action_uses_existing_route_and_never_campaign(self):
+        server = ThreadingHTTPServer(("127.0.0.1", 0), tc.Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        url = f"http://127.0.0.1:{server.server_address[1]}/api/run"
+        try:
+            report = {"run_id": "TC001-USB-ONE-EVENT-route-test"}
+            with (patch.object(tc.CONTROLLER, "start_motion_event_once", return_value=report) as once,
+                  patch.object(tc.CONTROLLER, "start") as campaign):
+                request = urllib.request.Request(
+                    url, data=b'{"operation":"motion_event_once"}', method="POST",
+                    headers={"Host": "127.0.0.1:18791", "Origin": tc.ORIGIN,
+                             "X-CSRF-Token": tc.CONTROLLER.csrf,
+                             "Content-Type": "application/json"})
+                with urllib.request.urlopen(request, timeout=3) as response:
+                    self.assertEqual(response.status, 202)
+                    self.assertEqual(json.loads(response.read()), report)
+                once.assert_called_once_with()
+                campaign.assert_not_called()
         finally:
             server.shutdown()
             server.server_close()

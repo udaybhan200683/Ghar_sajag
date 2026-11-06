@@ -194,6 +194,13 @@ def _verify_development_source_review_chain(policy, mode, records, activation_li
                 'test_activation_record_binds_reviewed_commit_and_source_pins',
                 'test_campaign_safety_failure_latches_and_denies_next_operation',
             }
+            single_event_review_required = (
+                'motion_event_once' in policy.get('procedures', []))
+            if (record.get('single_event_scope_reviewed', False) is not
+                    single_event_review_required):
+                raise ValueError('development_source_review_single_event_scope_marker_invalid')
+            if single_event_review_required:
+                required_negative.update(DEV_MOTION_EVENT_PIN_REVIEW_TESTS)
             if not required_negative.issubset(set(record.get('reviewed_negative_tests', []))) or \
                     not required_negative.issubset(set(receipt.get('reviewed_negative_tests', []))):
                 raise ValueError('development_source_review_negative_tests_missing')
@@ -758,6 +765,9 @@ def session(procedure, path=POLICY, state=STATE, *, _development=False):
         p = load_development(path) if _development else load(path)
         if procedure not in p['procedures']:
             raise ValueError('standing_policy_operation_not_authorized')
+        if (_development and procedure == 'motion_event_once' and
+                not _development_motion_event_once_scope_valid(p)):
+            raise ValueError('development_motion_event_scope_must_be_single_use')
         if _development:
             ledger, data, scope_id = _load_development_ledger(path, state, p)
         else:
@@ -835,7 +845,7 @@ DEV_POLICY = POLICY.with_name('development-authorization.json')
 DEFAULT_DEV_POLICY = DEV_POLICY
 DEV_STATE = STATE.with_name('development-authorization')
 DEV_MODE_AUDIT = DEV_STATE / 'audit.jsonl'
-DEV_OPERATIONS = ['protected_gs40_bootstrap', 'tc001_campaign', 'observe',
+DEV_OPERATIONS = ['protected_gs40_bootstrap', 'tc001_campaign', 'motion_event_once', 'observe',
                   'application_flash', 'test_data_erase', 'development_reprovision']
 DEV_PROHIBITED = ['efuse', 'permanent_security_change', 'production_credentials',
                   'unknown_hardware', 'non_test_data', 'erase_irreplaceable_trust']
@@ -848,6 +858,14 @@ DEV_MODE_ID = 'GS117_DEFAULT_DEV_MODE_20261030'
 DEV_MODE_SCHEMA = 2
 DEV_PIN_NAMES = ('serial_helper', 'bootstrap_script', 'bootstrap_evidence_helper',
                  'controller', 'validator')
+DEV_MOTION_EVENT_PIN_REVIEW_TESTS = {
+    'test_motion_event_once_authority_is_an_isolated_one_use_operation',
+    'test_motion_event_readiness_requires_fresh_one_use_fixture_authority',
+    'test_motion_event_source_pin_review_requires_and_records_single_use_negatives',
+    'test_single_event_controller_reserves_once_and_never_falls_back_to_campaign',
+    'test_single_event_fixture_change_after_reservation_consumes_scope_without_execute',
+    'test_single_event_missing_or_stale_preflight_never_invokes_execute',
+}
 
 # Separate one-use receipt authority. This does not extend DEV_OPERATIONS,
 # inherit its hardware allowance, or modify the consumed GS-117 observation
@@ -1446,9 +1464,20 @@ def _development_operation_scope_valid(policy):
                 any(type(limit) is not int or limit < 1 for limit in procedure_limits.values()) or
                 (max_sessions is not None and sum(procedure_limits.values()) != max_sessions)):
             return False
-    expected_motion = 'tc001_campaign' in procedures
+    expected_motion = bool({'tc001_campaign', 'motion_event_once'}.intersection(procedures))
     return (type(policy.get('motion_injection_authorized')) is bool and
             policy.get('motion_injection_authorized') == expected_motion)
+
+
+def _development_motion_event_once_scope_valid(policy):
+    """Only an isolated, one-session owner scope may authorize one USB motion input."""
+    return (
+        policy.get('procedures') == ['motion_event_once'] and
+        policy.get('allowed_operations') == ['motion_event_once'] and
+        policy.get('max_sessions') == 1 and
+        policy.get('procedure_session_limits') == {'motion_event_once': 1} and
+        policy.get('motion_injection_authorized') is True
+    )
 
 
 def _validate_development_pin_paths(path, policy):
@@ -1652,6 +1681,10 @@ def review_development_source_updates(review_summary, reviewed_negative_tests,
             'test_activation_record_binds_reviewed_commit_and_source_pins',
             'test_campaign_safety_failure_latches_and_denies_next_operation',
         }
+        single_event_review_required = (
+            bool(sensitive) and 'motion_event_once' in policy.get('procedures', []))
+        if single_event_review_required:
+            required_negative.update(DEV_MOTION_EVENT_PIN_REVIEW_TESTS)
         if sensitive and not required_negative.issubset(set(reviewed_negative_tests)):
             raise ValueError('development_source_review_negative_tests_missing')
         repo = Path(__file__).resolve().parents[3]
@@ -1712,6 +1745,7 @@ def review_development_source_updates(review_summary, reviewed_negative_tests,
             'reviewed_commit': commit,
             'review_summary': review_summary.strip(),
             'reviewed_negative_tests': sorted(set(reviewed_negative_tests)),
+            'single_event_scope_reviewed': single_event_review_required,
             'test_receipt_path': str(receipt_path),
             'test_receipt_sha256': receipt_sha256,
             'previous_manifest_backup_path': str(backup_path),

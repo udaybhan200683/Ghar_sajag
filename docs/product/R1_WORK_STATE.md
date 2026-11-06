@@ -11145,3 +11145,22 @@ owner's decision on the minimal offline v3 bootloader-read correction and
 one-use readback operation in the existing authorization allowlist, then test
 and hash-pin before requesting any device access. Decision request recorded in
 GS-117 Jira comment #11927; it is not physical-operation approval.
+## GS-117 — one-event USB-to-Android path prepared offline — 2026-11-06
+
+The existing five-run TC-001 campaign and Morning Routine one-run scenario did
+not provide a plain one-event entry. The controller now routes the exact
+`motion_event_once` action to the existing `execute()` pipeline once, protected
+by an isolated one-use development scope. There is no campaign fallback. The
+focused GS-117 suite passed 180/180, framework 55/55, feature mapping 22/22,
+traceability 237/288/28, and UI JavaScript syntax. This is offline validation,
+not fresh board or product acceptance.
+
+No hardware or authorization activation occurred. Current source pins were
+recorded for future review, but the old private grant remains consumed,
+bootstrap-only, and source-pin-invalid; it was not modified. Installed receipts
+remain STALE, #11897 remains SAFETY_LATCHED 1/1, #11886 remains intact,
+`TC001_READY=NO`, and TC-001 is 0/5. A separate one-use receipt scope must first
+capture fresh matching C3/S3 and Android evidence; a separate one-use
+`motion_event_once` scope can then authorize one USB-triggered E2E event. The
+proposal and exact bounds are in
+[GS117 one-event USB-to-Android readiness](../exec-plans/evidence/GS117_ONE_EVENT_USB_ANDROID_READINESS_20261106.md).
