@@ -9,6 +9,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 TOOLS = Path(__file__).resolve().parents[2] / "tools" / "local"
@@ -548,6 +549,371 @@ class ReadbackAuthorizationTests(unittest.TestCase):
         after = (hashlib.sha256(self.hardware_audit.read_bytes()).hexdigest(),
                  hashlib.sha256(self.dev_audit.read_bytes()).hexdigest())
         self.assertEqual(after, before)
+
+
+class ScopeGrantIssuanceTests(unittest.TestCase):
+    """Exercise the separate owner-driven issuance/activation path offline."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.issue_state = self.root / 'issuance'
+        self.config = self.root / 'config'
+        self.config.mkdir(mode=0o700)
+        self.readback_policy = self.config / 'readback.json'
+        self.motion_policy = self.config / 'motion.json'
+        self.readback_state = self.root / 'readback-state'
+        self.motion_state = self.root / 'motion-state'
+        self.hardware_state = self.root / 'hardware-state'
+        self.dev_state = self.root / 'dev-state'
+        self.hardware_state.mkdir(mode=0o700)
+        self.historical_latch = self.hardware_state / 'historical-latch.json'
+        self.historical_latch.write_bytes(b'{"status":"SAFETY_LATCHED","used":1,"limit":1}\n')
+        self.historical_latch.chmod(0o600)
+        self.historical_latch_bytes = self.historical_latch.read_bytes()
+        self.review = {
+            'reviewed_commit': 'a' * 40,
+            'reviewer': auth.GS117_SCOPE_APPROVAL_OWNER_ACCOUNT_ID,
+            'source_fingerprints': {name: ('b' * 64) for name in auth.GS117_SCOPE_SOURCE_NAMES},
+            'test_evidence_path': str(self.root / 'test-evidence.json'),
+            'test_evidence_sha256': 'c' * 64,
+            'validation_summary': {'gs117_focused': 'PASS', 'framework': 'PASS',
+                                   'feature_coverage': 'PASS'},
+        }
+        for name in auth.MOTION_EVENT_ONCE_TOOLS:
+            self.review['source_fingerprints'][name] = 'e' * 64
+        self.approval = {
+            'issue_key': auth.GS117_SCOPE_APPROVAL_ISSUE,
+            'comment_id': auth.GS117_SCOPE_APPROVAL_COMMENT_ID,
+            'author_account_id': auth.GS117_SCOPE_APPROVAL_OWNER_ACCOUNT_ID,
+            'body_sha256': auth.GS117_SCOPE_APPROVAL_BODY_SHA256,
+            'approval_ref': auth.GS117_SCOPE_APPROVAL_REF,
+        }
+        self.approval_evidence = {'issue_key': 'GS-117', 'comment_id': '11933',
+                                  'author_account_id': 'owner', 'body': 'verified approval'}
+        self.receipt_tools = {
+            name: {'path': str(self.root / (name + '.tool')), 'sha256': 'd' * 64}
+            for name in auth.READBACK_RECEIPT_TOOL_NAMES
+        }
+        self.motion_tools = {
+            name: {'path': str(path), 'sha256': 'e' * 64}
+            for name, path in auth.MOTION_EVENT_ONCE_TOOLS.items()
+        }
+        self.versions = {'python': '3.12.1', 'esptool': '5.4.0',
+                         'pyserial': '3.5', 'esp_idf': '6.0.3'}
+        self.scope_a_receipt = {
+            'authorization_id': 'f' * 32, 'scope_sha256': '1' * 64,
+            'session_id': '2' * 32, 'evidence_dir': str(self.root / 'scope-a-evidence'),
+            'evidence_sha256': '3' * 64, 'completed_at': datetime.now(timezone.utc).isoformat(),
+            'receipt_sha256': {'c3': '4' * 64, 's3': '5' * 64},
+        }
+        self.patches = [
+            patch.object(auth, 'GS117_SCOPE_ISSUANCE_STATE', self.issue_state),
+            patch.object(auth, 'READBACK_RECEIPT_POLICY', self.readback_policy),
+            patch.object(auth, 'MOTION_EVENT_ONCE_POLICY', self.motion_policy),
+            patch.object(auth, 'READBACK_RECEIPT_STATE', self.readback_state),
+            patch.object(auth, 'MOTION_EVENT_ONCE_STATE', self.motion_state),
+            patch.object(auth, 'STATE', self.hardware_state),
+            patch.object(auth, 'DEV_STATE', self.dev_state),
+            patch.object(auth, '_verify_gs117_scope_source_review', return_value=self.review),
+            patch.object(auth, '_readback_receipt_tool_hashes',
+                         return_value={name: 'd' * 64 for name in auth.READBACK_RECEIPT_TOOL_NAMES}),
+            patch.object(auth, '_motion_event_tool_hashes',
+                         return_value={name: 'e' * 64 for name in auth.MOTION_EVENT_ONCE_TOOLS}),
+        ]
+        for item in self.patches:
+            item.start()
+            self.addCleanup(item.stop)
+
+    def test_untrusted_or_changed_owner_approval_is_rejected(self):
+        for evidence in (
+                {},
+                {'issue_key': 'GS-117', 'comment_id': '11932',
+                 'author_account_id': auth.GS117_SCOPE_APPROVAL_OWNER_ACCOUNT_ID, 'body': 'x'},
+                {'issue_key': 'GS-117', 'comment_id': '11933',
+                 'author_account_id': 'not-owner', 'body': 'x'},
+                {'issue_key': 'GS-117', 'comment_id': '11933',
+                 'author_account_id': auth.GS117_SCOPE_APPROVAL_OWNER_ACCOUNT_ID, 'body': 'x'},
+        ):
+            with self.subTest(evidence=evidence), self.assertRaisesRegex(
+                    ValueError, 'owner_scope_approval_not_verified'):
+                auth._verify_gs117_11933_approval(evidence)
+
+    def test_exact_owner_jira_approval_snapshot_is_accepted(self):
+        body = """2026-11-06 — OWNER APPROVAL FOR TWO INDEPENDENT ONE-USE GS-117 DEVELOPMENT OPERATIONS
+
+Owner explicitly replied \"approved\" to the consolidated, conditional Scope A / Scope B proposal from GS117_ONE_EVENT_USB_ANDROID_READINESS_20261106.md, as presented in chat. This comment records owner intent; it is not a completed technical authorization, a receipt or a PASS.
+
+Scope A: One use of the already reviewed installed-device receipt workflow on exactly the documented Home/C3/S3 fixture, limited to the seven previously reviewed read regions. The existing procedure's one ROM entry and one USB-aware restore reset per target are included and acknowledged. No retry, writes, erase, credentials, protected/unrelated flash, extra resets, bootstrap, event or firmware change.
+
+Scope B: Conditional authorization for exactly one no-flash USB-triggered motion_event_once through the existing C3→authenticated S3→durable Hub/CloudSync→PostgreSQL→caregiver API→actual installed Android path, ONLY after Scope A returns verified matching fresh receipts and all current fixture, source/tool pin, separate audit/authorization, Android and authenticated-readiness guards pass. Use current reviewed one-event code path; C3 COM-open incidental reset risk acknowledged, no S3 UART opening, no explicit reset, no bootstrap, no retries, no second injection or five-event campaign. A Scope A failure/UNKNOWN blocks Scope B.
+
+Both operations require their distinct reviewed one-use grants via the existing audited mechanism, exact final source/tool/fixture hashes and unchanged current safeguards; do not edit/renew/reuse old manifest. Scope B must not activate ahead of verified Scope A and current Android/readiness checks. Preserve historical GS-117 #11897 SAFETY_LATCHED 1/1 and #11886 unchanged. Prior GS-179 network authorization does not confer hardware rights. GS-D029 rollback requirement continues for firmware installation, which is not approved. Stop and report on identity/security/hash/receipt/authorization mismatch rather than bypassing a guard.
+
+No actual device, software authorization activation or event test is claimed by posting this comment. Goal is one fresh physical-board USB-input event visible in Android; it is not optical PIR TC-001 acceptance or 5/5 campaign. Follow AGENTS.md/Jira/Git audit, existing test/authorization mechanism, preserve evidence and untracked work, document resulting status and next priority."""
+        evidence = {
+            'issue_key': 'GS-117', 'comment_id': '11933',
+            'author_account_id': auth.GS117_SCOPE_APPROVAL_OWNER_ACCOUNT_ID,
+            'body': body,
+        }
+        verified = auth._verify_gs117_11933_approval(evidence)
+        self.assertEqual(verified['approval_ref'], 'GS-117#11933')
+
+    def test_source_review_requires_current_commit_fingerprints_and_private_test_receipt(self):
+        for active_patch in self.patches:
+            active_patch.stop()
+        root = Path(auth.__file__).resolve().parents[3]
+        head = __import__('subprocess').run(
+            ['git', 'rev-parse', 'HEAD'], cwd=root, capture_output=True,
+            text=True, check=True).stdout.strip()
+        commands = {
+            'authorization_receipt': ['python3', 'code/tests/python/test_gs117_readback_receipt.py'],
+            'console': ['python3', 'code/tests/python/test_gs117_tc001_console.py'],
+            'framework': ['make', '-C', 'code', 'validation-framework-test'],
+            'feature_coverage': ['make', '-C', 'code', 'feature-coverage-test'],
+        }
+        tests = [{'name': name, 'command': command, 'returncode': 0, 'test_count': 1,
+                  'skipped_count': 0, 'stdout_sha256': 'a' * 64, 'stderr_sha256': 'b' * 64}
+                 for name, command in commands.items()]
+        evidence_path = self.root / 'source-review-tests.json'
+        evidence_path.write_text(json.dumps({
+            'schema_version': 1, 'reviewed_commit': head,
+            'source_fingerprints': {name: auth.digest(path)
+                                    for name, path in auth.GS117_SCOPE_SOURCE_PATHS.items()},
+            'reviewed_negative_tests': sorted(auth.GS117_SCOPE_ISSUANCE_REVIEW_TESTS),
+            'tests': tests,
+        }, sort_keys=True))
+        evidence_path.chmod(0o600)
+        review = {
+            'reviewed_commit': head, 'reviewer': auth.GS117_SCOPE_APPROVAL_OWNER_ACCOUNT_ID,
+            'source_fingerprints': {name: auth.digest(path)
+                                    for name, path in auth.GS117_SCOPE_SOURCE_PATHS.items()},
+            'reviewed_negative_tests': sorted(auth.GS117_SCOPE_ISSUANCE_REVIEW_TESTS),
+            'test_evidence_path': str(evidence_path),
+            'test_evidence_sha256': auth.digest(evidence_path),
+        }
+        commands = [
+            SimpleNamespace(returncode=0, stdout=str(root) + '\n'),
+            SimpleNamespace(returncode=0, stdout='feature/r1-commercial-baseline\n'),
+            SimpleNamespace(returncode=0, stdout=head + '\n'),
+            SimpleNamespace(returncode=0, stdout=''),
+        ]
+        with patch.object(auth.subprocess, 'run', side_effect=commands):
+            verified = auth._verify_gs117_scope_source_review(review)
+        self.assertEqual(verified['reviewed_commit'], head)
+        self.assertEqual(verified['validation_summary'], {
+            'gs117_focused': 'PASS', 'framework': 'PASS', 'feature_coverage': 'PASS'})
+        untrusted_reviewer = dict(review, reviewer='unverified-reviewer')
+        with self.assertRaisesRegex(ValueError, 'scope_source_review_invalid'):
+            auth._verify_gs117_scope_source_review(untrusted_reviewer)
+        stale = dict(review, source_fingerprints=dict(review['source_fingerprints']))
+        stale['source_fingerprints']['controller'] = '0' * 64
+        with patch.object(auth.subprocess, 'run', side_effect=commands), \
+             self.assertRaisesRegex(ValueError, 'source_fingerprint_stale'):
+            auth._verify_gs117_scope_source_review(stale)
+        malformed_evidence = json.loads(evidence_path.read_text())
+        malformed_evidence['tests'][0]['command'] = ['python3', 'arbitrary-test.py']
+        evidence_path.write_text(json.dumps(malformed_evidence, sort_keys=True))
+        evidence_path.chmod(0o600)
+        review['test_evidence_sha256'] = auth.digest(evidence_path)
+        with patch.object(auth.subprocess, 'run', side_effect=commands), \
+             self.assertRaisesRegex(ValueError, 'test_evidence_incomplete'):
+            auth._verify_gs117_scope_source_review(review)
+        malformed_evidence['tests'][0]['command'] = [
+            'python3', 'code/tests/python/test_gs117_readback_receipt.py']
+        malformed_evidence['tests'][0]['skipped_count'] = 1
+        evidence_path.write_text(json.dumps(malformed_evidence, sort_keys=True))
+        evidence_path.chmod(0o600)
+        review['test_evidence_sha256'] = auth.digest(evidence_path)
+        with patch.object(auth.subprocess, 'run', side_effect=commands), \
+             self.assertRaisesRegex(ValueError, 'test_evidence_incomplete'):
+            auth._verify_gs117_scope_source_review(review)
+
+    def test_unknown_scope_and_stale_source_review_are_rejected_before_issue(self):
+        with self.assertRaisesRegex(ValueError, 'operation_not_allowlisted'):
+            auth.issue_gs117_scope_grant('flash', self.approval_evidence, {})
+        with patch.object(auth, '_verify_gs117_11933_approval', return_value=self.approval), \
+             patch.object(auth, '_verify_gs117_scope_source_review',
+                          side_effect=ValueError('gs117_scope_source_fingerprint_stale')):
+            with self.assertRaisesRegex(ValueError, 'source_fingerprint_stale'):
+                auth.issue_gs117_scope_grant('readback_receipt', self.approval_evidence,
+                                             self.review, tool_files=self.receipt_tools,
+                                             tool_versions=self.versions)
+        self.assertFalse(self.issue_state.exists())
+
+    def test_readback_grant_issuance_is_pending_until_separate_activation(self):
+        with patch.object(auth, '_verify_gs117_11933_approval', return_value=self.approval):
+            issued = auth.issue_gs117_scope_grant(
+                'readback_receipt', self.approval_evidence, self.review,
+                tool_files=self.receipt_tools, tool_versions=self.versions)
+        self.assertEqual(issued['status'], 'ISSUED_PENDING_ACTIVATION')
+        self.assertFalse(self.readback_policy.exists())
+        with patch.object(auth, '_verify_gs117_11933_approval', return_value=self.approval):
+            active = auth.activate_gs117_scope_grant(
+                issued['authorization_id'], self.approval_evidence, self.review)
+        self.assertEqual(active['status'], 'ACTIVE')
+        self.assertEqual(active['operation'], 'readback_receipt')
+        with patch.object(auth, '_readback_receipt_tool_hashes',
+                          return_value={name: 'd' * 64 for name in auth.READBACK_RECEIPT_TOOL_NAMES}):
+            policy = auth.load_readback_receipt_authorization()
+        self.assertEqual(policy['authorization_id'], issued['authorization_id'])
+        self.assertEqual(policy['read_ranges'], auth.READBACK_RECEIPT_RANGES)
+        self.assertEqual(policy['reset_budget'], auth.READBACK_RECEIPT_RESET_BUDGET)
+
+    def test_scope_a_issuance_is_exactly_the_approved_fixture_ranges_and_resets(self):
+        with patch.object(auth, '_verify_gs117_11933_approval', return_value=self.approval):
+            issued = auth.issue_gs117_scope_grant(
+                'readback_receipt', self.approval_evidence, self.review,
+                tool_files=self.receipt_tools, tool_versions=self.versions)
+        pending = next(self.issue_state.glob('readback_receipt-*.pending.json'))
+        record = json.loads(pending.read_text())
+        self.assertEqual(record['authorization_id'], issued['authorization_id'])
+        self.assertEqual(record['scope']['fixture'], auth.READBACK_RECEIPT_FIXTURE)
+        self.assertEqual(record['scope']['read_ranges'], auth.READBACK_RECEIPT_RANGES)
+        self.assertEqual(record['scope']['reset_budget'], auth.READBACK_RECEIPT_RESET_BUDGET)
+        self.assertEqual(record['max_uses'], 1)
+        self.assertIs(record['renewable'], False)
+
+    def test_issuance_rejects_unverified_approval_without_creating_state(self):
+        with self.assertRaisesRegex(ValueError, 'owner_scope_approval_not_verified'):
+            auth.issue_gs117_scope_grant(
+                'readback_receipt', {}, self.review,
+                tool_files=self.receipt_tools, tool_versions=self.versions)
+        self.assertFalse(self.issue_state.exists())
+
+    def test_private_policy_writer_rejects_group_or_world_accessible_parent(self):
+        unsafe = self.root / 'unsafe'
+        unsafe.mkdir(mode=0o700)
+        unsafe.chmod(0o755)
+        with self.assertRaisesRegex(ValueError, 'parent_not_private'):
+            auth._write_private_json_exclusive(unsafe / 'grant.json', {'active': False})
+        self.assertFalse((unsafe / 'grant.json').exists())
+
+    def test_duplicate_issuance_activation_and_scope_replay_are_rejected(self):
+        with patch.object(auth, '_verify_gs117_11933_approval', return_value=self.approval):
+            issued = auth.issue_gs117_scope_grant(
+                'readback_receipt', self.approval_evidence, self.review,
+                tool_files=self.receipt_tools, tool_versions=self.versions)
+            with self.assertRaisesRegex(ValueError, 'already_issued|already_pending'):
+                auth.issue_gs117_scope_grant(
+                    'readback_receipt', self.approval_evidence, self.review,
+                    tool_files=self.receipt_tools, tool_versions=self.versions)
+            auth.activate_gs117_scope_grant(issued['authorization_id'],
+                                            self.approval_evidence, self.review)
+            with self.assertRaisesRegex(ValueError, 'already_activated'):
+                auth.activate_gs117_scope_grant(issued['authorization_id'],
+                                                self.approval_evidence, self.review)
+
+    def test_readback_wrong_tool_versions_and_incomplete_scope_fail_closed(self):
+        with patch.object(auth, '_verify_gs117_11933_approval', return_value=self.approval):
+            with self.assertRaisesRegex(ValueError, 'tool_version_mismatch'):
+                auth.issue_gs117_scope_grant(
+                    'readback_receipt', self.approval_evidence, self.review,
+                    tool_files=self.receipt_tools,
+                    tool_versions={**self.versions, 'esptool': 'other'})
+            with self.assertRaisesRegex(ValueError, 'reviewed_tool_inventory_required'):
+                auth.issue_gs117_scope_grant(
+                    'readback_receipt', self.approval_evidence, self.review,
+                    tool_files=None, tool_versions=self.versions)
+        self.assertFalse(self.readback_policy.exists())
+
+    def test_motion_grant_cannot_be_issued_before_scope_a_pass(self):
+        with patch.object(auth, '_verify_gs117_11933_approval', return_value=self.approval), \
+             patch.object(auth, '_verify_scope_a_readback_pass',
+                          side_effect=ValueError('motion_event_once_scope_a_receipt_pass_required')):
+            with self.assertRaisesRegex(ValueError, 'scope_a_receipt_pass_required'):
+                auth.issue_gs117_scope_grant(
+                    'motion_event_once', self.approval_evidence, self.review,
+                    tool_files=self.motion_tools)
+        self.assertFalse(self.motion_policy.exists())
+        self.assertFalse(self.issue_state.exists())
+
+    def test_motion_grant_is_isolated_one_use_and_revocable(self):
+        with patch.object(auth, '_verify_gs117_11933_approval', return_value=self.approval), \
+             patch.object(auth, '_verify_scope_a_readback_pass', return_value=self.scope_a_receipt):
+            issued = auth.issue_gs117_scope_grant(
+                'motion_event_once', self.approval_evidence, self.review,
+                tool_files=self.motion_tools)
+            self.assertFalse(self.motion_policy.exists())
+            activated = auth.activate_gs117_scope_grant(
+                issued['authorization_id'], self.approval_evidence, self.review)
+        self.assertEqual(activated['status'], 'ACTIVE')
+        with patch.object(auth, '_verify_gs117_scope_source_review', return_value=self.review), \
+             patch.object(auth, '_motion_event_tool_hashes',
+                          return_value={name: 'e' * 64 for name in auth.MOTION_EVENT_ONCE_TOOLS}), \
+             patch.object(auth, '_verify_scope_a_readback_pass', return_value=self.scope_a_receipt):
+            policy = auth.load_development(self.motion_policy)
+            self.assertEqual(policy['procedures'], ['motion_event_once'])
+            self.assertEqual(policy['allowed_operations'], ['motion_event_once'])
+            self.assertEqual(policy['max_sessions'], 1)
+            self.assertEqual(auth.motion_event_once_status()['status'], 'ACTIVE')
+            with auth.motion_event_once_session() as (_active, reservation):
+                reservation['functional_outcome'] = 'PASS'
+            self.assertEqual(auth.motion_event_once_status()['status'], 'CONSUMED')
+            with self.assertRaisesRegex(ValueError, 'already_consumed'):
+                auth.revoke_motion_event_once_authorization('after consumption')
+
+    def test_scope_issuance_audit_corruption_blocks_activation(self):
+        with patch.object(auth, '_verify_gs117_11933_approval', return_value=self.approval):
+            issued = auth.issue_gs117_scope_grant(
+                'readback_receipt', self.approval_evidence, self.review,
+                tool_files=self.receipt_tools, tool_versions=self.versions)
+        audit = self.issue_state / 'issuance.jsonl'
+        audit.write_text(audit.read_text() + '{corrupt\n')
+        audit.chmod(0o600)
+        with patch.object(auth, '_verify_gs117_11933_approval', return_value=self.approval), \
+             self.assertRaisesRegex(ValueError, 'audit_corrupt'):
+            auth.activate_gs117_scope_grant(issued['authorization_id'],
+                                            self.approval_evidence, self.review)
+        self.assertFalse(self.readback_policy.exists())
+
+    def test_interrupted_pending_issuance_without_audit_cannot_activate(self):
+        with patch.object(auth, '_verify_gs117_11933_approval', return_value=self.approval):
+            issued = auth.issue_gs117_scope_grant(
+                'readback_receipt', self.approval_evidence, self.review,
+                tool_files=self.receipt_tools, tool_versions=self.versions)
+        audit = self.issue_state / 'issuance.jsonl'
+        audit.unlink()
+        with patch.object(auth, '_verify_gs117_11933_approval', return_value=self.approval), \
+             self.assertRaisesRegex(ValueError, 'grant_issue_missing'):
+            auth.activate_gs117_scope_grant(issued['authorization_id'],
+                                            self.approval_evidence, self.review)
+        self.assertFalse(self.readback_policy.exists())
+
+    def test_scope_b_activation_rejects_changed_scope_a_receipt(self):
+        with patch.object(auth, '_verify_gs117_11933_approval', return_value=self.approval), \
+             patch.object(auth, '_verify_scope_a_readback_pass', return_value=self.scope_a_receipt):
+            issued = auth.issue_gs117_scope_grant(
+                'motion_event_once', self.approval_evidence, self.review,
+                tool_files=self.motion_tools)
+        changed = dict(self.scope_a_receipt, evidence_sha256='0' * 64)
+        with patch.object(auth, '_verify_gs117_11933_approval', return_value=self.approval), \
+             patch.object(auth, '_verify_scope_a_readback_pass', return_value=changed), \
+             self.assertRaisesRegex(ValueError, 'scope_a_receipt_changed'):
+            auth.activate_gs117_scope_grant(issued['authorization_id'],
+                                            self.approval_evidence, self.review)
+        self.assertFalse(self.motion_policy.exists())
+
+    def test_unconsumed_motion_grant_can_be_revoked_without_touching_hardware_state(self):
+        with patch.object(auth, '_verify_gs117_11933_approval', return_value=self.approval), \
+             patch.object(auth, '_verify_scope_a_readback_pass', return_value=self.scope_a_receipt):
+            issued = auth.issue_gs117_scope_grant(
+                'motion_event_once', self.approval_evidence, self.review,
+                tool_files=self.motion_tools)
+            auth.activate_gs117_scope_grant(
+                issued['authorization_id'], self.approval_evidence, self.review)
+        with patch.object(auth, '_verify_gs117_scope_source_review', return_value=self.review), \
+             patch.object(auth, '_motion_event_tool_hashes',
+                          return_value={name: 'e' * 64 for name in auth.MOTION_EVENT_ONCE_TOOLS}), \
+             patch.object(auth, '_verify_scope_a_readback_pass', return_value=self.scope_a_receipt):
+            result = auth.revoke_motion_event_once_authorization('owner revoked before use')
+            self.assertEqual(result['status'], 'REVOKED')
+            self.assertEqual(auth.motion_event_once_status()['status'], 'REVOKED')
+        self.assertEqual(self.historical_latch.read_bytes(), self.historical_latch_bytes)
+        self.assertEqual(self.historical_latch.stat().st_mode & 0o777, 0o600)
+        self.assertEqual({path.name for path in self.hardware_state.iterdir()},
+                         {'session.lock', 'historical-latch.json'})
 
 
 if __name__ == "__main__":

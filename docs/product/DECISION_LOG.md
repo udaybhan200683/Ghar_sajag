@@ -1,3 +1,16 @@
+## GS-117 scoped receipt and one-event issuer — 2026-11-06 (implementation evidence only)
+
+Owner approval #11933 remains the authority for its original conditional
+Scope A/Scope B operations. The existing authorization module now provides a
+separate issue/activate lifecycle for only `readback_receipt` and
+`motion_event_once`, with exact fixture/tool/source binding, one-use limits,
+fresh Scope A evidence required for B, and the existing audit/cleanup model.
+Generic readback, flash, erase, broader DEV permissions and historical latches
+are unchanged. This is not a new product/security decision or permission to
+access hardware. The change is awaiting independent source review; no grant
+was issued or activated and no physical operation occurred. See the
+[GS-117 issuer evidence](../exec-plans/evidence/GS117_ONE_EVENT_USB_ANDROID_READINESS_20261106.md).
+
 ## GS-172 / GS-68 spare-S3 install preflight — 2026-10-17 (evidence only)
 
 Read-only preflight rehashed the USB-primary TEST_ONLY candidate

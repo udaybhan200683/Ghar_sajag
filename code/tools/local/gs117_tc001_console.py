@@ -329,9 +329,9 @@ def campaign_approval(path: Path, fixture: dict) -> dict:
 
 
 def motion_event_once_authorization(fixture: dict, path: Path | None = None) -> dict:
-    """Read-only readiness for an isolated, one-use motion-event DEV scope."""
+    """Read-only readiness for the separately issued #11933 motion grant."""
     import gs117_hil_authorization as auth
-    policy_path = Path(path or auth.DEV_POLICY)
+    policy_path = Path(path or auth.MOTION_EVENT_ONCE_POLICY)
     policy = auth.load_development(policy_path)
     if not auth._development_motion_event_once_scope_valid(policy):
         raise ValueError("development_motion_event_scope_must_be_single_use")
@@ -343,7 +343,9 @@ def motion_event_once_authorization(fixture: dict, path: Path | None = None) -> 
                 fixture.get(role, {}).get("serial_number") != identity[role]["serial_number"]
                 for role in ("c3", "s3"))):
         raise ValueError("development_motion_event_fixture_identity_mismatch")
-    status = auth.development_status(policy_path)
+    status = (auth.motion_event_once_status() if
+              policy_path.resolve() == auth.MOTION_EVENT_ONCE_POLICY.resolve() else
+              auth.development_status(policy_path))
     if (status.get("status") != "ACTIVE" or status.get("sessions") != 0 or
             status.get("sessions_remaining") != 1 or status.get("blocked") is not False):
         raise ValueError("development_motion_event_authorization_not_fresh")

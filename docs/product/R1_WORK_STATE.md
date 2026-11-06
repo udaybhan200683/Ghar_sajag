@@ -1,26 +1,32 @@
-## GS-117 — approved receipt/E2E scopes stopped at authorization issuance — 2026-11-06
+## GS-117 — issuer implemented; awaiting source review — 2026-11-06
 
-Owner conditional approval #11933 was verified. Its two scopes are unchanged:
-one seven-range receipt capture with the documented per-target ROM/restore
-resets, then one `motion_event_once` only after matching fresh receipts and all
-readiness gates pass. This comment records owner intent, not activation.
+Owner approval #11933 still covers only its original two scopes. Audit found
+no physical-grant issuer in the existing authorization module. A minimal
+issue/activate API was added there for `readback_receipt` and the separate
+one-use `motion_event_once`; Scope B requires fresh passing Scope A evidence.
+The old broad DEV manifest and #11897/#11886 ledgers are untouched. Source and
+tool fingerprints now require a clean canonical commit and owner-identified
+review input with exact test commands and zero skips.
 
-Current preflight passed at `861daf5a2aaf3989b76d88c0fd5393f568f741af`, with
-origin equal, tracked tree clean before this documentation update, and the 79
-existing untracked entries preserved. Read-only source/tool fingerprints
-matched the reviewed candidate. No competing Codex/hardware process was
-visible. Scope A status is BLOCKED before reservation because the separate
-`readback_receipt` policy and audit state are absent; the reviewed code has no
-grant issuance/activation command. Scope B is BLOCKED because the only private
-DEV grant is consumed, bootstrap-only and source-pin-invalid. Neither grant was
-created or activated, and neither session was reserved. No device/USB/ADB,
-ROM/reset/readback, network, or event operation occurred.
+Preflight baseline was canonical `/home/udaybhan/projects/Ghar_sajag_r1`,
+branch `feature/r1-commercial-baseline`, local/origin
+`f5b3f0801f749aaae85caa314a7f72555520d656`; context preflight PASS. Existing
+untracked assets were preserved.
 
-#11897 remains SAFETY_LATCHED 1/1; #11886 is unchanged. Firmware unchanged,
-receipts STALE, `TC001_READY=NO`, TC-001 0/5. Exact status and source hashes:
-[GS117 one-event USB-to-Android readiness](../exec-plans/evidence/GS117_ONE_EVENT_USB_ANDROID_READINESS_20261106.md).
-Next: complete the existing trusted/audited issuance process for the two
-separate grants, then rerun the read-only checks before Scope A.
+Validation: receipt/issuer **53/53 PASS**, console **180/180 PASS**, framework
+**55/55 PASS**, feature coverage **22/22 PASS**, and Python compilation PASS.
+All tests are host/offline. The security-sensitive source change is awaiting
+independent review and new fingerprint acceptance. No real grant was issued,
+activated, or reserved. Scope A/B are NOT_RUN; no device, USB/COM/ADB, ROM,
+reset, flash/readback, network, or event operation occurred.
+
+Product status remains firmware unchanged, receipts STALE, #11897
+SAFETY_LATCHED 1/1, #11886 preserved, `TC001_READY=NO`, TC-001 0/5. Preserve
+the 79 existing untracked entries. See the current implementation/evidence
+record: [GS117 one-event USB-to-Android readiness](../exec-plans/evidence/GS117_ONE_EVENT_USB_ANDROID_READINESS_20261106.md).
+Next: review the changed authorization code and exact source/tool/test hashes;
+only after that review may the two already approved, separate scopes enter the
+existing audited issuance path.
 
 ## GS-117 — no-flash USB-to-Android E2E route audit — 2026-11-06
 

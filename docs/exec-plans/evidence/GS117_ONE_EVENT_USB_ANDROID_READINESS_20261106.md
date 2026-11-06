@@ -1,5 +1,60 @@
 # GS-117 — One-event USB-to-Android readiness — 2026-11-06
 
+## Authorization issuance correction — offline only — 2026-11-06
+
+The #11933 approval is unchanged. Audit confirmed there was no trusted physical
+grant issuer in the existing module: receipt authorization could validate and
+reserve a provisioned policy, while the GS-179 recorder is limited to network
+authority. The existing readback and one-event validators are reused.
+
+`gs117_hil_authorization.py` now has a narrow issue-then-activate API for the
+two approved operation names only. It verifies the pinned issue/comment/owner
+and comment-body digest, an owner-identified source review for the exact clean
+canonical commit and source fingerprints, exact tool paths/hashes, and fixed
+operation scope. The source review must list the 21 registered negative/guard
+tests across the receipt and console suites; the private test receipt pins
+their exact commands and zero skips. It creates a private immutable pending
+record and hash-chained audit entry; activation is separate, one-use,
+nonrenewable, time-bounded and
+creates only the operation-specific policy. Scope B rechecks the fresh passing
+Scope A evidence before issue, activation and each motion-policy load. The
+one-event controller now selects that isolated policy, never the consumed
+broad DEV manifest. Shared HIL locks serialize the new scopes with existing
+hardware operations. Generic readback, flash and erase remain prohibited; the
+old #11897/#11886 ledgers are not edited.
+
+Exact source-review pins at this checkpoint:
+
+| Source/tool/test | SHA-256 |
+|---|---|
+| `code/tools/local/gs117_hil_authorization.py` | `ee60a55851535ed0ed39695f70d2744721c8b9e994f4b469c832a0f112d06c4e` |
+| `code/tools/local/gs117_tc001_console.py` | `bd664cc89e09837744393f0c20c356638f015c591513c43c46f344b1c57fb318` |
+| `code/tools/local/gs117_tc001_readback.py` | `87373b43cbce3036c427fe90723b3edfddc269bbd3d92ca3b63f0f6a688ce312` |
+| `code/tools/local/gs117_tc001_serial_windows.py` | `44a2669593ff367fcb9d0a59d4c2d289070906fbb0270b9f1f3929c183f5b8dd` |
+| `code/tests/python/test_gs117_readback_receipt.py` | `141b5af937c5bb84975014a1036c6fc7fbeeba1b3e3a3f7fa3efe8f6beba673c` |
+| `code/tests/python/test_gs117_tc001_console.py` | `6609c2f4dfb3aade90ae5adbd9929c65b88a00eef8b216098b36e460db93a767` |
+| `code/validation/suites.json` | `ef9f5812aeaa8c10e8413de111d0b94bc3b8948298553a0103230d294e8673ee` |
+
+The new `gs117-scope-authorization-issuance` stage registers and executes the
+receipt/issuer suite as a tooling/contract/backend host test; it never opens a
+device. The exact code, operational tools, tests, and registry above must be
+reviewed together. These hashes do not authorize or activate a grant.
+
+New offline checks: receipt/issuer **53/53 PASS**, console **180/180 PASS**,
+framework **55/55 PASS**, feature mapping **22/22 PASS**; Python compilation
+passed. The first receipt run exposed double acquisition of the receipt lock;
+the lock order was corrected and the final run passed. No target build was
+needed. These are host/offline results.
+
+No source-review package has yet been accepted for the changed issuer hashes.
+No actual grant was issued, activated or reserved: both #11933 policies remain
+ABSENT; Scope A is NOT_RUN and Scope B is NOT_RUN. No device, COM, ADB, ROM,
+reset, flash/readback, network or event operation occurred. The current
+firmware and receipts are unchanged/stale; #11897 remains SAFETY_LATCHED 1/1,
+#11886 is preserved, `TC001_READY=NO`, and TC-001 remains 0/5. The next gate is
+independent review of the changed issuer source and its exact source/tool/test
+fingerprints. This checkpoint does not approve or activate hardware access.
+
 ## Scope and result
 
 Offline source, authorization, and test work only, within the GS-117 one-event

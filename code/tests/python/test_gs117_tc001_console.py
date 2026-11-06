@@ -1352,7 +1352,7 @@ class TC001Test(unittest.TestCase):
         active = {'status': 'ACTIVE', 'sessions': 0, 'sessions_remaining': 1,
                   'blocked': False, 'authorization_scope_id': 'b' * 64}
         with (patch.object(hil_auth, 'load_development', return_value=policy),
-              patch.object(hil_auth, 'development_status', return_value=active)):
+              patch.object(hil_auth, 'motion_event_once_status', return_value=active)):
             self.assertEqual(tc.motion_event_once_authorization(fixture)['status'], 'PASS')
             wrong = dict(fixture, hub_id='wrong-hub')
             with self.assertRaisesRegex(ValueError, 'fixture_identity_mismatch'):
@@ -1374,7 +1374,7 @@ class TC001Test(unittest.TestCase):
                 dict(active, blocked=True, status='SAFETY_LATCHED'),
                 dict(active, status='REVOKED')):
             with (patch.object(hil_auth, 'load_development', return_value=policy),
-                  patch.object(hil_auth, 'development_status', return_value=status),
+                  patch.object(hil_auth, 'motion_event_once_status', return_value=status),
                   self.assertRaisesRegex(ValueError, 'not_fresh')):
                 tc.motion_event_once_authorization(fixture)
 
@@ -1404,6 +1404,7 @@ class TC001Test(unittest.TestCase):
               patch.object(hil_auth, 'development_session',
                            side_effect=lambda procedure: real_session(
                                procedure, path, state, _development=True)),
+              patch.object(tc, 'motion_event_once_authorization', return_value={'status': 'PASS'}),
               patch.object(tc, 'exact_fixture', return_value=fixture),
               patch.object(controller, 'execute', side_effect=execute_once),
               patch.object(controller, 'execute_campaign', side_effect=AssertionError('campaign fallback')),
@@ -1472,6 +1473,7 @@ class TC001Test(unittest.TestCase):
               patch.object(hil_auth, 'development_session',
                            side_effect=lambda procedure: real_session(
                                procedure, path, state, _development=True)),
+              patch.object(tc, 'motion_event_once_authorization', return_value={'status': 'PASS'}),
               patch.object(tc, 'exact_fixture', side_effect=[fixture, changed_fixture]),
               patch.object(controller, 'execute', side_effect=lambda *_a, **_k: calls.append('execute')),
               patch.object(controller, 'save')):

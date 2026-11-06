@@ -866,6 +866,61 @@ DEV_MOTION_EVENT_PIN_REVIEW_TESTS = {
     'test_single_event_fixture_change_after_reservation_consumes_scope_without_execute',
     'test_single_event_missing_or_stale_preflight_never_invokes_execute',
 }
+GS117_SCOPE_ISSUANCE_REVIEW_TESTS = DEV_MOTION_EVENT_PIN_REVIEW_TESTS | {
+    'test_source_review_requires_current_commit_fingerprints_and_private_test_receipt',
+    'test_untrusted_or_changed_owner_approval_is_rejected',
+    'test_unknown_scope_and_stale_source_review_are_rejected_before_issue',
+    'test_issuance_rejects_unverified_approval_without_creating_state',
+    'test_readback_grant_issuance_is_pending_until_separate_activation',
+    'test_scope_a_issuance_is_exactly_the_approved_fixture_ranges_and_resets',
+    'test_duplicate_issuance_activation_and_scope_replay_are_rejected',
+    'test_readback_wrong_tool_versions_and_incomplete_scope_fail_closed',
+    'test_motion_grant_cannot_be_issued_before_scope_a_pass',
+    'test_motion_grant_is_isolated_one_use_and_revocable',
+    'test_scope_issuance_audit_corruption_blocks_activation',
+    'test_interrupted_pending_issuance_without_audit_cannot_activate',
+    'test_scope_b_activation_rejects_changed_scope_a_receipt',
+    'test_unconsumed_motion_grant_can_be_revoked_without_touching_hardware_state',
+    'test_private_policy_writer_rejects_group_or_world_accessible_parent',
+}
+
+# GS-117#11933 approved two distinct, one-use physical operations. These
+# constants pin the actual Jira comment (issue/comment identity, author, and
+# body digest); a caller-provided approval reference alone is never authority.
+GS117_SCOPE_APPROVAL_REF = 'GS-117#11933'
+GS117_SCOPE_APPROVAL_ISSUE = 'GS-117'
+GS117_SCOPE_APPROVAL_COMMENT_ID = '11933'
+GS117_SCOPE_APPROVAL_OWNER_ACCOUNT_ID = '712020:d1785a8a-5bf2-4556-a451-0805ddb6af74'
+GS117_SCOPE_APPROVAL_BODY_SHA256 = '6ee1838468cc1296cf1d1acd8525eec164c1c06ad24108b2c03235adc37dad35'
+GS117_SCOPE_ISSUANCE_STATE = (Path.home() /
+    '.local/state/ghar-sajag/gs117-tc001/scope-issuance-11933')
+GS117_SCOPE_SOURCE_NAMES = (
+    'authorization_module', 'controller', 'collector', 'serial_helper',
+    'readback_tests', 'console_tests', 'validation_registry',
+)
+GS117_SCOPE_SOURCE_PATHS = {
+    'authorization_module': Path(__file__).resolve(),
+    'controller': Path(__file__).resolve().with_name('gs117_tc001_console.py'),
+    'collector': Path(__file__).resolve().with_name('gs117_tc001_readback.py'),
+    'serial_helper': Path(__file__).resolve().with_name('gs117_tc001_serial_windows.py'),
+    'readback_tests': Path(__file__).resolve().parents[2] / 'tests/python/test_gs117_readback_receipt.py',
+    'console_tests': Path(__file__).resolve().parents[2] / 'tests/python/test_gs117_tc001_console.py',
+    'validation_registry': Path(__file__).resolve().parents[2] / 'validation/suites.json',
+}
+GS117_SCOPE_APPROVAL_SCHEMA = 'GS117_OWNER_SCOPE_APPROVAL_V1'
+GS117_SCOPE_ISSUANCE_SCHEMA = 'GS117_ONE_USE_GRANT_V1'
+GS117_SCOPE_ISSUANCE_ZERO_HASH = '0' * 64
+GS117_SCOPE_GRANT_MAX_SECONDS = {'readback_receipt': 7200, 'motion_event_once': 3600}
+MOTION_EVENT_ONCE_POLICY = DEV_POLICY.with_name('motion-event-once-11933.json')
+MOTION_EVENT_ONCE_STATE = DEV_STATE.with_name('motion-event-once-11933')
+MOTION_EVENT_ONCE_MODE_ID = 'GS117_MOTION_EVENT_ONCE_11933'
+MOTION_EVENT_ONCE_PROFILE = 'GS117_DEV_TEST_ONLY'
+MOTION_EVENT_ONCE_TOOLS = {
+    'authorization_module': Path(__file__).resolve(),
+    'controller': Path(__file__).resolve().with_name('gs117_tc001_console.py'),
+    'serial_helper': Path(__file__).resolve().with_name('gs117_tc001_serial_windows.py'),
+    'collector': Path(__file__).resolve().with_name('gs117_tc001_readback.py'),
+}
 
 # Separate one-use receipt authority. This does not extend DEV_OPERATIONS,
 # inherit its hardware allowance, or modify the consumed GS-117 observation
@@ -921,6 +976,304 @@ READBACK_RECEIPT_POLICY_KEYS = {
     'tool_versions', 'activation_record_sha256',
 }
 READBACK_RECEIPT_ZERO_HASH = '0' * 64
+
+
+def _verify_gs117_11933_approval(evidence):
+    """Verify the exact owner-authored Jira approval, not a caller's ref string."""
+    if (not isinstance(evidence, dict) or
+            set(evidence) != {'issue_key', 'comment_id', 'author_account_id', 'body'} or
+            evidence.get('issue_key') != GS117_SCOPE_APPROVAL_ISSUE or
+            str(evidence.get('comment_id')) != GS117_SCOPE_APPROVAL_COMMENT_ID or
+            evidence.get('author_account_id') != GS117_SCOPE_APPROVAL_OWNER_ACCOUNT_ID or
+            not isinstance(evidence.get('body'), str) or
+            hashlib.sha256(evidence['body'].encode()).hexdigest() != GS117_SCOPE_APPROVAL_BODY_SHA256):
+        raise ValueError('gs117_owner_scope_approval_not_verified')
+    return {
+        'issue_key': GS117_SCOPE_APPROVAL_ISSUE,
+        'comment_id': GS117_SCOPE_APPROVAL_COMMENT_ID,
+        'author_account_id': GS117_SCOPE_APPROVAL_OWNER_ACCOUNT_ID,
+        'body_sha256': GS117_SCOPE_APPROVAL_BODY_SHA256,
+        'approval_ref': GS117_SCOPE_APPROVAL_REF,
+    }
+
+
+def _verify_gs117_scope_source_review(review):
+    """Require the reviewed commit and every scoped source fingerprint to be current."""
+    review_keys = {'reviewed_commit', 'reviewer', 'source_fingerprints',
+                   'reviewed_negative_tests', 'test_evidence_path', 'test_evidence_sha256'}
+    if (not isinstance(review, dict) or
+            set(review) not in (review_keys, review_keys | {'validation_summary'}) or
+            review.get('reviewer') != GS117_SCOPE_APPROVAL_OWNER_ACCOUNT_ID or
+            not isinstance(review.get('reviewed_commit'), str) or
+            not re.fullmatch(r'[0-9a-f]{40}', review['reviewed_commit']) or
+            not isinstance(review.get('source_fingerprints'), dict) or
+            set(review['source_fingerprints']) != set(GS117_SCOPE_SOURCE_NAMES) or
+            not isinstance(review.get('reviewed_negative_tests'), list) or
+            review['reviewed_negative_tests'] != sorted(GS117_SCOPE_ISSUANCE_REVIEW_TESTS) or
+            not isinstance(review.get('test_evidence_path'), str) or
+            not Path(review['test_evidence_path']).is_absolute() or
+            not re.fullmatch(r'[0-9a-f]{64}', str(review.get('test_evidence_sha256', '')))):
+        raise ValueError('gs117_scope_source_review_invalid')
+    repo = Path(__file__).resolve().parents[3]
+    top = subprocess.run(['git', 'rev-parse', '--show-toplevel'], cwd=repo,
+                         capture_output=True, text=True, timeout=10)
+    branch = subprocess.run(['git', 'branch', '--show-current'], cwd=repo,
+                            capture_output=True, text=True, timeout=10)
+    head = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=repo,
+                          capture_output=True, text=True, timeout=10)
+    dirty = subprocess.run(['git', 'diff', '--quiet', 'HEAD', '--'], cwd=repo,
+                            capture_output=True, text=True, timeout=10)
+    if (top.returncode or Path(top.stdout.strip()).resolve() != repo or
+            branch.returncode or branch.stdout.strip() != 'feature/r1-commercial-baseline' or
+            head.returncode or head.stdout.strip() != review['reviewed_commit'] or dirty.returncode != 0):
+        raise ValueError('gs117_scope_source_review_checkpoint_mismatch')
+    actual = {}
+    for name, path in GS117_SCOPE_SOURCE_PATHS.items():
+        if path.is_symlink() or not path.is_file():
+            raise ValueError('gs117_scope_source_missing:' + name)
+        actual[name] = digest(path)
+    if actual != review['source_fingerprints']:
+        raise ValueError('gs117_scope_source_fingerprint_stale')
+    evidence_path = Path(review['test_evidence_path'])
+    _readback_receipt_private_file(evidence_path, 'gs117_scope_test_evidence_invalid')
+    if digest(evidence_path) != review['test_evidence_sha256']:
+        raise ValueError('gs117_scope_test_evidence_hash_mismatch')
+    try:
+        evidence = json.loads(evidence_path.read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError('gs117_scope_test_evidence_invalid') from error
+    expected_commands = {
+        'authorization_receipt': ['python3', 'code/tests/python/test_gs117_readback_receipt.py'],
+        'console': ['python3', 'code/tests/python/test_gs117_tc001_console.py'],
+        'framework': ['make', '-C', 'code', 'validation-framework-test'],
+        'feature_coverage': ['make', '-C', 'code', 'feature-coverage-test'],
+    }
+    reviewed_tests_registered = set()
+    for name in ('console_tests', 'readback_tests'):
+        reviewed_tests_registered.update(re.findall(
+            r'^\s*def\s+(test_[A-Za-z0-9_]+)\s*\(',
+            GS117_SCOPE_SOURCE_PATHS[name].read_text(), re.MULTILINE))
+    if (evidence.get('reviewed_negative_tests') != review['reviewed_negative_tests'] or
+            not GS117_SCOPE_ISSUANCE_REVIEW_TESTS.issubset(reviewed_tests_registered)):
+        raise ValueError('gs117_scope_negative_test_review_incomplete')
+    expected_tests = set(expected_commands)
+    tests = evidence.get('tests') if isinstance(evidence, dict) else None
+    if (not isinstance(evidence, dict) or evidence.get('schema_version') != 1 or
+            evidence.get('reviewed_commit') != review['reviewed_commit'] or
+            evidence.get('source_fingerprints') != actual or not isinstance(tests, list) or
+            {row.get('name') for row in tests if isinstance(row, dict)} != expected_tests or
+            len(tests) != len(expected_tests) or
+            any(row.get('returncode') != 0 or row.get('command') != expected_commands.get(row.get('name')) or
+                type(row.get('test_count')) is not int or row['test_count'] < 1 or
+                row.get('skipped_count') != 0 or
+                not re.fullmatch(r'[0-9a-f]{64}', str(row.get('stdout_sha256', ''))) or
+                not re.fullmatch(r'[0-9a-f]{64}', str(row.get('stderr_sha256', '')))
+                for row in tests if isinstance(row, dict))):
+        raise ValueError('gs117_scope_test_evidence_incomplete')
+    by_name = {row['name']: row for row in tests}
+    validation_summary = {
+        'gs117_focused': 'PASS',
+        'framework': 'PASS' if by_name['framework']['returncode'] == 0 else 'FAIL',
+        'feature_coverage': 'PASS' if by_name['feature_coverage']['returncode'] == 0 else 'FAIL',
+    }
+    if any(by_name[name]['returncode'] != 0 for name in expected_tests):
+        raise ValueError('gs117_scope_test_evidence_failed')
+    if ('validation_summary' in review and review['validation_summary'] != validation_summary):
+        raise ValueError('gs117_scope_test_evidence_summary_mismatch')
+    return {
+        'reviewed_commit': review['reviewed_commit'],
+        'reviewer': review['reviewer'].strip(),
+        'source_fingerprints': actual,
+        'test_evidence_path': str(evidence_path),
+        'test_evidence_sha256': review['test_evidence_sha256'],
+        'reviewed_negative_tests': review['reviewed_negative_tests'],
+        'validation_summary': validation_summary,
+    }
+
+
+def _scope_issuance_state_private(state=None, *, create=False):
+    state = Path(state or GS117_SCOPE_ISSUANCE_STATE)
+    if state.is_symlink():
+        raise ValueError('gs117_scope_issuance_state_not_private')
+    if create:
+        state.mkdir(parents=True, exist_ok=True, mode=0o700)
+    try:
+        info = state.lstat()
+    except OSError as error:
+        raise ValueError('gs117_scope_issuance_state_not_private') from error
+    if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077):
+        raise ValueError('gs117_scope_issuance_state_not_private')
+    return state
+
+
+def _scope_issuance_audit(state):
+    state = _scope_issuance_state_private(state)
+    path = state / 'issuance.jsonl'
+    if path.is_symlink():
+        raise ValueError('gs117_scope_issuance_audit_invalid')
+    if not path.exists():
+        return [], {}
+    _readback_receipt_private_file(path, 'gs117_scope_issuance_audit_invalid')
+    try:
+        rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError('gs117_scope_issuance_audit_corrupt') from error
+    previous, history = GS117_SCOPE_ISSUANCE_ZERO_HASH, {}
+    for row in rows:
+        if (not isinstance(row, dict) or row.get('event') not in
+                {'scope_grant_issued', 'scope_grant_activated'} or
+                not re.fullmatch(r'[0-9a-f]{32}', str(row.get('authorization_id', ''))) or
+                row.get('operation') not in {'readback_receipt', 'motion_event_once'} or
+                row.get('previous_record_sha256') != previous or
+                row.get('record_sha256') != _canonical_record_sha256(row)):
+            raise ValueError('gs117_scope_issuance_audit_chain_invalid')
+        current = history.setdefault(row['authorization_id'], {
+            'operation': row['operation'], 'issued': None, 'activated': None})
+        if current['operation'] != row['operation']:
+            raise ValueError('gs117_scope_issuance_scope_mismatch')
+        if row['event'] == 'scope_grant_issued':
+            if current['issued'] is not None or row.get('approval_ref') != GS117_SCOPE_APPROVAL_REF or \
+                    row.get('approval_body_sha256') != GS117_SCOPE_APPROVAL_BODY_SHA256:
+                raise ValueError('gs117_scope_duplicate_issuance')
+            current['issued'] = row
+        elif current['issued'] is None or current['activated'] is not None:
+            raise ValueError('gs117_scope_issuance_transition_invalid')
+        else:
+            if (row.get('issued_record_sha256') != current['issued'].get('issued_record_sha256') or
+                    row.get('approval_body_sha256') != current['issued'].get('approval_body_sha256') or
+                    row.get('source_review_sha256') != current['issued'].get('source_review_sha256')):
+                raise ValueError('gs117_scope_issuance_binding_mismatch')
+            current['activated'] = row
+        previous = row['record_sha256']
+    if len({(value['operation']) for value in history.values()}) > 2:
+        raise ValueError('gs117_scope_issuance_audit_scope_invalid')
+    for operation in ('readback_receipt', 'motion_event_once'):
+        issued = [item for item in history.values()
+                  if item['operation'] == operation and item['issued'] is not None]
+        if len(issued) > 1:
+            raise ValueError('gs117_scope_duplicate_issuance')
+    return rows, history
+
+
+def _append_scope_issuance_event(state, record):
+    rows, _history = _scope_issuance_audit(state)
+    record = dict(record)
+    record['previous_record_sha256'] = (rows[-1]['record_sha256'] if rows
+                                        else GS117_SCOPE_ISSUANCE_ZERO_HASH)
+    record['record_sha256'] = _canonical_record_sha256(record)
+    _append_private_audit(Path(state) / 'issuance.jsonl', record)
+    return record
+
+
+def _write_private_json_exclusive(path, value):
+    path = Path(path)
+    if (path.is_symlink() or not path.parent.is_dir() or
+            path.parent.resolve(strict=True) != path.parent):
+        raise ValueError('gs117_scope_grant_path_invalid')
+    parent_info = path.parent.lstat()
+    if (not stat.S_ISDIR(parent_info.st_mode) or parent_info.st_uid != os.getuid() or
+            parent_info.st_mode & 0o077):
+        raise ValueError('gs117_scope_grant_parent_not_private')
+    fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, 'O_NOFOLLOW', 0), 0o600)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as output:
+            fd = -1
+            json.dump(value, output, sort_keys=True)
+            output.write('\n')
+            output.flush()
+            os.fsync(output.fileno())
+    finally:
+        if fd >= 0:
+            os.close(fd)
+    directory_fd = os.open(path.parent, os.O_RDONLY)
+    try:
+        os.fsync(directory_fd)
+    finally:
+        os.close(directory_fd)
+
+
+@contextmanager
+def _gs117_scope_issuance_lock(state=None):
+    state = _scope_issuance_state_private(state, create=True)
+    lock_path = state / 'session.lock'
+    if lock_path.is_symlink():
+        raise ValueError('gs117_scope_issuance_state_not_private')
+    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | getattr(os, 'O_NOFOLLOW', 0), 0o600)
+    with os.fdopen(fd, 'r+') as lock:
+        info = os.fstat(lock.fileno())
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or
+                info.st_mode & 0o077):
+            raise ValueError('gs117_scope_issuance_state_not_private')
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise ValueError('gs117_scope_issuance_already_active') from error
+        yield state
+
+
+@contextmanager
+def _gs117_scope_operation_guard(error_code):
+    with ExitStack() as locks:
+        _hold_gs117_physical_scope_locks(locks, error_code=error_code)
+        with _gs117_scope_issuance_lock() as state:
+            yield state
+
+
+def _scope_approval_record_hash(approval):
+    return hashlib.sha256(json.dumps(approval, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+
+
+def _verify_scope_a_readback_pass(state=None, now=None):
+    """Require the exact completed, integrity-checked and fresh Scope A evidence."""
+    state = Path(state or READBACK_RECEIPT_STATE)
+    now = now or datetime.now(timezone.utc)
+    rows, histories = _readback_receipt_audit(state)
+    completed = [row for row in rows if row.get('event') == 'readback_receipt_completed' and
+                 row.get('outcome') == 'PASS']
+    if not completed:
+        raise ValueError('motion_event_once_scope_a_receipt_pass_required')
+    result = completed[-1]
+    try:
+        finished = datetime.fromisoformat(result['completed_at'])
+        evidence_dir = Path(result['evidence_dir'])
+        age = (now - finished).total_seconds()
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError('motion_event_once_scope_a_receipt_invalid') from error
+    if (finished.tzinfo is None or now.tzinfo is None or age < 0 or age > 86400 or
+            result.get('authorization_id') not in histories or
+            histories[result['authorization_id']].get('terminal') != result or
+            result.get('scope_sha256') != histories[result['authorization_id']]['activated'].get('scope_sha256')):
+        raise ValueError('motion_event_once_scope_a_receipt_stale_or_unverified')
+    evidence_hash, entries = _readback_receipt_evidence_hash(evidence_dir)
+    if evidence_hash != result.get('evidence_sha256') or entries != result.get('evidence_entries'):
+        raise ValueError('motion_event_once_scope_a_receipt_integrity_failed')
+    by_role = {}
+    for role in ('c3', 's3'):
+        receipt_path = evidence_dir / role / (role + '-readback.json')
+        try:
+            receipt = json.loads(receipt_path.read_text())
+        except (OSError, json.JSONDecodeError) as error:
+            raise ValueError('motion_event_once_scope_a_receipt_missing') from error
+        if (receipt.get('status') != 'PASS' or receipt.get('role') != role or
+                receipt.get('port') != READBACK_RECEIPT_FIXTURE[role]['port'] or
+                receipt.get('expected_usb_serial') != READBACK_RECEIPT_FIXTURE[role]['serial_number'] or
+                receipt.get('procedure_sha256') != histories[result['authorization_id']]['activated'].get(
+                    'tool_hashes', {}).get('collector') or
+                receipt.get('image_match', {}).get('byte_for_byte_match') is not True or
+                receipt.get('image_match', {}).get('readback_sha256') != DEV_IMAGES[role] or
+                receipt.get('trusted_artifact_sha256') != DEV_IMAGES[role] or
+                receipt.get('application_restoration', {}).get('status') != 'USB_IDENTITY_REENUMERATED'):
+            raise ValueError('motion_event_once_scope_a_receipt_fixture_or_image_mismatch')
+        by_role[role] = digest(receipt_path)
+    return {
+        'authorization_id': result['authorization_id'],
+        'scope_sha256': result['scope_sha256'],
+        'session_id': result['session_id'],
+        'evidence_dir': str(evidence_dir),
+        'evidence_sha256': evidence_hash,
+        'completed_at': result['completed_at'],
+        'receipt_sha256': by_role,
+    }
 
 
 def _readback_receipt_scope_sha256(policy):
@@ -1113,6 +1466,10 @@ def load_readback_receipt_authorization(now=None, *, _allow_reserved=False):
     if (any(activation.get(key) != value for key, value in expected_activation.items()) or
             activation.get('record_sha256') != policy['activation_record_sha256']):
         raise ValueError('readback_receipt_activation_scope_mismatch')
+    if policy['owner_approval_ref'] == GS117_SCOPE_APPROVAL_REF:
+        _verify_scope_issuance_binding(
+            policy['authorization_id'], 'readback_receipt', activation.get('issuance_record_sha256'),
+            activation.get('approval_body_sha256'), activation.get('source_review_sha256'))
     if history['revoked']:
         raise ValueError('readback_receipt_authorization_revoked')
     if history['reserved'] is not None and not _allow_reserved:
@@ -1121,6 +1478,354 @@ def load_readback_receipt_authorization(now=None, *, _allow_reserved=False):
     if audit_path.is_symlink():
         raise ValueError('readback_receipt_audit_invalid')
     return policy
+
+
+def _motion_event_tool_hashes(tool_files):
+    if not isinstance(tool_files, dict) or set(tool_files) != set(MOTION_EVENT_ONCE_TOOLS):
+        raise ValueError('motion_event_once_tool_scope_mismatch')
+    result = {}
+    for name, expected_path in MOTION_EVENT_ONCE_TOOLS.items():
+        entry = tool_files.get(name)
+        if (not isinstance(entry, dict) or set(entry) != {'path', 'sha256'} or
+                entry.get('path') != str(expected_path) or expected_path.is_symlink() or
+                not expected_path.is_file() or not re.fullmatch(r'[0-9a-f]{64}',
+                                                                str(entry.get('sha256', ''))) or
+                digest(expected_path) != entry['sha256']):
+            raise ValueError('motion_event_once_tool_identity_mismatch:' + name)
+        result[name] = entry['sha256']
+    return result
+
+
+def _scope_pending_path(state, operation, authorization_id):
+    if (operation not in {'readback_receipt', 'motion_event_once'} or
+            not re.fullmatch(r'[0-9a-f]{32}', str(authorization_id))):
+        raise ValueError('gs117_scope_grant_identity_invalid')
+    return Path(state) / f'{operation}-{authorization_id}.pending.json'
+
+
+def issue_gs117_scope_grant(operation, approval_evidence, source_review, *,
+                            tool_files=None, tool_versions=None, now=None):
+    """Create one immutable pending grant from the pinned owner approval.
+
+    Issuance does not activate a policy and cannot authorize device access.
+    A separate explicit activation step is required after source review.
+    """
+    if operation not in {'readback_receipt', 'motion_event_once'}:
+        raise ValueError('gs117_scope_operation_not_allowlisted')
+    approval = _verify_gs117_11933_approval(approval_evidence)
+    review = _verify_gs117_scope_source_review(source_review)
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        raise ValueError('gs117_scope_issue_time_invalid')
+    if operation == 'readback_receipt':
+        if not isinstance(tool_files, dict) or not isinstance(tool_versions, dict):
+            raise ValueError('readback_receipt_reviewed_tool_inventory_required')
+        candidate = {'tool_files': tool_files}
+        tool_hashes = _readback_receipt_tool_hashes(candidate)
+        if (set(tool_versions) != set(READBACK_RECEIPT_TOOL_VERSIONS) or
+                any(not isinstance(value, str) or not value.strip() or len(value) > 80
+                    for value in tool_versions.values()) or
+                tool_versions.get('esptool') != '5.4.0' or tool_versions.get('esp_idf') != '6.0.3'):
+            raise ValueError('readback_receipt_tool_version_mismatch')
+        scope = {
+            'fixture': READBACK_RECEIPT_FIXTURE,
+            'read_ranges': READBACK_RECEIPT_RANGES,
+            'reset_budget': READBACK_RECEIPT_RESET_BUDGET,
+            'prohibited_operations': READBACK_RECEIPT_PROHIBITED,
+            'tool_files': tool_files,
+            'tool_hashes': tool_hashes,
+            'tool_versions': tool_versions,
+        }
+    else:
+        if tool_files is None:
+            tool_files = {name: {'path': str(path), 'sha256': digest(path)}
+                          for name, path in MOTION_EVENT_ONCE_TOOLS.items()}
+        tool_hashes = _motion_event_tool_hashes(tool_files)
+        receipt = _verify_scope_a_readback_pass(now=now)
+        scope = {
+            'fixture': READBACK_RECEIPT_FIXTURE,
+            'images': DEV_IMAGES,
+            'procedures': ['motion_event_once'],
+            'allowed_operations': ['motion_event_once'],
+            'procedure_session_limits': {'motion_event_once': 1},
+            'max_sessions': 1,
+            'motion_injection_authorized': True,
+            'prohibited_operations': DEV_PROHIBITED + [
+                'campaign', 'bootstrap', 'flash', 'erase', 'readback', 'reset',
+                's3_uart', 'retry', 'second_event',
+            ],
+            'tool_files': tool_files,
+            'tool_hashes': tool_hashes,
+            'scope_a_receipt': receipt,
+        }
+    with _gs117_scope_operation_guard('gs117_scope_hardware_operation_already_active') as state:
+        rows, history = _scope_issuance_audit(state)
+        if any(value['operation'] == operation and value['issued'] is not None
+               for value in history.values()):
+            raise ValueError('gs117_scope_grant_already_issued')
+        if any(state.glob(operation + '-*.pending.json')):
+            raise ValueError('gs117_scope_grant_issue_already_pending')
+        final_path = READBACK_RECEIPT_POLICY if operation == 'readback_receipt' else MOTION_EVENT_ONCE_POLICY
+        if final_path.exists() or final_path.is_symlink():
+            raise ValueError('gs117_scope_grant_target_already_exists')
+        authorization_id = secrets.token_hex(16)
+        expires = now + timedelta(seconds=GS117_SCOPE_GRANT_MAX_SECONDS[operation])
+        record = {
+            'schema': GS117_SCOPE_ISSUANCE_SCHEMA,
+            'operation': operation,
+            'authorization_id': authorization_id,
+            'phase': 'ISSUED_PENDING_ACTIVATION',
+            'approval': approval,
+            'source_review': review,
+            'source_review_sha256': _scope_approval_record_hash(review),
+            'scope': scope,
+            'issued_at': now.isoformat(),
+            'expires_at': expires.isoformat(),
+            'max_uses': 1,
+            'renewable': False,
+        }
+        record['issued_record_sha256'] = _canonical_record_sha256(record)
+        pending = _scope_pending_path(state, operation, authorization_id)
+        _write_private_json_exclusive(pending, record)
+        event = {
+            'event': 'scope_grant_issued', 'operation': operation,
+            'authorization_id': authorization_id,
+            'approval_ref': approval['approval_ref'],
+            'approval_body_sha256': approval['body_sha256'],
+            'source_review_sha256': record['source_review_sha256'],
+            'issued_record_sha256': record['issued_record_sha256'],
+            'pending_path': str(pending), 'issued_at': record['issued_at'],
+            'expires_at': record['expires_at'],
+        }
+        _append_scope_issuance_event(state, event)
+        return {'status': 'ISSUED_PENDING_ACTIVATION', 'operation': operation,
+                'authorization_id': authorization_id, 'expires_at': record['expires_at'],
+                'issued_record_sha256': record['issued_record_sha256']}
+
+
+def _scope_issuance_binding(authorization_id, operation):
+    rows, history = _scope_issuance_audit(GS117_SCOPE_ISSUANCE_STATE)
+    item = history.get(authorization_id)
+    if (item is None or item['operation'] != operation or item['issued'] is None or
+            item['activated'] is None):
+        raise ValueError('gs117_scope_issuance_record_missing')
+    issue, activated = item['issued'], item['activated']
+    if (activated.get('issued_record_sha256') != issue.get('issued_record_sha256') or
+            activated.get('approval_body_sha256') != issue.get('approval_body_sha256') or
+            issue.get('approval_ref') != GS117_SCOPE_APPROVAL_REF or
+            issue.get('record_sha256') != _canonical_record_sha256(issue) or
+            activated.get('record_sha256') != _canonical_record_sha256(activated)):
+        raise ValueError('gs117_scope_issuance_binding_mismatch')
+    return issue, activated
+
+
+def _verify_scope_issuance_binding(authorization_id, operation, issuance_record_sha256,
+                                   approval_body_sha256, source_review_sha256):
+    issue, activated = _scope_issuance_binding(authorization_id, operation)
+    if (issue.get('issued_record_sha256') != issuance_record_sha256 or
+            issue.get('approval_body_sha256') != approval_body_sha256 or
+            activated.get('source_review_sha256') != source_review_sha256):
+        raise ValueError('gs117_scope_issuance_binding_mismatch')
+
+
+def activate_gs117_scope_grant(authorization_id, approval_evidence, source_review, *, now=None):
+    """Activate one pending, exact-scope grant; never run its physical operation."""
+    approval = _verify_gs117_11933_approval(approval_evidence)
+    review = _verify_gs117_scope_source_review(source_review)
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        raise ValueError('gs117_scope_activation_time_invalid')
+    with _gs117_scope_operation_guard('gs117_scope_hardware_operation_already_active') as state:
+        _rows, history = _scope_issuance_audit(state)
+        item = history.get(authorization_id)
+        if item is None or item['issued'] is None:
+            raise ValueError('gs117_scope_grant_issue_missing')
+        if item['activated'] is not None:
+            raise ValueError('gs117_scope_grant_already_activated')
+        operation = item['operation']
+        pending = _scope_pending_path(state, operation, authorization_id)
+        _readback_receipt_private_file(pending, 'gs117_scope_pending_grant_invalid')
+        try:
+            record = json.loads(pending.read_text())
+        except (OSError, json.JSONDecodeError) as error:
+            raise ValueError('gs117_scope_pending_grant_invalid') from error
+        saved_hash = record.pop('issued_record_sha256', None)
+        if (record.get('schema') != GS117_SCOPE_ISSUANCE_SCHEMA or
+                record.get('phase') != 'ISSUED_PENDING_ACTIVATION' or
+                record.get('authorization_id') != authorization_id or
+                record.get('operation') != operation or
+                record.get('approval') != approval or record.get('source_review') != review or
+                saved_hash != item['issued'].get('issued_record_sha256') or
+                saved_hash != _canonical_record_sha256(record)):
+            raise ValueError('gs117_scope_pending_grant_integrity_failed')
+        try:
+            expires = datetime.fromisoformat(record['expires_at'])
+            issued = datetime.fromisoformat(record['issued_at'])
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError('gs117_scope_grant_time_invalid') from error
+        if (expires.tzinfo is None or issued.tzinfo is None or now >= expires or now < issued or
+                expires - issued != timedelta(seconds=GS117_SCOPE_GRANT_MAX_SECONDS[operation]) or
+                record['scope'].get('fixture') != READBACK_RECEIPT_FIXTURE):
+            raise ValueError('gs117_scope_grant_expired_or_scope_mismatch')
+        scope = record['scope']
+        activation_time = issued.isoformat()
+        issuance_record_sha256 = saved_hash
+        approval_hash = approval['body_sha256']
+        source_review_hash = record['source_review_sha256']
+        if operation == 'readback_receipt':
+            tool_hashes = _readback_receipt_tool_hashes({'tool_files': scope['tool_files']})
+            if (scope.get('read_ranges') != READBACK_RECEIPT_RANGES or
+                    scope.get('reset_budget') != READBACK_RECEIPT_RESET_BUDGET or
+                    scope.get('prohibited_operations') != READBACK_RECEIPT_PROHIBITED or
+                    scope.get('tool_hashes') != tool_hashes or
+                    scope.get('tool_versions') != record['scope'].get('tool_versions')):
+                raise ValueError('readback_receipt_issued_scope_changed')
+            policy = {
+                'schema_version': 1, 'profile': READBACK_RECEIPT_PROFILE,
+                'operation': READBACK_RECEIPT_OPERATION,
+                'authorization_id': authorization_id,
+                'owner_approval_ref': GS117_SCOPE_APPROVAL_REF,
+                'owner_approved': True, 'active': True, 'revoked': False,
+                'activated_at': activation_time, 'expires_at': record['expires_at'],
+                'max_uses': 1, 'renewable': False,
+                'fixture': READBACK_RECEIPT_FIXTURE,
+                'read_ranges': READBACK_RECEIPT_RANGES,
+                'reset_budget': READBACK_RECEIPT_RESET_BUDGET,
+                'prohibited_operations': READBACK_RECEIPT_PROHIBITED,
+                'tool_files': scope['tool_files'], 'tool_versions': scope['tool_versions'],
+                'activation_record_sha256': '0' * 64,
+            }
+            if READBACK_RECEIPT_POLICY.exists() or READBACK_RECEIPT_POLICY.is_symlink():
+                raise ValueError('readback_receipt_policy_already_exists')
+            receipt_state = Path(READBACK_RECEIPT_STATE)
+            receipt_state.mkdir(parents=True, exist_ok=True, mode=0o700)
+            if receipt_state.is_symlink() or receipt_state.stat().st_uid != os.getuid() or receipt_state.stat().st_mode & 0o077:
+                raise ValueError('readback_receipt_state_not_private')
+            audit_path = receipt_state / 'audit.jsonl'
+            if not audit_path.exists():
+                fd = os.open(audit_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                with os.fdopen(fd, 'wb') as audit_file:
+                    audit_file.flush()
+                    os.fsync(audit_file.fileno())
+            else:
+                _readback_receipt_audit(receipt_state)
+            activation = {
+                'event': 'readback_receipt_activated',
+                'authorization_id': authorization_id, 'activation_id': authorization_id,
+                'approval_ref': GS117_SCOPE_APPROVAL_REF,
+                'scope_sha256': _readback_receipt_scope_sha256(policy),
+                'activated_at': activation_time, 'expires_at': record['expires_at'],
+                'fixture': READBACK_RECEIPT_FIXTURE,
+                'operation': READBACK_RECEIPT_OPERATION,
+                'read_ranges': READBACK_RECEIPT_RANGES,
+                'reset_budget': READBACK_RECEIPT_RESET_BUDGET,
+                'tool_hashes': tool_hashes, 'tool_versions': scope['tool_versions'],
+                'max_uses': 1, 'issuance_record_sha256': issuance_record_sha256,
+                'approval_body_sha256': approval_hash,
+                'source_review_sha256': source_review_hash,
+            }
+            activation = _append_readback_receipt_event(receipt_state, activation)
+            policy['activation_record_sha256'] = activation['record_sha256']
+            _write_private_json_exclusive(READBACK_RECEIPT_POLICY, policy)
+            grant_sha256 = digest(READBACK_RECEIPT_POLICY)
+        else:
+            if _verify_scope_a_readback_pass(now=now) != scope.get('scope_a_receipt'):
+                raise ValueError('motion_event_once_scope_a_receipt_changed')
+            tool_hashes = _motion_event_tool_hashes(scope['tool_files'])
+            if (scope.get('procedures') != ['motion_event_once'] or
+                    scope.get('allowed_operations') != ['motion_event_once'] or
+                    scope.get('max_sessions') != 1 or
+                    scope.get('procedure_session_limits') != {'motion_event_once': 1} or
+                    scope.get('motion_injection_authorized') is not True or
+                    scope.get('prohibited_operations') != DEV_PROHIBITED + [
+                        'campaign', 'bootstrap', 'flash', 'erase', 'readback', 'reset',
+                        's3_uart', 'retry', 'second_event']):
+                raise ValueError('motion_event_once_issued_scope_changed')
+            if MOTION_EVENT_ONCE_POLICY.exists() or MOTION_EVENT_ONCE_POLICY.is_symlink():
+                raise ValueError('motion_event_once_policy_already_exists')
+            motion_state = Path(MOTION_EVENT_ONCE_STATE)
+            motion_state.mkdir(parents=True, exist_ok=True, mode=0o700)
+            if motion_state.is_symlink() or motion_state.stat().st_uid != os.getuid() or motion_state.stat().st_mode & 0o077:
+                raise ValueError('motion_event_once_state_not_private')
+            audit_path = motion_state / 'audit.jsonl'
+            if not audit_path.exists():
+                fd = os.open(audit_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                os.close(fd)
+            mode = {
+                'enabled': True, 'revoked': False, 'persistent': True,
+                'mode_id': MOTION_EVENT_ONCE_MODE_ID, 'expires_at': None,
+                'environment': 'GS117_TEST_ONLY',
+                'authorization_ref': GS117_SCOPE_APPROVAL_REF,
+                'authority_refs': {'GS-117': '11933'},
+                'disable_on_release_transition': True,
+                'activation_record_sha256': '0' * 64,
+                'activation_id': authorization_id,
+                'activated_at': activation_time,
+                'reviewed_commit': review['reviewed_commit'],
+                'reviewed_source_fingerprints': review['source_fingerprints'],
+                'validation_summary': review['validation_summary'],
+            }
+            policy = {
+                'schema_version': DEV_MODE_SCHEMA, 'profile': MOTION_EVENT_ONCE_PROFILE,
+                'owner_approval_ref': GS117_SCOPE_APPROVAL_REF,
+                'owner_approved': True, 'active': True, 'revoked': False,
+                'development_mode_enabled': True,
+                'identity': IDENTITY, 'images': DEV_IMAGES,
+                'procedures': ['motion_event_once'],
+                'allowed_operations': ['motion_event_once'],
+                'procedure_session_limits': {'motion_event_once': 1},
+                'max_sessions': 1, 'motion_injection_authorized': True,
+                'prohibited_operations': scope['prohibited_operations'],
+                'serial_reset_risk_accepted': True,
+                'activated_at': activation_time, 'expires_at': record['expires_at'],
+                'development_mode': mode,
+                'activation_audit_path': str(audit_path),
+                'motion_event_once_scope': {
+                    'authorization_id': authorization_id,
+                    'approval_body_sha256': approval_hash,
+                    'issuance_record_sha256': issuance_record_sha256,
+                    'source_review_sha256': source_review_hash,
+                    'source_review': review,
+                    'tool_files': scope['tool_files'],
+                    'tool_hashes': tool_hashes,
+                    'scope_a_receipt': scope['scope_a_receipt'],
+                },
+            }
+            activation = {
+                'event': 'motion_event_once_activated',
+                'activation_id': authorization_id,
+                'authorization_id': authorization_id,
+                'approval_ref': GS117_SCOPE_APPROVAL_REF,
+                'authorization_scope_id': _development_scope_id(policy),
+                'activated_at': activation_time,
+                'expires_at': record['expires_at'],
+                'approval_body_sha256': approval_hash,
+                'issuance_record_sha256': issuance_record_sha256,
+                'source_review_sha256': source_review_hash,
+                'reviewed_commit': review['reviewed_commit'],
+                'tool_hashes': tool_hashes,
+                'scope_a_receipt': scope['scope_a_receipt'],
+            }
+            activation['record_sha256'] = _canonical_record_sha256(activation)
+            _append_private_audit(audit_path, activation)
+            mode['activation_record_sha256'] = activation['record_sha256']
+            _write_private_json_exclusive(MOTION_EVENT_ONCE_POLICY, policy)
+            grant_sha256 = digest(MOTION_EVENT_ONCE_POLICY)
+        activated_event = {
+            'event': 'scope_grant_activated', 'operation': operation,
+            'authorization_id': authorization_id,
+            'approval_ref': GS117_SCOPE_APPROVAL_REF,
+            'approval_body_sha256': approval_hash,
+            'source_review_sha256': source_review_hash,
+            'issued_record_sha256': issuance_record_sha256,
+            'grant_sha256': grant_sha256,
+            'activated_at': activation_time,
+        }
+        activated_event = _append_scope_issuance_event(state, activated_event)
+        return {'status': 'ACTIVE', 'operation': operation,
+                'authorization_id': authorization_id, 'expires_at': record['expires_at'],
+                'grant_sha256': grant_sha256,
+                'activation_record_sha256': activation.get('record_sha256')}
 
 
 def _readback_receipt_active_lock(state):
@@ -1161,6 +1866,17 @@ def _readback_receipt_hold_exclusive_lock(stack, directory, error_code):
     except BlockingIOError as error:
         raise ValueError(error_code) from error
     return lock
+
+
+@contextmanager
+def _hold_gs117_physical_scope_locks(stack, *, error_code, include_motion=True,
+                                     include_readback=True):
+    """Serialize hardware, DEV, receipt, and single-event scopes in fixed order."""
+    directories = (STATE, DEV_STATE,
+                   *((READBACK_RECEIPT_STATE,) if include_readback else ()),
+                   *((MOTION_EVENT_ONCE_STATE,) if include_motion else ()))
+    for directory in directories:
+        _readback_receipt_hold_exclusive_lock(stack, directory, error_code)
 
 
 def claim_readback_receipt_role(session_id, role, procedure_sha256,
@@ -1282,12 +1998,11 @@ def readback_receipt_session(now=None):
     with ExitStack() as locks:
         # Serialize against both existing HIL authorization paths without
         # reading or changing either hardware entitlement or its ledger.
+        _hold_gs117_physical_scope_locks(
+            locks, error_code='readback_receipt_hardware_operation_already_active',
+            include_readback=False)
         _readback_receipt_hold_exclusive_lock(
-            locks, STATE, 'readback_receipt_hardware_operation_already_active')
-        _readback_receipt_hold_exclusive_lock(
-            locks, DEV_STATE, 'readback_receipt_hardware_operation_already_active')
-        _readback_receipt_hold_exclusive_lock(
-            locks, state, 'readback_receipt_operation_already_active')
+            locks, state, 'readback_receipt_hardware_operation_already_active')
         policy = load_readback_receipt_authorization(now=now)
         session_id = secrets.token_hex(16)
         base = {'authorization_id': policy['authorization_id'],
@@ -1483,6 +2198,15 @@ def _development_motion_event_once_scope_valid(policy):
 def _validate_development_pin_paths(path, policy):
     """Keep the active DEV manifest bound to existing GS-117 procedures."""
     path = Path(path)
+    if path.resolve() == MOTION_EVENT_ONCE_POLICY.resolve():
+        scope = policy.get('motion_event_once_scope')
+        files = scope.get('tool_files') if isinstance(scope, dict) else None
+        if (not isinstance(files, dict) or set(files) != set(MOTION_EVENT_ONCE_TOOLS) or
+                any(files[name].get('path') != str(expected)
+                    for name, expected in MOTION_EVENT_ONCE_TOOLS.items()
+                    if isinstance(files.get(name), dict))):
+            raise ValueError('motion_event_once_reviewed_procedure_path_mismatch')
+        return
     if path.resolve() != DEFAULT_DEV_POLICY.resolve():
         return
     root = Path(__file__).resolve().parents[3]
@@ -1504,12 +2228,84 @@ def _validate_development_pin_paths(path, policy):
         raise ValueError('development_reviewed_procedure_path_mismatch')
 
 
+def _verify_motion_event_once_activation(policy, path, *, check_current_receipt=True,
+                                         check_sources=True):
+    mode = policy.get('development_mode')
+    scope = policy.get('motion_event_once_scope')
+    if (not isinstance(mode, dict) or not isinstance(scope, dict) or
+            set(scope) != {'approval_body_sha256', 'issuance_record_sha256',
+                           'source_review_sha256', 'source_review', 'tool_files',
+                           'tool_hashes', 'scope_a_receipt', 'authorization_id'}):
+        raise ValueError('motion_event_once_activation_scope_invalid')
+    review = scope['source_review']
+    if check_sources:
+        review = _verify_gs117_scope_source_review(review)
+    hashes = _motion_event_tool_hashes(scope['tool_files']) if check_sources else scope['tool_hashes']
+    if (scope['tool_hashes'] != hashes or
+            any(review.get('source_fingerprints', {}).get(name) != value
+                for name, value in hashes.items()) or
+            mode.get('activation_id') != scope.get('authorization_id') or
+            mode.get('reviewed_commit') != review.get('reviewed_commit') or
+            mode.get('reviewed_source_fingerprints') != review.get('source_fingerprints') or
+            mode.get('validation_summary') != review.get('validation_summary') or
+            scope.get('approval_body_sha256') != GS117_SCOPE_APPROVAL_BODY_SHA256 or
+            scope.get('source_review_sha256') != _scope_approval_record_hash(review)):
+        raise ValueError('motion_event_once_source_or_approval_binding_mismatch')
+    if check_current_receipt:
+        receipt = _verify_scope_a_readback_pass()
+        if receipt != scope.get('scope_a_receipt'):
+            raise ValueError('motion_event_once_scope_a_receipt_changed')
+    auth_id = mode.get('activation_id')
+    audit_path = Path(policy.get('activation_audit_path', ''))
+    if (not isinstance(auth_id, str) or not re.fullmatch(r'[0-9a-f]{32}', auth_id) or
+            audit_path.resolve() != (Path(MOTION_EVENT_ONCE_STATE) / 'audit.jsonl').resolve() or
+            audit_path.is_symlink()):
+        raise ValueError('motion_event_once_activation_path_invalid')
+    rows = _read_private_audit(audit_path)
+    activations = [row for row in rows if row.get('event') == 'motion_event_once_activated' and
+                   row.get('activation_id') == auth_id]
+    if len(activations) != 1:
+        raise ValueError('motion_event_once_activation_audit_missing_or_replayed')
+    activation = activations[0]
+    expected = {
+        'event': 'motion_event_once_activated',
+        'activation_id': auth_id,
+        'authorization_id': auth_id,
+        'approval_ref': GS117_SCOPE_APPROVAL_REF,
+        'authorization_scope_id': _development_scope_id(policy),
+        'activated_at': policy.get('activated_at'),
+        'expires_at': policy.get('expires_at'),
+        'approval_body_sha256': scope['approval_body_sha256'],
+        'issuance_record_sha256': scope['issuance_record_sha256'],
+        'source_review_sha256': scope['source_review_sha256'],
+        'reviewed_commit': review['reviewed_commit'],
+        'tool_hashes': hashes,
+        'scope_a_receipt': scope['scope_a_receipt'],
+    }
+    if (any(activation.get(key) != value for key, value in expected.items()) or
+            activation.get('record_sha256') != _canonical_record_sha256(activation) or
+            mode.get('activation_record_sha256') != activation.get('record_sha256')):
+        raise ValueError('motion_event_once_activation_audit_mismatch')
+    _verify_scope_issuance_binding(
+        auth_id, 'motion_event_once', scope['issuance_record_sha256'],
+        scope['approval_body_sha256'], scope['source_review_sha256'])
+    if any(row.get('event') == 'motion_event_once_revoked' and
+           row.get('activation_id') == auth_id for row in rows):
+        raise ValueError('motion_event_once_authorization_revoked')
+    return activation
+
+
 def load_development(path=None, *, verify_procedure_pins=True):
     path = Path(path or DEV_POLICY)
+    motion_once = path.resolve() == MOTION_EVENT_ONCE_POLICY.resolve()
     info = path.lstat()
     if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
         raise ValueError('development_consent_requires_owner_only_file')
     p = json.loads(path.read_text())
+    if (motion_once and (p.get('revoked') is True or
+                         (isinstance(p.get('development_mode'), dict) and
+                          p['development_mode'].get('revoked') is True))):
+        raise ValueError('motion_event_once_authorization_revoked')
     mode = p.get('development_mode')
     if (p.get('schema_version') != DEV_MODE_SCHEMA or p.get('profile') != 'GS117_DEV_TEST_ONLY' or
         p.get('active') is not True or p.get('revoked') is not False or
@@ -1517,18 +2313,23 @@ def load_development(path=None, *, verify_procedure_pins=True):
         p.get('owner_approved') is not True or not p.get('owner_approval_ref') or
         str(p['owner_approval_ref']).startswith('PENDING') or p.get('identity') != IDENTITY or
         p.get('images') != DEV_IMAGES or not _development_operation_scope_valid(p) or
-        p.get('prohibited_operations') != DEV_PROHIBITED or
+        p.get('prohibited_operations') != (DEV_PROHIBITED + [
+            'campaign', 'bootstrap', 'flash', 'erase', 'readback', 'reset',
+            's3_uart', 'retry', 'second_event'] if motion_once else DEV_PROHIBITED) or
         p.get('serial_reset_risk_accepted') is not True or
         not isinstance(mode, dict) or mode.get('enabled') is not True or
         mode.get('revoked') is not False or mode.get('persistent') is not True or
-        mode.get('mode_id') != DEV_MODE_ID or mode.get('expires_at') is not None or
+        mode.get('mode_id') != (MOTION_EVENT_ONCE_MODE_ID if motion_once else DEV_MODE_ID) or
+        mode.get('expires_at') is not None or
         mode.get('environment') != 'GS117_TEST_ONLY' or
         mode.get('authorization_ref') != p.get('owner_approval_ref') or
-        mode.get('authority_refs') != DEV_MODE_AUTHORITY_REFS or
+        mode.get('authority_refs') != ({'GS-117': '11933'} if motion_once else DEV_MODE_AUTHORITY_REFS) or
         mode.get('disable_on_release_transition') is not True or
         mode.get('activation_record_sha256') is None or
-        not isinstance(mode.get('predecessor'), dict) or
-        mode['predecessor'].get('approval_ref') == p.get('owner_approval_ref')):
+        (not motion_once and not isinstance(mode.get('predecessor'), dict)) or
+        (not motion_once and mode['predecessor'].get('approval_ref') == p.get('owner_approval_ref')) or
+        (motion_once and (p.get('owner_approval_ref') != GS117_SCOPE_APPROVAL_REF or
+                          not _development_motion_event_once_scope_valid(p)))):
         raise ValueError('development_consent_scope_mismatch')
     if _environment_is_release_qualified():
         raise ValueError('development_mode_disabled_for_release_qualification')
@@ -1537,8 +2338,20 @@ def load_development(path=None, *, verify_procedure_pins=True):
         raise ValueError('development_consent_invalid_time')
     if (not isinstance(mode.get('activated_at'), str) or
             mode['activated_at'] != p['activated_at'] or
-            not isinstance(mode.get('predecessor'), dict)):
+            (not motion_once and not isinstance(mode.get('predecessor'), dict))):
         raise ValueError('development_mode_transition_invalid')
+    if motion_once:
+        try:
+            expires = datetime.fromisoformat(p['expires_at'])
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError('motion_event_once_authorization_time_invalid') from error
+        if (expires.tzinfo is None or not activated <= datetime.now(timezone.utc) < expires or
+                expires - activated > timedelta(seconds=GS117_SCOPE_GRANT_MAX_SECONDS['motion_event_once'])):
+            raise ValueError('motion_event_once_authorization_expired_or_inactive')
+        _verify_motion_event_once_activation(p, path)
+        if verify_procedure_pins:
+            _motion_event_tool_hashes(p['motion_event_once_scope']['tool_files'])
+        return p
     previous = mode['predecessor']
     if (not isinstance(previous.get('approval_ref'), str) or
             not re.fullmatch(r'[0-9a-f]{64}', str(previous.get('scope_id', ''))) or
@@ -1551,14 +2364,22 @@ def load_development(path=None, *, verify_procedure_pins=True):
     audit_path = Path(p.get('activation_audit_path', ''))
     if path.resolve() == DEFAULT_DEV_POLICY.resolve() and audit_path.resolve() != DEV_MODE_AUDIT.resolve():
         raise ValueError('development_mode_transition_audit_path_mismatch')
-    _verify_development_mode_transition(p)
+    if motion_once:
+        if audit_path.resolve() != (MOTION_EVENT_ONCE_STATE / 'audit.jsonl').resolve():
+            raise ValueError('motion_event_once_activation_path_invalid')
+        _verify_motion_event_once_activation(p, path)
+    else:
+        _verify_development_mode_transition(p)
     _validate_development_pin_paths(path, p)
     if verify_procedure_pins:
-        for name in DEV_PIN_NAMES:
-            q = p[name]; target = Path(q['path'])
-            if (not target.is_absolute() or target.is_symlink() or
-                    not target.is_file() or digest(target) != q['sha256']):
-                raise ValueError('development_reviewed_procedure_changed')
+        if motion_once:
+            _motion_event_tool_hashes(p['motion_event_once_scope']['tool_files'])
+        else:
+            for name in DEV_PIN_NAMES:
+                q = p[name]; target = Path(q['path'])
+                if (not target.is_absolute() or target.is_symlink() or
+                        not target.is_file() or digest(target) != q['sha256']):
+                    raise ValueError('development_reviewed_procedure_changed')
     return p
 
 
@@ -1902,8 +2723,20 @@ def dispose_reviewed_preoperation_pin_failure(path=None):
                 'source_review_record_sha256': reviews[-1]['record_sha256']}
 
 
-def development_session(procedure):
-    p = load_development()
+def development_session(procedure, path=None, state=None):
+    if procedure == 'motion_event_once' and path is None:
+        return motion_event_once_session()
+    if path is None:
+        path = MOTION_EVENT_ONCE_POLICY if procedure == 'motion_event_once' else DEV_POLICY
+    path = Path(path)
+    if state is None:
+        if path.resolve() == MOTION_EVENT_ONCE_POLICY.resolve():
+            state = MOTION_EVENT_ONCE_STATE
+        elif path.resolve() == DEV_POLICY.resolve():
+            state = DEV_STATE
+        else:
+            state = path.parent / 'development-authorization'
+    p = load_development(path)
     if procedure in ('application_flash', 'test_data_erase', 'development_reprovision'):
         artifacts = p.get('recovery_artifacts', [])
         if not artifacts or any(Path(q['path']).is_symlink() or digest(q['path']) != q['sha256']
@@ -1913,7 +2746,19 @@ def development_session(procedure):
             value = p.get('pre_erase_evidence')
             if not value or not Path(value).is_absolute() or Path(value).is_symlink() or not Path(value).is_dir():
                 raise ValueError('development_pre_erase_evidence_missing')
-    return session(procedure, DEV_POLICY, DEV_STATE, _development=True)
+    return session(procedure, path, state, _development=True)
+
+
+@contextmanager
+def motion_event_once_session():
+    """Reserve the isolated motion grant while excluding every other HIL scope."""
+    with ExitStack() as locks:
+        _hold_gs117_physical_scope_locks(
+            locks, error_code='motion_event_once_hardware_operation_already_active',
+            include_motion=False)
+        with session('motion_event_once', MOTION_EVENT_ONCE_POLICY,
+                     MOTION_EVENT_ONCE_STATE, _development=True) as result:
+            yield result
 
 
 def development_status(path=None):
@@ -1921,7 +2766,9 @@ def development_status(path=None):
     path = Path(path or DEV_POLICY)
     policy = load_development(path)
     scope_id = _development_scope_id(policy)
-    state = DEV_STATE if path.resolve() == DEV_POLICY.resolve() else path.parent / 'development-authorization'
+    state = (MOTION_EVENT_ONCE_STATE if path.resolve() == MOTION_EVENT_ONCE_POLICY.resolve() else
+             DEV_STATE if path.resolve() == DEV_POLICY.resolve() else
+             path.parent / 'development-authorization')
     history = _development_history(state, policy, scope_id)
     session_limit = policy.get('max_sessions')
     exhausted = session_limit is not None and history['sessions'] >= session_limit
@@ -1944,9 +2791,40 @@ def development_status(path=None):
     }
 
 
+def motion_event_once_status(now=None):
+    try:
+        policy = load_development(MOTION_EVENT_ONCE_POLICY)
+        status_value = development_status(MOTION_EVENT_ONCE_POLICY)
+        if (status_value.get('sessions') == 1 or status_value.get('sessions_remaining') == 0 or
+                status_value.get('status') == 'SESSION_LIMIT_REACHED'):
+            return {'status': 'CONSUMED', 'authorization_id': policy['development_mode']['activation_id'],
+                    'operation': 'motion_event_once', 'uses_remaining': 0,
+                    'expires_at': policy['expires_at']}
+        if (status_value.get('status') != 'ACTIVE' or status_value.get('sessions') != 0 or
+                status_value.get('sessions_remaining') != 1 or status_value.get('blocked') is not False):
+            raise ValueError('motion_event_once_authorization_consumed_or_latched')
+        return {'status': 'ACTIVE',
+                'authorization_id': policy['development_mode']['activation_id'],
+                'operation': 'motion_event_once', 'uses_remaining': 1,
+                'expires_at': policy['expires_at'],
+                'sessions': status_value['sessions'],
+                'sessions_remaining': status_value['sessions_remaining'],
+                'blocked': status_value['blocked'],
+                'authorization_scope_id': status_value['authorization_scope_id']}
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        reason = str(error)
+        if reason in {'motion_event_once_authorization_revoked', 'development_mode_revoked'}:
+            return {'status': 'REVOKED', 'reason': reason}
+        if 'expired' in reason:
+            return {'status': 'EXPIRED_OR_INACTIVE', 'reason': reason}
+        return {'status': 'BLOCKED', 'reason': reason}
+
+
 def revoke_development_mode(reason, path=None):
     """Revoke the current mode once, durably auditing the disable before returning."""
     path = Path(path or DEV_POLICY)
+    if path.resolve() == MOTION_EVENT_ONCE_POLICY.resolve():
+        return revoke_motion_event_once_authorization(reason, path=path)
     if (not isinstance(reason, str) or not reason.strip() or len(reason) > 240 or
             any(ord(char) < 32 for char in reason)):
         raise ValueError('development_mode_revocation_reason_required')
@@ -1993,6 +2871,62 @@ def revoke_development_mode(reason, path=None):
         _atomic_private_json(path, updated)
         return {'status': 'REVOKED', 'revocation_id': record['revocation_id'],
                 'record_sha256': record['record_sha256']}
+
+
+def revoke_motion_event_once_authorization(reason, path=None):
+    """Revoke only the separately issued motion-event grant; preserve other ledgers."""
+    path = Path(path or MOTION_EVENT_ONCE_POLICY)
+    if path.resolve() != MOTION_EVENT_ONCE_POLICY.resolve():
+        raise ValueError('motion_event_once_policy_path_mismatch')
+    if (not isinstance(reason, str) or not reason.strip() or len(reason) > 240 or
+            any(ord(char) < 32 for char in reason)):
+        raise ValueError('motion_event_once_revocation_reason_required')
+    state = Path(MOTION_EVENT_ONCE_STATE)
+    state = _scope_issuance_state_private(state)
+    lock_path = state / 'session.lock'
+    if lock_path.is_symlink():
+        raise ValueError('motion_event_once_state_not_private')
+    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | getattr(os, 'O_NOFOLLOW', 0), 0o600)
+    with os.fdopen(fd, 'r+') as lock:
+        info = os.fstat(lock.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            raise ValueError('motion_event_once_state_not_private')
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise ValueError('motion_event_once_operation_already_active') from error
+        _readback_receipt_private_file(path, 'development_consent_requires_owner_only_file')
+        policy = json.loads(path.read_text())
+        mode = policy.get('development_mode')
+        if (policy.get('profile') != MOTION_EVENT_ONCE_PROFILE or
+                policy.get('owner_approval_ref') != GS117_SCOPE_APPROVAL_REF or
+                policy.get('active') is not True or policy.get('revoked') is not False or
+                not isinstance(mode, dict) or mode.get('enabled') is not True or
+                mode.get('revoked') is not False):
+            raise ValueError('motion_event_once_authorization_not_active')
+        _verify_motion_event_once_activation(policy, path, check_current_receipt=False,
+                                             check_sources=False)
+        history = _development_history(state, policy, _development_scope_id(policy))
+        if history.get('sessions') != 0 or history.get('blocked') is True:
+            raise ValueError('motion_event_once_authorization_already_consumed')
+        event = {
+            'event': 'motion_event_once_revoked',
+            'activation_id': mode['activation_id'],
+            'authorization_id': mode['activation_id'],
+            'approval_ref': GS117_SCOPE_APPROVAL_REF,
+            'reason': reason.strip(),
+            'revoked_at': datetime.now(timezone.utc).isoformat(),
+        }
+        event['record_sha256'] = _canonical_record_sha256(event)
+        _append_private_audit(state / 'audit.jsonl', event)
+        updated = json.loads(path.read_text())
+        updated.update(active=False, revoked=True, development_mode_enabled=False)
+        updated['development_mode'].update(enabled=False, revoked=True,
+                                            revoked_at=event['revoked_at'],
+                                            revocation_record_sha256=event['record_sha256'])
+        _atomic_private_json(path, updated)
+        return {'status': 'REVOKED', 'authorization_id': mode['activation_id'],
+                'record_sha256': event['record_sha256']}
 
 
 if __name__ == '__main__':
