@@ -1735,3 +1735,21 @@ observation remain NO-GO. Session134 root cause and watchdog causality remain
 NOT_PROVEN. No new LOCKED requirement, rollback waiver or hardware authority is
 introduced; GS-D029/030/173 and CONTEXT_VERSION are unchanged. See
 docs/exec-plans/evidence/GS117_MINIMAL_DIAGNOSTIC_READINESS_20261106.md.
+
+
+### 2026-11-06 execution-readiness note — GS117 no-flash USB-to-Android event
+
+Offline review reused the verified session126 C3-HIL→authenticated S3→CloudSync/
+PostgreSQL→caregiver API→installed Android EventKey result; it does not count as
+optical PIR or new TC-001 acceptance. The existing one-event execution is
+reusable, but current C3/S3 and APK receipts are stale, the separate receipt
+grant is absent, current DEV source pins fail, and no exact one-event authority
+is available. #11897 remains SAFETY_LATCHED 1/1 and #11886 is unchanged; the
+five-day GS-179 grant remains network-only. No hardware, firmware or
+authorization operation occurred. For a no-flash event, fresh fixture
+application/selector receipts remain required by the controller, while GS-D029
+automatic rollback qualification applies to firmware updates and is not a
+prerequisite to running unchanged images. No product/release requirement was
+waived and no LOCKED decision or context-version change was made. Evidence and
+the separate one-use approval proposal are recorded in
+`docs/exec-plans/evidence/GS117_NO_FLASH_USB_ANDROID_E2E_AUDIT_20261106.md`.

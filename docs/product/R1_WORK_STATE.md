@@ -1,3 +1,39 @@
+## GS-117 — no-flash USB-to-Android E2E route audit — 2026-11-06
+
+Offline review confirmed session126/sequence1 previously carried a real C3
+`INJECT_MOTION` event through authenticated S3 admission, one PostgreSQL row,
+caregiver API, and the exact EventKey in the installed Android APK (GS-117#11929,
+GS-179#11849). Session127 separately proved rejoin/liveness. Session134 remains
+one failed observation; no persistent radio defect is established. The event
+path already exists; no firmware rebuild is justified if fresh receipts confirm
+the same installed images.
+
+Current fixture receipt files are older than the required 24 hours, so
+`exact_fixture()` blocks before serial access. The existing one-use receipt
+policy is absent; its collector would enter ROM and perform one USB-aware app
+restore reset per target. The current DEV manifest is bootstrap-only and its
+source pins are stale; `development_status()` reports
+`development_reviewed_procedure_changed`. The five-day GS-179 authorization is
+network-only (`hardware_operations_authorized=false`). #11897 remains
+SAFETY_LATCHED 1/1 and #11886 is intact. No hardware or authorization operation
+occurred.
+
+The controller's one-event `execute()` path verifies liveness, injects once on
+C3, checks the authenticated durable ACK, exact PostgreSQL/API record, and the
+same EventKey in the real APK. The ordinary campaign starts five runs; the
+existing one-run entry is the Bedroom Morning Routine wrapper with additional
+applied-policy/Hub-decision requirements. Future use needs a distinct exact
+one-use authorization, fresh image/selector and Android receipts, valid source
+pins, and current backend/ingress readiness. No bootloader rollback
+qualification is required for a no-flash run under GS-D029; it remains
+mandatory before firmware updates. The fixed receipt tool's bootloader hash is
+not rollback proof.
+
+Audit and proposed separate readback/event scopes:
+[GS117 no-flash USB-to-Android E2E audit](../exec-plans/evidence/GS117_NO_FLASH_USB_ANDROID_E2E_AUDIT_20261106.md).
+Status stays firmware unchanged, receipts STALE, `TC001_READY=NO`, TC-001 0/5.
+No test suite or physical operation was run in this documentation-only review.
+
 ## GS-117 — bounded installed-image receipt correction — 2026-11-06
 
 Offline-only tool correction approved in GS-117 #11928 (`TEST_INFRA_ONLY`;
