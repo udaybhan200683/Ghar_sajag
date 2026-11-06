@@ -78,6 +78,41 @@ constexpr UBaseType_t kDataQueueDepth = 16U;
 constexpr UBaseType_t kControlQueueDepth = 8U;
 constexpr UBaseType_t kHealthQueueDepth = 1U;
 constexpr UBaseType_t kSecurityQueueDepth = 8U;
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+constexpr UBaseType_t kGs117ReceiveDiagnosticQueueDepth = 16U;
+enum class Gs117ReceiveDiagnosticStage : std::uint8_t {
+    InvalidInput,
+    RejectedSource,
+    UnclassifiedFrame,
+    CallbackArrival,
+    QueueEnqueued,
+    QueueDropped,
+    QueueUnavailable,
+};
+struct Gs117ReceiveDiagnostic {
+    std::uint32_t sequence{0};
+    std::uint32_t boot_id{0};
+    std::uint64_t callback_us{0};
+    std::array<std::uint8_t, 6> source_mac{};
+    std::uint16_t length{0};
+    std::int8_t rssi{-127};
+    std::uint8_t channel{0};
+    std::uint8_t wire_kind{0};
+    Gs117ReceiveDiagnosticStage stage{Gs117ReceiveDiagnosticStage::InvalidInput};
+};
+static_assert(sizeof(Gs117ReceiveDiagnostic) <= 32U,
+              "GS-117 receive diagnostic record exceeded its bounded footprint");
+static_assert(kGs117ReceiveDiagnosticQueueDepth * sizeof(Gs117ReceiveDiagnostic) <= 512U,
+              "GS-117 receive diagnostic queue exceeded its static memory budget");
+StaticQueue_t g_gs117_receive_diagnostic_queue_state{};
+alignas(Gs117ReceiveDiagnostic) std::array<std::uint8_t,
+    kGs117ReceiveDiagnosticQueueDepth * sizeof(Gs117ReceiveDiagnostic)>
+    g_gs117_receive_diagnostic_storage{};
+QueueHandle_t g_gs117_receive_diagnostic_queue = nullptr;
+std::atomic<std::uint32_t> g_gs117_receive_sequence{0};
+std::atomic<std::uint32_t> g_gs117_receive_diagnostic_drops{0};
+std::uint32_t g_gs117_diagnostic_boot_id{0};
+#endif
 // ESP-IDF task stack sizes are bytes. The qualified Xtensa owner entry frame
 // alone is 23456 bytes; recovery/checkpoint calls need additional stack.
 // tests/test_hub_runtime_stack.py checks the actual target frame budgets.
@@ -453,6 +488,42 @@ std::atomic<std::uint32_t> g_hil_durable_ack{0};
 std::atomic<std::uint32_t> g_hil_health_received{0};
 #endif
 
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+void queue_gs117_receive_diagnostic(const Gs117ReceiveDiagnostic& event) {
+    if (g_gs117_receive_diagnostic_queue == nullptr ||
+        xQueueSend(g_gs117_receive_diagnostic_queue, &event, 0) != pdTRUE) {
+        g_gs117_receive_diagnostic_drops.fetch_add(1U, std::memory_order_relaxed);
+    }
+}
+
+Gs117ReceiveDiagnostic make_gs117_receive_diagnostic(
+        Gs117ReceiveDiagnosticStage stage, std::uint32_t sequence,
+        std::uint64_t callback_us, const esp_now_recv_info_t* info,
+        const std::uint8_t* data, int length) {
+    Gs117ReceiveDiagnostic event;
+    event.sequence = sequence;
+    event.boot_id = g_gs117_diagnostic_boot_id;
+    event.callback_us = callback_us;
+    event.stage = stage;
+    if (info != nullptr && info->src_addr != nullptr) {
+        std::copy_n(info->src_addr, event.source_mac.size(), event.source_mac.begin());
+    }
+    if (info != nullptr && info->rx_ctrl != nullptr) {
+        event.channel = info->rx_ctrl->channel;
+        event.rssi = info->rx_ctrl->rssi;
+    }
+    if (length > 0) {
+        event.length = static_cast<std::uint16_t>(std::min(
+            length, static_cast<int>(kTargetEspNowPayloadMax)));
+    }
+    if (data != nullptr && length >= 4 && data[0] == 0x47 && data[1] == 0x53 &&
+        data[2] == 1) {
+        event.wire_kind = data[3];
+    }
+    return event;
+}
+#endif
+
 #if GS_HIL_CONTROL
 bool from_qualified_node(const std::uint8_t* mac) {
     return mac != nullptr &&
@@ -462,15 +533,40 @@ bool from_qualified_node(const std::uint8_t* mac) {
 
 void receive_callback(const esp_now_recv_info_t* info, const std::uint8_t* data,
                       int length) {
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    const auto sequence = g_gs117_receive_sequence.fetch_add(
+        1U, std::memory_order_relaxed) + 1U;
+    const auto callback_us = static_cast<std::uint64_t>(esp_timer_get_time());
+#endif
 #if GS_HIL_CONTROL
     if (!g_hil_logical_online.load(std::memory_order_acquire)) return;
 #endif
     if (info == nullptr || data == nullptr ||
         length <= 0 || static_cast<std::size_t>(length) > kTargetEspNowPayloadMax) {
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+        queue_gs117_receive_diagnostic(make_gs117_receive_diagnostic(
+            Gs117ReceiveDiagnosticStage::InvalidInput, sequence, callback_us,
+            info, data, length));
+#endif
         return;
     }
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    if (info->src_addr == nullptr) {
+        queue_gs117_receive_diagnostic(make_gs117_receive_diagnostic(
+            Gs117ReceiveDiagnosticStage::InvalidInput, sequence, callback_us,
+            info, data, length));
+        return;
+    }
+#endif
 #if GS_HIL_CONTROL
-    if (!from_qualified_node(info->src_addr)) return;
+    if (!from_qualified_node(info->src_addr)) {
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+        queue_gs117_receive_diagnostic(make_gs117_receive_diagnostic(
+            Gs117ReceiveDiagnosticStage::RejectedSource, sequence, callback_us,
+            info, data, length));
+#endif
+        return;
+    }
 #endif
 
 #if GS_HIL_BUILD
@@ -496,9 +592,26 @@ void receive_callback(const esp_now_recv_info_t* info, const std::uint8_t* data,
     }
 #endif
     else {
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+        if (length >= 3 && data[0] == 0x47 && data[1] == 0x53) {
+            queue_gs117_receive_diagnostic(make_gs117_receive_diagnostic(
+                Gs117ReceiveDiagnosticStage::UnclassifiedFrame, sequence, callback_us,
+                info, data, length));
+        }
+#endif
         return;
     }
-    if (destination == nullptr) return;
+    if (destination == nullptr) {
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+        if (destination == g_security_queue ||
+            (length >= 3 && data[0] == 0x47 && data[1] == 0x53 && data[2] == 1)) {
+            queue_gs117_receive_diagnostic(make_gs117_receive_diagnostic(
+                Gs117ReceiveDiagnosticStage::QueueUnavailable, sequence, callback_us,
+                info, data, length));
+        }
+#endif
+        return;
+    }
 
     ReceivedFrame envelope;
     std::memcpy(envelope.source_mac.data(), info->src_addr, envelope.source_mac.size());
@@ -508,10 +621,27 @@ void receive_callback(const esp_now_recv_info_t* info, const std::uint8_t* data,
         envelope.channel = info->rx_ctrl->channel;
     }
     std::memcpy(envelope.bytes.data(), data, envelope.size);
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    const bool security_frame = destination == g_security_queue;
+    if (security_frame) {
+        envelope.gs117_rx_sequence = sequence;
+        envelope.gs117_callback_us = callback_us;
+        queue_gs117_receive_diagnostic(make_gs117_receive_diagnostic(
+            Gs117ReceiveDiagnosticStage::CallbackArrival, sequence, callback_us,
+            info, data, length));
+    }
+#endif
     if (destination == g_health_queue) {
         // Depth one deliberately keeps only the latest best-effort snapshot.
         (void)xQueueOverwrite(destination, &envelope);
     } else if (xQueueSend(destination, &envelope, 0) != pdTRUE) {
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+        if (destination == g_security_queue) {
+            queue_gs117_receive_diagnostic(make_gs117_receive_diagnostic(
+                Gs117ReceiveDiagnosticStage::QueueDropped, sequence, callback_us,
+                info, data, length));
+        }
+#endif
         // No durable ACK is emitted, so dropped data remains retained and is
         // retried. The owner reports the counter outside callback context.
         if (destination == g_data_queue) {
@@ -519,6 +649,14 @@ void receive_callback(const esp_now_recv_info_t* info, const std::uint8_t* data,
         } else {
             g_control_queue_drops.fetch_add(1U, std::memory_order_relaxed);
         }
+    } else {
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+        if (destination == g_security_queue) {
+            queue_gs117_receive_diagnostic(make_gs117_receive_diagnostic(
+                Gs117ReceiveDiagnosticStage::QueueEnqueued, sequence, callback_us,
+                info, data, length));
+        }
+#endif
     }
 }
 
@@ -810,6 +948,62 @@ bool send_security_message(const HubSecurityLink::Outbound& outbound,
 }
 
 #if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+const char* gs117_receive_stage_name(Gs117ReceiveDiagnosticStage stage) {
+    switch (stage) {
+        case Gs117ReceiveDiagnosticStage::InvalidInput: return "invalid_callback_input";
+        case Gs117ReceiveDiagnosticStage::RejectedSource: return "source_rejected";
+        case Gs117ReceiveDiagnosticStage::UnclassifiedFrame: return "unclassified_frame";
+        case Gs117ReceiveDiagnosticStage::CallbackArrival: return "callback_arrival";
+        case Gs117ReceiveDiagnosticStage::QueueEnqueued: return "security_queue_enqueued";
+        case Gs117ReceiveDiagnosticStage::QueueDropped: return "security_queue_drop";
+        case Gs117ReceiveDiagnosticStage::QueueUnavailable: return "security_queue_unavailable";
+    }
+    return "unknown";
+}
+
+void drain_gs117_receive_diagnostics() {
+    Gs117ReceiveDiagnostic event;
+    while (g_gs117_receive_diagnostic_queue != nullptr &&
+           xQueueReceive(g_gs117_receive_diagnostic_queue, &event, 0) == pdTRUE) {
+        ESP_LOGI(kTag,
+            "GS117_DEV_RX role=s3 boot_id=%08x rx_seq=%u target_us=%llu stage=%s "
+            "source=%02x%02x%02x%02x%02x%02x rx_ch=%u rssi=%d len=%u wire_kind=%u",
+            static_cast<unsigned>(event.boot_id), static_cast<unsigned>(event.sequence),
+            static_cast<unsigned long long>(event.callback_us),
+            gs117_receive_stage_name(event.stage), event.source_mac[0], event.source_mac[1],
+            event.source_mac[2], event.source_mac[3], event.source_mac[4], event.source_mac[5],
+            static_cast<unsigned>(event.channel), static_cast<int>(event.rssi),
+            static_cast<unsigned>(event.length), static_cast<unsigned>(event.wire_kind));
+    }
+    const auto dropped = g_gs117_receive_diagnostic_drops.exchange(
+        0U, std::memory_order_relaxed);
+    if (dropped != 0U) {
+        ESP_LOGW(kTag,
+            "GS117_DEV_RX role=s3 state=diagnostic_loss boot_id=%08x dropped=%u",
+            static_cast<unsigned>(g_gs117_diagnostic_boot_id),
+            static_cast<unsigned>(dropped));
+    }
+}
+
+void log_gs117_security_dequeued(const ReceivedFrame& frame) {
+    if (frame.size < 4 || frame.bytes[0] != 0x47 || frame.bytes[1] != 0x53 ||
+        frame.bytes[2] != 1 || (frame.bytes[3] != 6 && frame.bytes[3] != 8)) return;
+    const auto dequeue_us = static_cast<std::uint64_t>(esp_timer_get_time());
+    ESP_LOGI(kTag,
+        "GS117_DEV_RADIO role=s3 state=security_owner_dequeued boot_id=%08x rx_seq=%u "
+        "callback_us=%llu dequeue_us=%llu queue_delay_us=%llu wire_kind=%u "
+        "source=%02x%02x%02x%02x%02x%02x rx_ch=%u",
+        static_cast<unsigned>(g_gs117_diagnostic_boot_id),
+        static_cast<unsigned>(frame.gs117_rx_sequence),
+        static_cast<unsigned long long>(frame.gs117_callback_us),
+        static_cast<unsigned long long>(dequeue_us),
+        static_cast<unsigned long long>(dequeue_us >= frame.gs117_callback_us
+            ? dequeue_us - frame.gs117_callback_us : 0U),
+        static_cast<unsigned>(frame.bytes[3]), frame.source_mac[0], frame.source_mac[1],
+        frame.source_mac[2], frame.source_mac[3], frame.source_mac[4], frame.source_mac[5],
+        static_cast<unsigned>(frame.channel));
+}
+
 void log_gs117_security_receive(const ReceivedFrame& frame,
         const std::optional<HubSecurityLink::Outbound>& outbound) {
     if (frame.size < 4 || frame.bytes[0] != 0x47 || frame.bytes[1] != 0x53 ||
@@ -817,16 +1011,27 @@ void log_gs117_security_receive(const ReceivedFrame& frame,
     std::uint8_t actual_channel = 0;
     wifi_second_chan_t secondary{};
     const auto readback = esp_wifi_get_channel(&actual_channel, &secondary);
+    const auto owner_us = static_cast<std::uint64_t>(esp_timer_get_time());
+    const char* validation = !outbound ? "no_response_unclassified" :
+        outbound->message.kind == security::wire::Kind::RejoinChallenge
+            ? "hello_authenticated_challenge_ready" :
+        outbound->message.kind == security::wire::Kind::RejoinAck
+            ? "rejoin_authenticated_ack_ready" : "response_ready";
     // Wire kind/source are untrusted until accept() returns an authenticated
-    // response. No outbound can also mean incomplete fragmentation, not rejection.
-    ESP_LOGI(kTag, "GS117_DEV_RADIO role=s3 state=security_rx wire_kind=%u source=%02x%02x%02x%02x%02x%02x rx_ch=%u sta_ch=%u read=%s response_kind=%u validation=%s",
+    // response. No response can mean fragmentation or rejection; it is not
+    // classified as an authentication failure. Callback time is S3-local uptime.
+    ESP_LOGI(kTag, "GS117_DEV_RADIO role=s3 state=security_owner_processed boot_id=%08x rx_seq=%u callback_us=%llu owner_us=%llu queue_delay_us=%llu wire_kind=%u source=%02x%02x%02x%02x%02x%02x rx_ch=%u sta_ch=%u read=%s response_kind=%u validation=%s",
+        static_cast<unsigned>(g_gs117_diagnostic_boot_id),
+        static_cast<unsigned>(frame.gs117_rx_sequence),
+        static_cast<unsigned long long>(frame.gs117_callback_us),
+        static_cast<unsigned long long>(owner_us),
+        static_cast<unsigned long long>(owner_us >= frame.gs117_callback_us
+            ? owner_us - frame.gs117_callback_us : 0U),
         static_cast<unsigned>(frame.bytes[3]), frame.source_mac[0], frame.source_mac[1],
         frame.source_mac[2], frame.source_mac[3], frame.source_mac[4], frame.source_mac[5],
         static_cast<unsigned>(frame.channel), static_cast<unsigned>(actual_channel),
         esp_err_to_name(readback), outbound ? static_cast<unsigned>(outbound->message.kind) : 0U,
-        !outbound ? "no_outbound" :
-        outbound->message.kind == security::wire::Kind::RejoinChallenge ? "challenge_ready" :
-        outbound->message.kind == security::wire::Kind::RejoinAck ? "ack_ready" : "other");
+        validation);
 }
 #endif
 
@@ -1264,7 +1469,9 @@ void secure_owner_task(void*) {
     std::uint8_t owner_channel = 0;
     wifi_second_chan_t owner_secondary{};
     const auto owner_channel_result = esp_wifi_get_channel(&owner_channel, &owner_secondary);
-    ESP_LOGI(kTag, "GS117_DEV_RADIO role=s3 state=owner_ready channel=%u read=%s",
+    ESP_LOGI(kTag, "GS117_DEV_RADIO role=s3 state=owner_ready boot_id=%08x hub_mac=%02x%02x%02x%02x%02x%02x channel=%u read=%s",
+        static_cast<unsigned>(g_gs117_diagnostic_boot_id), physical_mac[0], physical_mac[1],
+        physical_mac[2], physical_mac[3], physical_mac[4], physical_mac[5],
         static_cast<unsigned>(owner_channel), esp_err_to_name(owner_channel_result));
 #endif
     ESP_LOGI(kTag, "Authenticated Hub owner started enrolled=%u storage_epoch=%u",
@@ -1279,6 +1486,9 @@ void secure_owner_task(void*) {
              static_cast<unsigned>(uxTaskGetStackHighWaterMark(nullptr)));
 #endif
     for (;;) {
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+        drain_gs117_receive_diagnostics();
+#endif
         if (security_link.faulted()) {
             ESP_LOGE(kTag, "Hub security owner faulted; refusing event admission");
 #if CONFIG_IDF_TARGET_ESP32S3
@@ -1476,6 +1686,9 @@ void secure_owner_task(void*) {
         }
         ReceivedFrame control;
         if (xQueueReceive(g_security_queue, &control, pdMS_TO_TICKS(20)) == pdTRUE) {
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+            log_gs117_security_dequeued(control);
+#endif
             const auto outbound = security_link.accept(control.source_mac,
                 control.bytes.data(), control.size,
                 static_cast<std::uint64_t>(esp_timer_get_time() / 1000));
@@ -2197,6 +2410,8 @@ esp_err_t start_runtime_adapter() {
     esp_err_t result = nvs_flash_init();
     if (result != ESP_OK) return result;
 #if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    g_gs117_diagnostic_boot_id = esp_random();
+    if (g_gs117_diagnostic_boot_id == 0U) g_gs117_diagnostic_boot_id = 1U;
     g_gs40_test_config = std::make_unique<Gs40TestOnlyRuntimeConfig>();
     if ((result = gs40_test_only_receive_config(*g_gs40_test_config)) != ESP_OK) {
         ESP_LOGE(kTag, "TEST_ONLY authenticated configuration unavailable; startup refused: %s",
@@ -2212,6 +2427,12 @@ esp_err_t start_runtime_adapter() {
                                         g_health_storage.data(), &g_health_queue_state);
     g_security_queue = xQueueCreateStatic(kSecurityQueueDepth, sizeof(ReceivedFrame),
                                           g_security_storage.data(), &g_security_queue_state);
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    g_gs117_receive_diagnostic_queue = xQueueCreateStatic(
+        kGs117ReceiveDiagnosticQueueDepth, sizeof(Gs117ReceiveDiagnostic),
+        g_gs117_receive_diagnostic_storage.data(),
+        &g_gs117_receive_diagnostic_queue_state);
+#endif
     g_request_queue = xQueueCreateStatic(1U, sizeof(HubSecurityLink::ExpectedNode*),
                                          g_request_storage.data(), &g_request_queue_state);
 #if !GS_HIL_BUILD
@@ -2231,6 +2452,9 @@ esp_err_t start_runtime_adapter() {
     if (g_data_queue == nullptr || g_control_queue == nullptr || g_health_queue == nullptr ||
         g_security_queue == nullptr || g_request_queue == nullptr ||
         g_security_send_queue == nullptr
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+        || g_gs117_receive_diagnostic_queue == nullptr
+#endif
 #if !GS_HIL_BUILD
         || g_removal_queue == nullptr || g_replacement_queue == nullptr ||
         g_fota_command_queue == nullptr || g_fota_result_queue == nullptr ||

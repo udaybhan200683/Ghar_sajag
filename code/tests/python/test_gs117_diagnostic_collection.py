@@ -303,11 +303,148 @@ class CollectionTests(unittest.TestCase):
         result, _, _ = self.run_observation(bootstrap_seconds=2)
         result["serial_capture"]["s3"]["private_key"] = "must-drop"
         result["phase_timing"]["payload"] = "must-drop"
+        result["radio_diagnostic"]["credential"] = "must-drop"
         safe = evidence._safe_response(json.dumps(result))
         self.assertEqual(safe["phase_timing"]["observation_budget_ms"], 90000)
         self.assertEqual(len(safe["serial_capture"]["c3"]["records"]), 9)
+        self.assertEqual(safe["radio_diagnostic"]["status"],
+                         "INCONCLUSIVE_NO_C3_HELLO_SUBMISSION_OBSERVED")
         self.assertNotIn("must-drop", json.dumps(safe))
         self.assertNotIn("private_key", safe["serial_capture"]["s3"])
+        self.assertNotIn("credential", safe["radio_diagnostic"])
+
+    def test_channel_mismatch_is_inconclusive_not_radio_failure(self):
+        c3 = ["GS117_DEV_TX kind=6 peer=aabbccddeeff requested_ch=3 actual_ch=3 "
+              "channel_read=ESP_OK submitted=1 stage=callback_timeout",
+              "GS117_DEV_TX kind=6 peer=aabbccddeeff requested_ch=4 actual_ch=4 "
+              "channel_read=ESP_OK submitted=1 stage=callback_timeout"]
+        s3 = ["GS117_DEV_RADIO role=s3 state=owner_ready boot_id=123 hub_mac=aabbccddeeff "
+              "channel=11 read=ESP_OK"]
+        result = serial_tool.classify_radio_observation(c3, s3)
+        self.assertEqual(result["status"], "INCONCLUSIVE_NO_CONFIRMED_CHANNEL_OVERLAP")
+        self.assertFalse(result["radio_failure_inferred"])
+        self.assertTrue(result["c3_peer_matches_s3_hub"])
+        self.assertEqual(result["c3_actual_channels"], [3, 4])
+        self.assertEqual(result["s3_observed_channels"], [11])
+
+    def test_channel_match_without_shared_clock_is_still_inconclusive(self):
+        c3 = ["GS117_DEV_TX kind=6 peer=aabbccddeeff requested_ch=6 actual_ch=6 "
+              "channel_read=ESP_OK submitted=1 stage=callback_timeout"]
+        s3 = ["GS117_DEV_RADIO role=s3 state=owner_ready boot_id=123 hub_mac=aabbccddeeff "
+              "channel=6 read=ESP_OK"]
+        result = serial_tool.classify_radio_observation(c3, s3)
+        self.assertEqual(result["status"], "INCONCLUSIVE_CHANNEL_MATCH_NOT_TIME_CORRELATED")
+        self.assertEqual(result["cross_device_time_correlation"], "not_available")
+
+    def test_c3_local_send_stage_is_retained_without_calling_it_rf_failure(self):
+        c3 = ["GS117_DEV_TX boot_session=12 session=134 kind=6 peer=aabbccddeeff "
+              "requested_ch=6 stage=esp_now_submit error=ESP_FAIL error_code=0xffffffff"]
+        result = serial_tool.classify_radio_observation(c3, [])
+        self.assertEqual(result["status"], "C3_LOCAL_RADIO_OPERATION_FAILURE_OBSERVED")
+        self.assertEqual(result["c3_local_send_stages"],
+                         [{"stage": "esp_now_submit", "error": "ESP_FAIL"}])
+        self.assertIsNone(result["radio_failure_inferred"])
+
+    def test_s3_diagnostic_queue_loss_cannot_pass_as_complete_capture(self):
+        handles = []
+
+        def configure(streams, _clock):
+            handles.extend(streams)
+            streams[0].data.extend(
+                b"GS117_DEV_RX role=s3 state=diagnostic_loss boot_id=123 dropped=1\n")
+            streams[1].data.extend(
+                b"I (100) HIL_STATE role=c3 session=1 runtime_live=0 sensing_live=0\n")
+
+        with self.assertRaisesRegex(ValueError, "S3_DIAGNOSTIC_CAPTURE_INCOMPLETE") as raised:
+            self.run_observation(configure=configure)
+        self.assertEqual(raised.exception.captured_observation["radio_diagnostic"][
+            "status"], "INCONCLUSIVE_S3_DIAGNOSTIC_TELEMETRY_LOSS")
+        self.assertTrue(all(not stream.is_open for stream in handles))
+
+    def test_receiver_callback_and_security_queue_drop_are_stage_specific(self):
+        c3 = ["GS117_DEV_TX kind=6 peer=aabbccddeeff requested_ch=6 actual_ch=6 "
+              "channel_read=ESP_OK submitted=1 stage=callback_timeout"]
+        callback = ("GS117_DEV_RX role=s3 boot_id=123 rx_seq=7 target_us=100 "
+                    "stage=callback_arrival source=112233445566 rx_ch=6 rssi=-40 len=128 wire_kind=6")
+        s3 = ["GS117_DEV_RADIO role=s3 state=owner_ready boot_id=123 hub_mac=aabbccddeeff "
+              "channel=6 read=ESP_OK", callback]
+        result = serial_tool.classify_radio_observation(c3, s3)
+        self.assertEqual(result["status"],
+                         "INCONCLUSIVE_S3_CALLBACK_OWNER_DEQUEUE_NOT_OBSERVED")
+        self.assertFalse(result["radio_failure_inferred"])
+        s3.append(callback.replace("stage=callback_arrival", "stage=security_queue_drop"))
+        result = serial_tool.classify_radio_observation(c3, s3)
+        self.assertEqual(result["status"], "S3_SECURITY_CALLBACK_QUEUE_DROP_OBSERVED")
+        self.assertEqual(result["s3_hello_queue_drop_count"], 1)
+
+    def test_authenticated_hello_and_full_rejoin_have_distinct_classification(self):
+        c3 = ["GS117_DEV_TX kind=6 peer=aabbccddeeff requested_ch=6 actual_ch=6 "
+              "channel_read=ESP_OK submitted=1 stage=callback_timeout"]
+        arrival = ("GS117_DEV_RX role=s3 boot_id=123 rx_seq=7 target_us=100 "
+                   "stage=callback_arrival source=112233445566 rx_ch=6 rssi=-40 len=128 wire_kind=6")
+        processed = ("GS117_DEV_RADIO role=s3 state=security_owner_processed boot_id=123 "
+                     "rx_seq=7 callback_us=100 owner_us=120 queue_delay_us=20 wire_kind=6 "
+                     "source=112233445566 rx_ch=6 sta_ch=6 read=ESP_OK response_kind=7 "
+                     "validation=hello_authenticated_challenge_ready")
+        s3 = ["GS117_DEV_RADIO role=s3 state=owner_ready boot_id=123 hub_mac=aabbccddeeff "
+              "channel=6 read=ESP_OK", arrival,
+              "GS117_DEV_RADIO role=s3 state=security_owner_dequeued boot_id=123 rx_seq=7 "
+              "callback_us=100 dequeue_us=110 queue_delay_us=10 wire_kind=6 "
+              "source=112233445566 rx_ch=6", processed]
+        self.assertEqual(serial_tool.classify_radio_observation(c3, s3)["status"],
+                         "S3_AUTHENTICATED_HELLO_CHALLENGE_READY")
+        s3.append("Authenticated rejoin device=c3-node logical=room session=7")
+        self.assertEqual(serial_tool.classify_radio_observation(c3, s3)["status"],
+                         "AUTHENTICATED_REJOIN")
+
+    def test_s3_owner_correlation_never_crosses_boot_epochs(self):
+        c3 = ["GS117_DEV_TX kind=6 peer=aabbccddeeff requested_ch=6 actual_ch=6 "
+              "channel_read=ESP_OK submitted=1 stage=callback_timeout"]
+        current_boot_arrival = (
+            "GS117_DEV_RX role=s3 boot_id=124 rx_seq=7 target_us=100 "
+            "stage=callback_arrival source=112233445566 rx_ch=6 rssi=-40 len=128 wire_kind=6")
+        prior_boot_owner = (
+            "GS117_DEV_RADIO role=s3 state=security_owner_processed boot_id=123 "
+            "rx_seq=7 callback_us=80 owner_us=90 queue_delay_us=10 wire_kind=6 "
+            "source=112233445566 rx_ch=6 sta_ch=6 read=ESP_OK response_kind=7 "
+            "validation=hello_authenticated_challenge_ready")
+        s3 = ["GS117_DEV_RADIO role=s3 state=owner_ready boot_id=124 hub_mac=aabbccddeeff "
+              "channel=6 read=ESP_OK", current_boot_arrival, prior_boot_owner]
+        result = serial_tool.classify_radio_observation(c3, s3)
+        self.assertEqual(result["status"],
+                         "INCONCLUSIVE_S3_CALLBACK_OWNER_DEQUEUE_NOT_OBSERVED")
+        self.assertEqual(result["s3_owner_results"], [None])
+        self.assertFalse(result["radio_failure_inferred"])
+
+    def test_s3_owner_dequeue_without_processing_result_is_inconclusive(self):
+        c3 = ["GS117_DEV_TX kind=6 peer=aabbccddeeff requested_ch=6 actual_ch=6 "
+              "channel_read=ESP_OK submitted=1 stage=callback_timeout"]
+        arrival = ("GS117_DEV_RX role=s3 boot_id=123 rx_seq=8 target_us=100 "
+                   "stage=callback_arrival source=112233445566 rx_ch=6 rssi=-40 len=128 wire_kind=6")
+        dequeued = ("GS117_DEV_RADIO role=s3 state=security_owner_dequeued boot_id=123 "
+                    "rx_seq=8 callback_us=100 dequeue_us=120 queue_delay_us=20 wire_kind=6 "
+                    "source=112233445566 rx_ch=6")
+        result = serial_tool.classify_radio_observation(c3, [arrival, dequeued])
+        self.assertEqual(result["status"],
+                         "INCONCLUSIVE_S3_OWNER_DEQUEUED_PROCESSING_RESULT_NOT_OBSERVED")
+        self.assertEqual(result["s3_hello_owner_dequeued_count"], 1)
+        self.assertEqual(result["s3_owner_dequeued"], [True])
+        self.assertFalse(result["radio_failure_inferred"])
+
+    def test_s3_owner_no_response_remains_inconclusive(self):
+        c3 = ["GS117_DEV_TX kind=6 peer=aabbccddeeff requested_ch=6 actual_ch=6 "
+              "channel_read=ESP_OK submitted=1 stage=callback_timeout"]
+        arrival = ("GS117_DEV_RX role=s3 boot_id=123 rx_seq=7 target_us=100 "
+                   "stage=callback_arrival source=112233445566 rx_ch=6 rssi=-40 len=128 wire_kind=6")
+        no_response = ("GS117_DEV_RADIO role=s3 state=security_owner_processed boot_id=123 "
+                       "rx_seq=7 callback_us=100 owner_us=120 queue_delay_us=20 wire_kind=6 "
+                       "source=112233445566 rx_ch=6 sta_ch=6 read=ESP_OK response_kind=0 "
+                       "validation=no_response_unclassified")
+        result = serial_tool.classify_radio_observation(
+            c3, [arrival, no_response])
+        self.assertEqual(result["status"],
+                         "INCONCLUSIVE_S3_OWNER_PROCESSED_NO_RESPONSE")
+        self.assertFalse(result["radio_failure_inferred"])
 
 
 if __name__ == "__main__":

@@ -1718,3 +1718,20 @@ future diagnostic prerequisites are recorded in
 cause/watchdog causality remain NOT_PROVEN; consumed latches/old pins unchanged.
 This is implementation evidence, not a new LOCKED requirement or exception;
 GS-D029/030/173 and CONTEXT_VERSION remain unchanged.
+
+
+### 2026-11-06 implementation-status note — GS117 receive diagnostics/readiness
+
+The S3 TEST_ONLY callback/queue/owner diagnostic and explicit inconclusive
+radio-result rules are implemented and offline validated. The existing 90-second
+observation bound is preserved; source analysis shows it cannot guarantee a
+13-channel overlap. A 900-second post-bootstrap diagnostic is only a proposal
+and would require a changed pinned helper and new owner authorization. Current
+diagnostic C3/S3 BIN/ELF artifacts compile; no image was installed. The last
+preserved S3 partition receipt matches the candidate map, but it is stale and
+current image/selector/bootloader evidence is unavailable. Installed
+bootloader automatic rollback remains UNVERIFIED, so installation and physical
+observation remain NO-GO. Session134 root cause and watchdog causality remain
+NOT_PROVEN. No new LOCKED requirement, rollback waiver or hardware authority is
+introduced; GS-D029/030/173 and CONTEXT_VERSION are unchanged. See
+docs/exec-plans/evidence/GS117_MINIMAL_DIAGNOSTIC_READINESS_20261106.md.

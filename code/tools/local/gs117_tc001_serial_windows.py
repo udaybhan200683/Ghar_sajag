@@ -89,7 +89,7 @@ def collect(stream, pending: str, lines: list[str], *, capture=None,
                  if capture is not None else None)
     for line in fragments[:-1]:
         safe = "".join(c for c in line if 32 <= ord(c) < 127).strip()
-        if re.search(r"HIL_(?:READY|STATE|OK|ERROR|FIXTURE)|GS117_TEST_ONLY|GS117_DEV_(?:REJOIN|TX|CALLBACK|RADIO)|GS40T/1|PIR -> NodeRuntime|NodeMessage sent|Application ACK|authenticated|durable|CloudSync|COMMITTED|HubRuntime|HubSecurity|gs_hub_product|gs_hub_runtime|ESP-NOW|outbox|storage|mount|Wi-Fi|STA_START|firmware|image|boot:|ESP-ROM|rst:|panic|abort\(\)|Backtrace|app_init:|SPI\s+Flash(?:\s+Size)?\s*[:=]|esp_psram|octal_psram|spiram|assert failed:|Guru Meditation Error|Stack canary|stack overflow|\btask_wdt\b|Task watchdog|Tasks currently running|CPU\s+[0-9]+:|^\s*(?:0x[0-9a-f]+[: ]+){2,}", safe, re.I):
+        if re.search(r"HIL_(?:READY|STATE|OK|ERROR|FIXTURE)|GS117_TEST_ONLY|GS117_DEV_(?:REJOIN|TX|CALLBACK|RADIO|RX)|GS40T/1|PIR -> NodeRuntime|NodeMessage sent|Application ACK|authenticated|durable|CloudSync|COMMITTED|HubRuntime|HubSecurity|gs_hub_product|gs_hub_runtime|ESP-NOW|outbox|storage|mount|Wi-Fi|STA_START|firmware|image|boot:|ESP-ROM|rst:|panic|abort\(\)|Backtrace|app_init:|SPI\s+Flash(?:\s+Size)?\s*[:=]|esp_psram|octal_psram|spiram|assert failed:|Guru Meditation Error|Stack canary|stack overflow|\btask_wdt\b|Task watchdog|Tasks currently running|CPU\s+[0-9]+:|^\s*(?:0x[0-9a-f]+[: ]+){2,}", safe, re.I):
             # Keep challenge nonce/public-key parsing compatible with bootstrap.
             # The existing bootstrap-evidence redactor removes those fields before persistence.
             safe = re.sub(r"(?i)(\b(?:credential|secret|private[_. -]?key|session[_. -]?key|installer[_. -]?code|wifi_psk|psk|password|token|authorization|ssid|certificate|payload|authentication|encrypted[_ -]?(?:envelope|config))\s*[:=]\s*)(\"[^\"]*\"|'[^']*'|\S+)",
@@ -360,6 +360,145 @@ def readiness_guard(config, c3_lines, s3_lines):
         raise error
 
 
+def classify_radio_observation(c3_lines: list[str], s3_lines: list[str]) -> dict:
+    """Classify only source-backed radio stages; never infer RF delivery from silence."""
+    c3_hello_attempts = []
+    c3_peer_ids = set()
+    c3_local_send_stages = []
+    for line in c3_lines:
+        if "GS117_DEV_TX" not in line or not re.search(r"\bkind=6\b", line):
+            continue
+        stage_match = re.search(r"\bstage=([A-Za-z0-9_]+)", line)
+        if stage_match and stage_match[1] not in {
+                "callback_positive", "submitted_only"}:
+            error = re.search(r"\berror=([A-Za-z0-9_]+)", line)
+            c3_local_send_stages.append({
+                "stage": stage_match[1], "error": error[1] if error else None})
+        if re.search(r"\bsubmitted=1\b", line):
+            actual = re.search(r"\bactual_ch=([0-9]+)\b", line)
+            read = re.search(r"\bchannel_read=([A-Za-z0-9_]+)", line)
+            peer = re.search(r"\bpeer=([0-9a-fA-F]{12})\b", line)
+            channel = int(actual[1]) if actual and read and read[1] == "ESP_OK" else None
+            c3_hello_attempts.append(channel)
+            if peer:
+                c3_peer_ids.add(peer[1].lower())
+
+    s3_channels = set()
+    s3_hub_ids = set()
+    callback_hello = []
+    queue_drop_hello = []
+    queue_unavailable_hello = []
+    owner_dequeued = set()
+    s3_invalid_callback_count = 0
+    s3_diagnostic_loss = 0
+    owner_results = {}
+    authenticated_rejoin = False
+    for line in s3_lines:
+        owner_ready = re.search(
+            r"GS117_DEV_RADIO role=s3 state=owner_ready .*?hub_mac=([0-9a-fA-F]{12}) .*?channel=([0-9]+) read=ESP_OK",
+            line)
+        if owner_ready:
+            s3_hub_ids.add(owner_ready[1].lower())
+            s3_channels.add(int(owner_ready[2]))
+        station_channel = re.search(r"WIFI_RADIO_CHANNEL channel=([0-9]+)", line)
+        if station_channel:
+            s3_channels.add(int(station_channel[1]))
+        rx = re.search(
+            r"GS117_DEV_RX role=s3 .*?boot_id=([0-9a-fA-F]+).*?rx_seq=([0-9]+).*?stage=([a-z_]+).*?rx_ch=([0-9]+).*?wire_kind=([0-9]+)",
+            line)
+        if rx and int(rx[5]) == 6:
+            event = {"boot_id": rx[1].lower(), "rx_seq": int(rx[2]),
+                     "stage": rx[3], "channel": int(rx[4])}
+            if rx[3] == "callback_arrival":
+                callback_hello.append(event)
+            elif rx[3] == "security_queue_drop":
+                queue_drop_hello.append(event)
+            elif rx[3] == "security_queue_unavailable":
+                queue_unavailable_hello.append(event)
+        dequeued = re.search(
+            r"GS117_DEV_RADIO role=s3 state=security_owner_dequeued .*?boot_id=([0-9a-fA-F]+).*?rx_seq=([0-9]+).*?wire_kind=([0-9]+)",
+            line)
+        if dequeued and int(dequeued[3]) == 6:
+            owner_dequeued.add((dequeued[1].lower(), int(dequeued[2])))
+        if "GS117_DEV_RX role=s3 state=diagnostic_loss" in line:
+            lost = re.search(r"\bdropped=([0-9]+)", line)
+            s3_diagnostic_loss += int(lost[1]) if lost else 1
+        elif "GS117_DEV_RX role=s3" in line and any(
+                f"stage={stage}" in line for stage in
+                ("invalid_callback_input", "source_rejected", "unclassified_frame")):
+            s3_invalid_callback_count += 1
+        processed = re.search(
+            r"GS117_DEV_RADIO role=s3 state=security_owner_processed .*?boot_id=([0-9a-fA-F]+).*?rx_seq=([0-9]+).*?wire_kind=([0-9]+).*?validation=([a-z_]+)",
+            line)
+        if processed and int(processed[3]) == 6:
+            owner_results[(processed[1].lower(), int(processed[2]))] = processed[4]
+        if "Authenticated rejoin device=" in line:
+            authenticated_rejoin = True
+
+    for event in callback_hello:
+        key = (event["boot_id"], event["rx_seq"])
+        event["owner_dequeued"] = key in owner_dequeued
+        event["owner_result"] = owner_results.get((event["boot_id"], event["rx_seq"]))
+
+    valid_c3_channels = {channel for channel in c3_hello_attempts if channel is not None}
+    identity_match = bool(c3_peer_ids & s3_hub_ids)
+    if authenticated_rejoin:
+        status = "AUTHENTICATED_REJOIN"
+    elif any(event["owner_result"] == "hello_authenticated_challenge_ready"
+             for event in callback_hello):
+        status = "S3_AUTHENTICATED_HELLO_CHALLENGE_READY"
+    elif any(event["owner_result"] == "no_response_unclassified"
+             for event in callback_hello):
+        status = "INCONCLUSIVE_S3_OWNER_PROCESSED_NO_RESPONSE"
+    elif queue_drop_hello:
+        status = "S3_SECURITY_CALLBACK_QUEUE_DROP_OBSERVED"
+    elif queue_unavailable_hello:
+        status = "S3_SECURITY_QUEUE_UNAVAILABLE_OBSERVED"
+    elif any(event["owner_dequeued"] and event["owner_result"] is None
+             for event in callback_hello):
+        status = "INCONCLUSIVE_S3_OWNER_DEQUEUED_PROCESSING_RESULT_NOT_OBSERVED"
+    elif any(not event["owner_dequeued"] and event["owner_result"] is None
+             for event in callback_hello):
+        status = "INCONCLUSIVE_S3_CALLBACK_OWNER_DEQUEUE_NOT_OBSERVED"
+    elif callback_hello:
+        status = "INCONCLUSIVE_S3_HELLO_CALLBACK_OWNER_RESULT_NOT_OBSERVED"
+    elif any(item["stage"] in {"peer_add", "esp_now_submit", "channel_set"}
+             for item in c3_local_send_stages):
+        status = "C3_LOCAL_RADIO_OPERATION_FAILURE_OBSERVED"
+    elif s3_diagnostic_loss:
+        status = "INCONCLUSIVE_S3_DIAGNOSTIC_TELEMETRY_LOSS"
+    elif not c3_hello_attempts:
+        status = "INCONCLUSIVE_NO_C3_HELLO_SUBMISSION_OBSERVED"
+    elif not valid_c3_channels:
+        status = "INCONCLUSIVE_C3_CHANNEL_READBACK_UNAVAILABLE"
+    elif not s3_channels:
+        status = "INCONCLUSIVE_S3_CHANNEL_UNVERIFIED"
+    elif not (valid_c3_channels & s3_channels):
+        status = "INCONCLUSIVE_NO_CONFIRMED_CHANNEL_OVERLAP"
+    else:
+        status = "INCONCLUSIVE_CHANNEL_MATCH_NOT_TIME_CORRELATED"
+
+    return {
+        "status": status,
+        "c3_rejoin_hello_submissions": len(c3_hello_attempts),
+        "c3_local_send_stages": c3_local_send_stages[:32],
+        "c3_actual_channels": sorted(valid_c3_channels),
+        "s3_observed_channels": sorted(s3_channels),
+        "c3_peer_matches_s3_hub": identity_match,
+        "s3_hello_callback_count": len(callback_hello),
+        "s3_hello_queue_drop_count": len(queue_drop_hello),
+        "s3_hello_queue_unavailable_count": len(queue_unavailable_hello),
+        "s3_hello_owner_dequeued_count": sum(
+            1 for event in callback_hello if event["owner_dequeued"]),
+        "s3_invalid_or_unclassified_callback_count": s3_invalid_callback_count,
+        "s3_diagnostic_loss_count": s3_diagnostic_loss,
+        "s3_owner_results": [event["owner_result"] for event in callback_hello],
+        "s3_owner_dequeued": [event["owner_dequeued"] for event in callback_hello],
+        "cross_device_time_correlation": "not_available",
+        "radio_failure_inferred": False if status.startswith("INCONCLUSIVE") else None,
+    }
+
+
 def s3_memory_capacity(lines: list[str]) -> dict:
     """Extract only explicit ESP-IDF flash/PSRAM startup capacity evidence."""
     multipliers = {"B": 1, "KB": 1024, "MB": 1024 ** 2, "GB": 1024 ** 3,
@@ -457,6 +596,7 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
                 0 if tail == _DISCARD_PARTIAL else len(tail))
         return {"c3": c3_lines, "s3": s3_lines, "serial_capture": captures,
                 "phase_timing": timing, "c3_status_queries": c3_status_queries,
+                "radio_diagnostic": classify_radio_observation(c3_lines, s3_lines),
                 "s3_config_receive_pending": s3_config_receive_pending,
                 "s3_status_command_ready": s3_status_command_ready,
                 "s3_status_command_sent": s3_status_command_sent}
@@ -571,6 +711,10 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
             # A bounded capture is allowed to lose data, but never to masquerade
             # as complete readiness evidence. Preserve its counters/partial data.
             raise ValueError("TC001_DIAGNOSTIC_CAPTURE_INCOMPLETE")
+        if any("GS117_DEV_RX role=s3 state=diagnostic_loss" in line for line in s3_lines):
+            error = ValueError("TC001_S3_DIAGNOSTIC_CAPTURE_INCOMPLETE")
+            error.captured_observation = snapshot()
+            raise error
         if fixture_exchange is not None:
             # Legacy explicit commissioning is a distinct separately approved
             # phase, never used by the GS117 Bootstrap readiness procedure.

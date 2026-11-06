@@ -1,25 +1,32 @@
 // Host boundary mocks only. @...@ bodies are injected verbatim from production
 // source by test_gs117_diagnostic_radio.py; no ESP/RTOS/RF qualification implied.
 #include <array>
+#include <algorithm>
 #include <atomic>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
 #include <iostream>
+#include <mutex>
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <vector>
 #include "firmware/common/security/commissioning_wire.hpp"
 #include "firmware/common/connectivity/india_wifi_profile.hpp"
 namespace security = gs::security;
 using esp_err_t = int;
+using UBaseType_t = unsigned;
+using QueueHandle_t = void*;
 constexpr int ESP_OK=0, ESP_FAIL=-1, ESP_ERR_INVALID_SIZE=0x104,
     ESP_ERR_INVALID_ARG=0x102, ESP_ERR_TIMEOUT=0x107, WIFI_IF_STA=0,
     pdTRUE=1, kSendCallbackTimeoutMs=1000;
 using wifi_second_chan_t = int;
 enum esp_now_send_status_t { ESP_NOW_SEND_SUCCESS, ESP_NOW_SEND_FAIL };
 struct esp_now_send_info_t { std::uint8_t* des_addr; const std::uint8_t* data; };
+struct esp_now_recv_ctrl_t { std::uint8_t channel{}; std::int8_t rssi{-127}; };
+struct esp_now_recv_info_t { const std::uint8_t* src_addr{}; esp_now_recv_ctrl_t* rx_ctrl{}; };
 struct esp_now_peer_info_t {
     std::uint8_t peer_addr[6]{}; std::uint8_t channel{}; unsigned ifidx{}; bool encrypt{};
 };
@@ -28,23 +35,45 @@ struct NodeSecurityLink {
 };
 struct HubSecurityLink { using Mac=std::array<std::uint8_t,6>; using Outbound=NodeSecurityLink::Outbound; };
 struct ReceivedFrame {std::uint16_t size{};std::array<std::uint8_t,250> bytes{};
-    std::array<std::uint8_t,6> source_mac{};std::uint8_t channel{};};
+    std::array<std::uint8_t,6> source_mac{};std::uint8_t channel{};
+    std::int8_t transport_rssi{-127};std::uint32_t gs117_rx_sequence{};
+    std::uint64_t gs117_callback_us{};};
+@RX_DIAG_TYPES@
 std::uint64_t g_session_id=134;
 std::atomic<std::uint8_t> g_radio_channel{3};
 std::atomic<bool> g_security_phase{true}, g_control_plane_active{false};
+std::atomic<bool> g_hil_logical_online{true};
 std::atomic<unsigned> g_send_queue_drops{0};
 int queue_handles[2]{};
 void* g_security_send_queue=&queue_handles[0];
 void* g_send_queue=&queue_handles[1];
+void* g_security_queue=&queue_handles[0];
+void* g_data_queue=&queue_handles[1];
+void* g_control_queue=&queue_handles[0];
+void* g_health_queue=&queue_handles[1];
+int rx_queue_handles[2]{};
+void* g_gs117_receive_diagnostic_queue=&rx_queue_handles[0];
+std::atomic<std::uint32_t> g_gs117_receive_sequence{0};
+std::atomic<std::uint32_t> g_gs117_receive_diagnostic_drops{0};
+std::uint32_t g_gs117_diagnostic_boot_id=0x134;
+constexpr std::size_t kTargetEspNowPayloadMax=250;
+constexpr std::array<std::uint8_t,6> kQualifiedNodeMac{1,2,3,4,5,6};
+std::atomic<unsigned> g_data_queue_drops{0},g_control_queue_drops{0};
 constexpr const char* kTag="probe";
 @SEND_RESULT@
 
 std::optional<SendResult> security_queue, application_queue;
+std::vector<ReceivedFrame> received_security_queue;
+std::vector<Gs117ReceiveDiagnostic> receive_diagnostic_queue;
 std::vector<std::string> logs;
-long long now_us=100000, callback_offset=0;
+std::atomic<long long> now_us{100000};
+long long callback_offset=0;
+std::mutex received_security_queue_mutex, receive_diagnostic_queue_mutex;
 int peer_result=0, submit_result=0, readback_result=0, retune_result=0;
 int callback_mode=1, adds=0, sends=0, last_wait=0, deleted=0;
 bool peer_exists=true, wrong_peer=false, peer_unknown=false;
+bool security_receive_queue_accept=true, diagnostic_queue_accept=true;
+std::uint8_t callback_channel=3;
 std::uint8_t actual_channel=3;
 esp_now_peer_info_t captured_peer{};
 std::vector<HubSecurityLink::Mac> enrolled{{{1,2,3,4,5,6}}};
@@ -64,12 +93,13 @@ void log_line(const char*,const char* format,...) {
 }
 #define ESP_LOGI(...) log_line(__VA_ARGS__)
 #define ESP_LOGE(...) log_line(__VA_ARGS__)
+#define ESP_LOGW(...) log_line(__VA_ARGS__)
 const char* esp_err_to_name(int error) {
     switch(error){case ESP_OK:return "ESP_OK";case ESP_FAIL:return "ESP_FAIL";
     case ESP_ERR_TIMEOUT:return "ESP_ERR_TIMEOUT";case ESP_ERR_INVALID_SIZE:return "ESP_ERR_INVALID_SIZE";
     case ESP_ERR_INVALID_ARG:return "ESP_ERR_INVALID_ARG";default:return "MOCK_ERROR";}
 }
-long long esp_timer_get_time(){return now_us;}
+long long esp_timer_get_time(){return now_us.fetch_add(1,std::memory_order_relaxed);}
 std::uint32_t esp_random(){return 22;}
 int pdMS_TO_TICKS(int ms){return ms;}
 int esp_wifi_get_channel(std::uint8_t* channel,wifi_second_chan_t*) {
@@ -89,6 +119,28 @@ int esp_now_get_peer(const std::uint8_t*,esp_now_peer_info_t* peer) {
 }
 int xQueueOverwrite(void*,const SendResult* value){security_queue=*value;return pdTRUE;}
 int xQueueSend(void*,const SendResult* value,int){application_queue=*value;return pdTRUE;}
+int xQueueOverwrite(void*,const ReceivedFrame*){return pdTRUE;}
+int xQueueSend(void* queue,const ReceivedFrame* value,int) {
+    if(queue!=g_security_queue || !security_receive_queue_accept) return 0;
+    std::lock_guard<std::mutex> lock(received_security_queue_mutex);
+    received_security_queue.push_back(*value);return pdTRUE;
+}
+int xQueueSend(void* queue,const Gs117ReceiveDiagnostic* value,int) {
+    std::lock_guard<std::mutex> lock(receive_diagnostic_queue_mutex);
+    if(queue!=g_gs117_receive_diagnostic_queue || !diagnostic_queue_accept ||
+       receive_diagnostic_queue.size()>=16) return 0;
+    receive_diagnostic_queue.push_back(*value);return pdTRUE;
+}
+int xQueueReceive(void* queue,Gs117ReceiveDiagnostic* value,int) {
+    std::lock_guard<std::mutex> lock(receive_diagnostic_queue_mutex);
+    if(queue!=g_gs117_receive_diagnostic_queue || receive_diagnostic_queue.empty())return 0;
+    *value=receive_diagnostic_queue.front();receive_diagnostic_queue.erase(receive_diagnostic_queue.begin());
+    return pdTRUE;
+}
+bool receive_diagnostic_queue_empty() {
+    std::lock_guard<std::mutex> lock(receive_diagnostic_queue_mutex);
+    return receive_diagnostic_queue.empty();
+}
 unsigned uxQueueMessagesWaiting(void*){return security_queue.has_value()?1:0;}
 void xQueueReset(void*){security_queue.reset();}
 int xQueueReceive(void*,SendResult* value,int ticks) {
@@ -97,6 +149,8 @@ int xQueueReceive(void*,SendResult* value,int ticks) {
     *value=*security_queue;security_queue.reset();return pdTRUE;
 }
 void vTaskDelete(void*){++deleted;}
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+@RX_DIAGNOSTICS@
 @CALLBACK@
 
 void callback_for(const std::uint8_t* peer,bool success) {
@@ -129,9 +183,15 @@ void restore_owner_peers(){
 
 void reset() {
     security_queue.reset();application_queue.reset();logs.clear();
+    received_security_queue.clear();receive_diagnostic_queue.clear();
+    g_security_queue=&queue_handles[0];g_data_queue=&queue_handles[1];
+    g_control_queue=&queue_handles[0];g_health_queue=&queue_handles[1];
+    g_gs117_receive_diagnostic_queue=&rx_queue_handles[0];
     peer_result=submit_result=readback_result=retune_result=0;
     adds=sends=last_wait=deleted=0;callback_mode=1;callback_offset=0;
     peer_exists=true;wrong_peer=peer_unknown=false;now_us=100000;
+    security_receive_queue_accept=diagnostic_queue_accept=true;callback_channel=3;
+    g_gs117_receive_sequence=0;g_gs117_receive_diagnostic_drops=0;
     g_radio_channel=actual_channel=3;g_security_phase=true;
 #if GS117_SEND_DIAGNOSTICS
     g_diag_boot_session=123;g_diag_prior_callback_timeout=false;
@@ -194,10 +254,121 @@ int main(){try{
 #if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
     reset();ReceivedFrame rx;rx.size=133;rx.bytes[0]=0x47;rx.bytes[1]=0x53;rx.bytes[2]=1;rx.bytes[3]=6;rx.channel=3;
     std::optional<HubSecurityLink::Outbound> response;
-    log_gs117_security_receive(rx,response);check(logged("state=security_rx")&&logged("validation=no_outbound"),"receive_is_not_authentication");
+    log_gs117_security_receive(rx,response);check(logged("state=security_owner_processed")&&logged("validation=no_response_unclassified"),"receive_is_not_authentication");
     response=out;response->message.kind=security::wire::Kind::RejoinChallenge;
-    log_gs117_security_receive(rx,response);check(logged("validation=challenge_ready"),"authenticated_response_evidence");
+    log_gs117_security_receive(rx,response);check(logged("validation=hello_authenticated_challenge_ready"),"authenticated_response_evidence");
+    response->message.kind=security::wire::Kind::RejoinAck;
+    log_gs117_security_receive(rx,response);check(logged("validation=rejoin_authenticated_ack_ready"),"authenticated_rejoin_ack_evidence");
     logs.clear();rx.size=2;log_gs117_security_receive(rx,response);check(logs.empty(),"malformed_header_never_trusted");
+
+    reset();
+    const std::uint8_t source_mac[6]={1,2,3,4,5,6};
+    esp_now_recv_ctrl_t rx_control{3,-42};
+    esp_now_recv_info_t rx_info{source_mac,&rx_control};
+    const std::uint8_t hello[4]={0x47,0x53,1,6};
+    receive_callback(&rx_info,hello,static_cast<int>(sizeof(hello)));
+    check(logs.empty(),"receive_callback_does_not_log");
+    check(received_security_queue.size()==1&&received_security_queue[0].gs117_rx_sequence==1,
+          "security_callback_enqueued_with_sequence");
+    drain_gs117_receive_diagnostics();
+    check(logged("stage=callback_arrival")&&logged("stage=security_queue_enqueued")&&
+          logged("rx_ch=3 rssi=-42 len=4 wire_kind=6"),"bounded_callback_and_queue_metadata");
+    rx=received_security_queue[0];
+    response=out;response->message.kind=security::wire::Kind::RejoinChallenge;
+    log_gs117_security_dequeued(rx);
+    check(logged("state=security_owner_dequeued")&&logged("rx_seq=1")&&
+          logged("queue_delay_us="),"owner_dequeue_is_distinct_from_accept_processing");
+    log_gs117_security_receive(rx,response);
+    check(logged("rx_seq=1")&&logged("queue_delay_us="),"owner_processing_correlates_local_queue_sequence");
+
+    reset();security_receive_queue_accept=false;
+    receive_callback(&rx_info,hello,static_cast<int>(sizeof(hello)));
+    drain_gs117_receive_diagnostics();
+    check(logged("stage=security_queue_drop")&&received_security_queue.empty(),"security_queue_drop_visible");
+
+    reset();receive_callback(nullptr,hello,static_cast<int>(sizeof(hello)));
+    drain_gs117_receive_diagnostics();
+    check(logged("stage=invalid_callback_input"),"invalid_callback_input_visible");
+
+    reset();
+    const std::uint8_t other_source[6]={9,9,9,9,9,9};
+    esp_now_recv_info_t rejected_info{other_source,&rx_control};
+    receive_callback(&rejected_info,hello,static_cast<int>(sizeof(hello)));
+    drain_gs117_receive_diagnostics();
+    check(logged("stage=source_rejected"),"rejected_source_distinguished");
+
+    reset();
+    const std::uint8_t unknown_frame[4]={0x47,0x53,9,6};
+    receive_callback(&rx_info,unknown_frame,static_cast<int>(sizeof(unknown_frame)));
+    drain_gs117_receive_diagnostics();
+    check(logged("stage=unclassified_frame"),"unclassified_wire_frame_distinguished");
+
+    reset();g_security_queue=nullptr;
+    receive_callback(&rx_info,hello,static_cast<int>(sizeof(hello)));
+    drain_gs117_receive_diagnostics();
+    check(logged("stage=security_queue_unavailable"),"security_queue_unavailable_visible");
+
+    reset();diagnostic_queue_accept=false;
+    receive_callback(&rx_info,hello,static_cast<int>(sizeof(hello)));
+    diagnostic_queue_accept=true;
+    drain_gs117_receive_diagnostics();
+    check(logged("state=diagnostic_loss")&&logged("dropped=2"),"diagnostic_telemetry_loss_visible");
+    check(!logged("TOP_SECRET_AUTH_PAYLOAD"),"receive_diagnostics_do_not_log_payload");
+
+    reset();
+    for(unsigned i=0;i<10;++i)
+        receive_callback(&rx_info,hello,static_cast<int>(sizeof(hello)));
+    check(receive_diagnostic_queue.size()==16,"diagnostic_queue_is_fixed_bounded_capacity");
+    drain_gs117_receive_diagnostics();
+    check(logged("state=diagnostic_loss")&&logged("dropped=4"),"bounded_queue_overflow_is_reported");
+
+    reset();
+    std::atomic<bool> producers_done{false};
+    std::thread owner_drain([&]{
+        while(!producers_done.load(std::memory_order_acquire) ||
+              !receive_diagnostic_queue_empty()) {
+            drain_gs117_receive_diagnostics();
+            std::this_thread::yield();
+        }
+    });
+    std::vector<std::thread> callback_producers;
+    for(unsigned producer=0;producer<4;++producer) {
+        callback_producers.emplace_back([&]{
+            for(unsigned event=0;event<2;++event)
+                receive_callback(&rx_info,hello,static_cast<int>(sizeof(hello)));
+        });
+    }
+    for(auto& producer:callback_producers) producer.join();
+    producers_done.store(true,std::memory_order_release);
+    owner_drain.join();
+    std::array<bool,9> sequences_seen{};
+    bool unique_sequences=true;
+    for(const auto& frame:received_security_queue) {
+        if(frame.gs117_rx_sequence==0 || frame.gs117_rx_sequence>=sequences_seen.size() ||
+           sequences_seen[frame.gs117_rx_sequence]) unique_sequences=false;
+        else sequences_seen[frame.gs117_rx_sequence]=true;
+    }
+    check(received_security_queue.size()==8 && unique_sequences,
+          "concurrent_callback_sequences_are_unique_and_all_frames_enqueue");
+    std::size_t arrival_count=0, enqueue_count=0;
+    for(const auto& line:logs) {
+        if(line.find("stage=callback_arrival")!=std::string::npos) ++arrival_count;
+        if(line.find("stage=security_queue_enqueued")!=std::string::npos) ++enqueue_count;
+    }
+    check(arrival_count==8 && enqueue_count==8 &&
+          g_gs117_receive_diagnostic_drops.load(std::memory_order_relaxed)==0,
+          "concurrent_owner_drain_preserves_bounded_callback_evidence");
+#else
+    reset();
+    const std::uint8_t production_source[6]={1,2,3,4,5,6};
+    esp_now_recv_ctrl_t production_control{3,-42};
+    esp_now_recv_info_t production_info{production_source,&production_control};
+    const std::uint8_t production_hello[4]={0x47,0x53,1,6};
+    receive_callback(&production_info,production_hello,
+                     static_cast<int>(sizeof(production_hello)));
+    check(received_security_queue.size()==1,"production_security_receive_behavior");
+    check(receive_diagnostic_queue.empty()&&logs.empty(),
+          "production_profile_has_no_gs117_receive_telemetry");
 #endif
     reset();restore_owner_peers();check(deleted==0&&adds==0,"owner_existing_peer");
     reset();peer_exists=false;restore_owner_peers();check(deleted==0&&adds==1,"owner_new_peer");

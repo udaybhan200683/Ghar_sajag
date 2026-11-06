@@ -22,6 +22,12 @@ struct ReceivedFrame {
     std::uint8_t channel{0};
     std::uint16_t size{0};
     std::array<std::uint8_t, kTargetEspNowPayloadMax> bytes{};
+#if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+    // Local-only correlation for the bounded GS-117 diagnostic image. These
+    // fields are absent from production and do not participate in the wire format.
+    std::uint32_t gs117_rx_sequence{0};
+    std::uint64_t gs117_callback_us{0};
+#endif
 };
 
 // Initializes the Hub radio under its selected regulatory profile and starts

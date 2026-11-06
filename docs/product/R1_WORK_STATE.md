@@ -11026,3 +11026,23 @@ GS-117 remains Highest/In Progress. Next: resolve the same-channel and S3
 negative-receive evidence plan and candidate rollback/receipt prerequisites,
 then seek a new, exact owner-approved hardware scope. Do not reuse or clear
 #11897 or #11886.
+
+### 2026-11-06 — GS117 minimal diagnostic readiness
+
+Under owner direction #11925, the S3 TEST_ONLY receive callback/queue/owner
+evidence and explicit inconclusive result rules were added and offline
+validated; existing 90-second absolute observation bound remains unchanged.
+Session134 radio cause and watchdog causality remain NOT_PROVEN. Candidate
+diagnostic artifacts compile and profile checks pass, but are not installed.
+The last preserved 2026-10-31 S3 partition receipt matches the candidate
+outbox/state map exactly; this receipt is stale and does not establish current
+device state. Installed bootloader rollback provenance remains UNVERIFIED.
+Therefore no-go for installation or physical observation. No hardware, serial,
+firmware, network or authorization operation occurred. #11897 remains
+SAFETY_LATCHED1/1; #11886 intact; firmware unchanged; receipts STALE;
+TC001_READY=NO; TC-0010/5. The latest Hub suite is 53/56 stages PASS, with the
+fixture assertion, legacy migration and P0 PARTIAL failures preserved. Full
+evidence and exact pins: [GS117 minimal diagnostic readiness](../exec-plans/evidence/GS117_MINIMAL_DIAGNOSTIC_READINESS_20261106.md).
+Next: obtain exact owner authority for a read-only fresh C3/S3 image, bootloader,
+partition and selector receipt capture; continue only if current evidence and
+GS-D029 rollback provenance pass.

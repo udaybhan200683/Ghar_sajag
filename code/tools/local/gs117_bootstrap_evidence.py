@@ -37,6 +37,7 @@ _RESPONSE_FIELDS = frozenset({
     "bootstrap_timeline", "observation", "node_id", "hub_id", "home_id", "liveness",
     "status", "flash_size_bytes", "psram_size_bytes", "evidence_lines", "s3_memory_capacity",
     "app_offset", "app_version", "elf_sha256_prefix", "serial_capture", "phase_timing",
+    "radio_diagnostic",
 })
 _TIMELINE_FIELDS = frozenset({
     "stage", "status", "reason", "elapsed_ms", "bytes", "response_bytes",
@@ -67,6 +68,14 @@ _PHASE_METADATA_FIELDS = frozenset({
     "observation_start_monotonic", "observation_deadline_monotonic",
     "observation_end_monotonic", "observation_elapsed_ms", "remaining_ms",
     "termination_reason", "cleanup_elapsed_ms", "cleanup_errors",
+})
+_RADIO_DIAGNOSTIC_FIELDS = frozenset({
+    "status", "c3_rejoin_hello_submissions", "c3_actual_channels",
+    "s3_observed_channels", "c3_peer_matches_s3_hub", "s3_hello_callback_count",
+    "s3_hello_queue_drop_count", "s3_hello_queue_unavailable_count",
+    "s3_invalid_or_unclassified_callback_count", "s3_diagnostic_loss_count",
+    "s3_owner_results", "c3_local_send_stages", "cross_device_time_correlation",
+    "radio_failure_inferred",
 })
 
 
@@ -106,6 +115,8 @@ def _safe_value(value: Any, *, timeline: bool = False, depth: int = 0) -> Any:
                            if key == "serial_capture" else
                            _safe_metadata(item, _PHASE_METADATA_FIELDS)
                            if key == "phase_timing" else
+                           _safe_metadata(item, _RADIO_DIAGNOSTIC_FIELDS)
+                           if key == "radio_diagnostic" else
                            _safe_value(item, timeline=(key == "bootstrap_timeline"),
                                        depth=depth + 1))
                 for key, item in list(value.items()) if key in allowed}
