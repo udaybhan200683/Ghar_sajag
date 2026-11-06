@@ -1,3 +1,40 @@
+## GS-117 — bounded installed-image receipt correction — 2026-11-06
+
+Offline-only tool correction approved in GS-117 #11928 (`TEST_INFRA_ONLY`;
+product/physical acceptance unchanged). The reviewed v3 receipt collector is
+reused and extended only with the fixed S3 bootloader read `0x000000..0x008000`.
+The existing authorization module now models a separate exact-scope,
+one-use/nonrenewable `readback_receipt` operation; generic `readback`, flash,
+erase and secret extraction remain prohibited. The existing console invokes
+the pinned collector only after a future separately activated owner-approved
+grant. No grant was created or activated here.
+
+Validation: receipt tests **37/37 PASS**, GS-117 console **173/173 PASS**,
+framework **55/55 PASS**, traceability **237 features / 288 modules / 28
+physical cases**, mapping **22/22 PASS**. The adapted historical v3 mock suite
+was **21 PASS / 1 skipped / 0 failed**; its old live-table checker remains
+disabled in offline review. Broader `validation-tooling` completed **FAIL**
+(3 Python failures: static budget, physical catalogue evidence path, and S3
+commissioning builder-text assertion); its registered GS-117 console stage
+passed. `validation-contract` and `validation-backend` were started
+concurrently by mistake and interrupted during unrelated long product stages;
+they are INCOMPLETE and not valid full-gate results. Exact dispositions are in
+[GS117_RECEIPT_TOOL_CORRECTION_20261106.md](../exec-plans/evidence/GS117_RECEIPT_TOOL_CORRECTION_20261106.md).
+No target firmware build was applicable (no firmware source changed).
+
+No device/COM/ROM/reset/readback, authorization activation, firmware change,
+or physical attempt occurred. GS-117 #11897 remains SAFETY_LATCHED, 1/1
+consumed; #11886 is preserved. Firmware unchanged; installed-image receipts
+STALE; rollback provenance UNVERIFIED; `TC001_READY=NO`; TC-001 **0/5**.
+Diagnostic installation remains NO-GO until trusted GS-D029 rollback-capable
+bootloader provenance is established. Current branch checkpoint before this
+documentation update: `52e9e4e68d064ec3b9ddb4a57dff06447603ee81`; remote matched.
+Unrelated untracked assets remain untouched.
+
+Exact next action: review and separately approve (or reject) the one-use device
+capture proposal in the linked evidence record. Do not access devices under
+#11928, which authorized offline correction only.
+
 ## GS-117 — SDK-specific ESP-NOW transmit analysis — 2026-10-31 06:56 UTC
 
 Context preflight PASS; starting local/remote HEAD `301f277a6401630cd443c2929342c17fddb006b2`, canonical worktree and branch, tracked clean. Owning Jira GS-117; BUG_CLASSIFICATION=INVESTIGATE_ONLY. Offline investigation only; no device access, firmware changes, policy activation or ledger changes.

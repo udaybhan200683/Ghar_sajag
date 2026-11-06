@@ -1,6 +1,7 @@
 """Local owner consent for existing GS-117 readiness procedures; no technical waiver."""
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from datetime import datetime, timezone, timedelta
+import argparse
 import fcntl
 import hashlib
 import json
@@ -848,6 +849,569 @@ DEV_MODE_SCHEMA = 2
 DEV_PIN_NAMES = ('serial_helper', 'bootstrap_script', 'bootstrap_evidence_helper',
                  'controller', 'validator')
 
+# Separate one-use receipt authority. This does not extend DEV_OPERATIONS,
+# inherit its hardware allowance, or modify the consumed GS-117 observation
+# ledger. A future owner-approved receipt manifest is provisioned through the
+# existing audited owner process; this module only validates, reserves,
+# revokes, and appends evidence for that exact separate scope.
+READBACK_RECEIPT_POLICY = Path.home() / '.config/ghar-sajag/gs117-tc001/readback-receipt-authorization.json'
+READBACK_RECEIPT_STATE = Path.home() / '.local/state/ghar-sajag/gs117-tc001/readback-receipt-authorization'
+READBACK_RECEIPT_PROFILE = 'GS117_READBACK_RECEIPT'
+READBACK_RECEIPT_OPERATION = 'readback_receipt'
+READBACK_RECEIPT_PROCEDURE = Path(__file__).resolve().with_name('gs117_tc001_readback.py')
+READBACK_RECEIPT_CONTROLLER = Path(__file__).resolve().with_name('gs117_tc001_console.py')
+READBACK_RECEIPT_PARTITION_PARSER = (
+    Path.home() / '.espressif/v6.0.3/esp-idf/components/partition_table/gen_esp32part.py')
+READBACK_RECEIPT_FIXTURE = {
+    'home_id': 'gs177-test-product',
+    'c3': {'device_id': 'c3-146393c5d158', 'port': 'COM4',
+           'serial_number': '14:63:93:C5:D1:58'},
+    's3': {'device_id': 'hub-e072a1d38d34', 'port': 'COM10',
+           'serial_number': 'E0:72:A1:D3:8D:34'},
+}
+READBACK_RECEIPT_RANGES = [
+    {'role': 'c3', 'name': 'partition-table', 'offset': 0x8000, 'size': 0x1000},
+    {'role': 'c3', 'name': 'otadata', 'offset': 0xF000, 'size': 0x2000},
+    {'role': 'c3', 'name': 'active-app-image', 'offset': 0x20000, 'size': 958992},
+    {'role': 's3', 'name': 'bootloader-region', 'offset': 0x000000, 'size': 0x008000},
+    {'role': 's3', 'name': 'partition-table', 'offset': 0x8000, 'size': 0x1000},
+    {'role': 's3', 'name': 'otadata', 'offset': 0xF000, 'size': 0x2000},
+    {'role': 's3', 'name': 'active-app-image', 'offset': 0x420000, 'size': 2292864},
+]
+READBACK_RECEIPT_RESET_BUDGET = {
+    'c3': {'rom_loader_entry_max': 1, 'normal_application_restore_max': 1,
+           'connect_attempts': 1, 'additional_retry_resets': 0},
+    's3': {'rom_loader_entry_max': 1, 'normal_application_restore_max': 1,
+           'connect_attempts': 1, 'additional_retry_resets': 0},
+}
+READBACK_RECEIPT_PROHIBITED = [
+    'generic_readback', 'nvs', 'credentials', 'keys', 'efuses', 'unrelated_flash',
+    'flash_write', 'flash_erase', 'bootloader_write', 'partition_write',
+    'ota_selector_write', 'firmware_install', 'bootstrap', 'event_injection',
+    'radio_observation', 'hardware_entitlement_change',
+]
+READBACK_RECEIPT_TOOL_NAMES = (
+    'authorization_module', 'controller', 'collector', 'python_runtime',
+    'esptool', 'esptool_cmds', 'esptool_loader', 'esptool_target_c3',
+    'esptool_target_s3', 'pyserial', 'pyserial_list_ports', 'partition_parser')
+READBACK_RECEIPT_TOOL_VERSIONS = ('python', 'esptool', 'pyserial', 'esp_idf')
+READBACK_RECEIPT_POLICY_KEYS = {
+    'schema_version', 'profile', 'operation', 'authorization_id',
+    'owner_approval_ref', 'owner_approved', 'active', 'revoked',
+    'activated_at', 'expires_at', 'max_uses', 'renewable', 'fixture',
+    'read_ranges', 'reset_budget', 'prohibited_operations', 'tool_files',
+    'tool_versions', 'activation_record_sha256',
+}
+READBACK_RECEIPT_ZERO_HASH = '0' * 64
+
+
+def _readback_receipt_scope_sha256(policy):
+    value = {key: policy[key] for key in sorted(READBACK_RECEIPT_POLICY_KEYS)
+             if key != 'activation_record_sha256'}
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+
+
+def _readback_receipt_private_file(path, error_code):
+    path = Path(path)
+    if path.is_symlink():
+        raise ValueError(error_code)
+    try:
+        info = path.lstat()
+    except OSError as error:
+        raise ValueError(error_code) from error
+    if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or
+            info.st_mode & 0o077):
+        raise ValueError(error_code)
+    return info
+
+
+def _readback_receipt_audit(state):
+    state = Path(state)
+    if (state.is_symlink() or not state.is_dir() or state.stat().st_uid != os.getuid() or
+            state.stat().st_mode & 0o077):
+        raise ValueError('readback_receipt_state_not_private')
+    audit = state / 'audit.jsonl'
+    _readback_receipt_private_file(audit, 'readback_receipt_audit_invalid')
+    try:
+        rows = [json.loads(line) for line in audit.read_text().splitlines() if line.strip()]
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError('readback_receipt_audit_corrupt') from error
+    previous = READBACK_RECEIPT_ZERO_HASH
+    histories = {}
+    allowed_events = {
+        'readback_receipt_activated', 'readback_receipt_revoked',
+        'readback_receipt_reserved', 'readback_receipt_completed',
+        'readback_receipt_failed', 'readback_receipt_role_started',
+    }
+    for row in rows:
+        if (not isinstance(row, dict) or row.get('event') not in allowed_events or
+                not re.fullmatch(r'[0-9a-f]{32}', str(row.get('authorization_id', ''))) or
+                row.get('previous_record_sha256') != previous or
+                row.get('record_sha256') != _canonical_record_sha256(row)):
+            raise ValueError('readback_receipt_audit_chain_invalid')
+        auth_id = row['authorization_id']
+        state_value = histories.setdefault(auth_id, {'activated': None, 'reserved': None,
+                                                       'terminal': None, 'revoked': False,
+                                                       'roles_started': set()})
+        if row['event'] == 'readback_receipt_activated':
+            if state_value['activated'] is not None:
+                raise ValueError('readback_receipt_duplicate_activation')
+            state_value['activated'] = row
+        elif state_value['activated'] is None:
+            raise ValueError('readback_receipt_audit_transition_invalid')
+        elif row['event'] == 'readback_receipt_revoked':
+            if state_value['revoked'] or state_value['reserved'] is not None or state_value['terminal'] is not None:
+                raise ValueError('readback_receipt_audit_transition_invalid')
+            state_value['revoked'] = True
+        elif row['event'] == 'readback_receipt_reserved':
+            if state_value['revoked'] or state_value['reserved'] is not None or state_value['terminal'] is not None:
+                raise ValueError('readback_receipt_audit_transition_invalid')
+            state_value['reserved'] = row
+        elif row['event'] == 'readback_receipt_role_started':
+            role = row.get('role')
+            if (state_value['reserved'] is None or state_value['terminal'] is not None or
+                    row.get('session_id') != state_value['reserved'].get('session_id') or
+                    role not in {'c3', 's3'} or role in state_value['roles_started']):
+                raise ValueError('readback_receipt_role_replay_or_transition_invalid')
+            state_value['roles_started'].add(role)
+        else:
+            if (state_value['reserved'] is None or state_value['terminal'] is not None or
+                    row.get('session_id') != state_value['reserved'].get('session_id')):
+                raise ValueError('readback_receipt_audit_transition_invalid')
+            state_value['terminal'] = row
+        if row.get('approval_ref') != state_value['activated'].get('approval_ref'):
+            raise ValueError('readback_receipt_audit_scope_mismatch')
+        if row.get('scope_sha256') != state_value['activated'].get('scope_sha256'):
+            raise ValueError('readback_receipt_audit_scope_mismatch')
+        previous = row['record_sha256']
+    if sum(1 for value in histories.values()
+           if value['reserved'] is not None and value['terminal'] is None) > 1:
+        raise ValueError('readback_receipt_concurrent_operation_detected')
+    return rows, histories
+
+
+def _append_readback_receipt_event(state, record):
+    rows, _histories = _readback_receipt_audit(state)
+    record = dict(record)
+    record['previous_record_sha256'] = (rows[-1]['record_sha256'] if rows
+                                        else READBACK_RECEIPT_ZERO_HASH)
+    record['record_sha256'] = _canonical_record_sha256(record)
+    _append_private_audit(Path(state) / 'audit.jsonl', record)
+    return record
+
+
+def _readback_receipt_tool_hashes(policy):
+    tools = policy.get('tool_files')
+    if not isinstance(tools, dict) or set(tools) != set(READBACK_RECEIPT_TOOL_NAMES):
+        raise ValueError('readback_receipt_tool_scope_mismatch')
+    hashes = {}
+    expected_sources = {
+        'authorization_module': Path(__file__).resolve(),
+        'controller': READBACK_RECEIPT_CONTROLLER.resolve(),
+        'collector': READBACK_RECEIPT_PROCEDURE.resolve(),
+        'partition_parser': READBACK_RECEIPT_PARTITION_PARSER.resolve(),
+    }
+    for name in READBACK_RECEIPT_TOOL_NAMES:
+        entry = tools.get(name)
+        if (not isinstance(entry, dict) or set(entry) != {'path', 'sha256'} or
+                not isinstance(entry.get('path'), str) or
+                not re.fullmatch(r'[0-9a-f]{64}', str(entry.get('sha256', '')))):
+            raise ValueError('readback_receipt_tool_scope_mismatch')
+        path = Path(entry['path'])
+        if (not path.is_absolute() or path.is_symlink() or
+                path.resolve(strict=False) != path or not path.is_file() or
+                digest(path) != entry['sha256']):
+            raise ValueError('readback_receipt_tool_identity_mismatch')
+        if name in expected_sources and path != expected_sources[name]:
+            raise ValueError('readback_receipt_tool_path_mismatch')
+        hashes[name] = entry['sha256']
+    return hashes
+
+
+def load_readback_receipt_authorization(now=None, *, _allow_reserved=False):
+    """Validate a separately approved exact-scope receipt grant, without reserving it."""
+    path, state = READBACK_RECEIPT_POLICY, READBACK_RECEIPT_STATE
+    _readback_receipt_private_file(path, 'readback_receipt_policy_not_private')
+    try:
+        policy = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError('readback_receipt_policy_corrupt') from error
+    if not isinstance(policy, dict) or set(policy) != READBACK_RECEIPT_POLICY_KEYS:
+        raise ValueError('readback_receipt_policy_schema_mismatch')
+    if (type(policy.get('schema_version')) is not int or policy.get('schema_version') != 1 or
+            policy.get('profile') != READBACK_RECEIPT_PROFILE or
+            policy.get('operation') != READBACK_RECEIPT_OPERATION or
+            not re.fullmatch(r'[0-9a-f]{32}', str(policy.get('authorization_id', ''))) or
+            not re.fullmatch(r'GS-117#\d{1,8}', str(policy.get('owner_approval_ref', ''))) or
+            policy.get('owner_approved') is not True or policy.get('active') is not True or
+            policy.get('revoked') is not False or type(policy.get('max_uses')) is not int or
+            policy.get('max_uses') != 1 or
+            policy.get('renewable') is not False or policy.get('fixture') != READBACK_RECEIPT_FIXTURE or
+            policy.get('read_ranges') != READBACK_RECEIPT_RANGES or
+            policy.get('reset_budget') != READBACK_RECEIPT_RESET_BUDGET or
+            policy.get('prohibited_operations') != READBACK_RECEIPT_PROHIBITED or
+            not re.fullmatch(r'[0-9a-f]{64}', str(policy.get('activation_record_sha256', '')))):
+        raise ValueError('readback_receipt_scope_or_identity_mismatch')
+    versions = policy.get('tool_versions')
+    if (not isinstance(versions, dict) or set(versions) != set(READBACK_RECEIPT_TOOL_VERSIONS) or
+            any(not isinstance(value, str) or not value.strip() or len(value) > 80
+                for value in versions.values()) or
+            versions.get('esptool') != '5.4.0' or versions.get('esp_idf') != '6.0.3'):
+        raise ValueError('readback_receipt_tool_version_mismatch')
+    hashes = _readback_receipt_tool_hashes(policy)
+    try:
+        activated = datetime.fromisoformat(policy['activated_at'])
+        expires = datetime.fromisoformat(policy['expires_at'])
+    except (TypeError, ValueError):
+        raise ValueError('readback_receipt_time_invalid') from None
+    now = now or datetime.now(timezone.utc)
+    if (activated.tzinfo is None or expires.tzinfo is None or now.tzinfo is None or
+            not activated < expires or not activated <= now < expires):
+        raise ValueError('readback_receipt_authorization_expired_or_not_yet_active')
+    audit_path = Path(state) / 'audit.jsonl'
+    rows, histories = _readback_receipt_audit(state)
+    history = histories.get(policy['authorization_id'])
+    scope_hash = _readback_receipt_scope_sha256(policy)
+    if (history is None or history['activated'] is None or
+            sum(1 for row in rows if row.get('authorization_id') == policy['authorization_id'] and
+                row.get('event') == 'readback_receipt_activated') != 1):
+        raise ValueError('readback_receipt_activation_missing_or_replayed')
+    activation = history['activated']
+    expected_activation = {
+        'authorization_id': policy['authorization_id'],
+        'activation_id': policy['authorization_id'],
+        'approval_ref': policy['owner_approval_ref'],
+        'scope_sha256': scope_hash,
+        'activated_at': policy['activated_at'],
+        'expires_at': policy['expires_at'],
+        'fixture': READBACK_RECEIPT_FIXTURE,
+        'operation': READBACK_RECEIPT_OPERATION,
+        'read_ranges': READBACK_RECEIPT_RANGES,
+        'reset_budget': READBACK_RECEIPT_RESET_BUDGET,
+        'tool_hashes': hashes,
+        'tool_versions': versions,
+        'max_uses': 1,
+    }
+    if (any(activation.get(key) != value for key, value in expected_activation.items()) or
+            activation.get('record_sha256') != policy['activation_record_sha256']):
+        raise ValueError('readback_receipt_activation_scope_mismatch')
+    if history['revoked']:
+        raise ValueError('readback_receipt_authorization_revoked')
+    if history['reserved'] is not None and not _allow_reserved:
+        raise ValueError('readback_receipt_authorization_consumed')
+    # Keep the fixed audit path explicit; it may not be redirected by the caller.
+    if audit_path.is_symlink():
+        raise ValueError('readback_receipt_audit_invalid')
+    return policy
+
+
+def _readback_receipt_active_lock(state):
+    """Require the controller's process-wide receipt lock to remain held."""
+    path = Path(state) / 'session.lock'
+    if path.is_symlink():
+        raise ValueError('readback_receipt_state_not_private')
+    fd = os.open(path, os.O_CREAT | os.O_RDWR | getattr(os, 'O_NOFOLLOW', 0), 0o600)
+    with os.fdopen(fd, 'r+') as lock:
+        info = os.fstat(lock.fileno())
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077):
+            raise ValueError('readback_receipt_state_not_private')
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+        raise ValueError('readback_receipt_session_not_active')
+
+
+def _readback_receipt_hold_exclusive_lock(stack, directory, error_code):
+    directory = Path(directory)
+    if directory.is_symlink():
+        raise ValueError('readback_receipt_state_not_private')
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    info = directory.stat()
+    if info.st_uid != os.getuid() or info.st_mode & 0o077:
+        raise ValueError('readback_receipt_state_not_private')
+    lock_path = directory / 'session.lock'
+    if lock_path.is_symlink():
+        raise ValueError('readback_receipt_state_not_private')
+    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | getattr(os, 'O_NOFOLLOW', 0), 0o600)
+    lock = stack.enter_context(os.fdopen(fd, 'r+'))
+    info = os.fstat(lock.fileno())
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        raise ValueError('readback_receipt_state_not_private')
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as error:
+        raise ValueError(error_code) from error
+    return lock
+
+
+def claim_readback_receipt_role(session_id, role, procedure_sha256,
+                                python_runtime_sha256, python_version,
+                                pyserial_version, runtime_tool_hashes, now=None):
+    """Claim one target exactly once from the still-active WSL authorization session."""
+    if (not re.fullmatch(r'[0-9a-f]{32}', str(session_id)) or role not in {'c3', 's3'} or
+            not re.fullmatch(r'[0-9a-f]{64}', str(procedure_sha256)) or
+            not re.fullmatch(r'[0-9a-f]{64}', str(python_runtime_sha256)) or
+            not isinstance(python_version, str) or not isinstance(pyserial_version, str) or
+            not isinstance(runtime_tool_hashes, dict)):
+        raise ValueError('readback_receipt_session_claim_invalid')
+    state = Path(READBACK_RECEIPT_STATE)
+    if (state.is_symlink() or not state.is_dir() or state.stat().st_uid != os.getuid() or
+            state.stat().st_mode & 0o077):
+        raise ValueError('readback_receipt_state_not_private')
+    _readback_receipt_active_lock(state)
+    claim_lock_path = state / 'claims.lock'
+    if claim_lock_path.is_symlink():
+        raise ValueError('readback_receipt_state_not_private')
+    fd = os.open(claim_lock_path, os.O_CREAT | os.O_RDWR | getattr(os, 'O_NOFOLLOW', 0), 0o600)
+    with os.fdopen(fd, 'r+') as lock:
+        info = os.fstat(lock.fileno())
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077):
+            raise ValueError('readback_receipt_state_not_private')
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise ValueError('readback_receipt_claim_already_active') from error
+        policy = load_readback_receipt_authorization(now=now, _allow_reserved=True)
+        expected_runtime_tools = set(READBACK_RECEIPT_TOOL_NAMES) - {
+            'authorization_module', 'controller', 'collector', 'python_runtime'}
+        if (set(runtime_tool_hashes) != expected_runtime_tools or
+                any(not re.fullmatch(r'[0-9a-f]{64}', str(value))
+                    for value in runtime_tool_hashes.values()) or
+                any(runtime_tool_hashes[name] != policy['tool_files'][name]['sha256']
+                    for name in expected_runtime_tools) or
+                policy['tool_versions']['pyserial'] != pyserial_version):
+            raise ValueError('readback_receipt_runtime_tool_identity_mismatch')
+        rows, histories = _readback_receipt_audit(state)
+        history = histories.get(policy['authorization_id'])
+        reserved = history.get('reserved') if history else None
+        if (reserved is None or history.get('terminal') is not None or
+                reserved.get('session_id') != session_id or
+                reserved.get('procedure_sha256') != procedure_sha256 or
+                policy['tool_files']['collector']['sha256'] != procedure_sha256 or
+                policy['tool_files']['python_runtime']['sha256'] != python_runtime_sha256 or
+                policy['tool_versions']['python'] != python_version):
+            raise ValueError('readback_receipt_session_or_procedure_mismatch')
+        if role in history['roles_started']:
+            raise ValueError('readback_receipt_role_replay_rejected')
+        record = {
+            'event': 'readback_receipt_role_started',
+            'authorization_id': policy['authorization_id'],
+            'approval_ref': policy['owner_approval_ref'],
+            'scope_sha256': _readback_receipt_scope_sha256(policy),
+            'session_id': session_id, 'role': role,
+            'procedure_sha256': procedure_sha256,
+            'python_runtime_sha256': python_runtime_sha256,
+            'python_version': python_version,
+            'pyserial_version': pyserial_version,
+            'runtime_tool_hashes': runtime_tool_hashes,
+            'started_at': datetime.now(timezone.utc).isoformat(),
+        }
+        _append_readback_receipt_event(state, record)
+        return {'status': 'CLAIMED', 'role': role, 'session_id': session_id}
+
+
+def _readback_receipt_evidence_hash(directory):
+    root = Path(directory)
+    if (root.is_symlink() or not root.is_dir() or root.stat().st_uid != os.getuid() or
+            root.stat().st_mode & 0o077):
+        raise ValueError('readback_receipt_evidence_not_private')
+    entries = []
+    for current, dirs, files in os.walk(root, followlinks=False):
+        current_path = Path(current)
+        for name in dirs:
+            path = current_path / name
+            info = path.lstat()
+            if (stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode) or
+                    info.st_uid != os.getuid() or info.st_mode & 0o077):
+                raise ValueError('readback_receipt_evidence_not_private')
+        for name in files:
+            path = current_path / name
+            info = path.lstat()
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or
+                    info.st_mode & 0o077):
+                raise ValueError('readback_receipt_evidence_not_private')
+            entries.append({'path': path.relative_to(root).as_posix(), 'size': info.st_size,
+                            'sha256': digest(path)})
+    if not entries:
+        raise ValueError('readback_receipt_evidence_empty')
+    entries.sort(key=lambda item: item['path'])
+    encoded = json.dumps(entries, sort_keys=True, separators=(',', ':')).encode()
+    return hashlib.sha256(encoded).hexdigest(), entries
+
+
+def readback_receipt_status(now=None):
+    try:
+        policy = load_readback_receipt_authorization(now=now)
+        return {'status': 'ACTIVE', 'authorization_id': policy['authorization_id'],
+                'operation': READBACK_RECEIPT_OPERATION, 'uses_remaining': 1,
+                'expires_at': policy['expires_at']}
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        reason = str(error)
+        if reason == 'readback_receipt_authorization_consumed':
+            return {'status': 'CONSUMED', 'reason': reason}
+        if reason == 'readback_receipt_authorization_revoked':
+            return {'status': 'REVOKED', 'reason': reason}
+        if reason == 'readback_receipt_authorization_expired_or_not_yet_active':
+            return {'status': 'EXPIRED_OR_INACTIVE', 'reason': reason}
+        return {'status': 'BLOCKED', 'reason': reason}
+
+
+@contextmanager
+def readback_receipt_session(now=None):
+    """Reserve the separate one-use receipt operation before the caller invokes any device tool."""
+    state = Path(READBACK_RECEIPT_STATE)
+    with ExitStack() as locks:
+        # Serialize against both existing HIL authorization paths without
+        # reading or changing either hardware entitlement or its ledger.
+        _readback_receipt_hold_exclusive_lock(
+            locks, STATE, 'readback_receipt_hardware_operation_already_active')
+        _readback_receipt_hold_exclusive_lock(
+            locks, DEV_STATE, 'readback_receipt_hardware_operation_already_active')
+        _readback_receipt_hold_exclusive_lock(
+            locks, state, 'readback_receipt_operation_already_active')
+        policy = load_readback_receipt_authorization(now=now)
+        session_id = secrets.token_hex(16)
+        base = {'authorization_id': policy['authorization_id'],
+                'approval_ref': policy['owner_approval_ref'],
+                'scope_sha256': _readback_receipt_scope_sha256(policy)}
+        evidence_dir = state / ('evidence-' + session_id)
+        evidence_dir.mkdir(mode=0o700)
+        _append_readback_receipt_event(state, {
+            'event': 'readback_receipt_reserved', **base,
+            'session_id': session_id, 'started_at': datetime.now(timezone.utc).isoformat(),
+            'procedure_sha256': policy['tool_files']['collector']['sha256'],
+            'tool_hashes': {name: entry['sha256']
+                            for name, entry in policy['tool_files'].items()},
+            'tool_versions': dict(policy['tool_versions']),
+            'evidence_dir': str(evidence_dir),
+        })
+        result = {'outcome': 'NOT_REPORTED', 'session_id': session_id,
+                  'evidence_dir': str(evidence_dir),
+                  'tool_files': dict(policy['tool_files']),
+                  'tool_versions': dict(policy['tool_versions'])}
+        try:
+            yield result
+        except BaseException as error:
+            try:
+                evidence_sha256, evidence_entries = _readback_receipt_evidence_hash(evidence_dir)
+                evidence_error = None
+            except (OSError, ValueError):
+                evidence_sha256, evidence_entries = None, []
+                evidence_error = 'evidence_incomplete_or_not_private'
+            _append_readback_receipt_event(state, {
+                'event': 'readback_receipt_failed', **base,
+                'session_id': session_id, 'completed_at': datetime.now(timezone.utc).isoformat(),
+                'failure_type': type(error).__name__,
+                'evidence_dir': str(evidence_dir), 'evidence_sha256': evidence_sha256,
+                'evidence_entries': evidence_entries, 'evidence_error': evidence_error,
+            })
+            raise
+        else:
+            outcome = result.get('outcome')
+            try:
+                evidence_sha256, evidence_entries = _readback_receipt_evidence_hash(evidence_dir)
+                evidence_error = None
+            except (OSError, ValueError):
+                evidence_sha256, evidence_entries = None, []
+                evidence_error = 'evidence_incomplete_or_not_private'
+            valid_outcome = outcome in {'PASS', 'FAIL', 'BLOCKED', 'PARTIAL'}
+            if not valid_outcome or evidence_sha256 is None:
+                outcome = 'FAIL' if valid_outcome else 'OUTCOME_INVALID'
+            if outcome == 'PASS':
+                by_path = {entry['path']: entry for entry in evidence_entries}
+                try:
+                    receipts = [json.loads((evidence_dir / role / (role + '-readback.json')).read_text())
+                                for role in ('c3', 's3')]
+                except (OSError, json.JSONDecodeError):
+                    receipts = []
+                _audit_rows, audit_histories = _readback_receipt_audit(state)
+                roles_started = audit_histories.get(policy['authorization_id'], {}).get(
+                    'roles_started', set())
+                if (len(receipts) != 2 or
+                        roles_started != {'c3', 's3'} or
+                        any(receipt.get('role') != role or receipt.get('status') != 'PASS'
+                            for role, receipt in zip(('c3', 's3'), receipts)) or
+                        any(receipt.get('procedure_sha256') !=
+                            policy['tool_files']['collector']['sha256']
+                            for receipt in receipts) or
+                        any(receipt.get('application_restoration', {}).get('status') !=
+                            'USB_IDENTITY_REENUMERATED' for receipt in receipts) or
+                        any((role + '/' + role + '-readback.json') not in by_path
+                            for role in ('c3', 's3'))):
+                    outcome = 'FAIL'
+            requested_outcome = result.get('outcome')
+            result['outcome'] = outcome
+            result['evidence_sha256'] = evidence_sha256
+            _append_readback_receipt_event(state, {
+                'event': 'readback_receipt_completed', **base,
+                'session_id': session_id, 'completed_at': datetime.now(timezone.utc).isoformat(),
+                'outcome': outcome, 'evidence_dir': str(evidence_dir),
+                'evidence_sha256': evidence_sha256,
+                'evidence_entries': evidence_entries, 'evidence_error': evidence_error,
+            })
+            if requested_outcome == 'PASS' and outcome != 'PASS':
+                raise ValueError('readback_receipt_pass_evidence_validation_failed')
+
+
+def _readback_receipt_cli(argv=None):
+    parser = argparse.ArgumentParser(prog='gs117_hil_authorization.py')
+    parser.add_argument('--claim-readback-receipt-session', dest='session_id')
+    parser.add_argument('--role', choices=('c3', 's3'))
+    parser.add_argument('--procedure-sha256')
+    parser.add_argument('--python-runtime-sha256')
+    parser.add_argument('--python-version')
+    parser.add_argument('--pyserial-version')
+    parser.add_argument('--runtime-tool-hashes-json')
+    args = parser.parse_args(argv)
+    if (not args.session_id or not args.role or not args.procedure_sha256 or
+            not args.python_runtime_sha256 or not args.python_version or
+            not args.pyserial_version or not args.runtime_tool_hashes_json):
+        parser.error('all claim fields are required')
+    try:
+        runtime_tool_hashes = json.loads(args.runtime_tool_hashes_json)
+        if not isinstance(runtime_tool_hashes, dict):
+            raise ValueError('readback_receipt_session_claim_invalid')
+        result = claim_readback_receipt_role(
+            args.session_id, args.role, args.procedure_sha256,
+            args.python_runtime_sha256, args.python_version,
+            args.pyserial_version, runtime_tool_hashes)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        print(json.dumps({'status': 'BLOCKED', 'reason': str(error)}))
+        return 2
+    print(json.dumps(result, sort_keys=True))
+    return 0
+
+
+def revoke_readback_receipt_authorization(reason):
+    """Revoke an unused separate receipt grant; never mutates the owner manifest or hardware ledgers."""
+    if (not isinstance(reason, str) or not reason.strip() or len(reason) > 240 or
+            any(ord(char) < 32 for char in reason)):
+        raise ValueError('readback_receipt_revocation_reason_required')
+    state = Path(READBACK_RECEIPT_STATE)
+    if (state.is_symlink() or not state.is_dir() or state.stat().st_uid != os.getuid() or
+            state.stat().st_mode & 0o077):
+        raise ValueError('readback_receipt_state_not_private')
+    lock_path = state / 'session.lock'
+    if lock_path.is_symlink():
+        raise ValueError('readback_receipt_state_not_private')
+    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | getattr(os, 'O_NOFOLLOW', 0), 0o600)
+    with os.fdopen(fd, 'r+') as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise ValueError('readback_receipt_operation_already_active') from error
+        policy = load_readback_receipt_authorization()
+        base = {'authorization_id': policy['authorization_id'],
+                'approval_ref': policy['owner_approval_ref'],
+                'scope_sha256': _readback_receipt_scope_sha256(policy)}
+        _append_readback_receipt_event(state, {
+            'event': 'readback_receipt_revoked', **base,
+            'revoked_at': datetime.now(timezone.utc).isoformat(),
+            'reason': reason.strip(),
+        })
+        return {'status': 'REVOKED', 'authorization_id': policy['authorization_id']}
+
 
 def _environment_is_release_qualified():
     return os.environ.get('GHAR_SAJAG_QUALIFICATION_MODE', '').strip().upper() in {
@@ -1395,3 +1959,7 @@ def revoke_development_mode(reason, path=None):
         _atomic_private_json(path, updated)
         return {'status': 'REVOKED', 'revocation_id': record['revocation_id'],
                 'record_sha256': record['record_sha256']}
+
+
+if __name__ == '__main__':
+    raise SystemExit(_readback_receipt_cli())

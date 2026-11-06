@@ -28,6 +28,10 @@ import gs117_tc001_backend as tc_backend
 
 import gs117_hil_authorization as hil_auth
 import gs117_bootstrap_evidence as bootstrap_evidence
+from test_gs117_readback_receipt import (
+    ReadbackAuthorizationTests,
+    ReadbackRangeTests,
+)
 
 
 class StandingAuthorizationTest(unittest.TestCase):

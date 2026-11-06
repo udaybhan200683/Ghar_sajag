@@ -50,6 +50,7 @@ STAGES = ("environment", "c3_identity", "s3_identity", "c3_injection",
 SERIAL = HERE / "gs117_tc001_serial_windows.py"
 HEALTH = HERE / "gs179-laptop-server.sh"
 BACKEND = HERE / "gs117-tc001-backend.sh"
+READBACK_POWERSHELL = Path("/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe")
 
 
 def utc() -> str:
@@ -1929,6 +1930,71 @@ def save_readiness_result(directory, name, value):
     finally: os.close(fd)
 
 
+def _powershell_quote(value):
+    return "'" + str(value).replace("'", "''") + "'"
+
+
+def readback_receipts_once():
+    """Run the separately authorized one-use C3/S3 receipt procedure.
+
+    The Linux authorization session remains locked while the Windows collector
+    claims each target. The collector must claim C3 and S3 once each through
+    the existing WSL authorization module before it enumerates a serial port.
+    """
+    import gs117_hil_authorization as auth
+
+    policy = auth.load_readback_receipt_authorization()
+    script = HERE / "gs117_tc001_readback.py"
+    if (auth.digest(script) != policy["tool_files"]["collector"]["sha256"] or
+            auth.digest(__file__) != policy["tool_files"]["controller"]["sha256"]):
+        raise ValueError("readback_receipt_controller_or_procedure_changed")
+    windows_script = subprocess.check_output(
+        ["wslpath", "-w", str(script)], text=True, timeout=5).strip()
+    windows_python = subprocess.check_output(
+        ["wslpath", "-w", policy["tool_files"]["python_runtime"]["path"]],
+        text=True, timeout=5).strip()
+    windows_state = subprocess.check_output(
+        ["wslpath", "-w", str(auth.READBACK_RECEIPT_STATE)],
+        text=True, timeout=5).strip()
+    powershell_exe = READBACK_POWERSHELL
+    if not powershell_exe.is_file() or not windows_script or not windows_python or not windows_state:
+        raise ValueError("readback_receipt_windows_runtime_unavailable")
+
+    with auth.readback_receipt_session() as operation:
+        results = []
+        for role in ("c3", "s3"):
+            out_dir = Path(operation["evidence_dir"]) / role
+            out_dir.mkdir(mode=0o700)
+            out_windows = windows_state.rstrip("\\/") + "\\" + \
+                Path(operation["evidence_dir"]).name + "\\" + role
+            command = "& " + _powershell_quote(windows_python) + " " + \
+                _powershell_quote(windows_script) + " --role " + role + \
+                " --out-dir " + _powershell_quote(out_windows) + \
+                " --authorization-session-id " + _powershell_quote(operation["session_id"])
+            child = subprocess.run(
+                [str(powershell_exe), "-NoProfile", "-NonInteractive", "-Command", command],
+                capture_output=True, text=True, check=False)
+            save_readiness_result(out_dir, "controller-result.json", {
+                "role": role, "exit_code": child.returncode,
+                "stdout": child.stdout[:20000], "stderr": child.stderr[:20000]})
+            try:
+                child_result = json.loads(child.stdout.strip())
+            except json.JSONDecodeError:
+                child_result = {"status": "FAIL", "reason": "collector_response_invalid"}
+            results.append(child_result)
+            if (child.returncode != 0 or child_result.get("role") != role or
+                    child_result.get("status") != "PASS"):
+                operation["outcome"] = "PARTIAL" if any(
+                    item.get("status") == "PASS" for item in results[:-1]) else "FAIL"
+                break
+        else:
+            operation["outcome"] = "PASS"
+        evidence_dir = operation["evidence_dir"]
+    return {"status": operation["outcome"], "results": results,
+            "evidence_dir": evidence_dir,
+            "evidence_sha256": operation.get("evidence_sha256")}
+
+
 def standing_readiness(development=False):
     """Execute only the pinned existing Bootstrap, retaining all target guards."""
     import gs117_hil_authorization as auth
@@ -2016,6 +2082,13 @@ def standing_readiness(development=False):
 
 
 if __name__ == "__main__":
+    if sys.argv[1:] == ["--readback-receipts-once"]:
+        try:
+            print(json.dumps(readback_receipts_once(), sort_keys=True))
+            raise SystemExit(0)
+        except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+            print(json.dumps({"status": "BLOCKED", "reason": str(error)}))
+            raise SystemExit(2)
     if "--dev-policy-status" in sys.argv:
         import gs117_hil_authorization as auth
         result = auth.development_status()
