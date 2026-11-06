@@ -160,3 +160,46 @@ worktree source changes are pending review/commit at starting HEAD
 **Next action:** obtain one consolidated owner decision for the separate Scope
 A and Scope B grants; only after Scope A is approved and captured should Scope
 B be provisioned and considered for execution.
+
+## Execution attempt after owner approval #11933 — BLOCKED before reservation
+
+The canonical worktree and branch were rechecked at commit
+`861daf5a2aaf3989b76d88c0fd5393f568f741af`; origin matched. Context preflight
+passed. Tracked files were clean before this status update; the 79 existing
+untracked entries were preserved. No competing Codex or hardware process was
+visible. Read-only source/tool hashes for the collector, authorization module,
+controller, serial helper, bootstrap evidence helper, backend verifier, health
+helper, and endpoint verifier still match the fingerprints in this record.
+
+Jira #11933 was read and matches the proposed fixture, exact seven ranges,
+per-target ROM/restore-reset limits, conditional Scope B and exclusions. The
+comment explicitly says it records owner intent and is not a completed
+technical authorization, receipt, or PASS.
+
+- **Scope A: BLOCKED / NOT_RESERVED.** Read-only
+  `readback_receipt_status()` returned
+  `BLOCKED: readback_receipt_policy_not_private`; the expected
+  `readback-receipt-authorization.json` and its state directory do not exist.
+  The existing authorization source validates and reserves a previously
+  issued grant, but provides no grant creation/activation operation or local
+  issuer command. No session or device operation was started.
+- **Scope B: BLOCKED / NOT_RUN.** Read-only `development_status()` returned
+  `BLOCKED: development_reviewed_procedure_changed`. The existing private DEV
+  manifest is bootstrap-only and consumed, and its controller, authorization,
+  serial-helper, and bootstrap-evidence-helper pins are stale. It was not
+  modified. The implementation's source-review path does not issue a new
+  operation grant. No session was reserved.
+
+Because Scope A did not produce a verified PASS, Scope B was not considered for
+activation. No USB enumeration, COM/ADB open, ROM entry, reset, flash read,
+bootstrap, network operation, or event injection occurred. Firmware and
+installed-image evidence are unchanged; application receipts remain STALE.
+GS-117 #11897 remains SAFETY_LATCHED 1/1 and #11886 remains preserved;
+`TC001_READY=NO`, TC-001 remains 0/5.
+
+The remaining blocker is completion of the existing trusted/audited grant
+issuance path for two separate one-use records bound to the reviewed hashes and
+#11933 scope. Do not manually create policy/audit records or reuse the consumed
+DEV manifest. After those records are legitimately provisioned, rerun status
+and source-pin checks before Scope A; Scope B remains conditional on a verified
+Scope A PASS and fresh Android/readiness evidence.

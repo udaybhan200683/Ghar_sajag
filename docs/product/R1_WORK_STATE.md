@@ -1,3 +1,27 @@
+## GS-117 — approved receipt/E2E scopes stopped at authorization issuance — 2026-11-06
+
+Owner conditional approval #11933 was verified. Its two scopes are unchanged:
+one seven-range receipt capture with the documented per-target ROM/restore
+resets, then one `motion_event_once` only after matching fresh receipts and all
+readiness gates pass. This comment records owner intent, not activation.
+
+Current preflight passed at `861daf5a2aaf3989b76d88c0fd5393f568f741af`, with
+origin equal, tracked tree clean before this documentation update, and the 79
+existing untracked entries preserved. Read-only source/tool fingerprints
+matched the reviewed candidate. No competing Codex/hardware process was
+visible. Scope A status is BLOCKED before reservation because the separate
+`readback_receipt` policy and audit state are absent; the reviewed code has no
+grant issuance/activation command. Scope B is BLOCKED because the only private
+DEV grant is consumed, bootstrap-only and source-pin-invalid. Neither grant was
+created or activated, and neither session was reserved. No device/USB/ADB,
+ROM/reset/readback, network, or event operation occurred.
+
+#11897 remains SAFETY_LATCHED 1/1; #11886 is unchanged. Firmware unchanged,
+receipts STALE, `TC001_READY=NO`, TC-001 0/5. Exact status and source hashes:
+[GS117 one-event USB-to-Android readiness](../exec-plans/evidence/GS117_ONE_EVENT_USB_ANDROID_READINESS_20261106.md).
+Next: complete the existing trusted/audited issuance process for the two
+separate grants, then rerun the read-only checks before Scope A.
+
 ## GS-117 — no-flash USB-to-Android E2E route audit — 2026-11-06
 
 Offline review confirmed session126/sequence1 previously carried a real C3
@@ -11163,4 +11187,3 @@ remain STALE, #11897 remains SAFETY_LATCHED 1/1, #11886 remains intact,
 capture fresh matching C3/S3 and Android evidence; a separate one-use
 `motion_event_once` scope can then authorize one USB-triggered E2E event. The
 proposal and exact bounds are in
-[GS117 one-event USB-to-Android readiness](../exec-plans/evidence/GS117_ONE_EVENT_USB_ANDROID_READINESS_20261106.md).
