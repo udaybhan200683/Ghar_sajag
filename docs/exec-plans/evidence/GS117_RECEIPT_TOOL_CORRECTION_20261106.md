@@ -158,6 +158,10 @@ identity is not activated or approved by this offline change.
   unchanged.
 - Installed firmware: unchanged; receipts STALE; `TC001_READY=NO`; TC-001 0/5.
 - S3 rollback provenance: UNVERIFIED; diagnostic installation remains NO-GO.
+- Implementation/source/test/evidence commit `012f21f7fcead12ff9673e01b6c2782e8ec0ba3e`
+  was pushed to `feature/r1-commercial-baseline`; local and remote matched at
+  that delivery checkpoint. The subsequent work-state handoff records the
+  verification outcome.
 
 Future owner approval must authorize exactly one use of the reviewed collector
 and controller hashes for the fixture and read ranges above, including the

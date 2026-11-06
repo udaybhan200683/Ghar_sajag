@@ -27,9 +27,11 @@ or physical attempt occurred. GS-117 #11897 remains SAFETY_LATCHED, 1/1
 consumed; #11886 is preserved. Firmware unchanged; installed-image receipts
 STALE; rollback provenance UNVERIFIED; `TC001_READY=NO`; TC-001 **0/5**.
 Diagnostic installation remains NO-GO until trusted GS-D029 rollback-capable
-bootloader provenance is established. Current branch checkpoint before this
-documentation update: `52e9e4e68d064ec3b9ddb4a57dff06447603ee81`; remote matched.
-Unrelated untracked assets remain untouched.
+bootloader provenance is established. Implementation/evidence commit
+`012f21f7fcead12ff9673e01b6c2782e8ec0ba3e` was pushed and local/remote
+equality verified. The source baseline before this task was
+`52e9e4e68d064ec3b9ddb4a57dff06447603ee81`; unrelated untracked assets remain
+untouched.
 
 Exact next action: review and separately approve (or reject) the one-use device
 capture proposal in the linked evidence record. Do not access devices under
