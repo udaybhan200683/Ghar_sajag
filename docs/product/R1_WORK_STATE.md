@@ -11046,3 +11046,27 @@ evidence and exact pins: [GS117 minimal diagnostic readiness](../exec-plans/evid
 Next: obtain exact owner authority for a read-only fresh C3/S3 image, bootloader,
 partition and selector receipt capture; continue only if current evidence and
 GS-D029 rollback provenance pass.
+
+### 2026-11-06 — GS117 installed-device receipt procedure audit
+
+Offline audit of the existing private readback artifacts found that the
+best-tested candidate, `readback_once_v3.py` (SHA-256
+`d1895a348612ae93395fb03ceb69517619c85ecde8fb8a7b9ea89af0d0064ca4`), reads
+fixture identity, partition table, both OTA metadata copies and selected app
+bytes, but does not read the S3 bootloader. It requires ROM-entry and
+USB-aware EN restore resets per target. The broad legacy S3 reader also reads
+NVS and unrelated flash and is rejected for this scope. The existing GS117
+authorization source prohibits `readback` and has no receipt operation; no
+device approval/authorization was activated. Historical candidate tests are
+22/22 mocked PASS only. Exact artifact and reset-scope audit:
+`docs/exec-plans/evidence/GS117_INSTALLED_RECEIPT_MECHANISM_AUDIT_20261106.md`.
+
+No hardware/COM/reset/readback/firmware/network operation occurred. #11897
+remains SAFETY_LATCHED 1/1; #11886 intact; firmware unchanged; receipts STALE;
+installed S3 automatic rollback provenance UNVERIFIED; installation NO-GO;
+`TC001_READY=NO`; TC-001 0/5. The requested exact capture approval cannot yet
+be pinned to a tool that performs the full requested scope. Next: obtain the
+owner's decision on the minimal offline v3 bootloader-read correction and
+one-use readback operation in the existing authorization allowlist, then test
+and hash-pin before requesting any device access. Decision request recorded in
+GS-117 Jira comment #11927; it is not physical-operation approval.
