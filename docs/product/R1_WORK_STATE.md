@@ -1,32 +1,30 @@
-## GS-117 — issuer implemented; awaiting source review — 2026-11-06
+## GS-117 — issuer security review blocked — 2026-11-06
 
-Owner approval #11933 still covers only its original two scopes. Audit found
-no physical-grant issuer in the existing authorization module. A minimal
-issue/activate API was added there for `readback_receipt` and the separate
-one-use `motion_event_once`; Scope B requires fresh passing Scope A evidence.
-The old broad DEV manifest and #11897/#11886 ledgers are untouched. Source and
-tool fingerprints now require a clean canonical commit and owner-identified
-review input with exact test commands and zero skips.
+Owner approval #11933 still covers only its original two scopes. The new
+issue/activate API is blocked from use after independent review found that Jira
+approval and source-review authenticity are not established at the runtime
+boundary: the API validates caller-supplied snapshot/reviewer fields against
+pins but has no trusted Jira/reviewer evidence provider. Exact finding and
+code references are in the [GS-117 issuer review](../exec-plans/evidence/GS117_ONE_EVENT_USB_ANDROID_READINESS_20261106.md).
+The old broad DEV manifest and #11897/#11886 ledgers are untouched.
 
-Preflight baseline was canonical `/home/udaybhan/projects/Ghar_sajag_r1`,
-branch `feature/r1-commercial-baseline`, local/origin
-`f5b3f0801f749aaae85caa314a7f72555520d656`; context preflight PASS. Existing
-untracked assets were preserved.
+Preflight: `/home/udaybhan/projects/Ghar_sajag_r1`, branch
+`feature/r1-commercial-baseline`, starting commit `8b1a7f1a5e5f78c9e5a1dd29c4d10b923551cac4`,
+local/origin equal; context preflight PASS. Tracked tree was clean before this
+review note; existing untracked assets remain untouched.
 
-Validation: receipt/issuer **53/53 PASS**, console **180/180 PASS**, framework
-**55/55 PASS**, feature coverage **22/22 PASS**, and Python compilation PASS.
-All tests are host/offline. The security-sensitive source change is awaiting
-independent review and new fingerprint acceptance. No real grant was issued,
-activated, or reserved. Scope A/B are NOT_RUN; no device, USB/COM/ADB, ROM,
-reset, flash/readback, network, or event operation occurred.
+Newly executed review checks: receipt/issuer **53/53 PASS** and console
+**180/180 PASS**. Framework **55/55 PASS**, feature coverage **22/22 PASS**,
+and Python compilation were recorded at the implementation checkpoint. All
+are host/offline and do not authenticate review evidence. No real grant was
+issued, activated, or reserved; Scope A/B are NOT_RUN. No device, USB/COM/ADB,
+ROM, reset, flash/readback, network, or event operation occurred.
 
 Product status remains firmware unchanged, receipts STALE, #11897
 SAFETY_LATCHED 1/1, #11886 preserved, `TC001_READY=NO`, TC-001 0/5. Preserve
-the 79 existing untracked entries. See the current implementation/evidence
-record: [GS117 one-event USB-to-Android readiness](../exec-plans/evidence/GS117_ONE_EVENT_USB_ANDROID_READINESS_20261106.md).
-Next: review the changed authorization code and exact source/tool/test hashes;
-only after that review may the two already approved, separate scopes enter the
-existing audited issuance path.
+the 79 existing untracked entries. Next: identify/use an already trusted
+authenticated approval and source-review evidence mechanism and bind the
+issuer to it. Do not issue either grant until then.
 
 ## GS-117 — no-flash USB-to-Android E2E route audit — 2026-11-06
 

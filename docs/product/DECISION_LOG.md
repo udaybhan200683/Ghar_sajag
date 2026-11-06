@@ -25,6 +25,18 @@ No product or security requirement changes. See
 
 # Ghar Sajag Product / Architecture Decision Log
 
+## 2026-11-06 — GS-117 scoped issuer review blocked (implementation evidence only)
+
+Independent review of the new two-scope issuer found that its approval and
+review inputs are caller-supplied dictionaries/JSON. Pinned Jira author/body
+values and owner-account reviewer strings do not authenticate those inputs;
+the repository has no existing authenticated Jira/source-review provider for
+the issuer to consume. Therefore no grant issuance, activation, or physical
+operation is permitted through this implementation. The owner-approved #11933
+scope itself is unchanged. No new product/security decision or workflow was
+introduced; exact findings, checked lifecycle properties, tests, and status are
+in the [GS-117 review evidence](../exec-plans/evidence/GS117_ONE_EVENT_USB_ANDROID_READINESS_20261106.md).
+
 ## GS-117 configurable morning sequence — owner-approved product requirement (2026-10-28)
 
 GS-117 owner clarification 11773 requires morning-sequence policy to be

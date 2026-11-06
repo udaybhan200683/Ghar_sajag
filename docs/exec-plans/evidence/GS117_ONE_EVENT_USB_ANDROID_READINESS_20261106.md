@@ -1,5 +1,56 @@
 # GS-117 — One-event USB-to-Android readiness — 2026-11-06
 
+## Independent issuer security review — BLOCKED — 2026-11-06
+
+The scoped issue/activate implementation is **not approved for use**. Jira
+#11933 is a genuine owner-authored approval (verified through the authenticated
+Atlassian connection), but the local issuer does not retrieve that record. At
+`gs117_hil_authorization.py:981-997`, it accepts a caller-provided dictionary
+when its fields and body digest match constants. This pins the approved
+contents and prevents scope substitution; it does not authenticate the
+snapshot's provenance at invocation.
+
+The source-review boundary has the same material gap. At
+`gs117_hil_authorization.py:1000-1090`, `reviewer` is accepted when its string
+equals the owner account ID; source/test hashes and test counts are checked,
+but the reviewer and test receipt have no authenticated producer or
+attestation. The caller can construct those fields. Owner-only file permissions
+do not distinguish the local Codex process from the owner when both run as the
+same Unix account. The current repository/local authorization mechanisms
+provide no authenticated Jira snapshot or independently authenticated source
+review interface that this issuer can consume. Do not issue or activate grants
+through these APIs until that trust boundary is supplied by an existing
+approved mechanism.
+
+Other reviewed properties: the code binds the clean canonical commit, seven
+source/tool/test fingerprints, fixture and exact operation scopes; issue and
+activate are separate, one-use and time-bounded; Scope B checks passing fresh
+Scope A evidence at issue, activation and policy load; policy loaders also
+require the linked issuance and activation audit records. Interruption before
+the final audit binding leaves a policy unusable (though an orphan pending
+record can block reissue). Existing tests cover interrupted pending issuance,
+but do not inject every crash point between activation-audit, policy write and
+issuance-audit. No evidence shows a partially written policy can become usable;
+this crash-window coverage remains a follow-up to any corrected issuer.
+
+Newly run during this review: receipt/issuer **53/53 PASS** and console
+**180/180 PASS**. Previously recorded at the same source checkpoint:
+framework **55/55 PASS** and feature mapping **22/22 PASS**. These host tests do
+not close the approval/reviewer authenticity gap. `issue_gs117_scope_grant()`
+and `activate_gs117_scope_grant()` were not called. The issuance state,
+readback policy, and motion-event policy remain absent. No device or USB/COM/
+ADB, ROM, reset, readback, network, or event operation occurred. #11897 remains
+SAFETY_LATCHED 1/1; #11886 is unchanged; firmware is unchanged; receipts are
+STALE; `TC001_READY=NO`; TC-001 remains 0/5.
+
+No code change was made: the missing authenticated authority provider is not
+present in the existing mechanism, and substituting a caller field, local
+confirmation or new identity workflow would not satisfy the review requirement.
+The exact next gate is to use an already trusted authenticated approval/source
+review mechanism, if one exists, and bind this issuer to its evidence. Otherwise
+the owner/security decision is how to supply that trust without expanding the
+approved physical scope. Do not run Scope A or Scope B before then.
+
 ## Authorization issuance correction — offline only — 2026-11-06
 
 The #11933 approval is unchanged. Audit confirmed there was no trusted physical
