@@ -9,9 +9,10 @@ were clean and existing untracked assets were preserved. Context preflight PASS.
 
 The existing GS-117 `Controller.observe_once()` is a bounded read-only status
 observer, not the product E2E observer: it consumes a one-use local approval,
-opens both serial interfaces, asks C3 `GET_STATE` and S3 `FIXTURE_STATUS`, and
-reports that reset-free UART behavior is unverified. The expected approval file
-is absent. Its historical approval was already consumed by
+opens both serial interfaces, asks C3 `GET_STATE`, and may ask S3
+`FIXTURE_STATUS` when the existing readiness conditions permit. It reports that
+reset-free UART behavior is unverified. The expected approval file is absent.
+Its historical approval was already consumed by
 `OBSERVE-20261026T163858-8f80b4a9`; that observation was PARTIAL (C3 status only,
 zero runtime/sensing liveness, no S3 fixture status, CloudSync NOT_VERIFIED).
 It did not capture or correlate a fresh EventKey through PostgreSQL/API/Android.
