@@ -1,5 +1,47 @@
 # GS-117 — One-event USB-to-Android readiness — 2026-11-06
 
+## Direct optical-PIR route review — 2026-11-07
+
+Offline review only; no USB, COM, ADB, board, network, database or event
+operation was performed. The canonical worktree is `feature/r1-commercial-baseline`
+at `efc41a4823bcfc992ac4f14123745434f042075b`, equal to origin; tracked files
+were clean and existing untracked assets were preserved. Context preflight PASS.
+
+The existing GS-117 `Controller.observe_once()` is a bounded read-only status
+observer, not the product E2E observer: it consumes a one-use local approval,
+opens both serial interfaces, asks C3 `GET_STATE` and S3 `FIXTURE_STATUS`, and
+reports that reset-free UART behavior is unverified. The expected approval file
+is absent. Its historical approval was already consumed by
+`OBSERVE-20261026T163858-8f80b4a9`; that observation was PARTIAL (C3 status only,
+zero runtime/sensing liveness, no S3 fixture status, CloudSync NOT_VERIFIED).
+It did not capture or correlate a fresh EventKey through PostgreSQL/API/Android.
+
+The available genuine-AM312 runner, `code/tools/hil/gs130_motion_hil.py`, is
+pinned to `GS114-DISPOSABLE-C3-S3`, its own image hashes and sleep-wake cases; it
+does not match the GS-117 product S3 `hub-e072a1d38d34` or its approved scope.
+The GS-117 `motion_event_once` controller instead sends USB `INJECT_MOTION` and
+is explicitly not optical-PIR evidence. The physical catalogue retains that
+distinction. Therefore no existing tool/approval pair can currently execute
+and prove the requested real-PIR-to-Android case on the GS-117 fixture.
+
+Read-only authorization status: `readback_receipt` BLOCKED
+(`readback_receipt_policy_not_private`); `motion_event_once` BLOCKED because its
+policy is absent. Jira #11933 remains conditional approval for receipt capture
+and one USB-injected event only; it is not optical-PIR authority. #11897 remains
+SAFETY_LATCHED, 1/1 consumed; #11886 is preserved. The five-day network grant
+does not grant hardware access. Receipts remain STALE and TC-001 remains 0/5.
+
+No code or tests changed. Existing 53/53 receipt/issuer, 180/180 console,
+55/55 framework and 22/22 mapping results remain historical offline results.
+The source/tool hashes listed below remain unchanged. The issuer trust blocker
+from #11936/#11939 remains: an agent-authored Jira comment or caller-supplied
+owner fields cannot issue grants. The one owner action already recorded in
+#11939 remains necessary: establish owner-only Jira write/review control outside
+Codex access and read-only authenticated verification, then personally review
+the exact source/test digest. This does not reapprove #11933; any optical-PIR
+operation must also be covered by its own exact fixture-bound scope. No physical
+operation was authorized or attempted in this checkpoint.
+
 ## Solo-developer reconciliation — 2026-11-07 — owner clarification #11938
 
 No second-developer or two-human-review requirement was found in the applicable

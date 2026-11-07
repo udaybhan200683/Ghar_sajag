@@ -1,3 +1,22 @@
+## GS-117 — direct optical-PIR path blocked; observer/scope mismatch — 2026-11-07
+
+Offline audit found no current authorized path to execute and prove a real
+GS-117 AM312 event through Android. The existing `observe_once()` approval is
+absent; its prior one-use approval is consumed, and the prior result was only
+PARTIAL status observation (C3 liveness zero, no S3 fixture status, CloudSync
+unverified). It opens both serial ports with reset behavior unverified and does
+not correlate a new EventKey through PostgreSQL/API/APK. The GS-130 manual AM312
+runner is pinned to the separate GS-114 disposable fixture. GS-117's existing
+`motion_event_once` remains USB `INJECT_MOTION`, not optical PIR.
+
+The #11933 approval remains conditional for readback Scope A and one USB-injected
+Scope B only. The readback policy is blocked and the motion policy absent; issuer
+trust remains blocked per #11936/#11939. #11897 remains SAFETY_LATCHED 1/1 and
+#11886 preserved. Firmware is unchanged, receipts STALE, TC001_READY=NO, TC-001
+0/5. No hardware, ADB, network or event operation occurred; no code/tests changed.
+Exact findings and existing owner-controlled next action are in the
+[GS-117 direct optical-PIR review](../exec-plans/evidence/GS117_ONE_EVENT_USB_ANDROID_READINESS_20261106.md).
+
 ## GS-117 — sole-owner review permitted; owner-only trust setup needed — 2026-11-07
 
 Owner clarification #11938 supersedes any inferred second-person/account review
