@@ -1,3 +1,12 @@
+## GS-117 solo-developer owner-review clarification — 2026-11-07
+
+Owner #11938 confirms one developer; no separate human reviewer/Jira account is
+required for these DEV operations. The sole owner may perform review. Automation
+must not impersonate that review. Earlier distinct-person interpretations are
+superseded; existing security/fixture/one-use limits remain. A same-account,
+owner-only Jira write channel with read-only automation is proposed, not enabled;
+see the existing GS-117 handoff. No new LOCKED product semantics are introduced.
+
 ## GS-117 trust-source setup proposal — 2026-11-06 (not approved)
 
 The available Jira connector is owner-authenticated and read-write; it cannot

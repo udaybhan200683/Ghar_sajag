@@ -1,3 +1,16 @@
+## GS-117 — sole-owner review permitted; owner-only trust setup needed — 2026-11-07
+
+Owner clarification #11938 supersedes any inferred second-person/account review
+requirement. Same owner may review; approving write access must remain outside
+Codex control. Bounded OS/key checks found no qualified exact-manifest signer;
+UAC is enabled but its existing flow does not attest source/test/scope digests.
+One proposed owner setup: existing Jira account owner-only writes and authenticated
+read-only automation, followed by personal review of the final issuer/test digest.
+No access change, source modification, test rerun, grant or hardware operation.
+Issuer BLOCKED; A/B NOT_RUN, firmware unchanged, receipts STALE, historical latches
+preserved, TC001_READY NO, TC-001 0/5. Full evidence and precise action are in the
+[existing GS-117 handoff](../exec-plans/evidence/GS117_ONE_EVENT_USB_ANDROID_READINESS_20261106.md).
+
 ## GS-117 — external trust setup prerequisite — 2026-11-06
 
 Authenticated Jira investigation works through the owner-connected read-write

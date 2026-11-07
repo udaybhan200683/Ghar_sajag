@@ -1,5 +1,53 @@
 # GS-117 — One-event USB-to-Android readiness — 2026-11-06
 
+## Solo-developer reconciliation — 2026-11-07 — owner clarification #11938
+
+No second-developer or two-human-review requirement was found in the applicable
+canonical development contracts/LOCKED decisions. The same sole owner may review
+and authorize. Any previous wording implying another person or Jira account is
+necessary is superseded by #11938. The separation required here is owner approval
+from automated execution; the #11936 caller-provenance defect remains unresolved.
+Scope #11933 and all product/security/fixture limits are unchanged.
+
+Bounded read-only availability checks: GPG/gpgv and ssh-keygen installed; no local
+GPG private-key directory, SSH directory or configured SSH agent in the checked
+Linux account; no ykman/fido2-token executable. Windows CurrentUser My certificate
+store reported zero certificates with private keys. UAC and secure-desktop policy
+are enabled. This does not exhaustively establish absence of Windows Hello or a
+hardware token; neither is qualified as an exact-manifest approval signer here.
+No signing operation, key generation, elevation prompt or device access occurred.
+Existing UAC asks for elevation and has no reviewed binding to the issuer commit,
+test digest, scope, identity and expiry. A same-user file or locally accessible
+key cannot supply that missing owner boundary.
+
+**One minimum owner-operated setup action:** establish the existing Jira account
+as an owner-only write channel, with automation limited to authenticated read
+access. Keep the owner login/write credential in a session outside Codex access
+(for example, owner-operated phone/browser); remove automation's write capability
+as that account, including the present write-capable connector, and provide only
+read-scoped Jira API access for the eventual local verifier. The same owner then
+personally records review of the final issuer commit, fingerprints, test-report
+digest and unchanged #11933 boundaries. This is one separated read/write setup,
+not a request to approve Scope A/B again, a second developer, or a new account.
+No access settings or credentials were changed by this task. Exact read scopes
+and enforcement must be verified during owner setup; a broadly writable token
+labelled read-only is insufficient. This proposal is not an activated trust source.
+
+Once that setup is confirmed, a narrow authenticated read adapter in the existing
+issuer and its forgery/replay/activation-crash tests can be prepared. The owner
+must review the final changed source/test digest before grants. The current MCP
+read-write identity alone and agent-posted Jira comments cannot attest that review.
+The receipt collector, single-event controller and full C3/S3/backend/APK product
+path remain reusable unchanged. No firmware deployment is justified by this audit.
+
+Context preflight PASS; starting local/origin `15bbf70a5e50879bad713990ae7529df0cb50f43`.
+Issuer SHA-256 remains `ee60a55851535ed0ed39695f70d2744721c8b9e994f4b469c832a0f112d06c4e`;
+collector remains `87373b43cbce3036c427fe90723b3edfddc269bbd3d92ca3b63f0f6a688ce312`.
+No source change or tests rerun; prior 53/180/55/22 are historical offline results.
+Issuer BLOCKED; grants absent; Scope A/B NOT_RUN; no COM/ADB/reset/readback/injection;
+firmware unchanged, receipts STALE, historical #11897 SAFETY_LATCHED 1/1/#11886
+preserved, TC001_READY NO, optical-PIR TC-001 0/5. Stop at owner setup, per step 2.
+
 ## Trust-source availability and minimal external prerequisite — 2026-11-06
 
 Result: **BLOCKED; no existing independently consumable trust mechanism found**.
