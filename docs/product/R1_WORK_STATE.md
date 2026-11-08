@@ -1,3 +1,31 @@
+## Existing ingress authority check — 2026-11-08
+
+Starting local/origin 531e69cb4813aaa1522746fb8057bb730369b47a; context PASS,
+tracked clean. No hardware or network mutation. Existing launcher identified as
+services-AB-20261105T041014Z/gs117-active-ingress.py with its signed-time companion,
+launch-manifest and fixed 3600-second lifetime. Its retained log ends
+GS117_BOUNDED_INGRESS_STOPPED; current socket check confirms no8445 listener.
+Generic caregiver health's NOT_CONFIGURED label is static, not the session check.
+
+The existing five-day network authority validated at current UTC2026-11-08:
+activation2026-11-05T03:08:32.809579Z, expiry2026-11-10T03:08:32.809579Z,
+SHA256 a4cda9fad33fc13d91d449e41ccdcc51b95335e3b7bb7d49dac9870dd576b4e8,
+hardware_operations_authorized=false; no DEV sublease record found. Source DEV
+branch uses independent network authority and existing process/service guards;
+it does not require reviving the consumed hardware grant. Historical A/B closed.
+The reviewed handoff leaves live DEV privileged activation NOT_ENABLED and not
+qualified; five-day software authority is not blanket privileged deployment
+approval. No service, sublease or Windows task was started.
+
+Required owner decision: approve ONE bounded DEV network activation for this
+passive observation, using existing ingress/signed-time launchers, maximum3600s
+clamped to outer expiry,1800s inactivity closure, exact .6:8445-to-verified-WSL
+route, existing temporary Highest/SYSTEM tasks, normal UAC and cleanup; no firewall
+expansion, hardware operation or permanent task. #11941 alone does not cover it.
+Hub authentication UNKNOWN, no PIR request/stimulus/EventKey; all event boundaries
+NOT_RUN, TC001_READY NO, TC0010/5. Firmware/latches/evidence unchanged. No tests
+rerun because no source change; read-only authority/listener/log checks executed.
+
 ## Approved passive optical-PIR preflight — 2026-11-08
 
 Owner chat approval recorded in GS-117 #11941 permits one manual AM312 stimulus
