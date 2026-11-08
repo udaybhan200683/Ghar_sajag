@@ -1,5 +1,31 @@
 # GS-117 — One-event USB-to-Android readiness — 2026-11-06
 
+## Approved passive optical-PIR preflight — 2026-11-08
+
+Owner chat approval recorded in GS-117 #11941 permits one manual AM312 stimulus
+on gs177-test-product / c3-146393c5d158 / hub-e072a1d38d34 with existing passive
+monitoring only. It is not independently signed issuer evidence. The USB issuer
+was not consulted as a prerequisite to this separate observation.
+
+Context preflight PASS; starting local/origin 73b7577a0022cbcbafe6a357ece4507f05070ef7,
+tracked clean. Existing read-only gs179-laptop-server.sh health returned PostgreSQL
+TLS/durability PASS, local caregiver HTTPS PASS, and LAN HTTPS PASS at 192.168.1.6.
+However HUB_INGRESS_READY=NOT_CONFIGURED, HUB_IDENTITY_AUTHENTICATED=NO,
+HUB_MONITORING_FRESHNESS=UNKNOWN; socket inventory showed caregiver 8444 and
+PostgreSQL 55432 but no 8445 listener. Thus existing monitoring/delivery facilities
+were insufficient before stimulus. No motion was requested or claimed. No fresh
+EventKey; C3/S3/event/PostgreSQL/API/APK correlation NOT_RUN. No USB/COM/ADB,
+reset, readback, injection, service start or network change occurred.
+
+Observation BLOCKED before stimulus by unavailable existing Hub ingress. No
+source changes or automated tests; current host health checks are not target
+readiness. Firmware and historical latches unchanged, receipts STALE,
+TC001_READY NO, TC-001 0/5. Next action: restore the existing bounded Hub ingress
+through its established authorized service/session workflow, then recheck passive
+readiness before requesting the single manual motion. No new infrastructure or
+issuer-trust investigation is needed for this passive observation.
+
+
 ## Direct optical-PIR route review — 2026-11-07
 
 Offline review only; no USB, COM, ADB, board, network, database or event
