@@ -452,7 +452,7 @@
       "accountable_reviewer": "GS-173 release owner; GS-116 validation",
       "owner_security_approval": "Build-profile enforcement authorized; production security activation remains separately controlled",
       "last_verified_commit": "732b848df157859cffaf813332d8ab1e0058ad7a",
-      "dev_state_detail": "Production profile verified to disable TEST_ONLY paths; selected TEST_ONLY compile remains isolated and is not deployed."
+      "dev_state_detail": "Production profile verified to disable TEST_ONLY paths; selected TEST_ONLY compile remains isolated and is not deployed. GS-D034 target approved in GS-173#11946: intrinsic ENGINEERING versus strict RC/PRODUCTION, standing revocable network-only lab authority with bounded sessions. New standing authority/build-proof integration NOT_IMPLEMENTED; current installed proof stale. Prior profile-isolation qualification does not qualify this target."
     }
   ]
 }

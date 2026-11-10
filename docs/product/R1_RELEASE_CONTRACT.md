@@ -230,3 +230,31 @@ not close technical proof gates or authorize production integration in this task
 Do not rerun passed physical gates unless a later change can invalidate them.
 
 Use host tests first for new storage/lifetime architecture, then target build/size checks, then physical qualification.
+
+## Build-defined modes — GS-D034
+
+Owner approvals: GS-173#11946, GS-179#11947, GS-117#11948; earlier GS-173#11844.
+ENGINEERING is an effective image/build identity for designated enrolled lab
+C3/S3 equipment and compatible isolated TEST_ONLY services. Runtime JSON,
+environment flags, caller Jira records and ordinary configuration cannot convert
+RC/PRODUCTION into ENGINEERING. RC/PRODUCTION retain production security and
+must exclude or provably disable engineering handlers, credentials and roots.
+
+Eligible engineering lab authorization is standing, revocable and network-only,
+without a five-day renewal cycle. Reuse existing GS-179 authority/audit/subleases:
+separate immutable sessions <=3600s,1800s genuine-work inactivity, no overlap,
+trusted private network, fixed192.168.1.6:8445/current verified WSL destination,
+normal UAC and independent SYSTEM cleanup. Fail closed on build/lab/owner/Home/
+credential/service/network mismatch, revocation, clock/audit failure or cleanup
+failure. Preserve authentication, TLS/mTLS, durable-before-ACK and EventKey.
+Expired11916/11917 and all old ledgers remain immutable and expired. No hardware
+entitlement or permanent exposure is implied. Irreversible, destructive,
+production and outside-fixture actions retain separate authorization. Existing
+AGENTS physical approval rules remain effective until consistent implementation.
+
+Status: APPROVED TARGET, NOT IMPLEMENTED/QUALIFIED. Existing DTP-010 evidence
+qualifies earlier TEST_ONLY/production isolation only; it does not establish this
+new standing authority or current running-image proof. No commercial gate waived.
+GS-117 remains priority; stop on unverified current build provenance rather than
+manufacture eligible authority. See existing GS-179 and GS-117 handoffs.
+

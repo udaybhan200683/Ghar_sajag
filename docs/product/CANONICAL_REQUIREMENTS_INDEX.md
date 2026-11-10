@@ -507,3 +507,9 @@ TEST_EVIDENCE, subordinate to LOCKED GS-D031. JSON engineering instructions:
 ### Approved development network lifetime — GS179#11916 / GS117#11917
 
 GS179_DEV_TEST_ONLY outer authority: fixed revocable maximum120hours (432000seconds), independent of short network exposures and hardware consent. Immutable<=3600-second subleases, no overlap, ~1800-second inactivity closure, independent crash/expiry cleanup, and new audited subleases during the original five-day interval; never renew the outer deadline automatically or alter historical A/B receipts. Normal Windows UAC/privilege limits, fixed.6/443/firewall/TLS and all product/security contracts remain intact. Approved requirement and implementation/qualification evidence: `docs/exec-plans/evidence/GS179_SESSION_INGRESS_RECOVERY_20261104.md`. This is development-only and does not establish deployment/physical PASS.
+
+## GS-D034 build-defined mode authority
+
+LOCKED target requirements are in DECISION_LOG.md GS-D034 and R1_RELEASE_CONTRACT.md.
+DEV_TO_PRODUCTION_REGISTER.md/.json retain implementation/qualification distinctions;
+existing GS179_SESSION_INGRESS_RECOVERY_20261104.md remains supporting execution evidence.

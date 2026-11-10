@@ -87,3 +87,10 @@ Morning Routine readiness and GS-173 for release adjudication.
 
 
 2026-10-29 development update: owner-approved revocable DEV authorization now covers the known TEST boards/Home/.6 and bounded HIL event cycles, independently of production activation. DEV input trial retains identity/images/enrollment/TLS and actual ACK/backend/API/APK acceptance, while prior delivery receipts are not required to attempt the first input. S3 boot capacity and current C3 app/liveness are observed; fresh controlled event and optical acceptance remain pending at this checkpoint. Production gate statuses and TEST_ONLY release isolation requirements are unchanged.
+
+## GS-D034 target architecture — approved, not implemented
+
+DTP-010 retains its existing narrow profile-isolation evidence. New build-defined
+ENGINEERING/RC/PRODUCTION standing lab authority is NOT_IMPLEMENTED/NOT_QUALIFIED.
+RC/production gates and separate hardware/irreversible approvals remain unchanged.
+See DECISION_LOG.md GS-D034 and current GS-179 handoff.
