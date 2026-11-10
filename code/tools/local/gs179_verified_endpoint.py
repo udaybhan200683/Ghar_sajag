@@ -653,9 +653,96 @@ def physical_ingress_authority(approval_ref, controller_pid, service_directory,
             **_physical_service_identity(controller_pid, service_directory), **(network or {})}
 
 
+
+def issue_network_sublease_for_reference(approval_ref, window, sha256, controller_pid, directory, predecessor):
+    if window != 'DEV' or approval_ref not in {'GS-179#11916','GS-179#11947'}:
+        raise ValueError('development_network_reference_invalid')
+    if development_network_authority(sha256)['approval_ref'] != approval_ref:
+        raise ValueError('development_network_reference_invalid')
+    return issue_development_sublease(sha256, controller_pid, directory, predecessor_lease_id=predecessor)
+
+
+def operating_mode_status():
+    """Local evidence only: never contact a board, service or USB interface.
+
+    A build artifact and a historical install receipt cannot attest a current
+    running image. Preserve that distinction even when their hashes agree.
+    """
+    import os, socket
+    from datetime import datetime
+    import gs117_hil_authorization as auth
+    registered = os.getuid() == ENGINEERING_OWNER_UID and socket.gethostname() == ENGINEERING_LAPTOP
+    result = dict(schema='GS179_MODE_STATUS_V1', source_profile='UNKNOWN',
+                  source_profile_reason='multi_profile_source_no_effective_build_selected',
+                  deployment_environment='REGISTERED_LAB_HOST' if registered else 'UNKNOWN',
+                  deployment_identity_verified=registered,
+                  profile_identity_verified=False, routine_engineering_authorization_eligible=False,
+                  network_service_security='NOT_VERIFIED', built_images={}, installed_images={},
+                  running_images={role:dict(profile='UNKNOWN', verification='NOT_VERIFIED') for role in ('c3','s3')})
+    try:
+        fixture = _network_private_json(Path.home()/'.config/ghar-sajag/gs117-tc001/fixture.json')
+        if (fixture.get('home_id') != auth.IDENTITY['home_id'] or
+                fixture.get('hub_id') != auth.IDENTITY['s3']['device_id'] or
+                fixture.get('physical_device_id') != auth.IDENTITY['c3']['device_id']):
+            raise ValueError('mode_fixture_identity_mismatch')
+        for role in ('c3','s3'):
+            board = fixture[role]
+            artifact = Path(board['image'])
+            matched = (not artifact.is_symlink() and artifact.is_file() and
+                       0 < artifact.stat().st_size <= 16*1024*1024 and
+                       auth.digest(artifact) == ENGINEERING_IMAGES[role])
+            result['built_images'][role] = dict(profile='ENGINEERING' if matched else 'UNKNOWN',
+                                               verification='VERIFIED_ARTIFACT_BYTES' if matched else 'NOT_VERIFIED')
+            receipt = _network_private_json(Path(board['installed_image_receipt']))
+            observed = receipt.get('observed_at')
+            try:
+                if not isinstance(observed,str) or len(observed) > 40:
+                    raise ValueError('invalid timestamp')
+                parsed = datetime.fromisoformat(observed)
+                observed = parsed.isoformat() if parsed.tzinfo is not None else 'UNKNOWN'
+            except ValueError:
+                observed = 'UNKNOWN'
+            result['installed_images'][role] = dict(profile='UNKNOWN', verification='NOT_VERIFIED',
+                recorded_profile='ENGINEERING' if receipt.get('running_image_sha256') == ENGINEERING_IMAGES[role] else 'UNKNOWN',
+                observed_at=observed, evidence_kind='HISTORICAL_RECEIPT_NOT_CURRENT_RUNTIME_PROOF')
+        result['fixture_evidence']='AVAILABLE_NOT_CURRENT_RUNTIME_PROOF'
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        result['fixture_evidence']='NOT_VERIFIED'
+        result['fixture_reason']=str(error) if isinstance(error,ValueError) else type(error).__name__
+    for role in ('c3','s3'):
+        result['built_images'].setdefault(role, dict(profile='UNKNOWN',verification='NOT_VERIFIED'))
+        result['installed_images'].setdefault(role, dict(profile='UNKNOWN',verification='NOT_VERIFIED'))
+    try:
+        _engineering_build_identity()
+        result['engineering_capture_evidence']='VERIFIED_CAPTURE_SNAPSHOT'
+        result['authorization_reason']='live_service_network_and_running_identity_guards_required'
+    except (OSError,ValueError,KeyError,TypeError) as error:
+        result['engineering_capture_evidence']='NOT_VERIFIED'
+        result['authorization_reason']=str(error) if isinstance(error,ValueError) else type(error).__name__
+    state = auth.READBACK_RECEIPT_STATE
+    result['receipt_state_exists']=state.exists()
+    try:
+        import stat
+        info=state.lstat()
+        state_reason=('SYMLINK' if stat.S_ISLNK(info.st_mode) else
+                      'NOT_DIRECTORY' if not stat.S_ISDIR(info.st_mode) else
+                      'OWNER_MISMATCH' if info.st_uid != os.getuid() else
+                      'PERMISSIONS_TOO_BROAD' if info.st_mode & 0o077 else 'PRIVATE_DIRECTORY')
+    except FileNotFoundError:
+        state_reason='MISSING'
+    except OSError:
+        state_reason='NOT_VERIFIED'
+    result['receipt_state_check']=state_reason
+    result['release_environment_guard']=auth._environment_is_release_qualified()
+    return result
+
 if __name__ == '__main__':
+    import sys
     import argparse
     import json
+    if sys.argv[1:] == ['--mode-status']:
+        print('GHAR_SAJAG_MODE_STATUS=' + json.dumps(operating_mode_status(), sort_keys=True))
+        raise SystemExit(0)
     parser = argparse.ArgumentParser()
     parser.add_argument('--physical-ingress-authority', required=True)
     parser.add_argument('--controller-pid', required=True, type=int)
@@ -667,10 +754,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
     try:
         if args.issue_development_sublease:
-            if args.physical_ingress_authority != 'GS-179#11916' or args.network_window != 'DEV':
-                raise ValueError('development_network_reference_invalid')
-            value = issue_development_sublease(args.network_approval_sha256, args.controller_pid,
-                args.service_directory, predecessor_lease_id=args.network_lease_id)
+            value = issue_network_sublease_for_reference(args.physical_ingress_authority,
+                args.network_window, args.network_approval_sha256, args.controller_pid,
+                args.service_directory, args.network_lease_id)
         else:
             value = physical_ingress_authority(args.physical_ingress_authority, args.controller_pid,
                 args.service_directory, args.network_window, args.network_approval_sha256, args.network_lease_id)

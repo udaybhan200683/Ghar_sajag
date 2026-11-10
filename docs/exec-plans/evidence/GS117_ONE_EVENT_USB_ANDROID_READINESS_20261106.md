@@ -1,5 +1,9 @@
 ## Automatic mode reporting and receipt diagnosis — 2026-11-10
 
+Current execution evidence: `/home/udaybhan/.local/state/ghar-sajag/gs179-mode-20261110T163843Z` (source hashes, mode JSON, final logs and
+initial failed CLI test retained; its assertion was corrected to the existing
+redacted error JSON contract, without changing production failure behavior).
+
 Reused c4da2c0 standing authority unchanged except a proven CLI handoff defect:
 `--issue-development-sublease` accepted only11916; it now accepts11947 only when
 validated authority reference matches. No new grant framework or expiry change.
@@ -32,7 +36,7 @@ requires its valid reviewed one-use authority and includes ROM entry/restore
 resets. Network/passive approval cannot authorize those operations. Stop before
 physical access. No new approval of unchanged11941/11944 is requested.
 
-Executed: endpoint/mode20/20, Windows mocks18/18, receipt/issuer53/53,
+Executed: endpoint/mode21/21, Windows mocks18/18, receipt/issuer53/53,
 console180/180, framework55/55, mapping22/22 PASS; Python compile/bash syntax
 and actual context+mode preflight PASS. Controlled production-cache negative
 checks execute in endpoint suite; no firmware source/build changed. Prior

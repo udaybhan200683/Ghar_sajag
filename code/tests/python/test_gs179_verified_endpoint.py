@@ -313,5 +313,101 @@ class StandingEngineeringAuthorityTest(unittest.TestCase):
             path.chmod(0o644)
             with self.assertRaisesRegex(ValueError,'not_private'):e.engineering_network_authority(a.digest(path))
 
+
+class ModeReportingTest(unittest.TestCase):
+    """GS179-MODE-REPORT-001: source/artifact evidence cannot attest a running target."""
+    def test_reporting_unknown_does_not_operate_or_enroll(self):
+        import gs179_verified_endpoint as e
+        with patch.object(e,'_network_private_json',side_effect=ValueError('missing fixture')), \
+             patch.object(e,'_engineering_build_identity',side_effect=ValueError('missing running proof')), \
+             patch.object(e,'record_engineering_network_authorization',side_effect=AssertionError('must not enroll')):
+            r=e.operating_mode_status()
+        self.assertFalse(r['routine_engineering_authorization_eligible'])
+        self.assertFalse(r['profile_identity_verified'])
+        self.assertEqual(r['running_images']['c3']['profile'],'UNKNOWN')
+        self.assertEqual(r['built_images']['s3']['profile'],'UNKNOWN')
+
+    def test_matching_artifact_and_receipt_never_assert_current_running_mode(self):
+        import gs179_verified_endpoint as e
+        import gs117_hil_authorization as a
+        with tempfile.TemporaryDirectory() as temp:
+            binary=Path(temp)/'app.bin';binary.write_bytes(b'engineering artifact')
+            expected=hashlib.sha256(binary.read_bytes()).hexdigest()
+            fixture=dict(home_id=a.IDENTITY['home_id'],hub_id=a.IDENTITY['s3']['device_id'],
+                         physical_device_id=a.IDENTITY['c3']['device_id'])
+            for role in ('c3','s3'):fixture[role]=dict(image=str(binary),installed_image_receipt='receipt')
+            receipt=dict(running_image_sha256=expected,observed_at='2026-10-31T00:00:00Z',profile='PRODUCTION')
+            with patch.object(e,'ENGINEERING_IMAGES',dict(c3=expected,s3=expected)), \
+                 patch.object(e,'_network_private_json',side_effect=[fixture,receipt,receipt]), \
+                 patch.object(e,'_engineering_build_identity',return_value={}):
+                r=e.operating_mode_status()
+            self.assertEqual(r['built_images']['c3']['profile'],'ENGINEERING')
+            self.assertEqual(r['installed_images']['c3']['profile'],'UNKNOWN')
+            self.assertEqual(r['running_images']['s3']['profile'],'UNKNOWN')
+            self.assertFalse(r['routine_engineering_authorization_eligible'])
+
+    def test_wrong_home_is_not_verified(self):
+        import gs179_verified_endpoint as e
+        with patch.object(e,'_network_private_json',return_value={'home_id':'other'}), \
+             patch.object(e,'_engineering_build_identity',side_effect=ValueError('mismatch')):
+            r=e.operating_mode_status()
+        self.assertEqual(r['fixture_reason'],'mode_fixture_identity_mismatch')
+        self.assertFalse(r['profile_identity_verified'])
+
+    def test_receipt_state_diagnosis_does_not_repair_missing_or_unsafe_paths(self):
+        import gs179_verified_endpoint as e
+        import gs117_hil_authorization as a
+        with tempfile.TemporaryDirectory() as temp:
+            state=Path(temp)/'state'
+            with patch.object(a,'READBACK_RECEIPT_STATE',state), \
+                 patch.object(e,'_network_private_json',side_effect=ValueError('no fixture')), \
+                 patch.object(e,'_engineering_build_identity',side_effect=ValueError('no proof')):
+                self.assertEqual(e.operating_mode_status()['receipt_state_check'],'MISSING')
+                self.assertFalse(state.exists())
+                state.mkdir(mode=0o700)
+                self.assertEqual(e.operating_mode_status()['receipt_state_check'],'PRIVATE_DIRECTORY')
+                state.chmod(0o755)
+                self.assertEqual(e.operating_mode_status()['receipt_state_check'],'PERMISSIONS_TOO_BROAD')
+                self.assertEqual(state.stat().st_mode & 0o777,0o755)
+                state.rmdir();state.symlink_to(Path(temp),target_is_directory=True)
+                self.assertEqual(e.operating_mode_status()['receipt_state_check'],'SYMLINK')
+
+    def test_mode_cli_emits_parseable_report_without_device_arguments(self):
+        import subprocess, json
+        script=Path(__file__).resolve().parents[2]/'tools/local/gs179_verified_endpoint.py'
+        result=subprocess.run([sys.executable,str(script),'--mode-status'],capture_output=True,text=True,timeout=10)
+        self.assertEqual(result.returncode,0,result.stderr)
+        prefix,payload=result.stdout.strip().split('=',1)
+        self.assertEqual(prefix,'GHAR_SAJAG_MODE_STATUS')
+        report=json.loads(payload)
+        self.assertEqual(report['schema'],'GS179_MODE_STATUS_V1')
+        self.assertEqual(set(report['running_images']),{'c3','s3'})
+        self.assertFalse(report['routine_engineering_authorization_eligible'])
+
+    def test_actual_cli_standing_handoff_rejects_invalid_authority_without_issuing(self):
+        import subprocess,json
+        script=Path(__file__).resolve().parents[2]/'tools/local/gs179_verified_endpoint.py'
+        args=[sys.executable,str(script),'--physical-ingress-authority','GS-179#11947',
+              '--controller-pid','1','--service-directory','not-a-service',
+              '--network-window','DEV','--network-approval-sha256','0'*64,
+              '--issue-development-sublease']
+        result=subprocess.run(args,capture_output=True,text=True,timeout=10)
+        self.assertEqual(result.returncode,2)
+        body=json.loads(result.stdout)
+        self.assertEqual(body,{'error':'ValueError'})  # Existing CLI deliberately redacts details.
+
+    def test_cli_handoff_accepts_only_matching_standing_or_legacy_authority(self):
+        import gs179_verified_endpoint as e
+        for ref in ('GS-179#11916','GS-179#11947'):
+            with patch.object(e,'development_network_authority',return_value={'approval_ref':ref}), \
+                 patch.object(e,'issue_development_sublease',return_value={'lease_id':'new'}) as issue:
+                self.assertEqual(e.issue_network_sublease_for_reference(ref,'DEV','hash',1,'dir','prior')['lease_id'],'new')
+                issue.assert_called_once()
+        with patch.object(e,'development_network_authority',return_value={'approval_ref':'GS-179#11916'}), \
+             patch.object(e,'issue_development_sublease') as issue:
+            with self.assertRaisesRegex(ValueError,'reference_invalid'):
+                e.issue_network_sublease_for_reference('GS-179#11947','DEV','hash',1,'dir','prior')
+            issue.assert_not_called()
+
 if __name__ == "__main__":
     unittest.main()

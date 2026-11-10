@@ -2743,6 +2743,7 @@
       "command": ["python3", "tests/python/test_gs179_verified_endpoint.py"],
       "inputs": [
         "tests/python/test_gs179_verified_endpoint.py",
+        "../tools/context/ghar_sajag_context_preflight.sh",
         "scripts/build_validation_targets.py",
         "tools/local/gs179_verified_endpoint.py",
         "tools/local/gs179_laptop_browser.py",

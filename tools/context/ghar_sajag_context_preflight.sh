@@ -102,4 +102,10 @@ printf 'HEAD=%s\n' "$head"
 [[ ${#missing_canonical[@]} -eq 0 ]] || printf 'MISSING_CANONICAL_FILES=%s\n' "${missing_canonical[*]}"
 [[ "$status" == 'PASS' ]] || printf 'ACTION=%s\n' "$action"
 
+if [[ "$status" == 'PASS' && "${GHAR_SAJAG_PREFLIGHT_TESTING:-0}" != '1' ]]; then
+  # Reporting is read-only; absent physical evidence does not block host work.
+  if ! python3 "$worktree/code/tools/local/gs179_verified_endpoint.py" --mode-status; then
+    printf 'GHAR_SAJAG_MODE_STATUS={"schema":"GS179_MODE_STATUS_V1","profile_identity_verified":false,"routine_engineering_authorization_eligible":false,"reason":"mode_report_unavailable"}\n'
+  fi
+fi
 [[ "$status" == 'PASS' ]]
