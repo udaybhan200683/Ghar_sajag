@@ -518,3 +518,7 @@ GS-D034 startup implementation: root AGENTS.md and tools/context preflight use
 `gs179_verified_endpoint.py --mode-status`; JSON is evidence classification, not
 a runtime mode selector or authority issuer. Running-identity gaps remain in
 R1_WORK_STATE and existing GS-117/GS-179 handoffs.
+
+GS-D034 USB-first clarification #11958–11962 separates routine functional
+admission from image qualification. DECISION_LOG.md and release contract govern;
+UNKNOWN running hash must be reported, not used as a daily-ROM prerequisite.

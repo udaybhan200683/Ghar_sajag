@@ -217,5 +217,7 @@ NOT_VERIFIED permits host-only development, but not privileged physical/network
 operations. Use standing routine Engineering authorization only when actual build,
 registered fixture, service/network security and operation guards pass. RC and
 Production retain strict release/security behavior; runtime flags cannot grant
-Engineering privileges. Current receipt freshness is preserved until trustworthy
-runtime identity can replace it; do not fabricate or refresh historical evidence.
+Engineering privileges. Routine registered Engineering functional USB tests do not require Scope A or
+24-hour ROM refresh (owner11958–11962). Report running-image UNKNOWN separately;
+retain actual runtime/fixture/authentication/safety guards. Image qualification
+and its freshness checks remain separate; never fabricate historical evidence.

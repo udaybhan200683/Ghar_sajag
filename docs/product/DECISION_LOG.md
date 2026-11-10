@@ -1,3 +1,26 @@
+## GS-D034 LOCKED clarification — USB-first functional Engineering admission — 2026-11-10
+
+Owner GS-117#11958 / GS-178#11959 / GS-179#11960 / GS-116#11961 /
+GS-173#11962 supersedes earlier readback-first/optical-trigger DEV instructions.
+Registered isolated Engineering functional tests do not require Scope A, a
+one-use source reviewer or 24h ROM/readback refresh. Unknown installed/running
+hashes remain UNKNOWN, never image-qualified. Use existing web motion_event_once
+USB input into real C3 NodeRuntime; actual authenticated C3/S3/CloudSync/PG/API/APK
+processing remains mandatory. Current milestone is one event; no campaign fallback.
+Image qualification/readback and their guards remain separate and unchanged.
+
+Routine admission must verify registered host/owner/Home/device/USB identity,
+TEST_ONLY profile, real C3 HIL/runtime/pending-state guards before injection,
+authenticated S3 ACK, TLS/mTLS, enrollment and durable product processing.
+Existing network bounds/UAC/SYSTEM cleanup/revocation/non-overlap remain. RC and
+Production cannot gain Engineering privilege through runtime flags. Destructive,
+credential/eFuse/production/flash/ROM actions remain separately guarded. Preserve
+historical latches; routine functional failures stop the run without rewriting
+old consents. Host simulation, REAL_BOARD_USB_TRIGGERED_E2E, optical PIR physical
+and release qualification are independently reported. Historical GS-119 optical
+evidence is not a new GS-117 optical PASS. Approved requirement, implementation
+pending; no new image, identity protocol, service framework or release waiver.
+
 ## GS-D034 reporting implementation and unresolved runtime proof — 2026-11-10
 
 Automatic context/mode reporting is implemented through the existing GS-179
