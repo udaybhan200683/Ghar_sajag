@@ -1,3 +1,53 @@
+## GS-D034 network extension — implemented offline, live eligibility blocked — 2026-11-10
+
+The existing GS-179 Python authority and Windows session path now support a
+separate STANDING_DEV_NETWORK_ONLY_V1 record and repeated immutable bounded
+subleases. No caller mode/Jira snapshot grants eligibility. The source-reviewed
+allowlist identifies the two existing TEST_ONLY C3/S3 images by exact bytes;
+eligibility reuses the existing audited capture verifier for exact fixture,
+image match, integrity, restoration and freshness. Registered host is
+DESKTOP-3QQU64B / UID1000 / existing auth.IDENTITY. This is a limited network
+extension for those known builds, not general qualification of the full
+ENGINEERING/RC/PRODUCTION architecture or a new target attestation protocol.
+
+Enrollment and each authority use require current image proof. Revocation remains
+available when proof expires or the environment enters release mode. Source
+selection rejects unknown/RC/production images and release-qualified context.
+A standing record has no artificial five-day expiry; per-session3600s, idle1800s,
+service/process identity, private network/firewall, no-overlap and SYSTEM cleanup
+remain existing guards. Windows stores an authenticated standing-authority flag
+in protected state and reuses close-before-open handoff; SYSTEM never renews.
+Old five-day and A/B records and hardware latches are not changed. No standing
+record or sublease was issued in the actual lab.
+
+Executed host checks: endpoint/engineering14/14; receipt/issuer53/53;
+console180/180; Windows production-function mocks18/18; networking lifecycle15/15;
+framework55/55; mapping22/22 PASS. Existing release build-guard function was
+exercised with controlled CMake caches (engineering flags and test-root rejection);
+known C3/S3 artifact hashes matched existing pins. No new target compilation,
+physical RF, live DEV Windows deployment or full release acceptance is claimed.
+C++/firmware/app/backend contracts were not modified. Node/Hub/contract aggregate
+historical FAILs remain unresolved. New tests execute through existing endpoint
+and explicit Windows stages; GS179-LAN-01 mapping updated.
+
+Failures retained: unnecessary contract-stage membership first broke mapping;
+original stage ownership was restored and new trace commands registered. New
+PowerShell test initially missed Save/Close mocks then JSON output; corrected
+harness, final18/18. Lifecycle invocation/import/libpq setup failures were retained,
+then existing dependency paths produced15/15. No production assertion weakened.
+Evidence: ~/.local/state/ghar-sajag/gs179-engineering-20261110T161912Z/ (all failed
+and final logs, source hashes; test evidence is not owner attestation).
+
+Actual current eligibility check: readback_receipt_state_not_private; no completed
+current audited image capture exists. Historical installed receipts are from
+October31. Matching local BINs/C3 cache do not establish current running firmware
+or post-restart build identity. Standing policy stays NOT_ENABLED. Current task
+prohibits collecting USB/COM/ADB/readback proof, so no service/UAC/network/task/PIR
+operation followed. Listener8445 absent, Hub auth UNKNOWN, EventKey absent,
+TC001_READY NO, TC0010/5, cleanup NOT_REQUIRED. Next product prerequisite is current
+trusted installed ENGINEERING-build evidence via the existing appropriately
+authorized receipt path; no repeated11941/11944 network/passive approval is sought.
+
 ## GS-D034 implementation admission — 2026-11-10
 
 Owner target11946/11947/11948 synchronized before dependent implementation.

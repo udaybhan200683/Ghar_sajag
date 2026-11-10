@@ -196,5 +196,122 @@ class CaregiverOriginAliasTlsTest(unittest.TestCase):
                     connection_factory=lambda *_a, **_kw: self.fail("TLS must not start"))
 
 
+
+class StandingEngineeringAuthorityTest(unittest.TestCase):
+    """GS179-ENGINEERING-LAB-001: production authority, mocked current image capture only."""
+    @contextmanager
+    def lab(self):
+        import gs179_verified_endpoint as e
+        import gs117_hil_authorization as a
+        with tempfile.TemporaryDirectory() as temp:
+            state=Path(temp);state.chmod(0o700)
+            audit=state/'audit.jsonl';audit.touch(mode=0o600)
+            clock=[datetime(2026,11,10,tzinfo=timezone.utc)]
+            from contextlib import ExitStack
+            with ExitStack() as stack:
+                for obj,name,value in [(a,'DEV_STATE',state),(a,'DEV_MODE_AUDIT',audit)]:
+                    stack.enter_context(patch.object(obj,name,value))
+                stack.enter_context(patch.object(a,'_environment_is_release_qualified',return_value=False))
+                proof=stack.enter_context(patch.object(a,'_verify_scope_a_readback_pass',return_value={'evidence_sha256':'a'*64}))
+                stack.enter_context(patch.object(e,'_network_utc',side_effect=lambda now=None:now or clock[0]))
+                yield e,a,state,audit,clock,proof
+
+    def test_standing_survives_days_and_service_restart_without_hardware_entitlement(self):
+        with self.lab() as (e,a,state,audit,clock,proof):
+            grant=e.record_engineering_network_authorization();sha=grant['sha256']
+            original=Path(grant['path']).read_bytes()
+            for days in (0,1,5,30):
+                clock[0]=datetime(2026,11,10,tzinfo=timezone.utc)+timedelta(days=days)
+                r=e.development_network_authority(sha)
+                self.assertIsNone(r['expires_at']);self.assertFalse(r['hardware_operations_authorized'])
+            with patch.object(e,'_physical_service_identity',return_value={'controller_start':'1','service_pid':10}):
+                first=e.issue_development_sublease(sha,123,'services')
+                clock[0]+=timedelta(seconds=1800)
+                with self.assertRaisesRegex(ValueError,'idle'):
+                    e.development_sublease_authority(first['lease_id'],sha,123,'services')
+            with patch.object(e,'_physical_service_identity',return_value={'controller_start':'2','service_pid':20}):
+                second=e.issue_development_sublease(sha,456,'resumed-services')
+                self.assertNotEqual(first['lease_id'],second['lease_id'])
+                r=e.development_sublease_authority(second['lease_id'],sha,456,'resumed-services')
+                self.assertLessEqual((datetime.fromisoformat(r['lease_deadline'])-clock[0]).total_seconds(),3600)
+                with self.assertRaisesRegex(ValueError,'duration_invalid'):
+                    e.issue_development_sublease(sha,456,'resumed-services',seconds=3601)
+            clock[0]+=timedelta(seconds=3600)
+            with self.assertRaisesRegex(ValueError,'expired_or_idle'):
+                e.development_sublease_authority(second['lease_id'],sha,456,'resumed-services')
+            self.assertEqual(Path(grant['path']).read_bytes(),original)
+            with self.assertRaisesRegex(ValueError,'already_enrolled'):
+                e.record_engineering_network_authorization()
+
+    def test_revocation_clock_and_release_fail_closed(self):
+        with self.lab() as (e,a,state,audit,clock,proof):
+            grant=e.record_engineering_network_authorization();sha=grant['sha256']
+            clock[0]-=timedelta(seconds=1)
+            with self.assertRaisesRegex(ValueError,'clock_invalid'):e.development_network_authority(sha)
+            clock[0]+=timedelta(seconds=1)
+            with patch.object(a,'_environment_is_release_qualified',return_value=True):
+                with self.assertRaisesRegex(ValueError,'release_environment'):e.development_network_authority(sha)
+                with self.assertRaisesRegex(ValueError,'release_environment'):e.record_engineering_network_authorization()
+            proof.side_effect=ValueError('installed_proof_stale')
+            with patch.object(a,'_environment_is_release_qualified',return_value=True):
+                e.revoke_development_network_authorization(sha,'owner revocation')
+            proof.side_effect=None
+            with self.assertRaisesRegex(ValueError,'revoked'):e.development_network_authority(sha)
+
+    def test_current_build_proof_and_fixed_image_identity_required(self):
+        with self.lab() as (e,a,state,audit,clock,proof):
+            proof.side_effect=ValueError('installed_proof_stale')
+            with self.assertRaisesRegex(ValueError,'proof_stale'):e.record_engineering_network_authorization()
+            self.assertFalse(e._engineering_network_path().exists())
+            proof.side_effect=None
+            grant=e.record_engineering_network_authorization()
+            proof.side_effect=ValueError('installed_proof_stale')
+            with self.assertRaisesRegex(ValueError,'proof_stale'):e.development_network_authority(grant['sha256'])
+            proof.side_effect=None
+            with patch.object(a,'DEV_IMAGES',{'c3':'production','s3':'production'}):
+                with self.assertRaisesRegex(ValueError,'allowlist_changed'):e.development_network_authority(grant['sha256'])
+
+    def test_existing_release_build_guard_rejects_engineering_options_and_root(self):
+        import importlib.util
+        script=Path(__file__).resolve().parents[2]/'scripts/build_validation_targets.py'
+        spec=importlib.util.spec_from_file_location('gs179_profile_guard',script)
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        flags=['GS40_TEST_ONLY_CLOUDSYNC','GS_HIL_BUILD','GS_HIL_CONTROL','GS_HIL_COMMISSIONING']
+        with tempfile.TemporaryDirectory() as temp:
+            build=Path(temp);cache=build/'CMakeCache.txt'
+            cache.write_text('\n'.join(f'{name}:BOOL=OFF' for name in flags))
+            module.verify_s3_production_profile(build)
+            for name in flags:
+                cache.write_text(f'{name}:BOOL=ON\n')
+                with self.assertRaisesRegex(ValueError,'restricted options'):module.verify_s3_production_profile(build)
+            cache.write_text('GS40_TEST_ONLY_CONFIG_ROOT_DER:FILEPATH=/test-root.der\n')
+            with self.assertRaisesRegex(ValueError,'trust root'):module.verify_s3_production_profile(build)
+
+    def test_unregistered_laptop_or_owner_cannot_enroll(self):
+        with self.lab() as (e,a,state,audit,clock,proof):
+            with patch('socket.gethostname',return_value='other-laptop'):
+                with self.assertRaisesRegex(ValueError,'owner_or_laptop'):e.record_engineering_network_authorization()
+            with patch('os.getuid',return_value=999):
+                with self.assertRaisesRegex(ValueError,'owner_or_laptop'):e.record_engineering_network_authorization()
+            self.assertFalse(e._engineering_network_path().exists())
+
+    def test_registration_tamper_missing_audit_and_interrupted_publication(self):
+        import json
+        with self.lab() as (e,a,state,audit,clock,proof):
+            with patch.object(e,'_network_event',side_effect=OSError('interrupted')):
+                with self.assertRaises(OSError):e.record_engineering_network_authorization()
+            path=e._engineering_network_path();sha=a.digest(path)
+            with self.assertRaisesRegex(ValueError,'audit_invalid'):e.development_network_authority(sha)
+            with self.assertRaises(FileExistsError):e.record_engineering_network_authorization()
+        with self.lab() as (e,a,state,audit,clock,proof):
+            grant=e.record_engineering_network_authorization();path=Path(grant['path'])
+            before=audit.read_bytes();audit.write_text('corrupt audit')
+            with self.assertRaises(ValueError):e.development_network_authority(grant['sha256'])
+            audit.write_bytes(before)
+            r=json.loads(path.read_text());r['identity']['home_id']='wrong';path.write_text(json.dumps(r))
+            with self.assertRaisesRegex(ValueError,'registration_mismatch'):e.engineering_network_authority(a.digest(path))
+            path.chmod(0o644)
+            with self.assertRaisesRegex(ValueError,'not_private'):e.engineering_network_authority(a.digest(path))
+
 if __name__ == "__main__":
     unittest.main()

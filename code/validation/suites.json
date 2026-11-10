@@ -2743,6 +2743,7 @@
       "command": ["python3", "tests/python/test_gs179_verified_endpoint.py"],
       "inputs": [
         "tests/python/test_gs179_verified_endpoint.py",
+        "scripts/build_validation_targets.py",
         "tools/local/gs179_verified_endpoint.py",
         "tools/local/gs179_laptop_browser.py",
         "tools/local/gs179_laptop_caregiver_browser.cjs"
@@ -2753,7 +2754,7 @@
       "count_kind": "tests",
       "fast": true,
       "release": true,
-      "qualification_scope": "VERIFIED_TEST_ONLY_MDNS_ROUTE_SOFTWARE; ANDROID_PHONE_NOT_RUN"
+      "qualification_scope": "VERIFIED_TEST_ONLY_MDNS_ROUTE_AND_STANDING_ENGINEERING_AUTHORITY_SOFTWARE; LIVE_ENGINEERING_ACTIVATION_AND_ANDROID_NOT_RUN"
     },
     {
       "id": "gs179-postgres-e2e",

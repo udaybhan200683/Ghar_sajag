@@ -221,10 +221,93 @@ def record_development_network_authorization(comments, *, now=None):
     return dict(path=str(path), sha256=sha, activated_at=record['activated_at'], expires_at=record['expires_at'])
 
 
+# GS-D034: build identity is selected by reviewed image bytes, never a mode flag.
+ENGINEERING_LAPTOP = 'DESKTOP-3QQU64B'
+ENGINEERING_OWNER_UID = 1000
+ENGINEERING_IMAGES = {
+    'c3': '589dc9f98ef78fed97709e2ffb845b0a0eb6ccf5babfd9cc149743539932acb7',
+    's3': 'ff1116344cbc05d4c6fcc18a8f003d067b809ef6d90236fd90bba6f86ab052e5',
+}
+
+
+def _engineering_build_identity():
+    import gs117_hil_authorization as auth
+    # Reuse the integrity-checked, audited capture, including freshness, exact
+    # fixture, restoration, byte comparison and source/tool provenance checks.
+    if auth.DEV_IMAGES != ENGINEERING_IMAGES:
+        raise ValueError('engineering_build_allowlist_changed')
+    return auth._verify_scope_a_readback_pass()
+
+
+def _engineering_network_path():
+    import gs117_hil_authorization as auth
+    return auth.DEV_STATE / 'gs179-standing-engineering-network-v1.json'
+
+
+def record_engineering_network_authorization():
+    """Enroll the source-defined registered lab, without caller approval fields."""
+    import os, socket, fcntl
+    import gs117_hil_authorization as auth
+    if auth._environment_is_release_qualified():
+        raise ValueError('engineering_network_release_environment')
+    if os.getuid() != ENGINEERING_OWNER_UID or socket.gethostname() != ENGINEERING_LAPTOP:
+        raise ValueError('engineering_network_owner_or_laptop_mismatch')
+    proof = _engineering_build_identity()
+    with (auth.DEV_STATE / 'session.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        events = auth._read_private_audit(auth.DEV_MODE_AUDIT)
+        if any(e.get('event') == 'gs179_engineering_authorized' for e in events):
+            raise ValueError('engineering_network_already_enrolled')
+        record = dict(schema='STANDING_DEV_NETWORK_ONLY_V1', approval_ref='GS-179#11947',
+                      owner_uid=os.getuid(), laptop=socket.gethostname(), identity=auth.IDENTITY,
+                      images=ENGINEERING_IMAGES, activated_at=_network_utc().isoformat(),
+                      hardware_operations_authorized=False, build_evidence=proof)
+        sha = _network_write_once(_engineering_network_path(), record)
+        _network_event('gs179_engineering_authorized', authorization_sha256=sha)
+    return dict(path=str(_engineering_network_path()), sha256=sha)
+
+
+def _engineering_network_registration(expected_sha256, *, now=None, for_revocation=False):
+    import os, socket
+    from datetime import datetime
+    import gs117_hil_authorization as auth
+    if not for_revocation and auth._environment_is_release_qualified():
+        raise ValueError('engineering_network_release_environment')
+    record = _network_private_json(_engineering_network_path())
+    if (auth.digest(_engineering_network_path()) != expected_sha256 or
+            record.get('schema') != 'STANDING_DEV_NETWORK_ONLY_V1' or
+            record.get('approval_ref') != 'GS-179#11947' or
+            record.get('owner_uid') != ENGINEERING_OWNER_UID or os.getuid() != ENGINEERING_OWNER_UID or
+            record.get('laptop') != ENGINEERING_LAPTOP or socket.gethostname() != ENGINEERING_LAPTOP or
+            record.get('identity') != auth.IDENTITY or record.get('images') != ENGINEERING_IMAGES or
+            record.get('hardware_operations_authorized') is not False):
+        raise ValueError('engineering_network_registration_mismatch')
+    events = auth._read_private_audit(auth.DEV_MODE_AUDIT)
+    relevant = [e for e in events if e.get('authorization_sha256') == expected_sha256]
+    if (any(e.get('record_sha256') != auth._canonical_record_sha256(e) for e in relevant) or
+            sum(e.get('event') == 'gs179_engineering_authorized' for e in relevant) != 1):
+        raise ValueError('engineering_network_audit_invalid')
+    if any(e.get('event') == 'gs179_development_revoked' for e in relevant):
+        raise ValueError('development_network_revoked')
+    if not for_revocation and not datetime.fromisoformat(record['activated_at']) <= _network_utc(now):
+        raise ValueError('engineering_network_clock_invalid')
+    return dict(record, expires_at=None)
+
+
+def engineering_network_authority(expected_sha256, *, now=None):
+    record = _engineering_network_registration(expected_sha256, now=now)
+    _engineering_build_identity()  # Every authorization use requires current proof.
+    return record
+
+
 def development_network_authority(expected_sha256, *, now=None):
     import os
     from datetime import datetime
     import gs117_hil_authorization as auth
+    if _engineering_network_path().exists():
+        _network_private_json(_engineering_network_path())
+        if auth.digest(_engineering_network_path()) == expected_sha256:
+            return engineering_network_authority(expected_sha256, now=now)
     if auth._environment_is_release_qualified():
         raise ValueError('development_network_release_environment')
     path = auth.DEV_STATE / 'gs179-development-11916-11917.json'
@@ -259,7 +342,11 @@ def revoke_development_network_authorization(expected_sha256, reason):
         raise ValueError('network_revocation_reason_required')
     with (auth.DEV_STATE / 'session.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
-        development_network_authority(expected_sha256)
+        if (_engineering_network_path().exists() and
+                auth.digest(_engineering_network_path()) == expected_sha256):
+            _engineering_network_registration(expected_sha256, for_revocation=True)
+        else:
+            development_network_authority(expected_sha256)
         _network_event('gs179_development_revoked', authorization_sha256=expected_sha256, reason=reason)
 
 
@@ -280,7 +367,9 @@ def issue_development_sublease(expected_sha256, controller_pid, service_director
         outer = development_network_authority(expected_sha256, now=now)
         service = _physical_service_identity(controller_pid, service_directory)
         at = _network_utc(now)
-        end = min(at + timedelta(seconds=seconds), datetime.fromisoformat(outer['expires_at']))
+        end = at + timedelta(seconds=seconds)
+        if outer['expires_at'] is not None:
+            end = min(end, datetime.fromisoformat(outer['expires_at']))
         activity_at = at.isoformat()
         if predecessor_lease_id:
             development_sublease_authority(predecessor_lease_id, expected_sha256, controller_pid, service_directory, now=at)
@@ -325,7 +414,7 @@ def development_sublease_authority(lease_id, expected_sha256, controller_pid, se
     if (activity.get('lease_id') != lease_id or not start <= at < end or
             not datetime.fromisoformat(record['activity_origin']) <= last <= at or
             not 0 < (end-start).total_seconds() <= 3600 or
-            end > datetime.fromisoformat(outer['expires_at']) or (at-last).total_seconds() >= NETWORK_IDLE_SECONDS):
+            (outer['expires_at'] is not None and end > datetime.fromisoformat(outer['expires_at'])) or (at-last).total_seconds() >= NETWORK_IDLE_SECONDS):
         raise ValueError('network_sublease_expired_or_idle')
     service = _physical_service_identity(controller_pid, service_directory)
     if service != record['service']:
@@ -333,7 +422,8 @@ def development_sublease_authority(lease_id, expected_sha256, controller_pid, se
     return dict(scope_id=lease_id, activation=expected_sha256, **service,
                 lease_started=record['started'], lease_deadline=record['deadline'],
                 activity_deadline=(last + timedelta(seconds=NETWORK_IDLE_SECONDS)).isoformat(),
-                outer_deadline=outer['expires_at'], hardware_operations_authorized=False)
+                outer_deadline=outer['expires_at'] or record['deadline'],
+                standing_authority=outer['expires_at'] is None, hardware_operations_authorized=False)
 
 
 def note_development_activity(lease_id, expected_sha256, controller_pid, service_directory, *, now=None):
@@ -511,7 +601,9 @@ def physical_ingress_authority(approval_ref, controller_pid, service_directory,
     import gs117_hil_authorization as auth
 
     if network_window == 'DEV':
-        if approval_ref != 'GS-179#11916':
+        if approval_ref not in {'GS-179#11916', 'GS-179#11947'}:
+            raise ValueError('development_network_reference_invalid')
+        if development_network_authority(network_approval_sha256)['approval_ref'] != approval_ref:
             raise ValueError('development_network_reference_invalid')
         return {'approval_ref': approval_ref, **development_sublease_authority(
             network_lease_id, network_approval_sha256, controller_pid, service_directory)}

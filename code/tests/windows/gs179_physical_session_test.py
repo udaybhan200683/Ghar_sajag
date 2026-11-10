@@ -615,5 +615,24 @@ try{Continue-PhysicalDevelopmentLease $state;throw 'expected failure'}catch{if($
         self.assertEqual(result,[True,True,False,False,False,False,False])
         print('CASE GS179-SESSION-FIREWALL-NORMALIZATION-001 PASS')
 
+    def test_standing_authority_handoff_keeps_independent_session_deadline(self):
+        self.powershell(r"""
+$end=[DateTimeOffset]::UtcNow.AddSeconds(30).ToString('o')
+$state=[pscustomobject]@{closed=$false;deadline=$end;cleanupDeadline=$end;outerDeadline=$end;networkWindow='DEV';allowHandoff=$true;standingAuthority=$true}
+function Get-PhysicalObservation {return @{activityDeadline=$end}}
+function Get-PhysicalSessionDecision {return 'KEEP'}
+function Save-PhysicalSession {}
+function Close-PhysicalSession {throw 'unexpected cleanup path'}
+$script:continued=0
+function Continue-PhysicalDevelopmentLease {$script:continued++}
+$result=Invoke-PhysicalSessionTick $state
+if($result.Decision -ne 'HANDOFF' -or $script:continued -ne 1){throw 'standing handoff absent'}
+$state.standingAuthority=$false
+$result=Invoke-PhysicalSessionTick $state
+if($script:continued -ne 1){throw 'expired outer renewed'}
+@{standingHandoff=$true;expiredOuterPreserved=$true}|ConvertTo-Json -Compress
+""")
+        print('CASE GS179-ENGINEERING-HANDOFF-001 PASS')
+
 if __name__ == "__main__":
     unittest.main()

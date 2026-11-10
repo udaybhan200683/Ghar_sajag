@@ -479,7 +479,8 @@ function Invoke-PhysicalSessionTick($State) {
             Repair-PhysicalSessionRoute $State $previous
         }
         if ($State.networkWindow -eq 'DEV' -and $State.allowHandoff -and
-            [DateTimeOffset]::Parse($State.outerDeadline) -gt [DateTimeOffset]::Parse($State.deadline) -and
+            (($State.PSObject.Properties['standingAuthority'] -and $State.standingAuthority -eq $true) -or
+             [DateTimeOffset]::Parse($State.outerDeadline) -gt [DateTimeOffset]::Parse($State.deadline)) -and
             ([DateTimeOffset]::Parse($State.deadline)-[DateTimeOffset]::UtcNow).TotalSeconds -le 60) {
             Continue-PhysicalDevelopmentLease $State
             return [pscustomobject]@{Decision='HANDOFF';ExitCode=0}
@@ -541,7 +542,7 @@ if ($Action -like 'Session*') {
         }
         $state=[pscustomobject]@{approval=$ApprovalRef;pid=$ControllerPid;directory=$ServiceDirectory;authorityHelperSha256=$AuthorityHelperSha256;
             networkWindow=$NetworkWindow;networkApprovalSha256=$NetworkApprovalSha256;
-            networkLeaseId=$NetworkLeaseId;outerDeadline=$authority.outer_deadline;cleanupDeadline=$cleanupDeadline;allowHandoff=($NetworkWindow -eq 'DEV' -and $SessionSeconds -eq 3600);
+            networkLeaseId=$NetworkLeaseId;standingAuthority=($authority.PSObject.Properties['standing_authority'] -and $authority.standing_authority -eq $true);outerDeadline=$authority.outer_deadline;cleanupDeadline=$cleanupDeadline;allowHandoff=($NetworkWindow -eq 'DEV' -and $SessionSeconds -eq 3600);
             hardwareScope=$authority.hardware_scope;hardwareActivation=$authority.hardware_activation;
             scope=$authority.scope_id;activation=$authority.activation;controller=$authority.controller_start;
             service="$($authority.service_pid):$($authority.service_start):$($authority.service_sha256)";timeProcess='';

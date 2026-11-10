@@ -19,7 +19,8 @@ entitlement or permanent exposure is implied. Irreversible, destructive,
 production and outside-fixture actions retain separate authorization. Existing
 AGENTS physical approval rules remain effective until consistent implementation.
 
-Status: APPROVED TARGET, NOT IMPLEMENTED/QUALIFIED. Existing DTP-010 evidence
+Status: APPROVED TARGET; limited network-only source extension implemented and
+offline-tested. Standing activation and full three-mode architecture NOT_QUALIFIED. Existing DTP-010 evidence
 qualifies earlier TEST_ONLY/production isolation only; it does not establish this
 new standing authority or current running-image proof. No commercial gate waived.
 GS-117 remains priority; stop on unverified current build provenance rather than

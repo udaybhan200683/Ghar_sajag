@@ -90,7 +90,8 @@ Morning Routine readiness and GS-173 for release adjudication.
 
 ## GS-D034 target architecture — approved, not implemented
 
-DTP-010 retains its existing narrow profile-isolation evidence. New build-defined
-ENGINEERING/RC/PRODUCTION standing lab authority is NOT_IMPLEMENTED/NOT_QUALIFIED.
+DTP-010 retains its existing narrow profile-isolation evidence. Limited standing network authority is implemented/offline-tested for pinned
+engineering image identities. Live eligibility is BLOCKED by missing current
+audited installed proof; full ENGINEERING/RC/PRODUCTION target is NOT_QUALIFIED.
 RC/production gates and separate hardware/irreversible approvals remain unchanged.
 See DECISION_LOG.md GS-D034 and current GS-179 handoff.
