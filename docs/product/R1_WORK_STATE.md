@@ -1,3 +1,27 @@
+## Bounded activation approval; expired authority blocks admission — 2026-11-10
+
+#11944 approves one bounded ingress activation; #11941 passive stimulus scope
+remains separate. Starting local/origin3db9ebc26af9c7a052b959dd7afe8bc94b541ce3,
+context PASS, tracked clean. Current UTC15:40:59 is after the immutable outer
+expiry03:08:32.809579Z. Actual production authority validator returned
+`development_network_expired_or_clock_invalid`. No8445 listener exists.
+
+Existing recorder accepts only pinned11916/11917, fixed432000s, fixed immutable
+record path and single issuance audit; it cannot issue a distinct11944 record
+unchanged. DEV SessionStart requires that validated outer grant and sublease.
+Closed A/B cannot be reused. No clock substitution, reissue, record modification,
+service/lease/task creation, UAC or hardware operation occurred.
+
+Exact next owner decision: authorize a distinct one-use network authority for
+#11944 and the minimal extension of the existing recorder to represent it,
+maximum3600s/1800s idle, preserving the expired record and all original network,
+cleanup and hardware limits. This is the missing underlying authority, not a
+repeat approval of the already-approved activation/passive scopes. No new
+framework is proposed. Source unchanged; validator/listener checks only, no
+regression rerun. Ingress BLOCKED; Hub authentication UNKNOWN; PIR not requested,
+no fresh EventKey or C3/S3/PG/API/APK result, TC0010/5. Cleanup NOT_REQUIRED because
+nothing started; old hardware latches and firmware unchanged.
+
 ## Existing ingress authority check — 2026-11-08
 
 Starting local/origin 531e69cb4813aaa1522746fb8057bb730369b47a; context PASS,
