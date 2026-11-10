@@ -1,3 +1,75 @@
+## USB-first Engineering execution checkpoint — 2026-11-10 17:33 UTC
+
+Source checkpoint `32f41279172214c769cd5ce67b8067694bf8a727` follows
+`199f715` (locked policy) and `06fd146` (functional admission). Existing portal,
+USB helper and real product pipeline reused. PS DEV admission now accepts the
+existing source-validated standing reference `GS-179#11947`; arbitrary references
+still fail. No firmware or product protocol/business logic changed.
+
+Newly executed commands/results: `python3 code/tests/python/test_gs179_verified_endpoint.py`
+25/25; `python3 code/tests/python/test_gs117_tc001_console.py` 182/182;
+`python3 code/tests/python/test_gs117_readback_receipt.py` 53/53;
+`python3 code/tests/windows/gs179_physical_session_test.py` 19/19;
+`make -C code validation-framework-test` 55/55;
+`make -C code feature-coverage-test` 22/22: all PASS. Python compile,
+context preflight (2026-11-10.003), and diff checks PASS. Host/mocks are not
+physical acceptance; existing Node30/32, Hub53/56, Contract48/50 FAIL receipts
+are not waived or relabelled. No new firmware build required for host-only edits.
+
+Existing standing network API enrolled a network-only record SHA256
+`b04b996812db7757dba5a15a5b6c8f9105a80222d36cba917e871aa219121708`.
+Immutable candidate lease `b52f803ee39e6e4b2d259d0039aa3910c9221b07c20169442ec87b2a92846464`
+started17:27:45.249505Z, absolute deadline18:27:45.249505Z; Windows exposure was
+never activated. Outer standing record has no artificial five-day expiry;
+historical expired grant remains untouched. Candidate is not proof of exposure.
+
+Actual live preflight: USB metadata C3COM4/14:63:93:C5:D1:58 and
+S3COM10/E0:72:A1:D3:8D:34 matched, no serial port opened. Airtel_Agrim Private,
+192.168.1.6, WSL172.17.152.10. Existing bounded ingress, trusted-time and portal
+were launched unchanged except their unique private evidence path; WSL8445,
+PostgreSQL and signed-time readiness observed. Portal backend PG/HTTPS checks
+PASS. Actual target Hub authentication remained NO/UNKNOWN, never inferred from
+host readiness. No C3 runtime/liveness or ACK claim was made.
+
+Normal UAC first produced administrator=true child PID17196, expected system
+PowerShell executable, then PSSecurityException (scripts disabled): orchestration
+had omitted the process execution-policy option already used by the established
+launcher. No system policy changed. Corrected launcher invocation timed out120s
+without elevated-child/session receipt. No successful network activation inferred;
+Windows8445 and physical-session tasks remained absent. Original error and timeout
+preserved separately. Live SYSTEM cleanup qualification NOT_RUN, not mock PASS.
+
+AndroidReady repeatedly returned
+`TC001_APPROVED_ANDROID_DEVICE_NOT_AUTHORIZED_OR_CONNECTED` for ZA2237MRHN.
+The October31 APK receipt was preserved; fixture guard correctly returned
+`installed_APK_backend_Home_or_signer_unverified`. Operator handset connection was
+requested; no confirmation received at this checkpoint. No Run POST, COM open,
+INJECT_MOTION, S3 UART, reset, flash, bootstrap, event or fresh EventKey occurred.
+USB E2E BLOCKED/NOT_RUN; C3/S3 ACK/CloudSync/PG-event/API-event/APK-event NOT_RUN.
+Running firmware hashes UNKNOWN; installed-image qualification STALE/NOT_VERIFIED.
+Formal optical TC-0010/5 and TC001_READY=NO. Historical #11897 SAFETY_LATCHED1/1
+and #11886 unchanged. No Scope A readback or legacy grant modification.
+
+Cleanup: task-owned ingress141684, signed-time Windows11784/Linux141685 and
+portal141686 stopped after identity checks. Ingress logged
+`GS117_BOUNDED_INGRESS_STOPPED`. Final Windows8445 listeners, physical tasks and
+UDP4468 empty; loopback18791/WSL8445 absent; existing443→172.17.152.10:8444 and
+caregiver listener preserved. No unrelated process/network change. All490
+preexisting nested untracked paths preserved. Standing authority remains enrolled;
+unused bounded candidate cannot pass controller/service identity after cleanup.
+
+Private evidence and source/test SHA manifest:
+`~/.local/state/ghar-sajag/gs117-tc001/services-usb-20261110T172508Z/`.
+Contains offline logs, portal status, source hashes, launcher manifest, UAC
+invocations/receipts/errors, immutable admission details and cleanup results.
+Jira GS-117#11963 and GS-179#11964 record results; GS-117 remains In Progress.
+
+Next exact action: connect/unlock and authorize handset ZA2237MRHN, verify the
+existing installed APK and refresh its receipt through the existing mechanism;
+then resume normal UAC bounded ingress and the existing single Run action after
+all live guards pass. No duplicate Jira approval, source rewrite, firmware install,
+Scope A or optical motion stimulus is required for this routine functional path.
+
 ## USB-first Engineering functional path — implementation checkpoint — 2026-11-10
 
 Reused existing portal /api/run motion_event_once, serial Run, real event/ACK,
