@@ -95,3 +95,8 @@ engineering image identities. Live eligibility is BLOCKED by missing current
 audited installed proof; full ENGINEERING/RC/PRODUCTION target is NOT_QUALIFIED.
 RC/production gates and separate hardware/irreversible approvals remain unchanged.
 See DECISION_LOG.md GS-D034 and current GS-179 handoff.
+
+Automatic startup mode reporting is implemented under DTP-010. Current running
+identity and RC/Production target differentiation remain NOT_VERIFIED; the
+24-hour audited-capture dependency is an unresolved standing-workflow gap.
+Existing production-isolation evidence and all release blockers remain.

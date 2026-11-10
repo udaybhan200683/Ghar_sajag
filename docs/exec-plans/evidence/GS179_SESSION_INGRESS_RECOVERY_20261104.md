@@ -1,3 +1,49 @@
+## Automatic mode reporting and receipt diagnosis — 2026-11-10
+
+Reused c4da2c0 standing authority unchanged except a proven CLI handoff defect:
+`--issue-development-sublease` accepted only11916; it now accepts11947 only when
+validated authority reference matches. No new grant framework or expiry change.
+Existing context preflight invokes the existing endpoint helper's read-only
+`--mode-status` and emits GHAR_SAJAG_MODE_STATUS JSON. Root AGENTS mandates
+reading it at startup without asking the owner for a mode selector. Source,
+built artifacts, historical installation, current running identities and host
+context are separate. Host-only work remains permitted when mode proof is absent;
+privileged eligibility remains false until all applicable guards are verified.
+
+Actual diagnosis: READBACK_RECEIPT_STATE directory does not exist; parent exists,
+no symlink/ownership/permission repair is indicated. No audit was fabricated and
+nothing was chmod/chowned. Mode output explicitly reports MISSING. Exact known
+local C3/S3 artifacts map to ENGINEERING by reviewed byte hashes. Source profile
+is UNKNOWN (multi-profile tree), historical installed receipts October31 are not
+current running proof, running C3/S3 profiles UNKNOWN/NOT_VERIFIED. Host is the
+registered lab laptop, but live service/network security is NOT_VERIFIED.
+RC/PRODUCTION target identity cannot be distinguished from available running
+evidence; unknown never becomes Engineering through a runtime field or flag.
+
+The 24h Scope A dependency REMAINS and is an unresolved GS-D034 standing-workflow
+limitation. Current source's authenticated Hub identity/mTLS and event transport
+do not attest current C3/S3 image hashes/profile/boot continuity. FOTA manifests
+prove update artifacts, not a currently running image. No existing trustworthy
+passive running-build evidence was found to replace receipt freshness. Initial
+capture alone would not solve ongoing runtime-proof maintenance. New attestation
+protocol/firmware deployment is outside current scope, so none was invented.
+Current receipt grant/status is unavailable; existing initial Scope A capture
+requires its valid reviewed one-use authority and includes ROM entry/restore
+resets. Network/passive approval cannot authorize those operations. Stop before
+physical access. No new approval of unchanged11941/11944 is requested.
+
+Executed: endpoint/mode20/20, Windows mocks18/18, receipt/issuer53/53,
+console180/180, framework55/55, mapping22/22 PASS; Python compile/bash syntax
+and actual context+mode preflight PASS. Controlled production-cache negative
+checks execute in endpoint suite; no firmware source/build changed. Prior
+lifecycle15/15 is historical and reused. No full release, live Windows activation,
+USB/COM/ADB/reset/readback or optical PIR. TCP8445 absent, Hub auth UNKNOWN,
+no EventKey or C3/S3/PG/API/APK event evidence, TC001_READY NO, TC0010/5.
+Old expired grant and safety latches preserved, no cleanup required.
+Next product prerequisite: legitimate current installed-image enrollment using
+the existing receipt workflow; permanent replacement of daily readback still
+requires trustworthy running-image proof, not another Jira grant extension.
+
 ## GS-D034 network extension — implemented offline, live eligibility blocked — 2026-11-10
 
 The existing GS-179 Python authority and Windows session path now support a

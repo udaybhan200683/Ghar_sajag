@@ -258,3 +258,11 @@ qualifies earlier TEST_ONLY/production isolation only; it does not establish thi
 new standing authority or current running-image proof. No commercial gate waived.
 GS-117 remains priority; stop on unverified current build provenance rather than
 manufacture eligible authority. See existing GS-179 and GS-117 handoffs.
+
+## Automatic mode evidence at startup — GS-D034
+
+Context preflight reports source/build/installation/running/environment evidence
+through existing GS-179 tooling. UNKNOWN/NOT_VERIFIED never grants privileged
+Engineering access or RC/production qualification. Current report availability
+does not establish running-image attestation; inherited freshness remains until
+a trustworthy replacement is implemented and reviewed.

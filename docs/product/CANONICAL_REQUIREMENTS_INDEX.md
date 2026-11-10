@@ -513,3 +513,8 @@ GS179_DEV_TEST_ONLY outer authority: fixed revocable maximum120hours (432000seco
 LOCKED target requirements are in DECISION_LOG.md GS-D034 and R1_RELEASE_CONTRACT.md.
 DEV_TO_PRODUCTION_REGISTER.md/.json retain implementation/qualification distinctions;
 existing GS179_SESSION_INGRESS_RECOVERY_20261104.md remains supporting execution evidence.
+
+GS-D034 startup implementation: root AGENTS.md and tools/context preflight use
+`gs179_verified_endpoint.py --mode-status`; JSON is evidence classification, not
+a runtime mode selector or authority issuer. Running-identity gaps remain in
+R1_WORK_STATE and existing GS-117/GS-179 handoffs.

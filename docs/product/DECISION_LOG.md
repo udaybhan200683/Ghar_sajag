@@ -1,3 +1,13 @@
+## GS-D034 reporting implementation and unresolved runtime proof — 2026-11-10
+
+Automatic context/mode reporting is implemented through the existing GS-179
+helper. It distinguishes artifact identity from historical installation and
+unknown current running mode. UNKNOWN permits host development only. Current
+24h audited-readback dependency remains unresolved; removing it without trusted
+running-build evidence is not authorized. No new attestation protocol or firmware
+deployment is approved by this implementation note. Standing network behavior
+and RC/production security requirements are unchanged; see current handoffs.
+
 ## GS-D034 — Build-defined engineering and production modes — LOCKED TARGET — 2026-11-10
 
 Owner approvals: GS-173#11946, GS-179#11947, GS-117#11948; earlier GS-173#11844.

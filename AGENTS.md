@@ -206,3 +206,16 @@ Before substantive work, verify canonical path/branch/HEAD/status and remote, re
 When work pauses, is interrupted or changes priority, update its existing canonical handoff and `R1_WORK_STATE.md`, and add a dated owning-Jira comment. Include current implementation/evidence, exact local and remote checkpoint, validation state, preserved uncommitted/untracked files, blockers, safety limits and the next exact action. Resume by reading the newest handoff and checking current source before continuing.
 
 After validation, commit and push to `feature/r1-commercial-baseline`, verify `git ls-remote` equals local HEAD, and confirm tracked cleanliness while preserving generated/untracked files. Do not perform destructive Git or hardware operations without explicit authorization. Stop on unresolved product, security, protocol or storage-format conflicts; do not invent requirements.
+
+## Automatic operating-mode evidence — GS-D034
+
+Every startup context preflight also emits `GHAR_SAJAG_MODE_STATUS` JSON through
+existing GS-179 tooling. Read source, built, installed/running and deployment
+fields independently; never ask the owner to select an operating mode in chat.
+A source tree or matching local BIN is not proof of a running image. UNKNOWN /
+NOT_VERIFIED permits host-only development, but not privileged physical/network
+operations. Use standing routine Engineering authorization only when actual build,
+registered fixture, service/network security and operation guards pass. RC and
+Production retain strict release/security behavior; runtime flags cannot grant
+Engineering privileges. Current receipt freshness is preserved until trustworthy
+runtime identity can replace it; do not fabricate or refresh historical evidence.
