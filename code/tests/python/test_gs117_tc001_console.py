@@ -3706,5 +3706,40 @@ class TC001Test(unittest.TestCase):
             self.assertEqual(len(hardware.call_args_list), 2)
 
 
+
+class AutomaticEngineeringMotionTest(unittest.TestCase):
+    def test_plain_motion_uses_registered_routine_admission_without_one_use_grant(self):
+        admission=dict(profile='GS117_ENGINEERING_FUNCTIONAL',identity=hil_auth.IDENTITY,owner_approval_ref='GS-117#11958')
+        with patch.object(tc,'engineering_functional_admission',return_value=admission), \
+             patch.object(hil_auth,'load_development',side_effect=AssertionError('no legacy policy')):
+            result=tc.motion_event_once_authorization({})
+        self.assertEqual(result['mode'],'ENGINEERING_AUTOMATIC')
+        self.assertEqual(result['operation'],'motion_event_once')
+        self.assertEqual(result['sessions_remaining'],1)
+
+    def test_automatic_run_executes_existing_path_once_and_stops_on_failure(self):
+        from contextlib import contextmanager
+        from unittest.mock import Mock
+        controller=object.__new__(tc.Controller)
+        controller.lock=threading.Lock();controller.lock.acquire();controller.save=Mock()
+        fixture=dict(c3={},s3={},home_id=hil_auth.IDENTITY['home_id'],hub_id=hil_auth.IDENTITY['s3']['device_id'],
+                     physical_device_id=hil_auth.IDENTITY['c3']['device_id'],installation_epoch=1)
+        report={}
+        def result(report,**kwargs):report['overall']='FAIL'
+        controller.execute=Mock(side_effect=result)
+        policy=dict(profile='GS117_ENGINEERING_FUNCTIONAL',identity=hil_auth.IDENTITY,owner_approval_ref='GS-117#11958')
+        @contextmanager
+        def session(*args):yield policy,{'started_at':'2026-11-10T00:00:00Z'}
+        with patch.object(tc,'exact_fixture',return_value=fixture), \
+             patch.object(tc,'motion_event_once_authorization',return_value={'mode':'ENGINEERING_AUTOMATIC'}), \
+             patch.object(hil_auth,'engineering_functional_session',side_effect=session), \
+             patch.object(hil_auth,'development_session',side_effect=AssertionError('no old grant')):
+            controller.execute_motion_event_once(report)
+        controller.execute.assert_called_once()
+        self.assertEqual(report['overall'],'FAIL')
+        self.assertEqual(report['functional_outcome'],'FAIL')
+        self.assertEqual(report['installed_image_qualification'],'UNKNOWN')
+        self.assertFalse(controller.lock.locked())
+
 if __name__ == "__main__":
     unittest.main()

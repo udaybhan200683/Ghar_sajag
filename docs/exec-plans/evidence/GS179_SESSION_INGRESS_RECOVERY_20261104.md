@@ -1,3 +1,28 @@
+## USB-first Engineering functional path — implementation checkpoint — 2026-11-10
+
+Reused existing portal /api/run motion_event_once, serial Run, real event/ACK,
+backend/API/APK verification and bounded network lifecycle. Functional admission
+now checks fixed registered host/UID/Home/C3/S3/ports/serials/TEST_ONLY profiles
+and intended approved build artifacts independently of Scope A or installed
+receipt freshness. Unknown running hashes remain UNKNOWN. Network registration
+retains V1 identity with source-defined policy revision11960; no old grant edited.
+Routine motion uses the existing global locks/audit, exactly one execute call,
+zero campaign fallback/retry, and never modifies historical hardware consents.
+Legacy explicit one-use grants and image-qualification verifier remain available
+unchanged. Actual C3 GET_STATE/HIL mode, live sensing, pending/retained/inflight,
+USB identity, S3 durable ACK, enrollment, mTLS, DB/API/Android guards retained.
+Phone installation/identity checks remain; no stale receipt was relabelled fresh.
+
+Executed endpoint25/25, console182/182, receipt53/53, Windows18/18,
+framework55/55 and mapping22/22 PASS; new tests registered through existing
+stages. No firmware/protocol/backend business logic modified; target builds not
+repeated. Preflight USB metadata matched C3COM4/S3COM10; no serial opened.
+Approved AndroidZA2237MRHN currently not authorized/connected; existing AndroidReady
+returned TC001_APPROVED_ANDROID_DEVICE_NOT_AUTHORIZED_OR_CONNECTED. Operator
+connection requested while preparation continues. No injection/EventKey yet.
+Functional USB E2E and optical/release acceptance remain distinct. Runtime
+execution/cleanup findings will follow this checkpoint; old failures preserved.
+
 ## Automatic mode reporting and receipt diagnosis — 2026-11-10
 
 Current execution evidence: `/home/udaybhan/.local/state/ghar-sajag/gs179-mode-20261110T163843Z` (source hashes, mode JSON, final logs and

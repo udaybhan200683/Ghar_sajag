@@ -230,13 +230,52 @@ ENGINEERING_IMAGES = {
 }
 
 
-def _engineering_build_identity():
+def engineering_functional_admission(fixture=None):
+    """Registered lab functional admission; never certifies installed images."""
+    import os, socket
     import gs117_hil_authorization as auth
-    # Reuse the integrity-checked, audited capture, including freshness, exact
-    # fixture, restoration, byte comparison and source/tool provenance checks.
+    if auth._environment_is_release_qualified():
+        raise ValueError('engineering_network_release_environment')
+    if os.getuid() != ENGINEERING_OWNER_UID or socket.gethostname() != ENGINEERING_LAPTOP:
+        raise ValueError('engineering_network_owner_or_laptop_mismatch')
+    registered = _network_private_json(Path.home()/'.config/ghar-sajag/gs117-tc001/fixture.json')
+    value = registered if fixture is None else fixture
+    for current in (registered,value):
+        if (current.get('profile') != 'GS179_TEST_ONLY' or
+                current.get('qualification_profile') != 'GS117_DEV_TEST_ONLY' or
+                current.get('home_id') != auth.IDENTITY['home_id'] or
+                current.get('hub_id') != auth.IDENTITY['s3']['device_id'] or
+                current.get('physical_device_id') != auth.IDENTITY['c3']['device_id'] or
+                current.get('installation_epoch') != 1):
+            raise ValueError('engineering_functional_fixture_mismatch')
+        for role in ('c3','s3'):
+            board=current.get(role,{})
+            if any(board.get(k) != auth.IDENTITY[role][k] for k in ('port','serial_number')):
+                raise ValueError('engineering_functional_usb_identity_mismatch')
+            artifact=Path(board.get('image',''))
+            if (artifact.is_symlink() or not artifact.is_file() or
+                    board.get('image_sha256') != ENGINEERING_IMAGES[role] or
+                    auth.digest(artifact) != ENGINEERING_IMAGES[role]):
+                raise ValueError('engineering_intended_build_mismatch')
+        if (current['c3'].get('hil_control') is not True or
+                current['c3'].get('hil_build') is not False or
+                current['c3'].get('physical_wake') is not False or
+                current['s3'].get('full_product_composition') is not True):
+            raise ValueError('engineering_functional_profile_mismatch')
+    if _engineering_network_path().exists():
+        _engineering_network_registration(auth.digest(_engineering_network_path()))
+    return dict(profile='GS117_ENGINEERING_FUNCTIONAL', identity=auth.IDENTITY,
+                intended_images=ENGINEERING_IMAGES, running_images='UNKNOWN',
+                image_qualification='NOT_VERIFIED', owner_approval_ref='GS-117#11958')
+
+
+def _engineering_build_identity():
+    # Compatibility entry point for existing standing network authority. The
+    # source-defined lab admission is separate from protected image qualification.
+    import gs117_hil_authorization as auth
     if auth.DEV_IMAGES != ENGINEERING_IMAGES:
         raise ValueError('engineering_build_allowlist_changed')
-    return auth._verify_scope_a_readback_pass()
+    return engineering_functional_admission()
 
 
 def _engineering_network_path():
@@ -258,7 +297,7 @@ def record_engineering_network_authorization():
         events = auth._read_private_audit(auth.DEV_MODE_AUDIT)
         if any(e.get('event') == 'gs179_engineering_authorized' for e in events):
             raise ValueError('engineering_network_already_enrolled')
-        record = dict(schema='STANDING_DEV_NETWORK_ONLY_V1', approval_ref='GS-179#11947',
+        record = dict(schema='STANDING_DEV_NETWORK_ONLY_V1', approval_ref='GS-179#11947', policy_revision='GS-179#11960',
                       owner_uid=os.getuid(), laptop=socket.gethostname(), identity=auth.IDENTITY,
                       images=ENGINEERING_IMAGES, activated_at=_network_utc().isoformat(),
                       hardware_operations_authorized=False, build_evidence=proof)
@@ -276,7 +315,7 @@ def _engineering_network_registration(expected_sha256, *, now=None, for_revocati
     record = _network_private_json(_engineering_network_path())
     if (auth.digest(_engineering_network_path()) != expected_sha256 or
             record.get('schema') != 'STANDING_DEV_NETWORK_ONLY_V1' or
-            record.get('approval_ref') != 'GS-179#11947' or
+            record.get('approval_ref') != 'GS-179#11947' or record.get('policy_revision') != 'GS-179#11960' or
             record.get('owner_uid') != ENGINEERING_OWNER_UID or os.getuid() != ENGINEERING_OWNER_UID or
             record.get('laptop') != ENGINEERING_LAPTOP or socket.gethostname() != ENGINEERING_LAPTOP or
             record.get('identity') != auth.IDENTITY or record.get('images') != ENGINEERING_IMAGES or
@@ -714,7 +753,8 @@ def operating_mode_status():
         result['installed_images'].setdefault(role, dict(profile='UNKNOWN',verification='NOT_VERIFIED'))
     try:
         _engineering_build_identity()
-        result['engineering_capture_evidence']='VERIFIED_CAPTURE_SNAPSHOT'
+        result['engineering_capture_evidence']='NOT_REQUIRED_FOR_FUNCTIONAL_ADMISSION'
+        result['functional_admission']='ELIGIBLE_PENDING_LIVE_GUARDS'
         result['authorization_reason']='live_service_network_and_running_identity_guards_required'
     except (OSError,ValueError,KeyError,TypeError) as error:
         result['engineering_capture_evidence']='NOT_VERIFIED'

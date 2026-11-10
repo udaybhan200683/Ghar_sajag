@@ -2723,6 +2723,28 @@ def dispose_reviewed_preoperation_pin_failure(path=None):
                 'source_review_record_sha256': reviews[-1]['record_sha256']}
 
 
+@contextmanager
+def engineering_functional_session(procedure):
+    """One routine real-board input with existing global locks and audit."""
+    if procedure != 'motion_event_once':
+        raise ValueError('engineering_functional_operation_not_allowed')
+    import gs179_verified_endpoint as endpoint
+    admission=endpoint.engineering_functional_admission()
+    with ExitStack() as locks:
+        for directory in (STATE,DEV_STATE):
+            _readback_receipt_hold_exclusive_lock(locks,directory,'engineering_hardware_operation_already_active')
+        run={'session_id':secrets.token_hex(16),'started_at':datetime.now(timezone.utc).isoformat()}
+        endpoint._network_event('gs117_engineering_input_started', **run, operation=procedure,
+                                image_qualification='NOT_VERIFIED')
+        policy=dict(profile='GS117_ENGINEERING_FUNCTIONAL',owner_approval_ref=admission['owner_approval_ref'],
+                    identity=admission['identity'])
+        try:
+            yield policy,run
+        finally:
+            endpoint._network_event('gs117_engineering_input_finished',session_id=run['session_id'],
+                                    outcome=run.get('functional_outcome','BLOCKED'))
+
+
 def development_session(procedure, path=None, state=None):
     if procedure == 'motion_event_once' and path is None:
         return motion_event_once_session()

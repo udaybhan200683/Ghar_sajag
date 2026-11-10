@@ -198,7 +198,7 @@ class CaregiverOriginAliasTlsTest(unittest.TestCase):
 
 
 class StandingEngineeringAuthorityTest(unittest.TestCase):
-    """GS179-ENGINEERING-LAB-001: production authority, mocked current image capture only."""
+    """GS179-ENGINEERING-LAB-001: production authority, mocked registered functional lab only."""
     @contextmanager
     def lab(self):
         import gs179_verified_endpoint as e
@@ -212,7 +212,7 @@ class StandingEngineeringAuthorityTest(unittest.TestCase):
                 for obj,name,value in [(a,'DEV_STATE',state),(a,'DEV_MODE_AUDIT',audit)]:
                     stack.enter_context(patch.object(obj,name,value))
                 stack.enter_context(patch.object(a,'_environment_is_release_qualified',return_value=False))
-                proof=stack.enter_context(patch.object(a,'_verify_scope_a_readback_pass',return_value={'evidence_sha256':'a'*64}))
+                proof=stack.enter_context(patch.object(e,'engineering_functional_admission',return_value={'image_qualification':'NOT_VERIFIED'}))
                 stack.enter_context(patch.object(e,'_network_utc',side_effect=lambda now=None:now or clock[0]))
                 yield e,a,state,audit,clock,proof
 
@@ -258,7 +258,7 @@ class StandingEngineeringAuthorityTest(unittest.TestCase):
             proof.side_effect=None
             with self.assertRaisesRegex(ValueError,'revoked'):e.development_network_authority(sha)
 
-    def test_current_build_proof_and_fixed_image_identity_required(self):
+    def test_functional_fixture_guard_and_fixed_intended_image_identity_required(self):
         with self.lab() as (e,a,state,audit,clock,proof):
             proof.side_effect=ValueError('installed_proof_stale')
             with self.assertRaisesRegex(ValueError,'proof_stale'):e.record_engineering_network_authorization()
@@ -408,6 +408,78 @@ class ModeReportingTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'reference_invalid'):
                 e.issue_network_sublease_for_reference('GS-179#11947','DEV','hash',1,'dir','prior')
             issue.assert_not_called()
+
+
+class EngineeringFunctionalAdmissionTest(unittest.TestCase):
+    """GS117-USB-FUNCTIONAL-001: no qualification shortcut, no daily ROM gate."""
+    @contextmanager
+    def fixture(self):
+        import copy
+        import gs179_verified_endpoint as e
+        import gs117_hil_authorization as a
+        with tempfile.TemporaryDirectory() as temp:
+            binary=Path(temp)/'engineering.bin';binary.write_bytes(b'known engineering build')
+            sha=hashlib.sha256(binary.read_bytes()).hexdigest()
+            f=dict(profile='GS179_TEST_ONLY',qualification_profile='GS117_DEV_TEST_ONLY',
+                   home_id=a.IDENTITY['home_id'],hub_id=a.IDENTITY['s3']['device_id'],
+                   physical_device_id=a.IDENTITY['c3']['device_id'],installation_epoch=1)
+            for role in ('c3','s3'):
+                f[role]=dict(port=a.IDENTITY[role]['port'],serial_number=a.IDENTITY[role]['serial_number'],
+                             image=str(binary),image_sha256=sha)
+            f['c3'].update(hil_control=True,hil_build=False,physical_wake=False)
+            f['s3']['full_product_composition']=True
+            from contextlib import ExitStack
+            with ExitStack() as stack:
+                stack.enter_context(patch.object(e,'ENGINEERING_IMAGES',dict(c3=sha,s3=sha)))
+                stack.enter_context(patch.object(e,'_network_private_json',return_value=f))
+                stack.enter_context(patch.object(e,'_engineering_network_path',return_value=Path(temp)/'absent-policy'))
+                stack.enter_context(patch.object(a,'_environment_is_release_qualified',return_value=False))
+                stack.enter_context(patch('socket.gethostname',return_value=e.ENGINEERING_LAPTOP))
+                stack.enter_context(patch('os.getuid',return_value=e.ENGINEERING_OWNER_UID))
+                stack.enter_context(patch.object(a,'_verify_scope_a_readback_pass',side_effect=AssertionError('no ROM qualification gate')))
+                yield e,a,f
+
+    def test_ordinary_functional_admission_without_readback_or_running_hash_claim(self):
+        with self.fixture() as (e,a,f):
+            for _ in range(2):
+                result=e.engineering_functional_admission(f)
+                self.assertEqual(result['running_images'],'UNKNOWN')
+                self.assertEqual(result['image_qualification'],'NOT_VERIFIED')
+
+    def test_wrong_home_usb_profile_or_build_fails(self):
+        import copy
+        with self.fixture() as (e,a,f):
+            for mutate in [lambda v:v.update(home_id='wrong'),lambda v:v['c3'].update(port='COM99'),
+                           lambda v:v['c3'].update(hil_control=False),lambda v:v['s3'].update(image_sha256='0'*64)]:
+                value=copy.deepcopy(f);mutate(value)
+                with self.assertRaises(ValueError):e.engineering_functional_admission(value)
+            with patch.object(a,'_environment_is_release_qualified',return_value=True):
+                with self.assertRaisesRegex(ValueError,'release_environment'):e.engineering_functional_admission(f)
+
+    def test_existing_image_qualification_still_requires_real_audited_capture(self):
+        import gs117_hil_authorization as a
+        with tempfile.TemporaryDirectory() as temp:
+            with self.assertRaisesRegex(ValueError,'state_not_private'):
+                a._verify_scope_a_readback_pass(Path(temp)/'missing')
+
+    def test_functional_session_is_single_operation_and_preserves_legacy_ledger(self):
+        import gs117_hil_authorization as a
+        import gs179_verified_endpoint as e
+        with tempfile.TemporaryDirectory() as temp:
+            state=Path(temp)/'hardware';dev=Path(temp)/'dev'
+            state.mkdir(mode=0o700);dev.mkdir(mode=0o700)
+            old=state/'historical.json';old.write_text('SAFETY_LATCHED 1/1')
+            admission=dict(owner_approval_ref='GS-117#11958',identity=a.IDENTITY)
+            with patch.object(a,'STATE',state),patch.object(a,'DEV_STATE',dev), \
+                 patch.object(e,'engineering_functional_admission',return_value=admission), \
+                 patch.object(e,'_network_event') as audit:
+                with a.engineering_functional_session('motion_event_once') as (policy,run):
+                    self.assertEqual(policy['profile'],'GS117_ENGINEERING_FUNCTIONAL')
+                    run['functional_outcome']='BLOCKED'
+                self.assertEqual(audit.call_count,2)
+                self.assertEqual(old.read_text(),'SAFETY_LATCHED 1/1')
+                with self.assertRaisesRegex(ValueError,'not_allowed'):
+                    with a.engineering_functional_session('flash'):pass
 
 if __name__ == "__main__":
     unittest.main()

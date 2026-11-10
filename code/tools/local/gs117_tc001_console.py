@@ -29,7 +29,7 @@ from ghar_sajag.identity_namespaces import (
     is_physical_hub_id,
     is_physical_node_id,
 )
-from gs179_verified_endpoint import verify_caregiver_origin_alias, wsl_ipv4
+from gs179_verified_endpoint import verify_caregiver_origin_alias, wsl_ipv4, engineering_functional_admission
 
 STATE = Path.home() / ".local/state/ghar-sajag/gs117-tc001"
 FIXTURE = Path.home() / ".config/ghar-sajag/gs117-tc001/fixture.json"
@@ -113,6 +113,11 @@ def development_input_trial(fixture):
     if fixture.get('qualification_profile') != 'GS117_DEV_TEST_ONLY':
         return False
     import gs117_hil_authorization as auth
+    try:
+        engineering_functional_admission(fixture)
+        return True
+    except (ValueError,OSError,KeyError,TypeError):
+        pass
     policy = auth.load_development()
     identity = policy['identity']
     if (fixture.get('home_id') != identity['home_id'] or
@@ -138,6 +143,11 @@ def exact_fixture() -> dict:
             not isinstance(fixture.get("installation_epoch"), int) or
             fixture["installation_epoch"] < 1):
         raise ValueError("TEST_ONLY_Hub_Home_epoch_identity_missing")
+    try:
+        engineering_functional_admission(fixture)
+        engineering=True
+    except (ValueError,OSError,KeyError,TypeError):
+        engineering=False
     installed_receipts = {}
     for name in ("c3", "s3"):
         board = fixture.get(name, {})
@@ -147,6 +157,9 @@ def exact_fixture() -> dict:
         image = Path(board.get("image", ""))
         receipt = Path(board.get("installed_image_receipt", ""))
         expected = board.get("image_sha256", "")
+        if engineering:
+            board["installed_image_verification"]="UNKNOWN"
+            continue
         if (not image.is_file() or not receipt.is_file() or
                 not re.fullmatch(r"[0-9a-f]{64}", expected) or sha256(image) != expected):
             raise ValueError(name + "_image_artifact_mismatch")
@@ -193,8 +206,8 @@ def exact_fixture() -> dict:
     if is_physical_node_id(physical_device_id):
         if (physical_device_id != "c3-146393c5d158" or
                 physical_hub_id != "hub-e072a1d38d34" or
-                installed_receipts["c3"].get("permanent_device_id") != physical_device_id or
-                installed_receipts["s3"].get("permanent_device_id") != physical_hub_id):
+                (not engineering and (installed_receipts["c3"].get("permanent_device_id") != physical_device_id or
+                installed_receipts["s3"].get("permanent_device_id") != physical_hub_id))):
             raise ValueError("physical_MAC_derived_identity_receipts_do_not_match_fixture")
     expected_origin = fixture.get("expected_caregiver_origin", "")
     if not re.fullmatch(r"https://[a-z0-9-]+\.local", expected_origin):
@@ -331,6 +344,15 @@ def campaign_approval(path: Path, fixture: dict) -> dict:
 def motion_event_once_authorization(fixture: dict, path: Path | None = None) -> dict:
     """Read-only readiness for the separately issued #11933 motion grant."""
     import gs117_hil_authorization as auth
+    if path is None:
+        try:
+            admission=engineering_functional_admission(fixture)
+            return dict(status='PASS',operation='motion_event_once',mode='ENGINEERING_AUTOMATIC',
+                        approval_ref=admission['owner_approval_ref'],sessions_remaining=1,
+                        authorization_scope_id=auth._development_scope_id(dict(profile=admission['profile'],
+                            owner_approval_ref=admission['owner_approval_ref'],identity=admission['identity'])))
+        except (ValueError,OSError,KeyError,TypeError):
+            pass
     policy_path = Path(path or auth.MOTION_EVENT_ONCE_POLICY)
     policy = auth.load_development(policy_path)
     if not auth._development_motion_event_once_scope_valid(policy):
@@ -1443,11 +1465,14 @@ class Controller:
         session_entered = False
         try:
             fixture = exact_fixture()
-            motion_event_once_authorization(fixture)
-            with auth.development_session("motion_event_once") as (policy, authorization_session):
+            admission=motion_event_once_authorization(fixture)
+            automatic=admission.get('mode')=='ENGINEERING_AUTOMATIC'
+            scope=(auth.engineering_functional_session('motion_event_once') if automatic else
+                   auth.development_session('motion_event_once'))
+            with scope as (policy, authorization_session):
                 session_entered = True
                 report["authorization_session_consumed"] = True
-                if not auth._development_motion_event_once_scope_valid(policy):
+                if not automatic and not auth._development_motion_event_once_scope_valid(policy):
                     raise auth.AuthorizationSafetyFailure(
                         "development_motion_event_scope_changed_before_reservation")
                 current_fixture = exact_fixture()
@@ -1463,6 +1488,7 @@ class Controller:
                 report["approval_ref"] = policy["owner_approval_ref"]
                 report["authorization_scope_id"] = auth._development_scope_id(policy)
                 report["authorization_outcome"] = "AUTHORIZED_SCOPE_OPERATION"
+                report["installed_image_qualification"] = "UNKNOWN" if automatic else "VERIFIED_RECEIPT_REQUIRED"
                 report["authorization_reserved_at"] = authorization_session.get("started_at")
                 report["c3_serial_open_reset_risk_accepted"] = True
                 report["s3_uart_opened"] = False
@@ -1696,7 +1722,7 @@ class Controller:
                             "TC001_VERIFIED_USB_INTERFACE_MISMATCH")
                     self.mark(report, name, "BLOCKED", "exact COM/USB interface absent or changed")
                     return
-                self.mark(report, name, "PASS", "exact COM/USB metadata and current installed-image receipt matched; no S3 UART open")
+                self.mark(report, name, "PASS", "exact COM/USB metadata matched; Engineering running-image hash may remain UNKNOWN; no S3 UART open")
             request = {"action": "baseline", "home_id": fixture["home_id"],
                        "physical_device_id": fixture["physical_device_id"],
                        "logical_node_id": "bedroom", "hub_id": fixture["hub_id"],
