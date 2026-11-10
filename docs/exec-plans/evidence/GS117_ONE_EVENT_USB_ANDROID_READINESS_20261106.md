@@ -1,3 +1,64 @@
+## Android receipt refreshed; normal UAC rejected — 2026-11-10 17:58 UTC
+
+Resumed canonical branch at `151596f76a09b8a7f30178e431fccbdf9097c5f5`,
+local/remote equal, tracked clean, context preflight PASS2026-11-10.003.
+No product/source change, APK rebuild/install, Scope A or new authorization code.
+Existing Engineering admission, portal, USB and event-verification path reused.
+
+Actual approved ADB `C:\Users\DELL\Downloads\platform-tools-latest-windows\platform-tools\adb.exe`
+now reports ZA2237MRHN device. Existing AndroidReady PASS for approved package,
+version0.4.0-connected-lite-staging/code3. Installed APK SHA256
+`f44df9a80674a0746446de96b5948cf33e3c4fa3031e1d751d1c1eb12cf322e7`
+differs from the old fixture receipt's0b2409 artifact, but matches the already
+signature-verified CI41185329437/artifact13036937381, documented at physical
+EXECUTION.md:5369 and R1_WORK_STATE.md. Current read-only installed-byte capture
+matched that exact digest. Recorded signer provenance remains
+`d336ae68479da03de932a44b16c8de730c86e3cf68aee52fe92261e74e596b85`;
+this is a byte match to prior verified artifact, not a newly run apksigner check.
+Fresh private receipt references that provenance/current observation; only the
+fixture's phone receipt path changed, with original fixture/receipt preserved.
+Actual current app Home/backend/UI evidence remains NOT_VERIFIED: Android
+reported Dozing then lockscreen showing=true; screenshot black. Owner unlock
+and app foreground requested. No lock bypass or credential handling occurred.
+
+Existing bounded ingress/time/portal launched with unique evidence directory.
+WSL8445/PG/trusted-time ready, portal fixture/enrollment/Android guards PASS.
+Standing authority reused unchanged. New immutable candidate lease
+`b1f962c9bddb99f876964b54a94d2136fe8bd4015e229a489f37382a5a9d83f7`
+17:51:52.467870Z–18:51:52.467870Z, no Windows exposure. Initial manifest privacy
+check correctly rejected a newly generated0644 manifest; corrected to required
+0600 before lease issuance, without modifying historical records or guards.
+
+Normal UAC invocation used expected system PowerShell, existing launcher
+process-scoped ExecutionPolicy option, exact authority/source/controller/service
+pins, and new stage receipts. Consent process observed. Parent returned
+launched=false, System.InvalidOperationException: "The operation was canceled
+by the user." No elevated-child receipt/session output exists; reviewed launcher
+was not entered. This current failure is proven at OS elevation, not TCP repair.
+Earlier timeout cause is not retroactively proved. No blind UAC retry; owner
+asked whether genuine prompt appeared and Yes was selected. No new approval
+of unchanged hardware scope requested. Real Hub auth remained NO/UNKNOWN.
+
+No C3 serial or S3 UART, reset/bootstrap, INJECT_MOTION, new EventKey or event
+verification occurred. USB E2E BLOCKED/NOT_RUN; C3/S3 ACK/CloudSync/PG/API/APK event
+boundaries NOT_RUN. Installed firmware untouched/current hashes UNKNOWN;
+image qualification unchanged; #11897 SAFETY_LATCHED1/1 and #11886 preserved.
+Formal optical TC0010/5, TC001_READY=NO. Prior suite PASS results and aggregate
+release FAIL records unchanged; no broad suites repeated without source change.
+Actual checks this run: context, device/package/version/APK bytes, portal
+readiness, genuine UAC result and cleanup; no physical E2E PASS claimed.
+
+Task-owned ingress143237, signed-time Linux143238/Windows4856, portal143239
+stopped after identity checks. Ingress logged GS117_BOUNDED_INGRESS_STOPPED.
+Verified no Windows8445/session tasks/UDP4468 or WSL8445/loopback18791 residual;
+existing443→172.17.152.10:8444 preserved. No historical grant edited.
+Private evidence `~/.local/state/ghar-sajag/gs117-tc001/services-usb-20261110T174958Z/`
+contains APK/receipt/fixture backup, UI, launch/admission manifest, UAC command/
+result and cleanup. Jira GS-117#11966 records result; ticket remains In Progress.
+Next: resolve normal Windows UAC owner interaction with phone unlocked/app open,
+then resume existing bounded ingress and one motion_event_once only after live
+guards pass. Do not repeat receipt tooling, Engineering implementation or PIR.
+
 ## USB-first Engineering execution checkpoint — 2026-11-10 17:33 UTC
 
 Source checkpoint `32f41279172214c769cd5ce67b8067694bf8a727` follows

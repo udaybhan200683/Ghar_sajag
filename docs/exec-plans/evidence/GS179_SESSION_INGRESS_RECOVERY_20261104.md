@@ -1,3 +1,18 @@
+## GS-117 retry — OS elevation stopped before launcher — 2026-11-10
+
+No source change. Existing standing authority/immutable candidate lease and
+bounded launchers reused; WSL8445/PG/time ready. Normal UAC consent process
+observed, but parent returned launched=false / System.InvalidOperationException
+"The operation was canceled by the user"; no elevated child/session receipt.
+No Windows8445/tasks created. Earlier timeout is not a proven forwarding defect.
+Task-owned services stopped; final8445/tasks/UDP4468 absent,443 unchanged.
+Android device/APK verification now passes; no event injected. Detailed receipt,
+UAC, cleanup and operator checkpoint in the existing
+[GS-117 handoff](GS117_ONE_EVENT_USB_ANDROID_READINESS_20261106.md).
+Private evidence services-usb-20261110T174958Z. No blind elevation retry.
+GS-117 comment11966 acknowledged; separate GS-179 comment write timed out,
+so its publication is UNCONFIRMED and was not blindly repeated.
+
 ## USB-first Engineering execution checkpoint — 2026-11-10 17:33 UTC
 
 Source checkpoint `32f41279172214c769cd5ce67b8067694bf8a727` follows

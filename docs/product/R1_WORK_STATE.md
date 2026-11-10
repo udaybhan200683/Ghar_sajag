@@ -1,3 +1,17 @@
+## GS-117 Android device/APK resolved; UAC blocker — 2026-11-10
+
+Resumed151596f; no source changes. Approved ADB/AndroidReady now PASS;
+current installed APK f44df9a8… matches prior signature-verified CI artifact;
+refreshed private receipt, no reinstall. Phone later locked; UI NOT_VERIFIED.
+Existing WSL ingress/PG/time ready and static fixture/enrollment PASS, but normal
+UAC returned "The operation was canceled by the user", launched=false/no elevated
+child. No Windows8445/tasks or event. Services stopped,443/history preserved.
+USB E2E NOT_RUN; formalTC0010/5; no C3 serial/injection/reset/firmware operation.
+Exact checks, private evidence, cleanup and next operator prerequisite are in
+[existing GS-117 handoff](../exec-plans/evidence/GS117_ONE_EVENT_USB_ANDROID_READINESS_20261106.md).
+Jira11966; prior regression results/release failures unchanged. Next: normal UAC
+confirmation with handset unlocked/app open, then existing single Run path.
+
 ## USB-first Engineering execution checkpoint — 2026-11-10 17:33 UTC
 
 Source checkpoint `32f41279172214c769cd5ce67b8067694bf8a727` follows
