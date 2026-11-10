@@ -359,7 +359,7 @@ function Get-PhysicalAuthority([string]$Reference,[int]$PidValue,[string]$Direct
         Stop-WithError 'physical_session_inputs_invalid'
     }
     if ($Window -eq 'DEV') {
-        if ($Reference -ne 'GS-179#11916' -or $ApprovalHash -notmatch '^[a-f0-9]{64}$' -or
+        if ($Reference -notin @('GS-179#11916','GS-179#11947') -or $ApprovalHash -notmatch '^[a-f0-9]{64}$' -or
             $LeaseId -notmatch '^[a-f0-9]{64}$') { Stop-WithError 'physical_session_network_inputs_invalid' }
     } elseif (($Window -and ($Window -notin @('A','B') -or $Reference -ne 'GS-117#11910' -or
             $ApprovalHash -notmatch '^[a-f0-9]{64}$')) -or

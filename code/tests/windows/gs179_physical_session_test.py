@@ -634,5 +634,18 @@ if($script:continued -ne 1){throw 'expired outer renewed'}
 """)
         print('CASE GS179-ENGINEERING-HANDOFF-001 PASS')
 
+    def test_standing_reference_reaches_mandatory_helper_integrity_guard(self):
+        result=self.powershell(r"""
+function Stop-WithError($reason){throw $reason}
+function Get-FileHash {param($Path,$Algorithm) return @{Hash=('b'*64)}}
+$results=@()
+foreach($ref in @('GS-179#11916','GS-179#11947','GS-179#99999')) {
+ try{Get-PhysicalAuthority $ref 123 '/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/services-test' ('a'*64) 'DEV' ('c'*64) ('d'*64)|Out-Null;throw 'expected rejection'}
+ catch{$results+=$_.Exception.Message}
+}
+ConvertTo-Json -InputObject $results -Compress
+""")
+        self.assertEqual(result,['physical_session_authority_helper_changed','physical_session_authority_helper_changed','physical_session_network_inputs_invalid'])
+
 if __name__ == "__main__":
     unittest.main()
