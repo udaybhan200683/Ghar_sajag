@@ -2805,7 +2805,9 @@ def engineering_functional_session(procedure, *, bootstrap_review=None):
         run={'session_id':secrets.token_hex(16),'started_at':datetime.now(timezone.utc).isoformat()}
         endpoint._network_event('gs117_engineering_input_started', **run, operation=procedure,
                                 image_qualification='NOT_VERIFIED')
-        policy=dict(profile='GS117_ENGINEERING_FUNCTIONAL',owner_approval_ref=admission['owner_approval_ref'],
+        policy=dict(profile='GS117_ENGINEERING_FUNCTIONAL',
+                    owner_approval_ref=('GS-D034:standing-s3-runtime-bootstrap'
+                        if procedure == 's3_runtime_bootstrap' else admission['owner_approval_ref']),
                     identity=admission['identity'])
         try:
             yield policy,run
