@@ -1,3 +1,12 @@
+## 2026-11-11 — existing activation stopped at normal OS consent
+
+Source unchanged; DELL console1 active and consent PID9608/session1 observed.
+RunAs returned OS cancellation, no elevated child/session receipt. UAC policy
+unchanged; no blind retry. Existing WSL service readiness passed, Windows8445
+never exposed. Temporary services stopped;443 preserved. GS-117#11967 and
+[existing GS-117 handoff](GS117_ONE_EVENT_USB_ANDROID_READINESS_20261106.md)
+contain evidence and exact owner-operated normal-elevation check.
+
 ## GS-117 retry — OS elevation stopped before launcher — 2026-11-10
 
 No source change. Existing standing authority/immutable candidate lease and

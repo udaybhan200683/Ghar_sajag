@@ -1,3 +1,43 @@
+## 2026-11-11 — normal UAC reached secure desktop; no elevated child
+
+Resumed `3fccfbbe5432ec4ac2a729cb2397c855b32ff332`, canonical branch,
+local/remote equal, tracked clean; context PASS2026-11-10.003. Source unchanged.
+AndroidReady/current device/package PASS; fresh read-only installed APK digest
+again f44df9a80674a0746446de96b5948cf33e3c4fa3031e1d751d1c1eb12cf322e7,
+matching existing receipt/artifact. No reinstall. Initial keyguard showing=false
+while Dozing did not prove visible UI: wake224 exposed lockscreen showing=true.
+App MainActivity resumed but screenshot/accessibility black/empty; UI/backend/
+event NOT_VERIFIED. Operator unlock requested, no lock bypass.
+
+Existing bounded ingress/time/portal and standing Engineering API reused.
+Lease e20644c8506eaa4f8492c98708e3a3964bd61c58120b06dccf748c90ff2504a3,
+02:13:44.609227Z–03:13:44.609227Z; no exposure activation. PG/HTTPS/fixture/
+enrollment/static Android readiness PASS; WSL8445 ready, actual Hub auth NO/UNKNOWN.
+Windows DELL console1 Active; consent PID9608/session1 observed. Read-only UAC
+policy EnableLUA1,PromptOnSecureDesktop1,ConsentPromptBehaviorAdmin5; unchanged.
+Normal RunAs with established process-scoped execution-policy option returned
+launched=false, InvalidOperationException "The operation was canceled by the
+user", HResult-2146233079. No elevated child/session receipt; launcher never ran.
+Prompt visibility/operator intent not inferred, earlier timeout not retroactively
+proved. No blind retry; no reason demonstrated for source/security-policy change.
+
+No web Run POST, C3 COM open, S3 UART, INJECT_MOTION, reset/bootstrap/firmware/
+Scope A or new EventKey. All event boundaries NOT_RUN; USB E2E BLOCKED,
+formalTC0010/5 and original latches unchanged. Existing regression results remain
+historical; only actual context/Android/hash/portal/OS/cleanup checks executed.
+Task-owned ingress157461, time157462/Windows13004, portal157463 stopped by identity.
+Ingress logged GS117_BOUNDED_INGRESS_STOPPED; verified Windows8445/tasks/UDP4468
+and WSL8445/loopback18791 absent; existing443→172.17.152.10:8444 preserved.
+Private evidence services-usb-20261111T021251Z under existing GS117 state;
+Jira GS-117#11967 acknowledged, In Progress. No duplicated GS179 comment.
+
+Next single operator check: open Windows PowerShell manually with Run as
+administrator and complete genuine UAC; in that shell verify
+`([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)`
+returns True. This proves normal interactive elevation, not hardware permission.
+Then resume existing bounded activation with handset unlocked/app visible.
+No new issuer/readback/profile/firmware work or repeated Jira consent required.
+
 ## Android receipt refreshed; normal UAC rejected — 2026-11-10 17:58 UTC
 
 Resumed canonical branch at `151596f76a09b8a7f30178e431fccbdf9097c5f5`,

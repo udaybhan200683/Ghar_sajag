@@ -1,3 +1,13 @@
+## GS-117 — 2026-11-11 UAC interaction checkpoint
+
+Resumed3fccfbb; source unchanged, context PASS. Android device/package/current
+APK digest PASS; actual UI locked/NOT_VERIFIED. Normal RunAs reached active
+console1 consent process then OS-reported cancellation, no elevated child.
+No Windows8445 activation or event; task services stopped,443/history preserved.
+Jira11967; detailed evidence/next manual normal-elevation check in
+[existing handoff](../exec-plans/evidence/GS117_ONE_EVENT_USB_ANDROID_READINESS_20261106.md).
+USB E2E NOT_RUN; formalTC0010/5. No regression rerun or new framework.
+
 ## GS-117 Android device/APK resolved; UAC blocker — 2026-11-10
 
 Resumed151596f; no source changes. Approved ADB/AndroidReady now PASS;
