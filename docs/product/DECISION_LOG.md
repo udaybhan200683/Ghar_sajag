@@ -1863,3 +1863,15 @@ prerequisite to running unchanged images. No product/release requirement was
 waived and no LOCKED decision or context-version change was made. Evidence and
 the separate one-use approval proposal are recorded in
 `docs/exec-plans/evidence/GS117_NO_FLASH_USB_ANDROID_E2E_AUDIT_20261106.md`.
+
+### GS-D034 — standing Engineering S3 runtime bootstrap clarification (LOCKED, owner chat 2026-11-11)
+Routine registered-lab authorization includes one operator-initiated bounded
+S3-only, no-intentional-reset GS40 TEST_ONLY fresh-challenge configuration
+exchange per execution. Reuse existing admission, source-review receipts, shared
+locks, immutable audit, revocation and bounded network leases. No recurring Jira
+consent; normal OS UAC still applies. Source review must bind actually executed
+tests and current reviewed source before execution. Configuration is RAM-only;
+normal guarded operational time/session persistence remains. Flash/reset/erase,
+commissioning/enrollment/key changes and production remain excluded. No blind
+retry. C3 cold-start correction11975 remains ON HOLD. Implementation/physical
+qualification are separate and not established by this decision.
