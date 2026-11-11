@@ -1,3 +1,48 @@
+
+## GS-117 — 2026-11-11 18:02 UTC real C3 observation: STATE_ABSENT
+
+Resumed c1aff64, context PASS; unchanged source and prior console186 PASS reused.
+Normal UAC succeeded: administrator child8268/session1. Existing SessionStart
+activated192.168.1.6:8445→172.17.152.10:8445 under fresh one-hour lease
+17:55:11–18:55:11 UTC, idle deadline18:25:11; Tick and SYSTEM Expiry XML exported.
+The private receipt-export wrapper initially selected a historical closed session;
+read-only elevated export corrected the lookup to this lease, without a second
+SessionStart. Current receipt was open. No source/infrastructure change.
+
+AndroidZA2237MRHN/package/version and current installed APK f44df9a8… PASS;
+read-only installed-byte digest matched prior signature-verified artifact. Preserved
+old receipt/fixture; refreshed receipt. Actual screenshot shows unlocked Parivar
+Saathi Home with historical STALE events. No reinstall. Portal fixture/enrollment/
+Engineering admission/Windows+WSL ingress/Android readiness all PASS.
+
+Existing /api/run motion_event_once returned202 for
+TC001-USB-ONE-EVENT-20261111T180004Z-f77ed2d5. Exact COM4/COM10 metadata PASS;
+COM4 opened once, S3 UART untouched. The30,000ms existing readiness loop sent15
+GET_STATE queries and collected219 bytes/two lines, with zero drops, filtering,
+truncation or deadline overrun. HIL_STATE count0, GET_STATE ACK count0:
+STATE_ABSENT. All nine fields are UNKNOWN/null, not proven wrong/zero. No startup
+or reset marker captured; incidental COM-open reset remains possible/unproven.
+The unchanged guard returned TC001_INSTALLED_C3_HIL_MODE_UNVERIFIED before
+INJECT_MOTION. Input0, fresh EventKeyNONE, ACK/CloudSync/PG/API/APK event NOT_RUN.
+No authenticated S3 ingress trace exists; Hub authentication remains UNVERIFIED.
+
+Existing C3 source dispatches exact GET_STATE and logs state+ACK; this observation
+does not establish running-image mismatch, console routing, HIL task or runtime
+root cause. No firmware fix, reset, commissioning, readback or serial retry.
+Private evidence services-usb-20261111T175402Z; report SHA256
+2880aea6781ff2861bf75ebd47288b7649f81ce07ce9af31fa5ea28c4263659f.
+Formal opticalTC0010/5; running images UNKNOWN; firmware/latches preserved.
+Next: diagnose existing C3 USB command responsiveness from a bounded receive-path
+observation before any injection or separately approved firmware/state operation.
+
+Cleanup verified: existing explicit SessionClose returned0; final Windows
+TCP8445=0, temporary session tasks=0, UDP4468=0; WSL8445/portal18791 stopped.
+Existing443→WSL8444 forwarding and backend/PostgreSQL remain. Controller-loss
+cleanup had not removed forwarding when checked; explicit close was used and
+verified, not reported as automatic cleanup PASS. Jira GS-117#11971 records
+actual result. No source changes or repeated regression suites; reused console186
+and prior affected validation. Documentation-only delivery follows.
+
 ## GS-117 — 2026-11-11 C3 diagnostic preservation; UAC cancelled
 
 Canonical branch `feature/r1-commercial-baseline`, starting local/origin HEAD
