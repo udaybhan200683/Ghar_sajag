@@ -321,7 +321,7 @@ function Close-PhysicalSession($State) {
 function Set-PhysicalExpiryTask($state, [switch]$Update) {
     $exe=Join-Path $PSHOME 'powershell.exe'
     $expiryArgs="-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$($state.script)`" -Action SessionClose -EndpointKind PhysicalHubIngress -SessionFile `"$SessionFile`""
-    $settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 2) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+    $settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 2) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
     $at=if($state.cleanupDeadline){$state.cleanupDeadline}else{$state.deadline}
     $force=@{};if($Update){$force=@{Force=$true}}
     Register-ScheduledTask -TaskName $state.expiryTask -Action (New-ScheduledTaskAction -Execute $exe -Argument $expiryArgs) `
@@ -334,7 +334,7 @@ function Register-PhysicalSessionTasks($state) {
     try {
         $exe=Join-Path $PSHOME 'powershell.exe'
         $tickArgs="-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$($state.script)`" -Action SessionTick -EndpointKind PhysicalHubIngress -SessionFile `"$SessionFile`""
-        $settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 2) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+        $settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 2) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
         # Independent SYSTEM expiry/startup cleanup survives WSL/controller exit.
         Set-PhysicalExpiryTask $state
         $state.timeProcess=(Get-PhysicalObservation $state).timeProcess

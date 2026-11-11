@@ -545,7 +545,7 @@ def active_hub_ingress_listener() -> dict:
              "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
              "-File", script, "-Action", "Audit", "-EndpointKind",
              "PhysicalHubIngress", "-WslAddress", current_wsl],
-            capture_output=True, text=True, timeout=15, check=False)
+            capture_output=True, text=True, timeout=60, check=False)
         if audit_result.returncode != 0:
             raise ValueError("windows_physical_ingress_audit_failed")
         audit = json.loads(audit_result.stdout.strip())

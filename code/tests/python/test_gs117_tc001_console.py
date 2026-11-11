@@ -1594,12 +1594,20 @@ class TC001Test(unittest.TestCase):
 
     def test_hub_ingress_requires_wsl_listener_and_active_windows_route(self):
         patches = self._mock_live_ingress_checks(self._physical_ingress_audit())
-        with patches[0], patches[1], patches[2]:
+        with patches[0], patches[1], patches[2] as run:
             result = tc.active_hub_ingress_listener()
+            self.assertEqual(run.call_args.kwargs["timeout"], 60)
         self.assertEqual(result["status"], "PASS")
         self.assertEqual(result["listener"], "WSL_AND_WINDOWS_ACTIVE")
         self.assertEqual(result["authenticated_hub"], "NOT_VERIFIED")
         self.assertEqual(result["fresh_physical_receipt"], "NOT_VERIFIED")
+        patches = self._mock_live_ingress_checks(self._physical_ingress_audit())
+        with patches[0], patches[1], patch.object(tc.subprocess, "run", side_effect=[
+                SimpleNamespace(returncode=0, stdout="LISTEN 0 64 172.17.152.10:8445 0.0.0.0:*\n"),
+                subprocess.TimeoutExpired("bounded_audit", 60)]):
+            timed_out = tc.active_hub_ingress_listener()
+        self.assertEqual(timed_out["status"], "NOT_VERIFIED")
+        self.assertEqual(timed_out["reason"], "TimeoutExpired")
 
     def test_hub_ingress_blocks_wsl_socket_without_windows_listener(self):
         patches = self._mock_live_ingress_checks(

@@ -125,7 +125,7 @@ Close-PhysicalSession $state
     def test_expiry_is_independent_and_registered_before_exposure(self):
         result=self.powershell(r"""
 $script:registered=@();$SessionFile='C:\protected\session.json'
-function New-ScheduledTaskSettingsSet {param([switch]$StartWhenAvailable,$MultipleInstances,$ExecutionTimeLimit,$RestartCount,$RestartInterval) return @{recover=$RestartCount;start=$StartWhenAvailable.IsPresent} }
+function New-ScheduledTaskSettingsSet {param([switch]$StartWhenAvailable,$MultipleInstances,$ExecutionTimeLimit,$RestartCount,$RestartInterval,[switch]$AllowStartIfOnBatteries,[switch]$DontStopIfGoingOnBatteries) return @{recover=$RestartCount;start=$StartWhenAvailable.IsPresent;batteryStart=$AllowStartIfOnBatteries.IsPresent;batteryContinue=$DontStopIfGoingOnBatteries.IsPresent} }
 function New-ScheduledTaskAction {param($Execute,$Argument) return @{exe=$Execute;args=$Argument} }
 function New-ScheduledTaskTrigger {param([switch]$Once,$At,[switch]$AtStartup,$RepetitionInterval,$RepetitionDuration) return @{once=$Once.IsPresent;boot=$AtStartup.IsPresent;at=$At} }
 function Register-ScheduledTask {param($TaskName,$Action,$Trigger,$User,$RunLevel,$Settings,$ErrorAction)
@@ -140,6 +140,9 @@ Register-PhysicalSessionTasks $state
 @{tasks=@($script:registered);owned=$state.exposureOwned;expiryHash=$state.expiryHash}|ConvertTo-Json -Depth 8 -Compress
 """)
         expiry,tick=result['tasks']
+        for task in (expiry,tick):
+            self.assertTrue(task['settings']['batteryStart'])
+            self.assertTrue(task['settings']['batteryContinue'])
         self.assertEqual(expiry['user'],'SYSTEM')
         self.assertEqual(expiry['name'],'own-expiry')
         self.assertTrue(any(t['boot'] for t in expiry['triggers']))

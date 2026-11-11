@@ -1,3 +1,36 @@
+## 2026-11-11 correction validated offline; fresh live qualification pending
+
+Implemented only controller Audit timeout15→60s and battery-independent settings
+for existing Tick/SYSTEM Expiry jobs. Session3600s/idle1800s, source/authority/
+trust/authentication/firewall and immutable snapshot checks unchanged. Extended
+existing registered production-function tests: actual settings switches asserted
+on both jobs; controller accepts valid measured audit and still rejects timeout.
+Executed console182/182, Windows mocks19/19, framework55/55, mapping22/22 PASS;
+Python compile/diff checks PASS. No Node/Hub/backend logic or target image changed.
+Old session46da1f768e9043c28fc74e25fa033e8e closed with task-owned Tick stopped
+before Close; tasks removed,443 preserved, all task services stopped. Original
+failed close/termination evidence retained. Fresh protected deployment must
+verify battery XML, reconciliation and cleanup; no RF/USB event has run yet.
+
+## 2026-11-11 live findings — minimal correction before retry
+
+BUG_CLASSIFICATION=R1_FIX (bounded cleanup safety) / TEST_INFRA_ONLY (readiness timeout)
+REQUIREMENT_SOURCE=GS-D034; R1_RELEASE_CONTRACT.md; existing bounded-session cleanup contract
+TASK_SCOPE=GS-117 existing USB E2E; GS-179 direct ingress dependency
+OUT_OF_SCOPE=authority redesign; firmware; product pipeline; release waivers
+
+Live UAC child14756 administrator=true/session1, launcher exit0 and restricted
+Windows8445 forwarding verified. Successful unchanged Audit took45.19s; existing
+controller15s bound falsely reports NOT_VERIFIED. Proposed minimal bound60s,
+still fail-closed on timeout/wrong mapping/trust; no session deadline extension.
+Actual exported Tick and SYSTEM Expiry XML both DisallowStartIfOnBatteries=true
+and StopIfGoingOnBatteries=true, inconsistent with independent security cleanup.
+Set only these two existing jobs to allow battery operation/not stop on transition.
+Observed task termination is preserved; its exact cause is not yet proven.
+Initial Close did not complete; stopping only owned Tick then existing SessionClose
+succeeded, state/task evidence retained, no event injected. Test existing production
+function registration and controller success/timeout rejection before fresh lease.
+
 ## 2026-11-11 — existing activation stopped at normal OS consent
 
 Source unchanged; DELL console1 active and consent PID9608/session1 observed.
