@@ -1,3 +1,86 @@
+## 2026-11-11 — UAC/ingress restored; real C3 readiness blocked before input
+
+Canonical `/home/udaybhan/projects/Ghar_sajag_r1`, branch
+`feature/r1-commercial-baseline`, starting local/remote
+`4cdede5750e3cf8e930f261fe83f39960c59f907`, tracked clean, context PASS003.
+Reused existing Engineering authority, bounded launchers, `/api/run`
+`motion_event_once`, serial helper and actual product verification pipeline.
+No Scope A/issuer/image-refresh redesign, firmware deployment, new simulator,
+PIR stimulus or independent reviewer requirement.
+
+Normal automatic UAC now PASS: real administrator children14756/1668/10308,
+session1; reviewed SessionStart exit0. Owner-reported manual True was capability
+evidence, not substituted for these receipts. Actual .6:8445→172.17.152.10:8445
+on Airtel_Agrim Private, existing LAN firewall scope and443 verified. New evidence
+identified only host defects: successful unchanged Audit45.19s vs15s bound;
+fixture Get-NetIPAddress twice exceeded8s (later5.266s success); Tick/SYSTEM
+Expiry XML stopped/disallowed on battery. Minimal fixes committed/pushed:
+`4c6740b67ca15d4fa84e30cf16d88c0974f9154c` Audit60s and battery-independent jobs;
+`f28703230059d90fe360149cb89f1d431a3cc321` bounded Wi-Fi lookup30s. No retry,
+trust/authentication/ownership/TLS/session-duration relaxation. Prior termination
+cause not proved. Fresh XML false/false on both jobs, SYSTEM SID S-1-5-18 verified.
+
+Executed this session: console182/182, endpoint25/25, Windows production-function
+mocks19/19, framework55/55, mapping22/22 PASS; strengthened existing registered
+cases check battery switches and bounded timeout rejection. Endpoint25/console182
+rerun after final helper change PASS; Windows/framework/mapping sources unaffected
+by that final lookup-only change. Compilation/diff checks PASS. No C++/target
+source changed, no target rebuild or unrelated release campaign. Existing aggregate
+Node30/32,Hub53/56,Contract48/50 failures remain unchanged; no release PASS.
+
+First web invocation `TC001-USB-ONE-EVENT-20261111T041359Z-08c615e3` was
+PRESESSION_GUARD_DENIED/TimeoutExpired in8s Wi-Fi lookup, no reservation/COM/input.
+Preserved unchanged. After correction, actual existing web route HTTP202 queued
+`TC001-USB-ONE-EVENT-20261111T042320Z-25e6bcad`, source f287032. Environment,
+exact COM4/COM10 metadata, enrollment and Android package readiness PASS;
+Engineering automatic reservation succeeded. Actual COM4 opened for existing
+GET_STATE guard, no S3 UART. At04:25:05Z helper returned
+`TC001_INSTALLED_C3_HIL_MODE_UNVERIFIED`, before its INJECT_MOTION write.
+Result REAL_BOARD_USB_TRIGGERED_E2E=BLOCKED; injection0, EventKeyNONE;
+ACK/CloudSync/PG business-event/API-event/APK-event NOT_RUN.
+
+Do not infer which guard field failed. The predicate combines mode/hil flags,
+runtime_live/sensing_live>0, pending_inject/retained/in_flight=0 and GET_STATE ACK.
+The existing failed run path discards c3_lines/mode_line; exact values and radio
+cause UNKNOWN. Original physical_operations=[] does not prove no COM access:
+a separate source-anchored private addendum records the real pre-injection open.
+No second serial attempt, explicit reset, bootstrap, input retry, ROM/NVS/flash,
+key/eFuse operation or fixture change. Incidental COM-open reset risk accepted;
+actual incidental reset not verified. Firmware unchanged; running hashes UNKNOWN,
+image qualification STALE/NOT_VERIFIED, old latches #11897(1/1)/#11886 preserved.
+
+Actual Android device ZA2237MRHN/package/version3 and installed bytes
+f44df9a80674a0746446de96b5948cf33e3c4fa3031e1d751d1c1eb12cf322e7 match
+trusted prior artifact; no reinstall. Unlocked real Home visibly captured,
+showing historical stale events; no fresh-event acceptance. Runtime
+real_hub_authenticated=NO/hub_connected=NO are fixed status placeholders
+(gs179_hub_ingress_runtime.py::status), not target connection evidence. No
+successful physical-Hub application request observed; actual Hub auth UNVERIFIED.
+
+Final protected session b5fecfb456df4a61b692d9d4eaf9ee57, lease01455e6c…,
+start04:19:02.515028Z, absolute05:19:02.515028Z, idle04:49:02.515028Z.
+PS snapshot SHA A7D650089E742693C7C6E4DE5A38929047FCFF73A6E6537C6AB373D76C7AB3C2;
+authority helper SHA aa9634f781073bbe8b1a2e1c12b61f8e199d4a0c0730b73dba7a241c16f2a188.
+Stopping controller165109 at04:26:28Z triggered existing automatic cleanup;
+8445/tasks absent by04:27:28Z, before idle/absolute deadlines. Then task-owned
+ingress165107/time165108 and Windows time15840 stopped; ingress STOPPED receipt.
+Final Windows8445/tasks/UDP4468 and WSL8445/loopback18791 absent;443 unchanged.
+SYSTEM expiry registered/pinned but not forced or claimed executed. Earlier
+session4f6c… also automatically closed on controller loss; first46da… needed
+owned Tick quiesced before explicit Close. Original close failure retained.
+
+Final private evidence `~/.local/state/ghar-sajag/gs117-tc001/services-usb-20261111T041834Z/`
+links040944Z→035053Z; source/test SHA manifest, logs, original reports, execution
+addendum, actual UI, protected snapshots/task XML, UAC and cleanup retained.
+Jira GS-117#11968, GS-179#11969. GS-117 Highest/In Progress; formal optical
+TC0010/5, TC001_READY=NO, historical GS-119 optical evidence separate.
+Next exact engineering action: retain the C3 guard's actual bounded GET_STATE
+reply through the existing helper error-evidence path, to distinguish the failed
+predicate before any new input attempt. Do not assume a firmware fault or require
+Scope A/another architecture/authorization cycle. All490 preexisting untracked
+nested paths preserved. Source f287032 local/remote verified equal before this
+validated documentation closeout; final delivery hash is in Git/final handoff.
+
 ## 2026-11-11 — normal UAC reached secure desktop; no elevated child
 
 Resumed `3fccfbbe5432ec4ac2a729cb2397c855b32ff332`, canonical branch,

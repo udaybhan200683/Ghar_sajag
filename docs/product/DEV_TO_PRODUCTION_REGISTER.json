@@ -270,7 +270,7 @@
         "backup/restore and outage recovery drills"
       ],
       "acceptance": "The approved production backend and database meet current availability, durability, access, backup/restore, monitoring and endpoint-identity criteria.",
-      "evidence": "Isolated local PostgreSQL/backend tests; no commercial hosting or production recovery claim.",
+      "evidence": "Isolated local PostgreSQL/backend tests; no commercial hosting or production recovery claim. Development-only 2026-11-11: source4c6740b/f287032, actual UAC/restricted8445 and controller-loss cleanup observed; SYSTEM registration battery-independent. GS-117 blocked at C3 pre-input readiness; no physical event/release acceptance. Evidence: GS117_ONE_EVENT_USB_ANDROID_READINESS_20261106.md; Jira11968/11969.",
       "release_blocking": true,
       "gate_status": "NOT_RUN",
       "accountable_reviewer": "GS-173 owner; GS-177 hosting; GS-179 backend",

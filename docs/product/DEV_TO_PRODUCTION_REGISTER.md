@@ -1,3 +1,11 @@
+## 2026-11-11 development-only qualification update
+
+GS-D034 standing bounded ingress/UAC and automatic controller-loss cleanup
+observed; current SYSTEM registration is battery-independent. Product event
+remains BLOCKED at real C3 pre-injection readiness; Hub auth/event/APK outcome
+not qualified. No production or image-qualification gate waived. See existing
+GS-117/GS-179 handoffs and source4c6740b/f287032.
+
 ## GS-D034 LOCKED clarification — USB-first functional Engineering admission — 2026-11-10
 
 Owner GS-117#11958 / GS-178#11959 / GS-179#11960 / GS-116#11961 /

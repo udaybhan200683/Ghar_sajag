@@ -1,3 +1,21 @@
+## GS-117 — 2026-11-11 real C3 guard reached; ingress restored
+
+Normal automatic UAC/admin receipts and actual bounded .6:8445 ingress PASS.
+Minimal host fixes4c6740b/f287032: audit60s, Wi-Fi lookup30s, battery-independent
+existing Tick/SYSTEM jobs. Actual deployed XML/automatic controller-loss cleanup
+verified;443 preserved. Executed endpoint25/console182/Windows19/framework55/
+mapping22 PASS; no firmware/product pipeline change or release waiver.
+Existing portal Run042320 reached COM4 GET_STATE, then
+TC001_INSTALLED_C3_HIL_MODE_UNVERIFIED before INJECT_MOTION. Input0/EventKeyNONE;
+failed predicate field UNKNOWN because current failed helper path discards lines.
+No retry/S3 UART/reset/bootstrap/flash. Android actual Home visible/package/hash
+PASS, fresh event NOT_RUN; actual Hub authentication UNVERIFIED. Firmware/image
+qualification and historical latches unchanged, formalTC0010/5, GS-117 In Progress.
+Jira11968/11969; final services/tasks/8445/time/portal stopped,443 unchanged.
+See [existing handoff](../exec-plans/evidence/GS117_ONE_EVENT_USB_ANDROID_READINESS_20261106.md)
+for exact runs, limits, hashes, failures and evidence. Next: bounded capture of
+actual C3 pre-injection state through existing helper before another input.
+
 ## GS-117 — 2026-11-11 UAC interaction checkpoint
 
 Resumed3fccfbb; source unchanged, context PASS. Android device/package/current

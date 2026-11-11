@@ -1,3 +1,17 @@
+## 2026-11-11 final live result — scoped correction delivered
+
+Source4c6740b/f287032 pushed/remote verified. Actual normal UAC now succeeds;
+restricted8445 forwarding and deployed SYSTEM/battery settings verified.
+Controller Audit60s/Wi-Fi query30s remain bounded/fail-closed; no policy extension.
+Executed endpoint25/console182/Windows19/framework55/mapping22 PASS. Two actual
+controller-loss cleanup observations removed owned8445/tasks automatically;
+final443 preserved and all task-owned services stopped. SYSTEM expiry configured,
+not claimed executed. Final sessionb5fecfb…/lease01455e… and exact limits/evidence
+are in [GS-117 handoff](GS117_ONE_EVENT_USB_ANDROID_READINESS_20261106.md).
+GS-117 then reached real COM4 but HIL readiness failed before stimulus; no event,
+actual Hub authentication UNVERIFIED. Static runtime NO is not target evidence.
+Jira GS-11711968 / GS-17911969. No extra firmware/authority framework work.
+
 Second lookup-bound correction executed endpoint25/25 and console182/182 PASS;
 existing private-address, TLS/SNI, timeout/error propagation and qualification
 separation assertions retained. Windows19/framework55/mapping22 receipts from

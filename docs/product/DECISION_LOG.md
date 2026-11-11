@@ -1,3 +1,11 @@
+## GS-D034 implementation qualification note — 2026-11-11
+
+No requirement change: normal UAC/standing bounded ingress now demonstrated,
+with measured host-probe bounds and battery-independent existing cleanup jobs.
+Automatic controller-loss cleanup observed; actual product test stopped at the
+C3 pre-input guard, not a Scope A/image-qualification gate. No release/optical
+acceptance. Exact evidence/status in the [existing GS-117 handoff](../exec-plans/evidence/GS117_ONE_EVENT_USB_ANDROID_READINESS_20261106.md).
+
 ## GS-D034 LOCKED clarification — USB-first functional Engineering admission — 2026-11-10
 
 Owner GS-117#11958 / GS-178#11959 / GS-179#11960 / GS-116#11961 /
