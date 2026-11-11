@@ -2735,6 +2735,7 @@ def _engineering_bootstrap_files():
             root/'code/tools/local/gs117_tc001_console.py',
             root/'code/tools/local/gs117_bootstrap_evidence.py',
             root/'code/tools/hil/gs40_test_bootstrap.py',
+            root/'code/tools/local/gs179_verified_endpoint.py',
             root/'code/tests/python/test_gs117_tc001_console.py']
 
 

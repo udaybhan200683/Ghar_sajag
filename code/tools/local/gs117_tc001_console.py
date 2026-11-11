@@ -457,6 +457,8 @@ def powershell(action: str, fixture: dict | None = None) -> object:
                "-NoProfile", "-NonInteractive", "-Command",
                'py -3 "' + script + '" "' + encoded + '"']
     timeout = 90 if action in {"AndroidVerify", "AndroidVerifyDecision"} else 50
+    if action == "ObserveNode":
+        timeout = max(timeout, payload["observation_seconds"] + 20)
     result = subprocess.run(command, capture_output=True, text=True, timeout=timeout, check=False)
     try:
         value = json.loads(result.stdout.strip() or "[]")

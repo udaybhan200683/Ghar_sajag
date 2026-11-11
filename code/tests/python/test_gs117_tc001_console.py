@@ -3926,6 +3926,17 @@ class AutomaticEngineeringMotionTest(unittest.TestCase):
         self.assertFalse(controller.lock.locked())
 
 
+class ObserveNodeTimeoutTest(unittest.TestCase):
+    def test_parent_wait_covers_maximum_bounded_node_observation(self):
+        fixture={"c3":{"port":"COM4","usb_hwid":"x","serial_number":"c3"},
+                 "s3":{"port":"COM10","usb_hwid":"y","serial_number":"s3"},
+                 "observation_seconds":60}
+        with patch.object(tc.subprocess,"check_output",return_value="helper.py"), \
+             patch.object(tc.subprocess,"run",return_value=subprocess.CompletedProcess([],0,'{}','')) as run:
+            tc.powershell("ObserveNode",fixture)
+        self.assertGreaterEqual(run.call_args.kwargs["timeout"],80)
+
+
 class S3OnlyBootstrapTest(unittest.TestCase):
     def config(self):
         return {"profile":"GS117_DEV_TEST_ONLY", "home_id":"gs177-test-product",
