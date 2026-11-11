@@ -1069,3 +1069,39 @@ cleanup had not removed forwarding when checked; explicit close was used and
 verified, not reported as automatic cleanup PASS. Jira GS-117#11971 records
 actual result. No source changes or repeated regression suites; reused console186
 and prior affected validation. Documentation-only delivery follows.
+
+## GS-117 — 2026-11-11 C3 command response diagnosed
+
+Baseline596d4c3/local=origin, context PASS; source unchanged. Inspected original
+protected run first:219 bytes/two lines were counted but their text was NOT
+persisted. c1aff64 retained selected state/startup fields only; original content
+cannot be recovered/classified. This is an evidence limitation, not proof of
+wrong firmware or USB routing. Existing host writes completed without exception,
+but no byte-count assertion/device parser receipt was recorded.
+
+Existing firmware: hil_control.cpp control_task reads stdin with fgetc, ignores
+CR, dispatches LF-delimited GET_STATE, emits hil_log_state and HIL_OK. Task starts
+only with GS_HIL_CONTROL after runtime/FOTA initialization and AEAD check.
+Reviewed expected artifact config uses native USB_SERIAL_JTAG, secondary NONE,
+GS_HIL_CONTROL1/HIL_BUILD0/PHYSICAL_WAKE0. Checked-in default UART config is not
+the effective expected artifact config. Installed/running hash remains UNKNOWN.
+
+After evidence/source inspection, reused existing ObserveNode once for10seconds,
+115200/8N1/default serial settings, exact COM4 identity, DTR/RTS low with reset
+risk acknowledged; S3 metadata only. No new tool/source or repeated30s loop.
+Private c3-command-observe-20261111T181047Z/observation.json preserves sanitized
+lines: GS117_DEV_REJOIN kind=6 channel=10 fragment, followed in the same collected
+line by HIL_STATE session140 retained0/in_flight0/pending_inject0,
+sensing_live0/runtime_live0, ota_slotota_0, power_modeHIL_AWAKE_TEST_ONLY,
+hil_build0/hil_control1/physical_wake0; second line HIL_OK command=GET_STATE.
+No reset/startup marker. Command handler currently responds. Precise readiness
+failure is zero sensing/runtime counters; no injection permitted. Source owner
+startup rejoin loop precedes counter publication, so this is consistent with
+incomplete authenticated rejoin, not a proven permanent firmware defect. Exact
+radio/S3 cause remains unproven. Do not bypass guard or reset/commission/flash.
+
+No INJECT_MOTION/EventKey/downstream event, formalTC0010/5. No software change or
+suite rerun; prior186/186 reused. ObserveNode closed COM4 in finally; no services
+or network exposure started, historical latches/state preserved. Next: resolve
+existing authenticated C3/S3 rejoin using non-invasive evidence and established
+recovery scope; any bootstrap/reset/state change requires its applicable approval.
