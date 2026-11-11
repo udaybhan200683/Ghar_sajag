@@ -1,4 +1,51 @@
 
+## GS-117 — 2026-11-11 authorized single S3 observation: startup blocked
+
+Owner chat explicitly approved one COM10 read-only observation and incidental
+reset/RAM-loss risk, excluding bootstrap/commission/reset/flash. Baseline2629d9e,
+local=origin/context PASS; source unchanged. Preserved prior C3 observation and
+cleanup receipt hashes before access. Verified exact COM10/E0:72:A1:D3:8D:34
+metadata and existing Engineering admission. Used existing helper exact_port,
+serial-open parameters/collect/capture and bootstrap-evidence redactor, COM10
+only,115200, DTR/RTS low before open (not reset-safe proof),90s single deadline.
+No C3 open, serial writes, intentional reset or retry. Private operator invocation
+composes existing primitives because combined observe() would also open C3.
+
+Capture90,000ms,5407 bytes,58 sanitized lines,40 filtered,zero drops/truncation/
+late bytes/deadline overruns. Port closed. Evidence:
+~/.local/state/ghar-sajag/gs117-tc001/s3-readonly-observe-20261111T183904Z/
+observation.json SHA25660be3e42329e9fcae33d6189d5fb2ccd0acef3143ce133a04be3a40f292f4908.
+Initial retained fragment includes low-uptime boot/config logs and GS40T/1
+CHALLENGE. Pre-open/pre-reset running state is unavailable; COM-open causing
+that initial boot is UNKNOWN, not asserted. At host18:40:07.836Z the Hub logged
+RX timeout stage=length bytes=0 after60s, authenticated TEST_ONLY configuration
+unavailable/startup refused ESP_ERR_TIMEOUT, abort/backtrace, then ROM
+rst0xc RTC_SW_CPU_RST and complete new boot. This ONE full autonomous restart
+is confirmed; collector boot_epoch3 counts three marker lines, not three resets.
+Post-restart: app8acab96-dirty, ELF prefix7584a1f80, loaded0x420000/ota_1,
+16MiB flash/8MiB PSRAM, another configuration challenge. No full image digest
+or automatic rollback qualification established. Challenges/key material redacted.
+
+Source start_runtime_adapter receives TEST_ONLY config before queue/radio/security
+initialization; app_main ESP_ERROR_CHECK aborts on its error. Observed current
+blocker is missing authenticated runtime configuration, BEFORE S3 rejoin receive
+readiness. No channel, peer registry, C3 receive, authenticated challenge/final/ACK
+or Hub runtime readiness observed. Registry is not shown erased/invalid; no
+re-pairing justified. This observation cannot retrospectively establish the Hub
+state during earlier C3 attempts. Startup rejection is fail-closed TEST_ONLY
+behavior, not proof the rejoin protocol is defective.
+
+Stopped after one observation. No bootstrap permitted/executed. Next exact owner
+action: separately authorize existing challenge-bound S3 TEST_ONLY runtime
+bootstrap preserving existing association/registry/keys; review its exact reset
+and operation scope before execution, no automatic reset or commissioning.
+No INJECT/EventKey/CloudSync/PG/API/APK event. Formal opticalTC0010/5. No services/
+8445 tasks started;443 forwarding preserved, firmware not changed and historical
+latches untouched. No code changes/tests rerun; prior186/186 reused. GS-117 remains
+Highest/In Progress; persistent engineering-startup limitation recorded separately
+from commercial automatic-rejoin contract, no architecture change.
+
+
 ## GS-117 — 2026-11-11 automatic-rejoin boundary audit
 
 Baseline0153d35 local=origin, context PASS; tracked clean, unrelated assets
