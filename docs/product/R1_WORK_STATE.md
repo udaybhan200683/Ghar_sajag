@@ -1,4 +1,52 @@
 
+## GS-117 — 2026-11-11 automatic-rejoin boundary audit
+
+Baseline0153d35 local=origin, context PASS; tracked clean, unrelated assets
+preserved. Owner11973 confirms automatic valid-association recovery, no manual
+pairing. Reused existing association/rejoin/discovery/recovery owners; no source
+change, test rerun, device access, network activation or commissioning.
+
+Current evidence boundary: C3 session140/HIL response + kind6/channel10 fragment
+supports an existing rejoin attempt. Exact current binding/Home/key identity is
+not exposed by GET_STATE and remains UNVERIFIED. Hello submission/callback,
+actual channel overlap, S3 live registry/session floor/receive/challenge,
+Final/ACK and READY all remain UNVERIFIED. This is no proof of revoked binding,
+key mismatch or permanent radio defect. Session134 channels3/4 delivered0 are
+historical aggregate failures; new built diagnostic images are not installed
+and cannot supply retroactive/current stages. No authenticated ingress request
+was captured in the latest bounded service run. Static runtime status explicitly
+uses fixed NO placeholders and cannot prove S3 connectivity or absence.
+
+Source reuse verified: Node paired AEAD association load validates physical
+identity/key/Hub and enters Rejoining; Hub restores registry, rejects missing/
+quarantined/MAC-mismatched records and uses stored session floor. Existing
+rejoin_host_validation covers replay rejection, mutual proof, Hub reboot,
+lost-ACK ambiguous commit and higher-session recovery. These are historical
+host coverage, not current physical PASS. No reason to create another pairing
+flow or replace valid persistent association.
+
+Cold-start sensing: source initial security_link.ready loop precedes normal
+NodeRuntime/PIR construction and liveness publication. This is a concrete
+source-level supported-outage risk against GS-D021–023/P0 failure-aware coverage
+requirements, not physically proven loss or a license to weaken security.
+INVESTIGATE_ONLY under existing GS-117/GS-40 until exact offline admission/
+identity/retention and coverage semantics are reconciled; no runtime redesign
+or fix is justified solely to unblock USB injection.
+
+First unresolved transition is C3 Hello attempt → proven Hub receive/challenge.
+There is no presently verified non-invasive target interface exposing live S3
+channel/receive/registry state. TEST_ONLY S3 RAM configuration can be lost on
+reset; host restart does not establish whether that occurred, and bootstrap is
+not automatically appropriate. Stop before COM10: required next owner decision
+is one bounded existing S3 read-only observation scope acknowledging incidental
+COM-open reset/RAM-state-loss risk, with no explicit reset/bootstrap/commission/
+flash. Current task does not authorize that risk. Do not infer it from network
+approval. Rejoin root cause remains UNKNOWN; no INJECT/EventKey/downstream
+result, positive liveness or TC001 acceptance. Formal optical0/5; running images
+UNKNOWN. No services opened; prior explicit SessionClose cleanup remains intact,
+caregiver443 preserved; latches/firmware/protected association unchanged.
+
+
 ## GS-117 — 2026-11-11 C3 command response diagnosed
 
 Baseline596d4c3/local=origin, context PASS; source unchanged. Inspected original
