@@ -932,3 +932,96 @@ issuance path for two separate one-use records bound to the reviewed hashes and
 DEV manifest. After those records are legitimately provisioned, rerun status
 and source-pin checks before Scope A; Scope B remains conditional on a verified
 Scope A PASS and fresh Android/readiness evidence.
+
+## 2026-11-11 — C3 readiness evidence preservation; bounded attempt stopped at UAC
+
+The canonical repository was rechecked on `feature/r1-commercial-baseline` at
+local and remote HEAD `a5a441b1df356ca51bb7244f97cb0cdafd56560e`; context
+preflight PASS. Existing C3/S3, controller, network, receipt and Android paths
+were reused. No firmware, protocol, authorization framework or downstream
+product pipeline was changed.
+
+The post-cleanup mode preflight reports source profile UNKNOWN (multi-profile
+source), built C3/S3 artifacts ENGINEERING, installed/running C3/S3 UNKNOWN /
+NOT_VERIFIED (historical October 31 receipts only), registered-lab deployment
+identity verified, and functional admission ELIGIBLE_PENDING_LIVE_GUARDS.
+Routine network eligibility is false after cleanup because live service/network
+guards are no longer active; this does not change the Engineering policy or
+qualify the running images.
+
+### Minimal host-tool correction
+
+The prior real COM4 attempt stopped at the existing `GET_STATE` guard, but its
+bounded serial response was lost when the helper raised. The existing serial
+helper now attaches a bounded, sanitized observation to the same failure code:
+the nine existing state fields, GET_STATE ACK/count, response classification,
+missing/malformed fields, each existing readiness predicate, bounded capture
+counters/deadline, and a capped startup excerpt. The production readiness
+predicate is unchanged. The existing console preserves only the recognized
+schema through its error/report path; no raw state line is retained. A failed
+guard still emits no `INJECT_MOTION`.
+
+Source SHA-256:
+
+- `code/tools/local/gs117_tc001_serial_windows.py` —
+  `f176cac4ae5177625c7daba32a8683067a0c79bd9abe9d35e0aa0c21cc2c6b3f`
+- `code/tools/local/gs117_tc001_console.py` —
+  `bc6c150509c751ebf92883769d11a044ef9c94df1077e50b66ab7f73170c1bc8`
+- `code/tests/python/test_gs117_tc001_console.py` —
+  `0727049a1552805ce342d9a3930b3975066bf47ab8b9e2cbc99724974b115db8`
+
+Newly executed for this change: `python3 -m py_compile` PASS;
+`python3 code/tests/python/test_gs117_tc001_console.py` **186/186 PASS**;
+`git diff --check` PASS. Prior component/security suite results remain historical.
+
+### Actual bounded-session outcome
+
+The existing task-owned, TEST_ONLY ingress and signed-time components were
+prepared with the current network-only GS-179#11947 admission and exact fixture
+context. The per-run wrapper was pinned to the live controller, helper, authority
+and existing one-hour network lease. It invoked the existing PowerShell
+`RunAs`/`-ExecutionPolicy Bypass` path once. `consent.exe` was observed in
+interactive Console session 1; the parent returned:
+
+`Start-Process: The operation was canceled by the user.`
+
+This is recorded as **USER_CANCELLED**; intent is not inferred. No elevated
+child receipt, protected Windows session file, SessionStart log, scheduled task
+or Windows TCP 8445 listener exists. The attempted wrapper SHA-256 is
+`e8366589a33bb9b91d945f19d4659df3cad2b3735ef4bd575cf4240423b751a5`.
+Windows portproxy inspection showed the existing caregiver route only:
+`192.168.1.6:443 → 172.17.152.10:8444`; TCP 8445 was absent. Physical Hub
+authentication remains NOT_VERIFIED. Earlier owner evidence of a manually
+elevated shell does not count as this launcher’s child receipt.
+
+Cleanup after cancellation: the signed-time Windows process was identity-checked
+against the expected Python executable and GS40/GS68 service markers, then
+stopped; UDP 4468 is closed. The exact task-owned WSL ingress process and portal
+were stopped; WSL 8445 and portal 18791 are closed. Backend 8444, PostgreSQL
+55432 and caregiver 443 remain reachable. No Windows session tasks were created.
+The immutable network-only lease candidate expires at
+`2026-11-11T06:24:31.482575Z`; it was not activated or modified. Private bounded
+operation and cleanup receipts are in
+`~/.local/state/ghar-sajag/gs117-tc001/services-usb-20261111T051845Z-c3/`;
+`operation-result.json` SHA-256 is
+`964313de9526a12c5766f817aaf1a70d84442f4948e75a4543d61db80861b54b`.
+
+### Device and product result
+
+No COM4 or COM10 port was opened in this attempt, so the physical C3
+`GET_STATE` observation and the precise failed C3 readiness predicate remain
+UNKNOWN/NOT_RUN. `INJECT_MOTION` was not sent; no EventKey was generated. S3
+authenticated receipt/ACK, CloudSync, PostgreSQL business event, caregiver API
+event and Android event UI are all NOT_RUN. Previously verified Android
+device/package/APK identity is background readiness evidence only, not fresh
+event presentation. Running C3/S3 image identities remain
+UNKNOWN/NOT_VERIFIED; firmware was not changed. #11897 remains SAFETY_LATCHED
+1/1, #11886 remains preserved, and formal optical TC-001 remains 0/5.
+
+The new diagnostic correction is validated offline but awaits a future actual
+bounded C3 observation. This attempt’s first blocker was the canceled normal
+Windows UAC `RunAs`; no device action was attempted after it. Do not retry this
+prompt automatically. Next action is one owner-initiated, visible normal UAC
+approval for the same bounded launcher if the owner chooses to continue; require
+the real elevated-child receipt and 8445/authentication checks before the
+existing one-event controller path.

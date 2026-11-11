@@ -2673,8 +2673,184 @@ class TC001Test(unittest.TestCase):
         self.assertEqual(result["runtime_live"], 4)
         self.assertEqual(result["sensing_live"], 5)
         self.assertTrue(result["hub_application_acknowledged"])
+        self.assertEqual(result["c3_readiness"]["response_status"], "READY")
+        self.assertEqual(result["c3_readiness"]["values"]["runtime_live"], 4)
+        self.assertTrue(result["c3_readiness"]["get_state_ack_received"])
         self.assertEqual(tc.physical_key(result["c3"]), (81, 4))
         self.assertNotIn("reset_safe_uart_verified", result)
+
+    def _run_c3_readiness_case(self, state_line, *, ack=True, startup=()):
+        opened = []
+        class FakeClock:
+            def __init__(self): self.value = 0.0
+            def __call__(self):
+                value = self.value
+                self.value += 0.05
+                return value
+        class FakeSerial:
+            def __init__(self):
+                self.port = ""; self.buffer = bytearray(); self.is_open = False
+                self.timeout = None; self.write_timeout = None
+                self.dtr = True; self.rts = True; self.writes = []; self.get_state_count = 0
+            @property
+            def in_waiting(self): return len(self.buffer)
+            def open(self): self.is_open = True; opened.append(self.port)
+            def write(self, value):
+                self.writes.append(value)
+                if value == b"GET_STATE\n":
+                    output = [*startup] if self.get_state_count == 0 else []
+                    self.get_state_count += 1
+                    if state_line is not None: output.append(state_line)
+                    if ack: output.append("I HIL_OK command=GET_STATE")
+                    self.buffer.extend(("\n".join(output) + "\n").encode())
+                return len(value)
+            def flush(self): pass
+            def read(self, count):
+                result = bytes(self.buffer[:count]); del self.buffer[:count]; return result
+            def close(self): self.is_open = False
+        c3 = {"port": "COM4", "usb_hwid": "USB VID:PID=303A:1001 SER=14:63:93:C5:D1:58",
+              "serial_number": "14:63:93:C5:D1:58", "hil_control": True,
+              "hil_build": False, "physical_wake": False}
+        s3 = {"port": "COM10", "usb_hwid": "USB VID:PID=303A:1001 SER=E0:72:A1:D3:8D:34",
+              "serial_number": "E0:72:A1:D3:8D:34"}
+        stream = FakeSerial()
+        with (patch.object(tc_serial, "ports", return_value=[c3, s3]),
+              patch.object(tc_serial.serial, "Serial", return_value=stream)):
+            with self.assertRaisesRegex(
+                    ValueError, "TC001_INSTALLED_C3_HIL_MODE_UNVERIFIED") as raised:
+                tc_serial.run({"c3": c3, "s3": s3}, monotonic=FakeClock())
+        return raised.exception, stream, opened
+
+    def test_c3_readiness_failure_captures_exact_bounded_predicates_without_injection(self):
+        ready = ("I (99) gs_node_runtime: HIL_STATE role=c3 "
+                 "power_mode=HIL_AWAKE_TEST_ONLY hil_build=0 hil_control=1 physical_wake=0 "
+                 "runtime_live=4 sensing_live=5 pending_inject=0 retained=0 in_flight=0")
+        cases = [
+            ("state_absent", None, False, "STATE_ABSENT", "c3_state_received"),
+            ("ack_missing", ready, False, "GET_STATE_ACK_MISSING", "get_state_ack_received"),
+            ("wrong_profile_flag", ready.replace("hil_build=0", "hil_build=1"), True,
+             "STATE_REPORTED_NOT_READY", "hil_build_is_0"),
+            ("zero_liveness", ready.replace("runtime_live=4", "runtime_live=0")
+             .replace("sensing_live=5", "sensing_live=0"), True,
+             "STATE_REPORTED_NOT_READY", "runtime_live_gt_0"),
+            ("nonempty_queues", ready.replace("pending_inject=0", "pending_inject=1")
+             .replace("retained=0", "retained=2").replace("in_flight=0", "in_flight=1"), True,
+             "STATE_REPORTED_NOT_READY", "pending_inject_is_0"),
+            ("incomplete", ready.replace("sensing_live=5 ", ""), True,
+             "STATE_INCOMPLETE", "sensing_live_gt_0"),
+            ("malformed", ready.replace("runtime_live=4", "runtime_live=unknown"), True,
+             "STATE_MALFORMED", "runtime_live_gt_0"),
+        ]
+        for label, state, ack, expected_status, failed_predicate in cases:
+            with self.subTest(label=label):
+                error, stream, opened = self._run_c3_readiness_case(state, ack=ack)
+                evidence = error.captured_observation
+                self.assertEqual(opened, ["COM4"])
+                self.assertTrue(stream.writes)
+                self.assertTrue(all(value == b"GET_STATE\n" for value in stream.writes))
+                self.assertNotIn(b"INJECT_MOTION\n", stream.writes)
+                self.assertFalse(stream.is_open)
+                self.assertEqual(evidence["response_status"], expected_status)
+                self.assertIn(failed_predicate, evidence["failed_predicates"])
+                self.assertGreaterEqual(evidence["get_state_commands_sent"], 1)
+                self.assertEqual(evidence["observation_budget_ms"], 30000)
+                self.assertTrue(evidence["collection_respected_deadline"])
+                self.assertLessEqual(evidence["observation_elapsed_ms"], 30200)
+                self.assertFalse(evidence["raw_state_line_retained"])
+                self.assertLessEqual(len(json.dumps(evidence).encode()), 16384)
+
+    def test_c3_readiness_evidence_redacts_sensitive_fields_and_bounds_startup_excerpt(self):
+        ready = ("I (99) gs_node_runtime: HIL_STATE role=c3 "
+                 "power_mode=HIL_AWAKE_TEST_ONLY hil_build=0 hil_control=1 physical_wake=0 "
+                 "runtime_live=0 sensing_live=0 pending_inject=0 retained=0 in_flight=0 "
+                 "wifi_psk=private-marker password=private-password")
+        startup = [f"I ({index}) app_init: App version: test-{index}"
+                   for index in range(12)]
+        error, _stream, _opened = self._run_c3_readiness_case(
+            ready, ack=True, startup=startup)
+        evidence = error.captured_observation
+        serialized = json.dumps(evidence)
+        self.assertEqual(len(evidence["startup_evidence"]), 8)
+        self.assertEqual(evidence["startup_evidence_omitted"], 4)
+        self.assertNotIn("private-marker", serialized)
+        self.assertNotIn("private-password", serialized)
+        self.assertEqual(evidence["values"]["runtime_live"], 0)
+        self.assertEqual(evidence["values"]["sensing_live"], 0)
+        self.assertIn("runtime_live_gt_0", evidence["failed_predicates"])
+        self.assertIn("sensing_live_gt_0", evidence["failed_predicates"])
+        self.assertLessEqual(len(serialized.encode()), 16384)
+
+    def test_windows_run_error_propagates_only_bounded_readiness_evidence(self):
+        observation = {"schema": "GS117_C3_HIL_READINESS_V1", "response_status": "STATE_ABSENT",
+                       "observation_budget_ms": 30000, "values": {"runtime_live": None}}
+        completed = subprocess.CompletedProcess(
+            ["powershell"], 2,
+            json.dumps({"error": "TC001_INSTALLED_C3_HIL_MODE_UNVERIFIED",
+                        "observation": observation}), "")
+        with (patch.object(tc.subprocess, "check_output", return_value=r"C:\\gs117_serial.py"),
+              patch.object(tc.subprocess, "run", return_value=completed)):
+            with self.assertRaisesRegex(
+                    ValueError, "TC001_INSTALLED_C3_HIL_MODE_UNVERIFIED") as raised:
+                tc.powershell("Run", {
+                    "c3": {"port": "COM4", "usb_hwid": "c3", "serial_number": "c3",
+                           "hil_control": True, "hil_build": False, "physical_wake": False},
+                    "s3": {"port": "COM10", "usb_hwid": "s3", "serial_number": "s3"}})
+        self.assertEqual(raised.exception.captured_observation, observation)
+
+        oversized = {"schema": "GS117_C3_HIL_READINESS_V1", "payload": "x" * 17000}
+        completed = subprocess.CompletedProcess(
+            ["powershell"], 2,
+            json.dumps({"error": "TC001_INSTALLED_C3_HIL_MODE_UNVERIFIED",
+                        "observation": oversized}), "")
+        with (patch.object(tc.subprocess, "check_output", return_value=r"C:\\gs117_serial.py"),
+              patch.object(tc.subprocess, "run", return_value=completed)):
+            with self.assertRaises(ValueError) as raised:
+                tc.powershell("Run", {
+                    "c3": {"port": "COM4", "usb_hwid": "c3", "serial_number": "c3",
+                           "hil_control": True, "hil_build": False, "physical_wake": False},
+                    "s3": {"port": "COM10", "usb_hwid": "s3", "serial_number": "s3"}})
+        self.assertFalse(hasattr(raised.exception, "captured_observation"))
+
+    def test_controller_persists_c3_readiness_observation_on_preinjection_block(self):
+        fixture = {"home_id": "gs177-test-product", "physical_device_id": "c3-146393c5d158",
+                   "expected_caregiver_origin": "https://laptop.local",
+                   "hub_id": "hub-e072a1d38d34", "installation_epoch": 1,
+                   "phone_receipt": {"adb_serial": "ZA2237MRHN",
+                       "package": "in.gharsajag.caregiver.discoverytest",
+                       "signer_sha256": "c" * 64,
+                       "backend_origin": "https://laptop.local"},
+                   "c3": {"port": "COM4", "usb_hwid": "c3-usb",
+                       "serial_number": "14:63:93:C5:D1:58", "hil_control": True,
+                       "hil_build": False, "physical_wake": False,
+                       "image_sha256": "a" * 64, "firmware_source_head": "a" * 40},
+                   "s3": {"port": "COM10", "usb_hwid": "s3-usb",
+                       "serial_number": "E0:72:A1:D3:8D:34",
+                       "image_sha256": "b" * 64, "firmware_source_head": "b" * 40}}
+        ports = [{"port": fixture[name]["port"], "usb_hwid": fixture[name]["usb_hwid"],
+                  "serial_number": fixture[name]["serial_number"]} for name in ("c3", "s3")]
+        readiness = {"backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS"},
+                     "caregiver_home": {"caregiver_home_ready": True,
+                                         "backend_origin": "https://laptop.local"},
+                     "android_apk": {"status": "PASS"}, "hub_ingress": {"status": "PASS"}}
+        observation = {"schema": "GS117_C3_HIL_READINESS_V1", "response_status": "STATE_ABSENT",
+                       "values": {"runtime_live": None}, "failed_predicates": ["c3_state_received"]}
+        serial_error = ValueError("TC001_INSTALLED_C3_HIL_MODE_UNVERIFIED")
+        serial_error.captured_observation = observation
+        report = self.report()
+        controller = tc.Controller()
+        with tempfile.TemporaryDirectory() as directory:
+            with (patch.object(tc, "STATE", Path(directory)),
+                  patch.object(controller, "readiness", return_value=readiness),
+                  patch.object(tc, "powershell", side_effect=[ports, serial_error]),
+                  patch.object(tc, "backend", return_value={
+                      "authority_ready": True, "enrollment_generation": 7, "keys": []})):
+                controller.execute(report, fixture_override=fixture)
+            self.assertEqual(report["stages"]["c3_injection"]["status"], "BLOCKED")
+            self.assertEqual(report["stages"]["c3_injection"]["reason"],
+                             "TC001_INSTALLED_C3_HIL_MODE_UNVERIFIED")
+            self.assertEqual(report["serial_diagnostics"]["c3_readiness"], observation)
+            persisted = json.loads((Path(directory) / (report["run_id"] + ".json")).read_text())
+            self.assertEqual(persisted["serial_diagnostics"]["c3_readiness"], observation)
 
     def test_five_run_approval_is_exact_owner_only_and_keeps_s3_uart_closed(self):
         fixture = {"home_id": "gs177-test-product", "physical_device_id": "c3-146393c5d158",

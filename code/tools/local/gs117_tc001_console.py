@@ -463,7 +463,18 @@ def powershell(action: str, fixture: dict | None = None) -> object:
     except json.JSONDecodeError:
         raise ValueError("TC001_WINDOWS_HELPER_RESPONSE_INVALID_EXIT_" + str(result.returncode)) from None
     if isinstance(value, dict) and value.get("error"):
-        raise ValueError(value["error"])
+        error = ValueError(value["error"])
+        observation = value.get("observation")
+        if (action == "Run" and isinstance(observation, dict) and
+                observation.get("schema") == "GS117_C3_HIL_READINESS_V1"):
+            try:
+                observation_size = len(json.dumps(
+                    observation, separators=(",", ":"), ensure_ascii=True).encode("ascii"))
+            except (TypeError, ValueError):
+                observation_size = 16385
+            if observation_size <= 16384:
+                error.captured_observation = observation
+        raise error
     if result.returncode:
         raise ValueError("TC001_WINDOWS_HELPER_PROCESS_FAILED_EXIT_" + str(result.returncode))
     return value
@@ -1905,6 +1916,10 @@ class Controller:
         except auth.AuthorizationSafetyFailure:
             raise
         except (ValueError, OSError, subprocess.SubprocessError) as error:
+            observation = getattr(error, "captured_observation", None)
+            if (isinstance(observation, dict) and
+                    observation.get("schema") == "GS117_C3_HIL_READINESS_V1"):
+                report["serial_diagnostics"] = {"c3_readiness": observation}
             target = next((name for name in STAGES if report["stages"][name]["reason"] == "not reached"), "environment")
             self.mark(report, target, "BLOCKED", str(error) if isinstance(error, ValueError) else type(error).__name__)
         finally:

@@ -1,3 +1,37 @@
+## GS-117 — 2026-11-11 C3 diagnostic preservation; UAC cancelled
+
+Canonical branch `feature/r1-commercial-baseline`, starting local/origin HEAD
+`a5a441b1df356ca51bb7244f97cb0cdafd56560e`; required context preflight PASS.
+The prior C3 `GET_STATE` failure path discarded serial lines. A minimal existing-
+path correction now preserves bounded, sanitized C3 state/ACK fields, exact
+failed readiness predicates and startup excerpts through helper → controller →
+private run report. The readiness predicate and fail-closed/no-injection behavior
+are unchanged. `py_compile`, focused console tests 186/186, and `git diff --check`
+PASS; source/test hashes and private execution evidence are in the linked handoff.
+
+This attempt stopped before Windows `SessionStart`: the existing pinned RunAs
+wrapper displayed the normal consent process in interactive Console session 1,
+then returned `The operation was canceled by the user`. Record outcome
+`USER_CANCELLED`; no elevated-child/session receipt, Windows TCP 8445 listener,
+or temporary scheduled task was created. No COM4/COM10/ADB access, C3 state
+query, injection or EventKey occurred. Thus the new diagnostic collection is
+host-tested but has not yet captured a physical C3 response. Previous successful
+bounded-ingress results remain historical and do not establish ingress readiness
+for this attempt.
+
+Cleanup verified WSL 8445, portal 18791, and Windows UDP 4468 closed; Windows
+portproxy has only the existing `192.168.1.6:443 → 172.17.152.10:8444` route, and
+caregiver 443, backend 8444 and PostgreSQL 55432 remain reachable. No Windows
+session tasks existed because the elevated launcher never entered. Firmware and
+historical #11897 SAFETY_LATCHED 1/1 / #11886 are unchanged. Running image remains
+UNKNOWN/NOT_VERIFIED; fresh EventKey absent; USB E2E NOT_RUN; formal optical
+TC-001 remains 0/5; GS-117 stays Highest / In Progress.
+
+Private evidence: `~/.local/state/ghar-sajag/gs117-tc001/services-usb-20261111T051845Z-c3/`.
+Next action: only after the owner chooses to continue following this cancellation,
+perform one fresh visible normal UAC approval for the same bounded launcher;
+verify its elevated receipt and live listener before any device operation.
+
 ## GS-117 — 2026-11-11 real C3 guard reached; ingress restored
 
 Normal automatic UAC/admin receipts and actual bounded .6:8445 ingress PASS.

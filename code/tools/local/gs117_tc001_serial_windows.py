@@ -795,7 +795,114 @@ def observe_node(config: dict) -> dict:
         if stream.is_open:stream.close()
 
 
-def run(config: dict) -> dict:
+def c3_hil_readiness_evidence(lines: list[str], *, get_state_commands_sent: int,
+                              observation_elapsed_ms: int, capture: dict,
+                              guard_ready: bool, get_state_ack_received: bool) -> dict:
+    """Return a small, credential-free explanation of the existing C3 guard."""
+    state_lines = [line for line in lines if "HIL_STATE role=c3" in line]
+    state_line = state_lines[-1] if state_lines else ""
+    field_types = {
+        "power_mode": "word", "hil_build": "flag", "hil_control": "flag",
+        "physical_wake": "flag", "runtime_live": "counter",
+        "sensing_live": "counter", "pending_inject": "counter",
+        "retained": "counter", "in_flight": "counter",
+    }
+    values: dict[str, object] = {}
+    missing_fields: list[str] = []
+    malformed_fields: list[str] = []
+    for name, value_type in field_types.items():
+        match = re.search(rf"(?:^|\s){re.escape(name)}=([^\s]*)", state_line)
+        if not match:
+            if state_line and re.search(rf"\b{re.escape(name)}\s*=", state_line):
+                malformed_fields.append(name)
+                values[name] = "MALFORMED"
+            else:
+                missing_fields.append(name)
+                values[name] = None
+            continue
+        raw = match[1]
+        if value_type == "word" and re.fullmatch(r"[A-Za-z0-9_-]{1,64}", raw):
+            values[name] = raw
+        elif value_type == "flag" and raw in {"0", "1"}:
+            values[name] = int(raw)
+        elif value_type == "counter" and re.fullmatch(r"[0-9]{1,20}", raw):
+            values[name] = int(raw)
+        else:
+            malformed_fields.append(name)
+            values[name] = "MALFORMED"
+
+    ack_count = sum("HIL_OK command=GET_STATE" in line for line in lines)
+    runtime_live = re.search(r"\bruntime_live=([0-9]+)\b", state_line)
+    sensing_live = re.search(r"\bsensing_live=([0-9]+)\b", state_line)
+    pending_inject = re.search(r"\bpending_inject=([0-9]+)\b", state_line)
+    retained = re.search(r"\bretained=([0-9]+)\b", state_line)
+    in_flight = re.search(r"\bin_flight=([0-9]+)\b", state_line)
+    predicates = {
+        "c3_state_received": bool(state_line),
+        # Keep these textual checks identical to the production guard.
+        "power_mode_is_HIL_AWAKE_TEST_ONLY": "power_mode=HIL_AWAKE_TEST_ONLY" in state_line,
+        "hil_build_is_0": "hil_build=0" in state_line,
+        "hil_control_is_1": "hil_control=1" in state_line,
+        "physical_wake_is_0": "physical_wake=0" in state_line,
+        "runtime_live_gt_0": bool(runtime_live) and int(runtime_live[1]) > 0,
+        "sensing_live_gt_0": bool(sensing_live) and int(sensing_live[1]) > 0,
+        "pending_inject_is_0": bool(pending_inject) and int(pending_inject[1]) == 0,
+        "retained_is_0": bool(retained) and int(retained[1]) == 0,
+        "in_flight_is_0": bool(in_flight) and int(in_flight[1]) == 0,
+        "get_state_ack_received": get_state_ack_received,
+    }
+    failed = [name for name, passed in predicates.items() if not passed]
+    if not state_line:
+        response_status = "STATE_ABSENT"
+    elif malformed_fields:
+        response_status = "STATE_MALFORMED"
+    elif missing_fields:
+        response_status = "STATE_INCOMPLETE"
+    elif not guard_ready:
+        response_status = "STATE_REPORTED_NOT_READY"
+    elif not get_state_ack_received:
+        response_status = "GET_STATE_ACK_MISSING"
+    else:
+        response_status = "READY"
+
+    startup_markers = (
+        "ESP-ROM:", "rst:", "boot: ESP-IDF", "boot: Loaded app from partition",
+        "app_init: App version:", "app_init: ELF file SHA256:",
+        "Guru Meditation Error", "Task watchdog", "abort() was called",
+        "assert failed:", "Stack canary", "Stack overflow",
+    )
+    startup = [line[:512] for line in lines
+               if any(marker.casefold() in line.casefold() for marker in startup_markers)]
+    return {
+        "schema": "GS117_C3_HIL_READINESS_V1",
+        "response_status": response_status,
+        "state_line_count": len(state_lines),
+        "state_received": bool(state_line),
+        "values": values,
+        "missing_fields": missing_fields,
+        "malformed_fields": malformed_fields,
+        "get_state_commands_sent": get_state_commands_sent,
+        "get_state_ack_count": ack_count,
+        "get_state_ack_received": get_state_ack_received,
+        "existing_guard_ready": guard_ready,
+        "guard_predicates": predicates,
+        "failed_predicates": failed,
+        "observation_budget_ms": 30000,
+        "observation_elapsed_ms": observation_elapsed_ms,
+        "collection_respected_deadline": capture["deadline_overruns"] == 0,
+        "capture": {key: capture[key] for key in (
+            "bytes_read", "filtered_lines", "dropped_lines", "truncated_chars",
+            "pending_truncated_chars", "late_read_bytes", "deadline_overruns",
+            "unterminated_tail_chars")},
+        "captured_line_count": min(len(lines), MAX_CAPTURE_LINES),
+        "line_limit_reached": len(lines) >= MAX_CAPTURE_LINES,
+        "startup_evidence": startup[-8:],
+        "startup_evidence_omitted": max(0, len(startup) - 8),
+        "raw_state_line_retained": False,
+    }
+
+
+def run(config: dict, *, monotonic=None) -> dict:
     """Run one approved C3 injection; enumerate S3, but never open its UART.
 
     Opening the physical S3 UART can reboot the Hub and discard its RAM-only
@@ -821,14 +928,21 @@ def run(config: dict) -> dict:
     c3_stream.rts = False
     c3_lines: list[str] = []
     c3_tail = ""
+    clock = time.monotonic if monotonic is None else monotonic
     try:
         c3_stream.open()
+        readiness_started = clock()
         c3_stream.write(b"GET_STATE\n")
-        deadline = time.monotonic() + 30
-        next_query = time.monotonic() + 2
+        get_state_commands_sent = 1
+        deadline = readiness_started + 30
+        next_query = readiness_started + 2
+        readiness_capture = capture_state()
         mode_line = ""
-        while time.monotonic() < deadline:
-            c3_tail = collect(c3_stream, c3_tail, c3_lines)
+        ready = False
+        get_state_ack_received = False
+        while clock() < deadline:
+            c3_tail = collect(c3_stream, c3_tail, c3_lines,
+                              capture=readiness_capture, deadline=deadline, clock=clock)
             mode_line = next((line for line in reversed(c3_lines)
                               if "HIL_STATE role=c3" in line), "")
             live = re.search(r"\bruntime_live=([0-9]+)\b", mode_line)
@@ -842,30 +956,44 @@ def run(config: dict) -> dict:
                      in_flight and int(live[1]) > 0 and int(sensing[1]) > 0 and
                      int(pending[1]) == 0 and int(retained[1]) == 0 and
                      int(in_flight[1]) == 0)
-            if (ready and any("HIL_OK command=GET_STATE" in line for line in c3_lines)):
+            get_state_ack_received = any(
+                "HIL_OK command=GET_STATE" in line for line in c3_lines)
+            if ready and get_state_ack_received:
                 break
-            if time.monotonic() >= next_query:
+            now = clock()
+            if now >= deadline:
+                break
+            if now >= next_query:
                 c3_stream.write(b"GET_STATE\n")
                 c3_stream.flush()
-                next_query = time.monotonic() + 2
-        if not (ready and any("HIL_OK command=GET_STATE" in line for line in c3_lines)):
-            raise ValueError("TC001_INSTALLED_C3_HIL_MODE_UNVERIFIED")
+                get_state_commands_sent += 1
+                next_query = clock() + 2
+        observation_elapsed_ms = max(0, int((clock() - readiness_started) * 1000))
+        readiness_evidence = c3_hil_readiness_evidence(
+            c3_lines, get_state_commands_sent=get_state_commands_sent,
+            observation_elapsed_ms=observation_elapsed_ms,
+            capture=readiness_capture, guard_ready=bool(ready),
+            get_state_ack_received=get_state_ack_received)
+        if not (ready and get_state_ack_received):
+            error = ValueError("TC001_INSTALLED_C3_HIL_MODE_UNVERIFIED")
+            error.captured_observation = readiness_evidence
+            raise error
         c3_state = mode_line
         runtime_value, sensing_value = int(live[1]), int(sensing[1])
         # Drain already buffered runtime diagnostics before the single HIL
         # trigger so pre-existing or ambient events cannot be correlated as
         # this run's stimulus.
-        drain_deadline = time.monotonic() + 0.3
-        while time.monotonic() < drain_deadline:
-            c3_tail = collect(c3_stream, c3_tail, c3_lines)
+        drain_deadline = clock() + 0.3
+        while clock() < drain_deadline:
+            c3_tail = collect(c3_stream, c3_tail, c3_lines, clock=clock)
         c3_lines = []
         c3_tail = ""
         c3_stream.write(b"INJECT_MOTION\n")
         c3_stream.flush()
-        command_sent_at = time.monotonic()
-        deadline = time.monotonic() + 35
-        while time.monotonic() < deadline:
-            c3_tail = collect(c3_stream, c3_tail, c3_lines)
+        command_sent_at = clock()
+        deadline = clock() + 35
+        while clock() < deadline:
+            c3_tail = collect(c3_stream, c3_tail, c3_lines, clock=clock)
             pair = node_event_pair(c3_lines)
             if pair is not None and c3_durable_ack(c3_lines, *pair):
                 break
@@ -881,7 +1009,8 @@ def run(config: dict) -> dict:
                 "hub_application_acknowledged": bool(
                     pair is not None and c3_durable_ack(c3_lines, *pair)),
                 "s3_admission_source": "C3_AUTHENTICATED_APPLICATION_ACK_CLASS_0",
-                "event_wait_ms": int((time.monotonic() - command_sent_at) * 1000)}
+                "event_wait_ms": int((clock() - command_sent_at) * 1000),
+                "c3_readiness": readiness_evidence}
     finally:
         if c3_stream.is_open:
             c3_stream.close()
