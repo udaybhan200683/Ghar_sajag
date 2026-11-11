@@ -24,7 +24,7 @@ def windows_wifi_ipv4(origin: str, *, runner=subprocess.run) -> str:
         'Where-Object { $_.AddressState -eq "Preferred" } | '
         'Select-Object -ExpandProperty IPAddress',
     ]
-    result = runner(command, capture_output=True, text=True, timeout=8, check=True)
+    result = runner(command, capture_output=True, text=True, timeout=30, check=True)
     addresses = [line.strip() for line in result.stdout.splitlines() if line.strip()]
     if len(addresses) != 1:
         raise ValueError("one_current_windows_wifi_ipv4_required")

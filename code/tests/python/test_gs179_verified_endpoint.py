@@ -9,6 +9,7 @@ import ipaddress
 from pathlib import Path
 import socketserver
 import ssl
+import subprocess
 import tempfile
 import threading
 from types import SimpleNamespace
@@ -27,7 +28,10 @@ from gs179_verified_endpoint import (
 
 class VerifiedEndpointTest(unittest.TestCase):
     def test_current_private_address_only(self):
-        runner = lambda *a, **kw: SimpleNamespace(stdout="192.168.1.8\r\n")
+        def runner(*args, **kwargs):
+            self.assertEqual(kwargs['timeout'], 30)
+            self.assertTrue(kwargs['check'])
+            return SimpleNamespace(stdout="192.168.1.8\r\n")
         self.assertEqual(windows_wifi_ipv4("https://desktop-3qqu64b.local", runner=runner),
                          "192.168.1.8")
         for output in ("", "192.168.1.8\n192.168.1.9\n", "8.8.8.8\n", "127.0.0.1\n"):
@@ -37,6 +41,11 @@ class VerifiedEndpointTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             windows_wifi_ipv4("https://untrusted.example",
                               runner=runner)
+
+        def expired(*args, **kwargs):
+            raise subprocess.TimeoutExpired('bounded_wifi_query', kwargs['timeout'])
+        with self.assertRaises(subprocess.TimeoutExpired):
+            windows_wifi_ipv4("https://desktop-3qqu64b.local", runner=expired)
 
     def test_route_keeps_sni_hostname(self):
         context = __import__("ssl").create_default_context()

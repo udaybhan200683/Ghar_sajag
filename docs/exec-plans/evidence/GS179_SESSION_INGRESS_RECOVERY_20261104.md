@@ -1,3 +1,20 @@
+Second lookup-bound correction executed endpoint25/25 and console182/182 PASS;
+existing private-address, TLS/SNI, timeout/error propagation and qualification
+separation assertions retained. Windows19/framework55/mapping22 receipts from
+unchanged respective test/PS sources remain applicable; no target code changed.
+
+## 2026-11-11 second host-probe correction
+
+First web Run accepted HTTP202, then PRESESSION_GUARD_DENIED: Get-NetIPAddress
+exceeded8s, reproduced read-only; no reservation/COM/input occurred. Same query
+later completed5.266s with .6, proving transient host latency, not wrong identity.
+TEST_INFRA_ONLY within same GS-117/GS-179 scope: bound this existing lookup30s,
+still checked exit/private/exact TLS identity and fail-closed expiry; no retries.
+Controller stopped and existing task automatically removed8445/both jobs by
+04:16:45Z,443 unaffected. New battery XML false/false verified on both tasks,
+SYSTEM SID S-1-5-18 confirmed. No active exposure during helper source change.
+Original failed Run preserved; intended one stimulus remains unsent.
+
 ## 2026-11-11 correction validated offline; fresh live qualification pending
 
 Implemented only controller Audit timeout15→60s and battery-independent settings
