@@ -1,4 +1,52 @@
 
+## GS-117 — 2026-11-11 exact bootstrap review: incompatible, NOT_RUN
+
+Owner11977/current chat puts11975 C3 cold-start correction ON HOLD, not cancelled
+or resolved. Preserve requirements/risk; no implementation/parallel work.
+Baseline6bd002c local=origin/context PASS, tracked clean, evidence preserved.
+
+Read actual development-authorization.json and selected prepared script, not just
+public wrapper. Active selection is standing-readiness-prepared/
+gs117-protected-bootstrap-development-v18.py SHA256
+7cd38e60b291e12ee51572b30f55a83fc8fb393ca188328c06f8e3541eff7ccb;
+its own pin MATCHES. Its config explicitly sets s3_boot_reset=True,
+c3_boot_reset=False, actionBootstrap, observation90s/C3 query10s. Existing
+combined observe opens COM10 AND COM4, then intentionally HardReset(S3) when
+that flag is true. BOTH COM4 access and deliberate S3 reset violate current
+COM10-only/no-intentional-reset approval. Stopped before services/device access;
+script/flags/policy/audit unmodified. Unselected v20 is not active authority.
+
+Current source hashes vs old manifest: serial helper actual
+f176cac4ae5177625c7daba32a8683067a0c79bd9abe9d35e0aa0c21cc2c6b3f
+(oldfc2a30f5…); evidence helper21967680bde4f052d3c697ccac43ea334eff5e04fa82cb428b5f91c9257479f3
+(oldcdcfd90e…); controllerbc6c150509c751ebf92883769d11a044ef9c94df1077e50b66ab7f73170c1bc8
+(oldbbeb90f1…); validatora5e95177efbeccca4754bce59b0159658a8c5c93c453d5ff027f67591b631a57
+(old34c6ca7c…). All four pins MISMATCH. Old manifest scope is bootstrap under
+historical11897; not current technical authority and never revived. Script's
+embedded helper checks also reject current source. No pin bypass/rewriting.
+
+Protocol reuse: script parses fresh target challenge and calls existing
+encode_config using approved fixture signer, writes one encrypted envelope via
+child stdin to existing helper; RAM-only config includes saved approved Wi-Fi,
+Hub TLS identity/trust, time signer/provider4468, ownership authority and backend
+.6:8445/Home/epoch. Reads owner-private fixture keys/certs and saved Windows Wi-Fi
+credential, never execute/log plaintext. Requires current Private network,
+server certificate SAN, backend/PG, signed time and bounded ingress. Creates
+exclusive recovery-attempt marker and sanitized child evidence. No explicit
+flash/NVS erase/commission/repair command found; normal target operational
+session/time persistence is not claimed absent. GS40 host source SHA256
+0f3339c4dea8477ca500a038b73e34b317899292e802847e784d805779bd45a2;
+target bootstrap SHA256ec58669df7dff6dd8707086a38944875679c6a9c3a973bc6df069a8ceba9c23b.
+
+Config write/challenge reception/startup/time/TLS/authority/radio/rejoin/E2E all
+NOT_RUN this continuation. No ports/services/network/tasks started,443 preserved,
+no firmware/protected state/latch change. Prior186/186 reused, no code/test rerun.
+Next required work/owner decision is minimal OFFLINE adaptation/review of the
+existing bootstrap invocation to COM10-only/no-intentional-reset and current
+reviewed fingerprints, preserving the approved one-challenge/one-envelope scope;
+not permission to use old reset behavior or invent another bootstrap framework.
+
+
 ## GS-117 — 2026-11-11 authorized single S3 observation: startup blocked
 
 Owner chat explicitly approved one COM10 read-only observation and incidental
