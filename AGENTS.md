@@ -221,3 +221,9 @@ Engineering privileges. Routine registered Engineering functional USB tests do n
 24-hour ROM refresh (owner11958–11962). Report running-image UNKNOWN separately;
 retain actual runtime/fixture/authentication/safety guards. Image qualification
 and its freshness checks remain separate; never fabricate historical evidence.
+
+Routine registered Engineering S3 runtime bootstrap is covered by GS-D034 standing
+scope: use BootstrapS3 and verified engineering bootstrap source-review receipt,
+COM10 only/no intentional reset/one exchange, existing shared locks and audit.
+Never revive historical grants or require repeated Jira consent for that scope.
+Source/test changes require a fresh source-bound review; no blind hardware retry.

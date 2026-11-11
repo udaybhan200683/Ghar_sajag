@@ -1245,3 +1245,69 @@ Next required work/owner decision is minimal OFFLINE adaptation/review of the
 existing bootstrap invocation to COM10-only/no-intentional-reset and current
 reviewed fingerprints, preserving the approved one-challenge/one-envelope scope;
 not permission to use old reset behavior or invent another bootstrap framework.
+
+## GS-117 — 2026-11-11 Engineering S3 bootstrap restored; C3 rejoin still blocked
+
+Starting d5b5cce local=origin/context PASS. Owner standing scope clarified in
+GS-D034/context2026-11-11.004 (aafde7f), before admission implementation. Cold-start
+correction11975 remains ON HOLD. Preserved v18 SHA7cd38e60… unchanged. Existing
+source review only allowed a historical hash substitution; extended existing
+Engineering lock/audit session path for s3_runtime_bootstrap with immutable
+source-bound automated review receipts, not a human/independent attestation.
+No historic manifest/grant/pin/audit rewritten. Source files, actual executed test
+report digest, reviewed commit, exact private candidate and admission dependency
+are checked; standing revocation/profile/fixture checks retained. Existing
+one-event admission unchanged. Unknown running image remains unqualified.
+
+Minimal helper BootstrapS3 reuses bootstrap_config: exact COM10 only, no C3 config,
+no reset path, no commissioning/flash, one challenge-bound exchange, bounded
+collection, finally-close on failure/interruption. Existing combined observer
+unchanged. Private versionv21 SHA256
+3f65761b13ff02d740d17a2b723939ad8c675d1541f17718fa9e8f99e3ad72b7;
+helper SHA256e04ed82bd4d3e24c86ac098101a8bec7a514500c9dc08b7e3148c81aa53a56f7;
+authorization SHA256c32b5643bba7c56efb9fd009be8d6ce6febe8fded5339e5f9eed38c2eb2d546d;
+controller SHA256c139a52db4605a23601a3069d05e0a5381d689704cd450f9670c330a99c3f9b9.
+Final registered reviewe77623f58587ed90ffb7b8cb3865a70fbf1d7dc790ac3a4693e344305ef28e9e.
+New/affected console suite190 then193 PASS; final194/194 PASS including timeout
+regression. Review actually reran matching tests, no unrelated suites/firmware
+build. Target crypto acceptance is proven by physical startup, not host mocks.
+
+Physical run: existing bounded ingress/time/portal reused, normal UAC admin
+child4236/session1, current protected receipt/Tick/SYSTEM expiry verified;
+network-only lease19:20:43.989820–20:20:43.989820 UTC, idle19:50:43.989820.
+One S3 bootstrap in standing-authorization/bootstrap-0e6b36d24016630aea4ed647:
+fresh challenge, one7323-byte envelope host write, target progressed through TLS
+valid1, authenticated HTTPS200, Hub owner started enrolled1/storage_epoch1 and
+exact hub/Home. Signed-time requests and actual /v1/test/authority/refresh200
+traces independently observed. No C3 open or intentional reset during bootstrap;
+COM10 closed. Boot descriptors8acab96-dirty/7584a1f80/0x420000 captured during
+challenge wait, but pre-open vs incidental/autonomous initial boot cause UNKNOWN;
+no subsequent boot marker in90s post-envelope observation. Full image unqualified.
+Receipt SHA256ffa4d9f959fc123592fb17772f1065d164a678346169ad9a0ac3ec9531e49897.
+Target also rejected desired household policy and disabled deterministic rules;
+checkpoint preserved. That warning is retained, not waived as product readiness.
+
+Post-bootstrap existing10s C3 query completed: session140, correct HIL flags,
+empty pending/retained/inflight but runtime_live0/sensing_live0; ACK received.
+Evidence post-s3-c3-state-20261111T192753Z. Fragment rejoin uptime was old, not
+fresh TX proof. A follow-up60s existing ObserveNode hit the wrapper's old50s
+parent timeout and retained no usable result. Acknowledge invocation error;
+fixed parent wait to requested bound+20, test added. No physical retry after that
+failure; Windows serial-helper process count0 verified. Do not classify that
+capture PASS or infer stalled protocol from it. Final source review includes fix.
+
+S3 startup/authenticated backend readiness restored, but current C3/S3 handshake,
+channel overlap and positive C3 liveness NOT_VERIFIED. No INJECT_MOTION/EventKey,
+Hub event ACK, PostgreSQL business commit, API/APK event. Formal opticalTC0010/5.
+No firmware/registration/key/protected-state repair. Normal guarded runtime
+operational time/session persistence is not claimed absent.
+
+Cleanup: controller/time/ingress stopped. First explicit SessionClose returned1
+without diagnostic cause; diagnostic nested existing SessionClose admintrue/exit0
+then final TCP8445=0/tasks=0/UDP4468=0/serial_helpers=0. Only caregiver443→WSL8444
+route remains; backend8444/PG55432 preserved. No automatic cleanup PASS claim.
+Private services-s3-bootstrap-20261111T191922Z has manifests/receipts and failure.
+Next P0 is fresh bounded C3 rejoin/channel evidence against the restored Hub using
+existing approved tools and corrected timeout, preserving association and guard;
+no re-pair/reset or resumed cold-start work. Standing scope needs no new routine
+owner approval; Windows UAC remains an OS requirement.
