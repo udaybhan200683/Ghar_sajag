@@ -769,6 +769,55 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
             raise error
 
 
+
+def bootstrap_s3(config, *, serial_factory=None, port_finder=None,
+                 exchange=None, clock=None):
+    """One S3-only GS40 exchange; no reset, commissioning or C3 access."""
+    if (config.get("profile") != "GS117_DEV_TEST_ONLY" or
+            config.get("home_id") != "gs177-test-product" or
+            config.get("hub_id") != "hub-e072a1d38d34" or
+            config.get("s3_boot_reset", False) is not False or
+            config.get("c3_boot_reset", False) is not False or "c3" in config):
+        raise ValueError("TC001_S3_ONLY_BOOTSTRAP_SCOPE_INVALID")
+    board = config.get("s3", {})
+    finder = ports if port_finder is None else port_finder
+    if (board.get("port") != "COM10" or
+            board.get("serial_number") != "E0:72:A1:D3:8D:34" or
+            not exact_port(board, finder())):
+        raise ValueError("TC001_VERIFIED_USB_INTERFACE_MISMATCH")
+    duration = config.get("observation_seconds", 90)
+    if type(duration) is not int or not 10 <= duration <= 90:
+        raise ValueError("TC001_OBSERVATION_SECONDS_OUT_OF_RANGE")
+    factory = serial.Serial if serial_factory is None else serial_factory
+    clock = time.monotonic if clock is None else clock
+    stream = factory()
+    stream.port = "COM10"; stream.baudrate = 115200
+    stream.timeout = .1; stream.write_timeout = 1
+    stream.dtr = False; stream.rts = False
+    evidence = {}; lines = []; capture = capture_state(); pending = ""
+    try:
+        stream.open()
+        # Existing primitive verifies nonce, framing, expiry/restart and identity
+        # immediately before its single configuration write.
+        written = (bootstrap_config if exchange is None else exchange)(
+            stream, require_boot=False, challenge_timeout_seconds=75,
+            evidence=evidence, identity_check=lambda: exact_port(board, finder()))
+        deadline = clock() + duration
+        while clock() < deadline:
+            pending = collect(stream, pending, lines, capture=capture,
+                              deadline=deadline, clock=clock)
+        return {"stage": "OBSERVATION", "s3": lines, "c3": [],
+                "bootstrap_host_write_bytes": written,
+                "bootstrap_timeline": evidence, "serial_capture": {"s3": capture},
+                "c3_opened": False, "intentional_reset": False}
+    except BaseException as error:
+        error.captured_observation = {"s3": lines, "c3": [],
+            "bootstrap_timeline": evidence, "serial_capture": {"s3": capture}}
+        raise
+    finally:
+        if stream.is_open: stream.close()
+
+
 def observe_node(config: dict) -> dict:
     """Bounded existing GET_STATE observation; S3 stays metadata-only."""
     c3, s3 = config['c3'], config['s3']
@@ -1583,6 +1632,8 @@ if __name__ == "__main__":
                 raise ValueError("TC001_EXACT_FIXTURE_COMMISSION_APPROVAL_REQUIRED")
             config["query_s3_status"] = True
             value = observe(config, fixture_exchange=commission_fixture)
+        elif action == "BootstrapS3":
+            value = bootstrap_s3(config)
         elif action == "Bootstrap":
             def exchange(stream, **kwargs):
                 return bootstrap_config(

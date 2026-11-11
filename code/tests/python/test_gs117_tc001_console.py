@@ -3925,5 +3925,98 @@ class AutomaticEngineeringMotionTest(unittest.TestCase):
         self.assertEqual(report['installed_image_qualification'],'UNKNOWN')
         self.assertFalse(controller.lock.locked())
 
+
+class S3OnlyBootstrapTest(unittest.TestCase):
+    def config(self):
+        return {"profile":"GS117_DEV_TEST_ONLY", "home_id":"gs177-test-product",
+                "hub_id":"hub-e072a1d38d34", "observation_seconds":10,
+                "s3":{"port":"COM10","serial_number":"E0:72:A1:D3:8D:34","usb_hwid":"exact"}}
+
+    def invoke(self, cfg=None, failure=None):
+        cfg=self.config() if cfg is None else cfg
+        stream=SimpleNamespace(is_open=False, writes=[])
+        stream.open=lambda: setattr(stream,"is_open",True)
+        stream.close=lambda: setattr(stream,"is_open",False)
+        count=[0]; times=iter([0,11])
+        def exchange(s, **kw):
+            count[0]+=1
+            self.assertEqual(s.port,"COM10")
+            self.assertFalse(kw["require_boot"])
+            self.assertTrue(kw["identity_check"]())
+            if failure: raise failure
+            return 600
+        result=tc_serial.bootstrap_s3(cfg,serial_factory=lambda:stream,
+            port_finder=lambda:[self.config()["s3"]],exchange=exchange,
+            clock=lambda:next(times))
+        return result,stream,count
+
+    def test_s3_only_opens_once_no_c3_reset_or_extra_exchange(self):
+        result,stream,count=self.invoke()
+        self.assertFalse(stream.is_open)
+        self.assertEqual(count,[1])
+        self.assertEqual(result["c3"],[])
+        self.assertFalse(result["intentional_reset"])
+        self.assertEqual(stream.writes,[])
+        self.assertEqual(result["bootstrap_host_write_bytes"],600)
+
+    def test_s3_only_rejects_production_wrong_fixture_and_reset_before_open(self):
+        for field,value in (("profile","PRODUCTION"),("home_id","other"),
+                            ("hub_id","other"),("s3_boot_reset",True),
+                            ("c3_boot_reset",True),("c3",{})):
+            cfg=self.config();cfg[field]=value
+            with self.subTest(field=field), patch.object(tc_serial.serial,"Serial") as factory:
+                with self.assertRaises(ValueError):tc_serial.bootstrap_s3(cfg)
+                factory.assert_not_called()
+
+    def test_s3_only_wrong_usb_and_invalid_bound_never_open(self):
+        for port,seconds in (("COM4",10),("COM10",0),("COM10",91)):
+            cfg=self.config();cfg["s3"]["port"]=port;cfg["observation_seconds"]=seconds
+            with patch.object(tc_serial.serial,"Serial") as factory:
+                with self.assertRaises(ValueError):
+                    tc_serial.bootstrap_s3(cfg,port_finder=lambda:[self.config()["s3"]])
+                factory.assert_not_called()
+
+    def test_s3_only_timeout_invalid_envelope_and_interrupt_close_without_retry(self):
+        for error in (ValueError("TC001_BOOTSTRAP_ENCRYPTED_RESPONSE_INVALID"),
+                      TimeoutError("challenge timeout"),KeyboardInterrupt()):
+            cfg=self.config();stream=SimpleNamespace(is_open=False)
+            stream.open=lambda:setattr(stream,"is_open",True)
+            stream.close=lambda:setattr(stream,"is_open",False)
+            calls=[]
+            def exchange(*a,**k):calls.append(1);raise error
+            with self.subTest(error=type(error).__name__):
+                with self.assertRaises(type(error)):
+                    tc_serial.bootstrap_s3(cfg,serial_factory=lambda:stream,
+                        port_finder=lambda:[cfg["s3"]],exchange=exchange)
+                self.assertFalse(stream.is_open);self.assertEqual(calls,[1])
+
+
+class EngineeringBootstrapReviewTest(unittest.TestCase):
+    def test_missing_review_and_modified_candidate_fail_closed(self):
+        with self.assertRaises(ValueError):hil_auth.verify_engineering_bootstrap_review(None)
+        with patch.object(hil_auth,'digest',return_value='0'*64):
+            with self.assertRaisesRegex(ValueError,'reviewed_script_changed'):
+                hil_auth._engineering_bootstrap_files()
+
+    def test_review_binds_sources_report_and_immutable_audit(self):
+        import gs179_verified_endpoint as endpoint
+        row={'operation':'s3_runtime_bootstrap','source_files':{},'test_report':'OK',
+             'test_report_sha256':hashlib.sha256(b'OK').hexdigest()}
+        sha=hil_auth._canonical_record_sha256(row)
+        event={'event':'gs117_engineering_bootstrap_reviewed','review_sha256':sha,'file_sha256':'a'*64}
+        event['record_sha256']=hil_auth._canonical_record_sha256(event)
+        with (patch.object(endpoint,'_network_private_json',return_value=row),
+              patch.object(hil_auth,'_engineering_bootstrap_files',return_value=[]),
+              patch.object(hil_auth,'digest',return_value='a'*64),
+              patch.object(hil_auth,'_read_private_audit',return_value=[event])):
+            self.assertEqual(hil_auth.verify_engineering_bootstrap_review(sha),row)
+            row['test_report']='altered'
+            with self.assertRaises(ValueError):hil_auth.verify_engineering_bootstrap_review(sha)
+
+    def test_bootstrap_cannot_reserve_without_review(self):
+        with patch.object(hil_auth,'verify_engineering_bootstrap_review',side_effect=ValueError('missing')):
+            with self.assertRaisesRegex(ValueError,'missing'):
+                with hil_auth.engineering_functional_session('s3_runtime_bootstrap'):self.fail('executed')
+
 if __name__ == "__main__":
     unittest.main()
