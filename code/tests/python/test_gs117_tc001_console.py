@@ -4038,6 +4038,25 @@ class EngineeringBootstrapReviewTest(unittest.TestCase):
             row['test_report']='altered'
             with self.assertRaises(ValueError):hil_auth.verify_engineering_bootstrap_review(sha)
 
+    def test_approved_reboot_scope_cannot_be_reserved_twice(self):
+        import gs179_verified_endpoint as endpoint
+        used=[]
+        def once(*a,**k):
+            if used: raise FileExistsError("already consumed")
+            used.append(True)
+        with (patch.object(hil_auth,"verify_engineering_bootstrap_review"),
+              patch.object(hil_auth,"_readback_receipt_hold_exclusive_lock"),
+              patch.object(endpoint,"engineering_functional_admission",return_value={"owner_approval_ref":"standing","identity":{}}),
+              patch.object(endpoint,"_network_write_once",side_effect=once),
+              patch.object(endpoint,"_network_event")):
+            with hil_auth.engineering_functional_session("s3_runtime_bootstrap_reboot_11983",bootstrap_review="a"*64) as (policy,run):
+                self.assertEqual(policy["owner_approval_ref"],"GS-117#11983")
+                run["functional_outcome"]="BLOCKED"
+            with self.assertRaises(FileExistsError):
+                with hil_auth.engineering_functional_session("s3_runtime_bootstrap_reboot_11983",bootstrap_review="a"*64):
+                    self.fail("second reboot scope admitted")
+        self.assertEqual(len(used),1)
+
     def test_bootstrap_cannot_reserve_without_review(self):
         with patch.object(hil_auth,'verify_engineering_bootstrap_review',side_effect=ValueError('missing')):
             with self.assertRaisesRegex(ValueError,'missing'):
