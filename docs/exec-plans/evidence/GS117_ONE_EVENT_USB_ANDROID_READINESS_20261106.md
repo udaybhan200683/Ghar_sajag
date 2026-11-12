@@ -58,6 +58,16 @@ or firmware fixes were attempted to hide those failures. Shared UI source and
 native APK unchanged; complete PWA/release/target gates NOT_RUN for this iteration;
 actual isolated shared-browser execution is retained separately from physical APK.
 
+Delivery checkpoint: source/docs commitdda3e5e31cbd27caac2a0549837666cac0a016f6
+pushed normally and independently matched origin/feature/r1-commercial-baseline.
+Tracked worktree clean after that commit;490 unrelated untracked assets preserved.
+Final read-only verification confirms ADMIN/OWNER epoch1, exactly one grant/audit1,
+original credential login200/Settings200/Reports200; grant NOT repeated. Android
+ADB still lists no devices.11983 reboot UNUSED. Final Windows8445/4468/tasks/helpers0,
+caregiver4431. No physical event, no E2E acceptance. Resume by connecting/unlocking
+ZA2237MRHN/opening existing APK; then existing guarded S3 recovery and one Run.
+Protected validation logs retained under dev-account-12026/validation-completed.
+
 ## Owner12026 implementation plan — same existing account, no raw-policy gate
 
 BUG_CLASSIFICATION=R1_FIX (development Settings authorization configuration)
