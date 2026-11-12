@@ -77,19 +77,30 @@ def collect(stream, pending: str, lines: list[str], *, capture=None,
         # Drop an entire overlong partial line, not just its credential label.
         # Otherwise the next chunk could expose a secret suffix as a new line.
         if capture is not None:
-            capture["pending_truncated_chars"] += len(decoded.split("\n", 1)[0])
-        if "\n" not in decoded:
+            first_terminator = re.search(r"\r\n|\r|\n", decoded)
+            capture["pending_truncated_chars"] += (
+                len(decoded) if first_terminator is None else first_terminator.start())
+        first_terminator = re.search(r"\r\n|\r|\n", decoded)
+        if first_terminator is None:
             return _DISCARD_PARTIAL
         pending = ""
-        decoded = decoded.split("\n", 1)[1]
-    pending += decoded
-    fragments = pending.split("\n")
+        decoded = decoded[first_terminator.end():]
+    combined = pending + decoded
+    # UART loggers may terminate with LF, CRLF, or CR. Preserve a trailing CR
+    # across non-empty chunks so a CRLF split at the read boundary is one line
+    # ending; an empty timed read proves it is a standalone CR terminator.
+    hold_trailing_cr = bool(data) and combined.endswith("\r")
+    parseable = combined[:-1] if hold_trailing_cr else combined
+    normalized = re.sub(r"\r\n|\r|\n", "\n", parseable)
+    fragments = normalized.split("\n")
+    tail = fragments[-1] + ("\r" if hold_trailing_cr else "")
     host_time = (datetime.fromtimestamp((time.time if wall_clock is None else wall_clock)(),
                                       timezone.utc).isoformat()
                  if capture is not None else None)
-    for line in fragments[:-1]:
+    complete_lines = fragments[:-1] if len(fragments) > 1 else []
+    for line in complete_lines:
         safe = "".join(c for c in line if 32 <= ord(c) < 127).strip()
-        if re.search(r"HIL_(?:READY|STATE|OK|ERROR|FIXTURE)|GS117_TEST_ONLY|GS117_DEV_(?:REJOIN|TX|CALLBACK|RADIO|RX)|GS40T/1|PIR -> NodeRuntime|NodeMessage sent|Application ACK|authenticated|durable|CloudSync|COMMITTED|HubRuntime|HubSecurity|gs_hub_product|gs_hub_runtime|ESP-NOW|outbox|storage|mount|Wi-Fi|STA_START|firmware|image|boot:|ESP-ROM|rst:|panic|abort\(\)|Backtrace|app_init:|SPI\s+Flash(?:\s+Size)?\s*[:=]|esp_psram|octal_psram|spiram|assert failed:|Guru Meditation Error|Stack canary|stack overflow|\btask_wdt\b|Task watchdog|Tasks currently running|CPU\s+[0-9]+:|^\s*(?:0x[0-9a-f]+[: ]+){2,}", safe, re.I):
+        if re.search(r"HIL_(?:READY|STATE|OK|ERROR|FIXTURE)|GS117_TEST_ONLY|GS117_DEV_(?:REJOIN|TX|CALLBACK|RADIO|RX)|GS40T/1|PIR -> NodeRuntime|NodeMessage sent|Application ACK|authenticated|durable|CloudSync|COMMITTED|HubRuntime|HubSecurity|gs_hub_product|gs_hub_runtime|ESP-NOW|outbox|storage|mount|Wi-Fi|STA_START|firmware|image|boot:|ESP-ROM|rst:|panic|abort\(\)|Backtrace|app_init:|SPI\s+Flash(?:\s+Size)?\s*[:=]|esp_psram|octal_psram|spiram|assert failed:|Guru Meditation Error|Stack canary|stack overflow|\btask_wdt\b|Task watchdog|Tasks currently running|CPU\s+[0-9]+:|Power counters|BAT_SLEEP_(?:DECISION|ENTER|WAKE|RESTORE)|Light sleep stayed awake|^\s*(?:0x[0-9a-f]+[: ]+){2,}", safe, re.I):
             # Keep challenge nonce/public-key parsing compatible with bootstrap.
             # The existing bootstrap-evidence redactor removes those fields before persistence.
             safe = re.sub(r"(?i)(\b(?:credential|secret|private[_. -]?key|session[_. -]?key|installer[_. -]?code|wifi_psk|psk|password|token|authorization|ssid|certificate|payload|authentication|encrypted[_ -]?(?:envelope|config))\s*[:=]\s*)(\"[^\"]*\"|'[^']*'|\S+)",
@@ -118,10 +129,10 @@ def collect(stream, pending: str, lines: list[str], *, capture=None,
         elif capture is not None:
             capture["filtered_lines"] += 1
     if capture is not None:
-        capture["pending_truncated_chars"] += max(0, len(fragments[-1]) - MAX_PENDING_CHARS)
-    if len(fragments[-1]) > MAX_PENDING_CHARS:
+        capture["pending_truncated_chars"] += max(0, len(tail) - MAX_PENDING_CHARS)
+    if len(tail) > MAX_PENDING_CHARS:
         return _DISCARD_PARTIAL
-    return fragments[-1]
+    return tail
 
 
 def exact_port(board: dict, candidates: list[dict]) -> bool:
@@ -833,23 +844,47 @@ def observe_node(config: dict) -> dict:
         raise ValueError('TC001_OBSERVATION_SECONDS_OUT_OF_RANGE')
     stream = serial.Serial();stream.port=c3['port'];stream.baudrate=115200
     stream.timeout=.1;stream.write_timeout=1;stream.dtr=False;stream.rts=False
-    lines=[];pending=''
+    lines=[];pending='';capture=capture_state();writes=[]
     try:
         stream.open();deadline=time.monotonic()+duration;query=0
         while time.monotonic()<deadline:
-            pending=collect(stream,pending,lines)
+            pending=collect(stream,pending,lines,capture=capture,deadline=deadline)
             readiness_guard({'stop_on_readiness_error':True},lines,[])
             if time.monotonic()>=query:
-                stream.write(b'GET_STATE\n');stream.flush();query=time.monotonic()+10
+                command=b'GET_STATE\n'
+                write_started_at=datetime.now(timezone.utc).isoformat()
+                written=stream.write(command)
+                stream.flush()
+                write_completed_at=datetime.now(timezone.utc).isoformat()
+                writes.append({'command':'GET_STATE','requested_bytes':len(command),
+                               'host_accepted_bytes':written,
+                               'host_write_started_at':write_started_at,
+                               'host_write_completed_at':write_completed_at,
+                               'host_write_completed_monotonic':time.monotonic()})
+                if written != len(command):
+                    raise ValueError('TC001_GET_STATE_HOST_WRITE_INCOMPLETE')
+                query=time.monotonic()+10
             time.sleep(.02)
-        return {'c3':lines,'s3_serial_opened':False,'motion_injection':False}
+        capture['unterminated_tail_chars']=(0 if pending==_DISCARD_PARTIAL else len(pending))
+        return {'c3':lines,'serial_capture':{'c3':capture},
+                'host_write_receipts':writes,
+                'get_state_ack_count':sum('HIL_OK command=GET_STATE' in line for line in lines),
+                's3_serial_opened':False,'motion_injection':False}
+    except BaseException as error:
+        capture['unterminated_tail_chars']=(0 if pending==_DISCARD_PARTIAL else len(pending))
+        error.captured_observation={'c3':lines,'serial_capture':{'c3':capture},
+                                    'host_write_receipts':writes,
+                                    's3_serial_opened':False,'motion_injection':False}
+        raise
     finally:
         if stream.is_open:stream.close()
 
 
 def c3_hil_readiness_evidence(lines: list[str], *, get_state_commands_sent: int,
                               observation_elapsed_ms: int, capture: dict,
-                              guard_ready: bool, get_state_ack_received: bool) -> dict:
+                              guard_ready: bool, get_state_ack_received: bool,
+                              host_write_receipts: list[dict] | None = None,
+                              host_write_status: str = "COMPLETE") -> dict:
     """Return a small, credential-free explanation of the existing C3 guard."""
     state_lines = [line for line in lines if "HIL_STATE role=c3" in line]
     state_line = state_lines[-1] if state_lines else ""
@@ -925,6 +960,43 @@ def c3_hil_readiness_evidence(lines: list[str], *, get_state_commands_sent: int,
     )
     startup = [line[:512] for line in lines
                if any(marker.casefold() in line.casefold() for marker in startup_markers)]
+    record_by_line = {row.get("line_index"): row for row in capture.get("records", [])
+                       if isinstance(row, dict)}
+    response_pattern = re.compile(
+        r"HIL_(?:STATE|OK|ERROR)|Power counters|BAT_SLEEP_(?:DECISION|ENTER|WAKE|RESTORE)|"
+        r"Light sleep stayed awake|ESP-ROM:|rst:|boot: ESP-IDF|app_init: App version:|"
+        r"app_init: ELF file SHA256:", re.I)
+    candidates = [(index, line) for index, line in enumerate(lines)
+                  if response_pattern.search(line)]
+    selected_indices = []
+    priority_patterns = (
+        re.compile(r"ESP-ROM:|rst:|boot: ESP-IDF|app_init: App version:|app_init: ELF file SHA256:", re.I),
+        re.compile(r"Power counters", re.I),
+        re.compile(r"BAT_SLEEP_(?:DECISION|ENTER|WAKE|RESTORE)|Light sleep stayed awake", re.I),
+        re.compile(r"HIL_ERROR", re.I),
+        re.compile(r"HIL_STATE", re.I),
+        re.compile(r"HIL_OK command=GET_STATE", re.I),
+    )
+    for pattern in priority_patterns:
+        matching = [index for index, line in candidates if pattern.search(line)]
+        for index in (matching[:1] + matching[-1:]):
+            if index not in selected_indices:
+                selected_indices.append(index)
+    for index, _line in reversed(candidates):
+        if len(selected_indices) >= 16:
+            break
+        if index not in selected_indices:
+            selected_indices.append(index)
+    selected_indices = selected_indices[:16]
+    response_evidence = []
+    for index in selected_indices:
+        line = lines[index]
+        response_evidence.append({
+            **{key: record_by_line[index].get(key) for key in (
+                "host_received_at", "host_monotonic", "target_uptime_ms", "boot_epoch")
+               if index in record_by_line},
+            "line": line[:384],
+        })
     return {
         "schema": "GS117_C3_HIL_READINESS_V1",
         "response_status": response_status,
@@ -936,6 +1008,10 @@ def c3_hil_readiness_evidence(lines: list[str], *, get_state_commands_sent: int,
         "get_state_commands_sent": get_state_commands_sent,
         "get_state_ack_count": ack_count,
         "get_state_ack_received": get_state_ack_received,
+        "host_write_status": host_write_status,
+        "host_write_receipts": (host_write_receipts or [])[-15:],
+        "response_evidence": response_evidence,
+        "response_evidence_omitted": max(0, len(candidates) - len(response_evidence)),
         "existing_guard_ready": guard_ready,
         "guard_predicates": predicates,
         "failed_predicates": failed,
@@ -980,18 +1056,65 @@ def run(config: dict, *, monotonic=None) -> dict:
     c3_stream.rts = False
     c3_lines: list[str] = []
     c3_tail = ""
+    readiness_capture = capture_state()
+    host_write_receipts: list[dict] = []
+    get_state_commands_sent = 0
     clock = time.monotonic if monotonic is None else monotonic
     try:
         c3_stream.open()
         readiness_started = clock()
-        c3_stream.write(b"GET_STATE\n")
-        get_state_commands_sent = 1
         deadline = readiness_started + 30
         next_query = readiness_started + 2
-        readiness_capture = capture_state()
         mode_line = ""
         ready = False
         get_state_ack_received = False
+
+        def send_get_state(host_write_started_monotonic: float) -> None:
+            nonlocal get_state_commands_sent
+            command = b"GET_STATE\n"
+            receipt = {
+                "command": "GET_STATE", "requested_bytes": len(command),
+                "host_write_started_at": datetime.now(timezone.utc).isoformat(),
+                "host_write_started_monotonic": host_write_started_monotonic,
+            }
+            written = None
+            try:
+                written = c3_stream.write(command)
+                c3_stream.flush()
+            except BaseException as error:
+                receipt.update({"host_accepted_bytes": written,
+                                "status": "HOST_WRITE_ERROR",
+                                "error_type": type(error).__name__,
+                                "host_write_completed_at": datetime.now(timezone.utc).isoformat()})
+                host_write_receipts.append(receipt)
+                elapsed = max(0, int((host_write_started_monotonic - readiness_started) * 1000))
+                evidence = c3_hil_readiness_evidence(
+                    c3_lines, get_state_commands_sent=get_state_commands_sent,
+                    observation_elapsed_ms=elapsed, capture=readiness_capture,
+                    guard_ready=False, get_state_ack_received=False,
+                    host_write_receipts=host_write_receipts,
+                    host_write_status="HOST_WRITE_ERROR")
+                failure = ValueError("TC001_GET_STATE_HOST_WRITE_FAILED")
+                failure.captured_observation = evidence
+                raise failure from None
+            receipt.update({"host_accepted_bytes": written,
+                            "host_write_completed_at": datetime.now(timezone.utc).isoformat(),
+                            "status": "COMPLETE" if written == len(command) else "SHORT_WRITE"})
+            host_write_receipts.append(receipt)
+            if written != len(command):
+                elapsed = max(0, int((host_write_started_monotonic - readiness_started) * 1000))
+                evidence = c3_hil_readiness_evidence(
+                    c3_lines, get_state_commands_sent=get_state_commands_sent,
+                    observation_elapsed_ms=elapsed, capture=readiness_capture,
+                    guard_ready=False, get_state_ack_received=False,
+                    host_write_receipts=host_write_receipts,
+                    host_write_status="SHORT_WRITE")
+                failure = ValueError("TC001_GET_STATE_HOST_WRITE_INCOMPLETE")
+                failure.captured_observation = evidence
+                raise failure
+            get_state_commands_sent += 1
+
+        send_get_state(readiness_started)
         while clock() < deadline:
             c3_tail = collect(c3_stream, c3_tail, c3_lines,
                               capture=readiness_capture, deadline=deadline, clock=clock)
@@ -1016,16 +1139,15 @@ def run(config: dict, *, monotonic=None) -> dict:
             if now >= deadline:
                 break
             if now >= next_query:
-                c3_stream.write(b"GET_STATE\n")
-                c3_stream.flush()
-                get_state_commands_sent += 1
+                send_get_state(now)
                 next_query = clock() + 2
         observation_elapsed_ms = max(0, int((clock() - readiness_started) * 1000))
         readiness_evidence = c3_hil_readiness_evidence(
             c3_lines, get_state_commands_sent=get_state_commands_sent,
             observation_elapsed_ms=observation_elapsed_ms,
             capture=readiness_capture, guard_ready=bool(ready),
-            get_state_ack_received=get_state_ack_received)
+            get_state_ack_received=get_state_ack_received,
+            host_write_receipts=host_write_receipts)
         if not (ready and get_state_ack_received):
             error = ValueError("TC001_INSTALLED_C3_HIL_MODE_UNVERIFIED")
             error.captured_observation = readiness_evidence

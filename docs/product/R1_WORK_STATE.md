@@ -253,6 +253,20 @@ source-reviewed private versions preserved. Next: complete normal OS UAC with
 owner present and supply real household policy, then use UNCONSUMED11983 reboot
 with host ready; do not seek the same reboot/project approval again.
 
+## GS-117 — C3 serial-command / sleep checkpoint — 2026-11-12
+
+Local/remote starting HEAD was `053cd93d18e2cfa18954b9f012c880619e29f074` on `feature/r1-commercial-baseline`; canonical context preflight `2026-11-12.007` passed. The existing Web `motion_event_once` attempt opened registered C3 COM4 and sent 15 `GET_STATE` host queries, but collected no usable `HIL_STATE` or `HIL_OK command=GET_STATE`; it stopped at the unchanged `STATE_ABSENT` guard. No `INJECT_MOTION` was sent and there is no fresh EventKey or downstream event from this attempt.
+
+The preserved C3-only diagnostic contains a sanitized CR-coalesced output record with an awake power counter and `HIL_ERROR unknown_command=Gr`. Because the old collector split only LF, the fragment cannot be correlated to a specific host query; host-accepted writes do not prove target parser receipt. Existing firmware source reads HIL commands from `stdin`, ignores CR, dispatches on LF and emits state/ACK for `GET_STATE`; the Engineering HIL defaults use USB Serial/JTAG. The installed/running image is `UNKNOWN/NOT_VERIFIED`, so no installed-handler claim is made. Historical `GS-117#11848` session126/sequence1 is supplemental evidence that the real USB→C3→S3→backend→APK path worked once, not current acceptance.
+
+The intended Engineering USB-HIL profile is explicitly awake: `HIL_AWAKE_TEST_ONLY` and `physical_wake_permitted(0,1,0)==false` prevent sleep; the existing static assertion documents this. The captured `awake_ms` was 215 ms below target uptime at that sample. This supports that the board was awake then, but does not qualify its current image or state. No evidence indicates the intended HIL image entered sleep.
+
+The existing observer/controller now split CR/CRLF/LF, preserve bounded per-record host/target timing and sleep/power/HIL diagnostics, record flushed host-write byte counts, fail closed on short writes, and propagate its observation through the controller. No readiness predicate or firmware behavior changed. Focused results from before the owner's no-more-suites direction: diagnostic collection 27/27 PASS; GS-117 console 199/199 PASS; Python compile and diff checks PASS. No suite has run since that direction.
+
+Physical follow-up is blocked by stale source fingerprints for the modified observer/controller and related pinned GS-117 tools. The established source-review workflow invokes tests, which the owner has directed us not to run until asked; no source pin or authorization record was bypassed. No further COM access or injection occurred. The task-owned local portal was stopped; local 18791, 8445 and 4468 listeners were absent afterward. S3 reboot #11983 remains unused, C3 cold-start stays ON HOLD, formal optical TC-001 remains 0/5, and GS-117 remains Highest/In Progress.
+
+Next: when permitted, run the existing source-review workflow and its required focused checks, then make one bounded C3-only observation with corrected framing. Establish the actual command-receive boundary from correlated evidence; inject one motion event only after the unchanged readiness guard genuinely passes. Full checkpoint: `docs/exec-plans/evidence/GS117_ONE_EVENT_USB_ANDROID_READINESS_20261106.md`.
+
 
 ## GS-117 — 2026-11-12 desktop-confirmed ingress; expired config/no challenge
 

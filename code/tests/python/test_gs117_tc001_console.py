@@ -1518,6 +1518,71 @@ class TC001Test(unittest.TestCase):
                     's3': {'port':'COM10','serial_number':'E0:72:A1:D3:8D:34'}})
             opened.assert_not_called()
 
+    def test_node_only_observer_records_sleep_state_and_one_host_query(self):
+        clock = [0.0]
+        opened = []
+
+        class FakeSerial:
+            def __init__(self):
+                self.port = ""; self.baudrate = 0; self.timeout = 0
+                self.write_timeout = 0; self.dtr = True; self.rts = True
+                self.buffer = bytearray(); self.is_open = False; self.writes = []
+
+            @property
+            def in_waiting(self):
+                return len(self.buffer)
+
+            def open(self):
+                self.is_open = True; opened.append(self.port)
+                self.buffer.extend(
+                    b"I (10) gs_node_runtime: Power counters awake_ms=9\r"
+                    b"I (11) gs_node_runtime: BAT_SLEEP_ENTER requested_ms=500\r")
+
+            def write(self, data):
+                self.writes.append(data)
+                self.buffer.extend(
+                    b"I (12) gs_node_runtime: HIL_STATE role=c3 "
+                    b"power_mode=HIL_AWAKE_TEST_ONLY hil_build=0 hil_control=1 "
+                    b"physical_wake=0 runtime_live=8 sensing_live=7 "
+                    b"pending_inject=0 retained=0 in_flight=0\r"
+                    b"I (13) gs_node_runtime: HIL_OK command=GET_STATE\r")
+                return len(data)
+
+            def flush(self):
+                pass
+
+            def read(self, count):
+                if not self.buffer:
+                    clock[0] += min(0.1, self.timeout)
+                result = bytes(self.buffer[:count]); del self.buffer[:count]
+                return result
+
+            def close(self):
+                self.is_open = False
+
+        c3 = {"port": "COM4", "serial_number": "14:63:93:C5:D1:58",
+              "usb_hwid": "c3-exact"}
+        s3 = {"port": "COM10", "serial_number": "E0:72:A1:D3:8D:34",
+              "usb_hwid": "s3-exact"}
+        stream = FakeSerial()
+        with (patch.object(tc_serial, "ports", return_value=[c3, s3]),
+              patch.object(tc_serial.serial, "Serial", return_value=stream),
+              patch.object(tc_serial.time, "monotonic", side_effect=lambda: clock[0]),
+              patch.object(tc_serial.time, "sleep", side_effect=lambda value: clock.__setitem__(0, clock[0] + value))):
+            result = tc_serial.observe_node({"c3": c3, "s3": s3,
+                                             "observation_seconds": 10})
+
+        self.assertEqual(opened, ["COM4"])
+        self.assertEqual(stream.writes, [b"GET_STATE\n"])
+        self.assertEqual(result["host_write_receipts"][0]["host_accepted_bytes"], 10)
+        self.assertIn("host_write_completed_monotonic", result["host_write_receipts"][0])
+        self.assertEqual(result["get_state_ack_count"], 1)
+        self.assertTrue(any("HIL_STATE role=c3" in line for line in result["c3"]))
+        self.assertTrue(any("BAT_SLEEP_ENTER" in line for line in result["c3"]))
+        self.assertFalse(result["s3_serial_opened"])
+        self.assertFalse(result["motion_injection"])
+        self.assertFalse(stream.is_open)
+
     def test_spi_flash_log_without_plain_boot_tag_is_retained(self):
         class Stream:
             data = b'I (400) boot.esp32s3: SPI Flash Size : 16MB\n'
@@ -2679,7 +2744,9 @@ class TC001Test(unittest.TestCase):
         self.assertEqual(tc.physical_key(result["c3"]), (81, 4))
         self.assertNotIn("reset_safe_uart_verified", result)
 
-    def _run_c3_readiness_case(self, state_line, *, ack=True, startup=()):
+    def _run_c3_readiness_case(self, state_line, *, ack=True, startup=(),
+                              short_first_write=False,
+                              expected_error="TC001_INSTALLED_C3_HIL_MODE_UNVERIFIED"):
         opened = []
         class FakeClock:
             def __init__(self): self.value = 0.0
@@ -2698,6 +2765,8 @@ class TC001Test(unittest.TestCase):
             def write(self, value):
                 self.writes.append(value)
                 if value == b"GET_STATE\n":
+                    if short_first_write and len(self.writes) == 1:
+                        return len(value) - 1
                     output = [*startup] if self.get_state_count == 0 else []
                     self.get_state_count += 1
                     if state_line is not None: output.append(state_line)
@@ -2713,12 +2782,12 @@ class TC001Test(unittest.TestCase):
               "hil_build": False, "physical_wake": False}
         s3 = {"port": "COM10", "usb_hwid": "USB VID:PID=303A:1001 SER=E0:72:A1:D3:8D:34",
               "serial_number": "E0:72:A1:D3:8D:34"}
+        clock = FakeClock()
         stream = FakeSerial()
         with (patch.object(tc_serial, "ports", return_value=[c3, s3]),
               patch.object(tc_serial.serial, "Serial", return_value=stream)):
-            with self.assertRaisesRegex(
-                    ValueError, "TC001_INSTALLED_C3_HIL_MODE_UNVERIFIED") as raised:
-                tc_serial.run({"c3": c3, "s3": s3}, monotonic=FakeClock())
+            with self.assertRaisesRegex(ValueError, expected_error) as raised:
+                tc_serial.run({"c3": c3, "s3": s3}, monotonic=clock)
         return raised.exception, stream, opened
 
     def test_c3_readiness_failure_captures_exact_bounded_predicates_without_injection(self):
@@ -2758,6 +2827,43 @@ class TC001Test(unittest.TestCase):
                 self.assertLessEqual(evidence["observation_elapsed_ms"], 30200)
                 self.assertFalse(evidence["raw_state_line_retained"])
                 self.assertLessEqual(len(json.dumps(evidence).encode()), 16384)
+
+    def test_get_state_short_host_write_fails_closed_before_injection(self):
+        ready = ("I (99) gs_node_runtime: HIL_STATE role=c3 "
+                 "power_mode=HIL_AWAKE_TEST_ONLY hil_build=0 hil_control=1 physical_wake=0 "
+                 "runtime_live=4 sensing_live=5 pending_inject=0 retained=0 in_flight=0")
+        error, stream, opened = self._run_c3_readiness_case(
+            ready, short_first_write=True,
+            expected_error="TC001_GET_STATE_HOST_WRITE_INCOMPLETE")
+        self.assertEqual(opened, ["COM4"])
+        self.assertEqual(stream.writes, [b"GET_STATE\n"])
+        self.assertNotIn(b"INJECT_MOTION\n", stream.writes)
+        self.assertFalse(stream.is_open)
+        evidence = error.captured_observation
+        self.assertEqual(evidence["host_write_status"], "SHORT_WRITE")
+        self.assertEqual(evidence["host_write_receipts"][0]["requested_bytes"], 10)
+        self.assertEqual(evidence["host_write_receipts"][0]["host_accepted_bytes"], 9)
+
+    def test_c3_readiness_evidence_correlates_receive_time_and_sleep_lines(self):
+        ready = ("I (99) gs_node_runtime: HIL_STATE role=c3 "
+                 "power_mode=HIL_AWAKE_TEST_ONLY hil_build=0 hil_control=1 physical_wake=0 "
+                 "runtime_live=4 sensing_live=5 pending_inject=0 retained=0 in_flight=0")
+        startup = ("I (80) gs_node_runtime: Power counters awake_ms=79",
+                   "I (81) gs_node_runtime: BAT_SLEEP_ENTER requested_ms=500")
+        error, _stream, _opened = self._run_c3_readiness_case(
+            ready, ack=False, startup=startup)
+        evidence = error.captured_observation
+        self.assertEqual(evidence["host_write_status"], "COMPLETE")
+        self.assertTrue(evidence["host_write_receipts"])
+        self.assertTrue(any("Power counters" in row["line"]
+                            for row in evidence["response_evidence"]))
+        self.assertTrue(any("BAT_SLEEP_ENTER" in row["line"]
+                            for row in evidence["response_evidence"]))
+        state = next(row for row in evidence["response_evidence"]
+                     if "HIL_STATE role=c3" in row["line"])
+        self.assertIsNotNone(state["host_received_at"])
+        self.assertEqual(state["target_uptime_ms"], 99)
+        self.assertLessEqual(len(json.dumps(evidence).encode()), 16384)
 
     def test_c3_readiness_evidence_redacts_sensitive_fields_and_bounds_startup_excerpt(self):
         ready = ("I (99) gs_node_runtime: HIL_STATE role=c3 "
@@ -2810,6 +2916,21 @@ class TC001Test(unittest.TestCase):
                            "hil_control": True, "hil_build": False, "physical_wake": False},
                     "s3": {"port": "COM10", "usb_hwid": "s3", "serial_number": "s3"}})
         self.assertFalse(hasattr(raised.exception, "captured_observation"))
+
+        node_observation = {"c3": ["I (1) HIL_STATE role=c3"],
+                            "serial_capture": {"c3": {"records": []}},
+                            "s3_serial_opened": False, "motion_injection": False}
+        completed = subprocess.CompletedProcess(
+            ["powershell"], 2,
+            json.dumps({"error": "TC001_NODE_OBSERVATION_FAILED",
+                        "observation": node_observation}), "")
+        with (patch.object(tc.subprocess, "check_output", return_value=r"C:\gs117_serial.py"),
+              patch.object(tc.subprocess, "run", return_value=completed)):
+            with self.assertRaisesRegex(ValueError, "TC001_NODE_OBSERVATION_FAILED") as raised:
+                tc.powershell("ObserveNode", {
+                    "c3": {"port": "COM4", "usb_hwid": "c3", "serial_number": "c3"},
+                    "s3": {"port": "COM10", "usb_hwid": "s3", "serial_number": "s3"}})
+        self.assertEqual(raised.exception.captured_observation, node_observation)
 
     def test_controller_persists_c3_readiness_observation_on_preinjection_block(self):
         fixture = {"home_id": "gs177-test-product", "physical_device_id": "c3-146393c5d158",

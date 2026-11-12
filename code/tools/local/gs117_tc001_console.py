@@ -467,8 +467,14 @@ def powershell(action: str, fixture: dict | None = None) -> object:
     if isinstance(value, dict) and value.get("error"):
         error = ValueError(value["error"])
         observation = value.get("observation")
-        if (action == "Run" and isinstance(observation, dict) and
-                observation.get("schema") == "GS117_C3_HIL_READINESS_V1"):
+        retain_observation = (
+            action == "Run" and isinstance(observation, dict) and
+            observation.get("schema") == "GS117_C3_HIL_READINESS_V1") or (
+            action == "ObserveNode" and isinstance(observation, dict) and
+            isinstance(observation.get("serial_capture"), dict) and
+            observation.get("s3_serial_opened") is False and
+            observation.get("motion_injection") is False)
+        if retain_observation:
             try:
                 observation_size = len(json.dumps(
                     observation, separators=(",", ":"), ensure_ascii=True).encode("ascii"))

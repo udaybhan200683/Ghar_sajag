@@ -111,6 +111,66 @@ class CollectionTests(unittest.TestCase):
         self.assert_bounded(result, streams)
         self.assertEqual(result["c3_status_queries"], 9)
 
+    def test_collect_splits_cr_only_logs_and_keeps_bounded_receive_metadata(self):
+        class BytesStream:
+            def __init__(self, payload):
+                self.payload = bytearray(payload)
+
+            @property
+            def in_waiting(self):
+                return len(self.payload)
+
+            def read(self, count):
+                chunk = bytes(self.payload[:count])
+                del self.payload[:count]
+                return chunk
+
+        lines, capture = [], serial_tool.capture_state()
+        stream = BytesStream(
+            b"I (100) gs_node_runtime: Power counters awake_ms=95\r"
+            b"I (101) gs_node_runtime: BAT_SLEEP_ENTER requested_ms=10\r"
+            b"I (102) HIL_STATE role=c3 power_mode=HIL_AWAKE_TEST_ONLY "
+            b"hil_build=0 hil_control=1 physical_wake=0\r"
+            b"I (103) HIL_OK command=GET_STATE\r")
+        pending = serial_tool.collect(stream, "", lines, capture=capture,
+                                      wall_clock=lambda: 1234.0)
+        self.assertEqual(lines, [
+            "I (100) gs_node_runtime: Power counters awake_ms=95",
+            "I (101) gs_node_runtime: BAT_SLEEP_ENTER requested_ms=10",
+            "I (102) HIL_STATE role=c3 power_mode=HIL_AWAKE_TEST_ONLY "
+            "hil_build=0 hil_control=1 physical_wake=0",
+        ])
+        self.assertTrue(pending.endswith("\r"))
+        pending = serial_tool.collect(BytesStream(b""), pending, lines,
+                                      capture=capture, wall_clock=lambda: 1235.0)
+        self.assertEqual(pending, "")
+        self.assertEqual(lines[-1], "I (103) HIL_OK command=GET_STATE")
+        self.assertEqual([r["line_index"] for r in capture["records"]], [0, 1, 2, 3])
+        self.assertEqual([r["target_uptime_ms"] for r in capture["records"]],
+                         [100, 101, 102, 103])
+        self.assertEqual(capture["records"][-1]["host_received_at"],
+                         "1970-01-01T00:20:35+00:00")
+
+    def test_collect_handles_crlf_split_across_uart_reads(self):
+        class ChunkedStream:
+            def __init__(self):
+                self.chunks = [b"I (1) HIL_STATE role=c3\r", b"\nI (2) HIL_OK command=GET_STATE\r\n"]
+
+            @property
+            def in_waiting(self):
+                return len(self.chunks[0]) if self.chunks else 0
+
+            def read(self, _count):
+                return self.chunks.pop(0) if self.chunks else b""
+
+        stream, lines = ChunkedStream(), []
+        pending = serial_tool.collect(stream, "", lines)
+        self.assertEqual(lines, [])
+        pending = serial_tool.collect(stream, pending, lines)
+        self.assertEqual(lines, ["I (1) HIL_STATE role=c3",
+                                 "I (2) HIL_OK command=GET_STATE"])
+        self.assertEqual(pending, "")
+
     def test_bootstrap_never_adds_a_second_observation_or_drain(self):
         result, streams, clock = self.run_observation(bootstrap_seconds=17)
         self.assert_bounded(result, streams)
