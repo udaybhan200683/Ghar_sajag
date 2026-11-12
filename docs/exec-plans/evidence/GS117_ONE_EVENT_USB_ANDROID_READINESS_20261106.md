@@ -1346,3 +1346,47 @@ bounded ingress UAC can complete; then verify actual S3 authority/policy readine
 and run existing one-event path only if all product guards pass. Standing project
 authorization remains valid; no repeated Jira approval requested. No fresh EventKey
 or downstream event proof yet. No optical sensing/release qualification claimed.
+
+## GS-117 — 2026-11-12 desktop-confirmed ingress; expired config/no challenge
+
+Resumed36e2dd9 local=origin/context PASS. Owner desktop confirmation obtained.
+Existing bounded host services/UAC reused; administrator12216/session1, current
+open receipt/Tick/SYSTEM exports verified. Lease01:02:27.269313–02:02:27.269313 UTC.
+No source change/tests repeated;194/194 historical receipt reused.
+
+TLS-authenticated HOST read-only request /v1/homes/gs177-test-product/config/desired
+returned200,version0/confignull/applied_versionnull. This was made using approved
+fixture mTLS material and is NOT physical S3 authentication proof. Retained in
+services-rejoin-20261112T010149Z/authenticated-desired-policy.json; do not attribute
+that trace to S3. S3 signed-time requests observed, but prior one-hour envelope
+expired at~20:25 UTC Nov11; source gs40_test_only_runtime.cpp rejects refreshed
+time when UTC>=envelope_expiry_utc, so current authority recovery is fenced.
+No authenticated physical S3 authority request was established this continuation.
+
+One existing source-reviewed standing S3-only bootstrap attempted for expired
+runtime configuration (not redesign/test repetition), evidence
+standing-authorization/bootstrap-5521657ae986e100eae5412f. Failed safely:
+TC001_BOOTSTRAP_TARGET_CHALLENGE_NOT_OBSERVED. No challenge/boot evidence, no
+envelope generated/sent. Existing BootstrapS3 finally closes COM10 before child
+reports error; interrupted-child receipt exit-9 reflects parent cleanup after
+error response, not target reset. No intentional reset, C3 open, pairing or
+protected-state modification. Existing receiver is startup-only; absent a fresh
+challenge the no-reset procedure cannot refresh this expired running config.
+No retry. This is the first current execution blocker, not a proven rejoin defect.
+
+AndroidReady exactZA2237MRHN/package/version/signer PASS, but keyguardshowing=true
+and NotificationShade; operator unlock request pending. Actual APK event NOT_RUN.
+Prior fresh C3 positive/advancing liveness remains valid historical evidence;
+no further injection/C3 observation this continuation. No fresh EventKey,
+S3 eventACK/CloudSync/PG business commit/API/APK event. OpticalTC0010/5.
+Policy activity-Home omission/desired-policy absence remain uncorrected, no rules
+bypass/default invention. Cold-start11975 ON HOLD.
+
+Cleanup explicit existing nested SessionClose exit0; temporary WSL ingress,
+portal/time stopped, caregiver443→WSL8444 preserved. No automatic cleanup PASS.
+Final listener/task/serial checks retained in execution transcript. Firmware,
+registration, keys, old latches and private scripts preserved. Next necessary
+owner decision is exact permission for one intentional S3 reboot with host fully
+prepared for the existing challenge-bound config exchange; that operation is
+currently explicitly excluded. Do not force reboot via COM or revive grants.
+No replacement infrastructure or routine project-approval renewal is required.
