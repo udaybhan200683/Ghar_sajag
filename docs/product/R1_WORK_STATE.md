@@ -1,4 +1,40 @@
 
+## GS-117 — 2026-11-12 fresh C3 liveness milestone
+
+Resumeda44ee4d local=origin/context PASS, unchanged source, prior194/194 reused.
+Corrected existing ObserveNode60s completed without parent timeout, exact fixture
+and standing admission checked, COM4 only/closed, no reset command/injection.
+Evidence c3-rejoin-fresh-20261112T005437Z/observation.json: session140 unchanged,
+runtime_live AND sensing_live974885→977400 over six GET_STATE/ACK samples;
+queues all0, HIL_AWAKE_TEST_ONLY flags0/1/0. No reset marker. Initial power-log
+fragment is old buffered output. No fresh Hello/challenge/Final/ACK/channel
+transcript; source normal runtime admission implies authentication previously
+progressed but current handshake/full running-image qualification is not claimed.
+This supersedes zero-liveness as the current completed C3 observation.
+
+Existing host ingress/time/portal prepared without bootstrap repetition or S3
+UART open. PG and caregiver TLS passed. Desktop-availability question pending;
+no response/normal UAC activation, lease/exposure or event attempted. Task-owned
+host preparation stopped instead of leaving temporary services running;443 route
+preserved. services-rejoin-20261112T005626Z retains evidence. No new code/tests,
+firmware/registry/key change; cold-start11975 stays ON HOLD; opticalTC0010/5.
+
+Policy audit: private reviewedv21 envelope has field21 fixture Home but omits
+fields17–20 activity-policy group. Current gs40_test_only_runtime.cpp fetch
+rejects empty activity_home_id before HTTP fetch; parser maps field17 to that
+Home, not field21. This is a verified host configuration omission and sufficient
+source-level explanation for prior rejection; exact running implementation remains
+unqualified and live desired policy has not been checked. Do not bypass validator
+or add fabricated defaults. Need authenticated desired Home policy and existing
+signed configuration lifecycle before caregiver classification acceptance.
+
+Next: owner responds to pending Windows-desktop availability question so normal
+bounded ingress UAC can complete; then verify actual S3 authority/policy readiness
+and run existing one-event path only if all product guards pass. Standing project
+authorization remains valid; no repeated Jira approval requested. No fresh EventKey
+or downstream event proof yet. No optical sensing/release qualification claimed.
+
+
 ## GS-117 — 2026-11-11 Engineering S3 bootstrap restored; C3 rejoin still blocked
 
 Starting d5b5cce local=origin/context PASS. Owner standing scope clarified in
