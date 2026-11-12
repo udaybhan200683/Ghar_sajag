@@ -1,3 +1,17 @@
+## 2026-11-12 — GS179 unattended dependency implemented, OS setup blocked
+
+Owner11986 fixed scheduled executor delivered at a88fb48 (decision5a2f76a),
+canonical remote verified. Reuses existing standing/session/cleanup; no hardware
+scope change. Endpoint27/Windows21/framework55/mapping22 PASS are fresh HOST
+checks only. One normal installation UAC returned cancellation with no child;
+no deliberate denial inferred, no retry. Installation/task absent,8445/UDP4468
+closed,443 preserved. Actual locked-session invocation/authentication/cleanup
+NOT_RUN; see existing GS179_SESSION_INGRESS_RECOVERY_20261104.md exact setup
+command.11983 reboot remains unused; no S3/C3 access, rejoin, injection, EventKey
+or downstream result. Household policy values remain missing; cold-start11975
+ON HOLD; formal opticalTC0010/5. Complete one-time OS setup/qualification then
+resume existing real-board USB-to-APK flow, not a new authorization cycle.
+
 ## 2026-11-11 — UAC/ingress restored; real C3 readiness blocked before input
 
 Canonical `/home/udaybhan/projects/Ghar_sajag_r1`, branch

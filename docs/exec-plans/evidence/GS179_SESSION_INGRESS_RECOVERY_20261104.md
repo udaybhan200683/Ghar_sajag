@@ -1,3 +1,41 @@
+## 2026-11-12 — one-time OS installation blocked; no unattended acceptance
+
+Delivered source a88fb48 (decision5a2f76a) pushed and independently verified on
+canonical feature/r1-commercial-baseline; starting44b50df. Final newly executed
+Windows21/21, endpoint27/27, framework55/55, mapping22/22 PASS; isolated real
+snapshot mode-status exit0, Python compile/diff-check PASS. Existing lifecycle
+matrix retains expiry/idle, trust loss, revocation, nonoverlap, cleanup/battery
+coverage as mocks. Actual locked-session, SYSTEM expiry and authenticated routing
+remain NOT_RUN. No target build or unrelated product suite was justified by this
+host-only network tooling change. No new C3/S3/Android operation occurred.
+
+Launched genuine ONE-TIME administrator installation once. Consent process7896
+was observed in active Console session1. OS returned 'operation was canceled by
+the user', parentexit2; no administrator child ID or installer log/receipt.
+No deliberate denial inferred; no retry or UAC/security change. Evidence:
+~/.local/state/ghar-sajag/gs117-tc001/executor-install-20261112T034304Z.
+Read-only final Windows checks: installationPresent=false, taskCount0 (executor
+and physical session jobs), TCP8445=0, UDP4468=0, consentCount0, caregiver443=1.
+WSL8445/UDP4468 absent. No exposure/service/hardware operation to clean up;
+automatic cleanup is NOT newly qualified. Firmware/registration/keys/latches
+untouched; reboot11983 used record remains absent. C3 cold-start11975 ON HOLD.
+
+Exact next prerequisite is the already approved ONE-TIME OS administrator setup,
+not another Jira/project authorization. In a genuine administrator PowerShell,
+run the reviewed existing launcher (execution-policy option is process-local):
+
+```powershell
+& "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "\\wsl.localhost\Ubuntu\home\udaybhan\projects\Ghar_sajag_r1\code\tools\local\gs179-windows-lan-proxy.ps1" -Action InstallEngineeringExecutor -EndpointKind PhysicalHubIngress -ApprovalRef 'GS-179#11947' -NetworkWindow DEV -NetworkApprovalSha256 b04b996812db7757dba5a15a5b6c8f9105a80222d36cba917e871aa219121708
+```
+
+Then verify protected installation/task ACL/hash/XML, invoke from non-elevated
+controller with Windows locked, establish actual routing/authentication and
+qualify automatic controller-loss/SYSTEM expiry cleanup. Do not silently accept
+S4U/WSL availability or mocks as live PASS. Return directly to existing GS117
+once this required qualification passes; household-policy values remain a
+separate recorded input gap,11983 reboot unused, no EventKey/injection. Keep
+GS179/GS117 In Progress; full unattended Definition of Done is NOT met.
+
 ## 2026-11-12 — owner11986 unattended executor implementation
 
 BUG_CLASSIFICATION=TEST_INFRA_ONLY

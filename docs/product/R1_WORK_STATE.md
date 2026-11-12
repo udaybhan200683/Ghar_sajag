@@ -1,3 +1,18 @@
+## GS-179 / GS-117 — 2026-11-12 final unattended checkpoint
+
+Sourcea88fb48 and decision5a2f76a pushed/remote verified. Newly executed endpoint27,
+Windows21, framework55, mapping22 PASS; isolated snapshot/compile/diff checks PASS.
+One normal one-time installer UAC request returned OS cancellation before child
+startup; intent not inferred and no retry. Actual installation ABSENT; locked-
+session ingress/authentication/independent cleanup NOT_RUN. Exact approved admin
+setup command and evidence are in GS179_SESSION_INGRESS_RECOVERY_20261104.md.
+No new network/hardware services or serial access. Final Windows executor/session
+tasks0,8445=0,UDP4468=0,consent0;443=1. WSL temporary ports absent. No automatic
+cleanup PASS inferred.11983 reboot still UNUSED; household policy input gap
+unchanged; cold-start11975 ON HOLD; no injection/EventKey; opticalTC0010/5.
+Next: complete the ONE-TIME OS administrator setup, then locked non-elevated live
+qualification and return immediately to GS117. Both tickets remain In Progress.
+
 ## GS-179 — 2026-11-12 unattended execution implementation, live qualification pending
 
 Owner11986/GS-D034 approved narrow fixed-task Start/Close extension to existing
