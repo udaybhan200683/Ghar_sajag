@@ -771,7 +771,7 @@ def observe(config: dict, *, serial_factory=None, port_finder=None,
 
 
 def bootstrap_s3(config, *, serial_factory=None, port_finder=None,
-                 exchange=None, clock=None):
+                 exchange=None, clock=None, boot_reset=None):
     """One S3-only GS40 exchange; no reset, commissioning or C3 access."""
     if (config.get("profile") != "GS117_DEV_TEST_ONLY" or
             config.get("home_id") != "gs177-test-product" or
@@ -797,10 +797,13 @@ def bootstrap_s3(config, *, serial_factory=None, port_finder=None,
     evidence = {}; lines = []; capture = capture_state(); pending = ""
     try:
         stream.open()
+        if boot_reset is not None:
+            stream.reset_input_buffer()
+            boot_reset(stream)
         # Existing primitive verifies nonce, framing, expiry/restart and identity
         # immediately before its single configuration write.
         written = (bootstrap_config if exchange is None else exchange)(
-            stream, require_boot=False, challenge_timeout_seconds=75,
+            stream, require_boot=boot_reset is not None, challenge_timeout_seconds=75,
             evidence=evidence, identity_check=lambda: exact_port(board, finder()))
         deadline = clock() + duration
         while clock() < deadline:
@@ -809,7 +812,7 @@ def bootstrap_s3(config, *, serial_factory=None, port_finder=None,
         return {"stage": "OBSERVATION", "s3": lines, "c3": [],
                 "bootstrap_host_write_bytes": written,
                 "bootstrap_timeline": evidence, "serial_capture": {"s3": capture},
-                "c3_opened": False, "intentional_reset": False}
+                "c3_opened": False, "intentional_reset": boot_reset is not None}
     except BaseException as error:
         error.captured_observation = {"s3": lines, "c3": [],
             "bootstrap_timeline": evidence, "serial_capture": {"s3": capture}}
@@ -1632,6 +1635,9 @@ if __name__ == "__main__":
                 raise ValueError("TC001_EXACT_FIXTURE_COMMISSION_APPROVAL_REQUIRED")
             config["query_s3_status"] = True
             value = observe(config, fixture_exchange=commission_fixture)
+        elif action == "BootstrapS3Reboot11983":
+            from esptool.reset import HardReset
+            value = bootstrap_s3(config, boot_reset=lambda stream: HardReset(stream, uses_usb=True).reset())
         elif action == "BootstrapS3":
             value = bootstrap_s3(config)
         elif action == "Bootstrap":

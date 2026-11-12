@@ -2723,13 +2723,15 @@ def dispose_reviewed_preoperation_pin_failure(path=None):
                 'source_review_record_sha256': reviews[-1]['record_sha256']}
 
 
-ENGINEERING_S3_BOOTSTRAP_SHA256 = "3f65761b13ff02d740d17a2b723939ad8c675d1541f17718fa9e8f99e3ad72b7"
+ENGINEERING_S3_BOOTSTRAP_SHA256 = "5ef1c45d1e4b3d0ac8921c4250d6641022033160fce5a91ccab3ab3889d5a659"
+ENGINEERING_S3_REBOOT_SHA256 = "1624311002fcbc6b84288fe5bd5439e9b33c25f92eada4b732c6742658e5ee2e"
 
 
-def _engineering_bootstrap_files():
+def _engineering_bootstrap_files(operation="s3_runtime_bootstrap"):
+    reboot = operation == "s3_runtime_bootstrap_reboot_11983"
     root = Path(__file__).resolve().parents[3]
-    script = Path.home()/'.local/state/ghar-sajag/gs117-tc001/standing-readiness-prepared/gs117-protected-bootstrap-development-v21.py'
-    if script.is_symlink() or digest(script) != ENGINEERING_S3_BOOTSTRAP_SHA256:
+    script = Path.home()/'.local/state/ghar-sajag/gs117-tc001/standing-readiness-prepared'/('gs117-protected-bootstrap-development-v22.py' if reboot else 'gs117-protected-bootstrap-development-v23.py')
+    if script.is_symlink() or digest(script) != (ENGINEERING_S3_REBOOT_SHA256 if reboot else ENGINEERING_S3_BOOTSTRAP_SHA256):
         raise ValueError('engineering_bootstrap_reviewed_script_changed')
     return [script, Path(__file__), root/'code/tools/local/gs117_tc001_serial_windows.py',
             root/'code/tools/local/gs117_tc001_console.py',
@@ -2739,7 +2741,7 @@ def _engineering_bootstrap_files():
             root/'code/tests/python/test_gs117_tc001_console.py']
 
 
-def review_engineering_bootstrap_sources():
+def review_engineering_bootstrap_sources(operation="s3_runtime_bootstrap"):
     """Execute source-bound tests and register review under standing owner scope.
 
     This is automated review evidence, never an independent human attestation.
@@ -2748,7 +2750,7 @@ def review_engineering_bootstrap_sources():
     import subprocess
     import gs179_verified_endpoint as endpoint
     endpoint.engineering_functional_admission()
-    files = _engineering_bootstrap_files()
+    files = _engineering_bootstrap_files(operation)
     before = {str(p): digest(p) for p in files}
     root = Path(__file__).resolve().parents[3]
     result = subprocess.run([sys.executable,str(files[-1])],cwd=root,
@@ -2759,7 +2761,7 @@ def review_engineering_bootstrap_sources():
     if before != {str(p):digest(p) for p in files}:
         raise ValueError('engineering_bootstrap_sources_changed_during_review')
     evidence = dict(schema='GS117_ENGINEERING_BOOTSTRAP_REVIEW_V1',
-        operation='s3_runtime_bootstrap',source_files=before,
+        operation=operation,source_files=before,
         reviewer='AUTOMATED_REVIEW_UNDER_OWNER_STANDING_SCOPE',
         reviewed_commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),
         test_report=report,test_report_sha256=hashlib.sha256(report.encode()).hexdigest())
@@ -2771,7 +2773,7 @@ def review_engineering_bootstrap_sources():
     return sha
 
 
-def verify_engineering_bootstrap_review(sha):
+def verify_engineering_bootstrap_review(sha, operation="s3_runtime_bootstrap"):
     import gs179_verified_endpoint as endpoint
     if not re.fullmatch('[a-f0-9]{64}',sha or ''):
         raise ValueError('engineering_bootstrap_review_missing')
@@ -2782,8 +2784,8 @@ def verify_engineering_bootstrap_review(sha):
     if (_canonical_record_sha256(row)!=sha or len(matching)!=1 or
             matching[0].get('file_sha256')!=digest(target) or
             matching[0].get('record_sha256')!=_canonical_record_sha256(matching[0]) or
-            row.get('operation')!='s3_runtime_bootstrap' or
-            row.get('source_files')!={str(p):digest(p) for p in _engineering_bootstrap_files()} or
+            row.get('operation')!=operation or
+            row.get('source_files')!={str(p):digest(p) for p in _engineering_bootstrap_files(operation)} or
             hashlib.sha256(row.get('test_report','').encode()).hexdigest()!=row.get('test_report_sha256')):
         raise ValueError('engineering_bootstrap_review_integrity_failed')
     return row
@@ -2792,17 +2794,21 @@ def verify_engineering_bootstrap_review(sha):
 @contextmanager
 def engineering_functional_session(procedure, *, bootstrap_review=None):
     """One routine real-board input with existing global locks and audit."""
-    if procedure not in ('motion_event_once','s3_runtime_bootstrap'):
+    if procedure not in ('motion_event_once','s3_runtime_bootstrap','s3_runtime_bootstrap_reboot_11983'):
         raise ValueError('engineering_functional_operation_not_allowed')
-    if procedure == 's3_runtime_bootstrap':
-        verify_engineering_bootstrap_review(bootstrap_review)
+    if procedure in ('s3_runtime_bootstrap','s3_runtime_bootstrap_reboot_11983'):
+        verify_engineering_bootstrap_review(bootstrap_review,procedure)
     import gs179_verified_endpoint as endpoint
     admission=endpoint.engineering_functional_admission()
     with ExitStack() as locks:
         for directory in (STATE,DEV_STATE):
             _readback_receipt_hold_exclusive_lock(locks,directory,'engineering_hardware_operation_already_active')
-        if procedure == 's3_runtime_bootstrap':
-            verify_engineering_bootstrap_review(bootstrap_review)
+        if procedure in ('s3_runtime_bootstrap','s3_runtime_bootstrap_reboot_11983'):
+            verify_engineering_bootstrap_review(bootstrap_review,procedure)
+        if procedure == 's3_runtime_bootstrap_reboot_11983':
+            endpoint._network_write_once(DEV_STATE/'gs117-reboot-11983.used.json',
+                dict(owner_approval='GS-117#11983',review=bootstrap_review,operation=procedure))
+            endpoint._network_event('gs117_reboot_11983_reserved',operation=procedure)
         run={'session_id':secrets.token_hex(16),'started_at':datetime.now(timezone.utc).isoformat()}
         endpoint._network_event('gs117_engineering_input_started', **run, operation=procedure,
                                 image_qualification='NOT_VERIFIED')
@@ -2810,6 +2816,8 @@ def engineering_functional_session(procedure, *, bootstrap_review=None):
                     owner_approval_ref=('GS-D034:standing-s3-runtime-bootstrap'
                         if procedure == 's3_runtime_bootstrap' else admission['owner_approval_ref']),
                     identity=admission['identity'])
+        if procedure == 's3_runtime_bootstrap_reboot_11983':
+            policy['owner_approval_ref'] = 'GS-117#11983'
         try:
             yield policy,run
         finally:

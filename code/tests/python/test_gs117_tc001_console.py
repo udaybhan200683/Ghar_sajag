@@ -3970,6 +3970,20 @@ class S3OnlyBootstrapTest(unittest.TestCase):
         self.assertEqual(stream.writes,[])
         self.assertEqual(result["bootstrap_host_write_bytes"],600)
 
+    def test_explicit_reboot_invocation_resets_once_and_fences_new_boot(self):
+        cfg=self.config();calls=[];stream=SimpleNamespace(is_open=False)
+        stream.open=lambda:setattr(stream,"is_open",True)
+        stream.close=lambda:setattr(stream,"is_open",False)
+        stream.reset_input_buffer=lambda:calls.append("discard_old")
+        times=iter([0,11])
+        def exchange(s,**kw):
+            self.assertTrue(kw["require_boot"]);calls.append("exchange");return 600
+        tc_serial.bootstrap_s3(cfg,serial_factory=lambda:stream,
+            port_finder=lambda:[cfg["s3"]],exchange=exchange,clock=lambda:next(times),
+            boot_reset=lambda s:calls.append("reset"))
+        self.assertEqual(calls,["discard_old","reset","exchange"])
+        self.assertFalse(stream.is_open)
+
     def test_s3_only_rejects_production_wrong_fixture_and_reset_before_open(self):
         for field,value in (("profile","PRODUCTION"),("home_id","other"),
                             ("hub_id","other"),("s3_boot_reset",True),
