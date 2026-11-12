@@ -1931,3 +1931,11 @@ Morning/routine decision acceptance still requires its genuine policy. No policy
 defaults may be invented to validate Settings; desired and Hub-applied remain
 independent. Prior work-state statements treating v0/null as a raw-motion blocker
 are superseded only in that scope; historical evidence remains intact.
+
+GS-D034 execution status,2026-11-12: existing APK/handset now connected and initial
+correct-Home UI observed, but stable caregiver-app foreground was unavailable.
+Existing bounded ingress started with late protected success receipt after caller
+timeout; explicit Close failed, subsequent closure observed after controller stop.
+Final temporary exposure/tasks/helpers absent,443 preserved. No serial access,
+11983 reboot or injection consumed. This is execution evidence, no policy change;
+see existing GS117 handoff.

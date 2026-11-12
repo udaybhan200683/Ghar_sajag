@@ -1,3 +1,50 @@
+## 2026-11-12 12:04 UTC — Android connected; foreground unavailable; no hardware operation
+
+Resume baseline1ffed158193187222eaed3045e13173b57bd0ec5, canonical branch and origin
+matched, tracked clean, context2026-11-12.007 PASS. Existing implementation/tests
+reused; no account grant, new software, regression rerun or source-pin change.
+Latest GS11712030/GS17812029 requires on-demand scenarios after first-event/five-run
+milestone; record as subsequent owning work, no controller redesign in this run.
+
+HandsetZA2237MRHN is now ADB device. Existing package/version0.4.0/code3/install
+receipt verified. Initial unlocked foreground Home screenshot showed correct
+TEST_ONLY Home and caregiver API CONNECTED; Reports210 historical records seen.
+During subsequent checks another app repeatedly held foreground; explicit app
+activation did not establish stable UI. Operator asked to leave Parivar Saathi
+open/unlocked; no response/current readiness transition before cleanup. Do not
+call the handset disconnected, change its account, or claim fresh APK event proof.
+
+COM4/COM10 USB metadata exactly matches registered C3/S3; neither serial port
+opened. Existing reboot review229399757f18648ced5b40d81caf9ced131bc801a2d9899a8b19e4ecd3bb532f
+verified without rerunning tests.11983 reservation remains absent/UNUSED.
+Existing ingress/signed-time services and controller started. Network lease
+b910f72a3ab169a8f3a50874be5e102de15a95c0e43847caf3aa4075ff39fe7e,
+11:57:01.673671Z—12:57:01.673671Z (idle1800s unchanged). Initial installed task
+Invoke returned engineering_executor_receipt_timeout; matching protected nonce
+86bf1358030e496b8b2a4f25326290ed later read SUCCESS/SESSION_START/admin=true at
+11:59:44.2294726Z, TaskResult0, no UAC/reinstall. Preserve BOTH outcomes.
+Current health PASS PostgreSQL/caregiverHTTPS/backend/LAN/trusted-time; actual
+.6:8445 -> WSL172.17.152.10:8445, Private Airtel_Agrim/192.168.1.0/24 route PASS.
+Static health HUB_INGRESS_NOT_CONFIGURED is not listener evidence. Physical Hub
+runtime flag remains NO authenticated Hub; no physical auth inferred from host.
+Signed-time request counts observed, no authenticated target identity inferred.
+
+No S3 reboot/envelope/COM observation/rejoin proof or C3 injection/EventKey.
+USB E2E BLOCKED at stable Android foreground; downstream fresh event NOT_RUN;
+five-run campaign NOT_RUN; optical0/5.11975 cold-start ON HOLD. Explicit executor
+Close returned failure existing_bounded_operation_failed at SESSION_CLOSE while
+matching session existed; do not relabel as automatic cleanup PASS. Task-owned
+controller, ingress and signed-time services stopped; final network audit below.
+Private evidence: ~/.local/state/ghar-sajag/gs117-tc001/tc001-resume-20261112T115539Z.
+Next: leave same APK/Home open/unlocked, then fresh bounded session, existing
+unused11983 recovery, one exact-key web Run, and five-run campaign after acceptance.
+
+Final12:06 UTC audit: Windows8445=0,WSL8445=0,UDP4468=0,temporaryTasks=0,
+serial/timeHelpers=0;caregiver443=1. Close failed; closure observed after controller
+stop, SYSTEM actor not independently verified. No all-automatic-cleanup PASS.
+New checks only: context PASS, AndroidReady/current USB metadata, backend/route
+health and cleanup; historical software failures/receipts reused, no suite reruns.
+
 ## 2026-11-12 owner12026 — existing account restored, physical run blocked by handset
 
 Existing maintenance helper extended with grant-dev-home-admin / revoke-dev-home-admin
