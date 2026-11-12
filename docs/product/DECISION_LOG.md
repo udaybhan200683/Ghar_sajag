@@ -1884,3 +1884,12 @@ ownership/credential renewal and policy updates, preserving revocation and
 short-lived authority. Increasing expiry, disabling checks or hourly manual
 reboots do not satisfy qualification. Existing GS-40/GS-173 own reconciliation;
 implementation/qualification remain open and do not displace first GS-117 E2E.
+
+### GS-D034 — GS-179 unattended Engineering network execution (LOCKED, owner11986)
+One genuine administrator installation may register a fixed, narrowly scoped
+Task Scheduler entry for standing Engineering ingress start/close. Routine
+non-elevated requests must work with the desktop locked, use validated inputs
+and protected reviewed code, retain authority/revocation/source/fixture/network
+guards and existing3600s/1800s/session cleanup. No general elevated commands,
+UAC-policy change, permanent exposure or hardware authority. Actual locked-session
+Windows qualification is mandatory; source/mocks do not establish acceptance.
