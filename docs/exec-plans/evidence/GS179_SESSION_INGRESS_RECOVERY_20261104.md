@@ -1,3 +1,43 @@
+## 2026-11-12 05:30 UTC — resumed qualification; initial OS setup still blocked
+
+Verified canonical path/branch and local=remote7b7c248, tracked clean,490 unrelated
+untracked assets preserved; context2026-11-12.006 PASS. Read current Jira GS179
+11986/11987 and GS11711988; no newer checkpoint returned. All four reviewed
+installer/adapter/endpoint/authorization hashes match the existing review.
+Existing standing registration validates, registered functional admission eligible
+pending live guards. Windows DELL SID ending1001 is NON-elevated/Console1;
+current Airtel_Agrim Private Wi-Fi192.168.1.6. No source/configuration change.
+Historical endpoint27/Windows21/framework55/mapping22 receipts reused, not rerun.
+
+Made ONE normal RunAs installation attempt specifically requested by this
+continuation, using existing reviewed InstallEngineeringExecutor command/wrapper.
+Consent9092 observed in Console1. OS returned 'operation was canceled by the
+user', exit2, before any administrator child ID, installer log or installation
+receipt. Intent and cause beyond that returned OS result remain UNKNOWN. No
+retry, alternate executor, privilege bypass or source modification. Evidence:
+~/.local/state/ghar-sajag/gs117-tc001/executor-qualification-20261112T052741Z.
+One-time administrator setup remains the exact first blocker. Use the existing
+administrator PowerShell setup command below; this needs actual OS elevation,
+not another Jira/project approval. Unattended locked execution, task ACL/XML,
+real routing/authentication and live cleanup acceptance remain NOT_RUN.
+
+Independent non-invasive check via existing gs117-tc001-backend.sh actionreadiness:
+PostgreSQL query and authenticated caregiver Home access PASS. Actual Settings
+routine-config read returned403 (configuration.status BLOCKED), so required
+household policy values are NOT available through this session. No policy
+mutation or invented values; prior desired-version0 is historical, not a new
+current desired-policy result.11983 used record remains FALSE; preserve reboot
+until an authentic configuration is available. No COM/ADB access, rejoin check,
+INJECT_MOTION or EventKey; all downstream fresh event stages NOT_RUN. Cold-start
+11975 ON HOLD, commercial configuration recovery gap unchanged, opticalTC0010/5.
+
+Final read-only Windows receipt: installation=false, executor/physical tasks0,
+TCP8445=0,UDP4468=0,consent0,serial helpers0;caregiver443=1. WSL8445/4468 absent.
+No task-owned service/network activation occurred; automatic cleanup not newly
+qualified. No reset/firmware/registry/key/retained-data/latch operation occurred.
+Next: operator completes already-approved one-time installer in genuine admin
+PowerShell, then qualify non-elevated locked-session operation before GS117.
+
 ## 2026-11-12 — one-time OS installation blocked; no unattended acceptance
 
 Delivered source a88fb48 (decision5a2f76a) pushed and independently verified on

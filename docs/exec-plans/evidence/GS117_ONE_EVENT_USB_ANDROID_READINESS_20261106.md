@@ -1,3 +1,19 @@
+## 2026-11-12 05:30 UTC — unattended setup remains the first blocker
+
+Resumed7b7c248 local=remote/context PASS; reviewed source unchanged. One requested
+normal UAC install attempt: consent9092/Console1, OS cancellation/exit2 before
+administrator child/installer receipt. No intent inferred or retry; installation
+absent. Exact command remains in existing GS179_SESSION_INGRESS_RECOVERY handoff.
+Current existing backend observer verifies PG/caregiver Home access, but Settings
+routine-config GET403; required policy values unavailable through this session.
+No policy changes; no claim prior version0 is a fresh desired-policy read.
+11983 reboot UNUSED, no COM/ADB/injection/EventKey; C3/S3/CloudSync/PG event/API
+new event/APK presentation NOT_RUN.11975 ON HOLD, opticalTC0010/5. Fresh final
+Windows executor/session tasks0,8445/4468/consent/helpers0;443=1. WSL temporary
+ports absent. Historical27/21/55/22 host receipts reused; no source changes or
+unrelated regressions rerun. Complete genuine one-time OS setup, qualify locked
+execution, then resume existing real USB-to-APK path with authentic policy.
+
 ## 2026-11-12 — GS179 unattended dependency implemented, OS setup blocked
 
 Owner11986 fixed scheduled executor delivered at a88fb48 (decision5a2f76a),
