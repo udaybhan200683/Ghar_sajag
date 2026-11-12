@@ -1,3 +1,23 @@
+## 2026-11-12 06:15 UTC — existing manual administrator installation handoff
+
+Owner reports genuine manually elevated Administrator PowerShell succeeds; this
+establishes owner-observed general elevation capability, not automated RunAs or
+executor acceptance. Per current instruction, no further automated RunAs request
+was made. Resumed canonicalaf0618d local=remote, tracked clean/context PASS; latest
+GS17912020/GS11712021 read. All four reviewed source hashes and standing authority
+hash match. Read-only current Windows check: installation=false, executor task0.
+
+Retrieved the EXACT existing one-time installation command from the PowerShell
+block below and checked it against InstallEngineeringExecutor in canonical source.
+Present it unchanged to the owner for execution in the already elevated shell.
+This is the previously approved initial OS installation, not a new project consent
+or alternate elevation mechanism. Await actual output/installation receipt, then
+verify task ACL/XML/pins and non-elevated locked-desktop operation/cleanup before
+claiming unattended acceptance. No source changes or regression reruns; historical
+27/21/55/22 receipts remain historical. No hardware/service/network mutation or
+new TC001 event;11983 reboot record still absent, cold-start11975 ON HOLD. Settings
+403/policy gap unchanged and must be resolved through existing authorization.
+
 ## 2026-11-12 05:30 UTC — resumed qualification; initial OS setup still blocked
 
 Verified canonical path/branch and local=remote7b7c248, tracked clean,490 unrelated

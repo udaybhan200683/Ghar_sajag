@@ -1,3 +1,15 @@
+## GS-179 — 2026-11-12 06:15 UTC manual setup action prepared
+
+Owner confirms manual Windows administrator elevation works; no automated RunAs
+retry performed. Canonicalaf0618d local=remote/context PASS; reviewed four source
+pins/standing authority match. Current installation absent/task0. Exact existing
+InstallEngineeringExecutor command retrieved unchanged from GS179 handoff for
+owner's already elevated PowerShell. Await real installation output, then verify
+ACL/XML/pins and locked non-elevated execution/cleanup; acceptance NOT_RUN.
+No source/hardware/network changes, regression reruns or EventKey. Historical
+27/21/55/22 retained;11983 reboot UNUSED,11975 ON HOLD, Settings403/policy gap
+unresolved, GS117 still P0. Next action is this one-time OS setup, no new approval.
+
 ## GS-179 / GS-117 — 2026-11-12 05:30 UTC resumed execution result
 
 Baseline7b7c248 local=remote, tracked clean/context PASS; source pins and standing
