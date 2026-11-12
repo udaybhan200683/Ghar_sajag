@@ -1921,7 +1921,7 @@ header, runtime flag entitlement, production/RC or cross-Home privilege. Reuse
 normal Settings authorization and current-role/revocation checks. Implementation
 and qualification pending; actual owner instruction is not a fabricated grant.
 
-Raw USB-triggered motion validation does not require a household activity policy: 
+Raw USB-triggered motion validation does not require a household activity policy:
 HubRuntime::run_state_once explicitly permits authenticated durable raw admission
 without activity-rule authority. Existing target code gates only rule evaluation
 on test_activity_home_ready. Retain actual TLS/time/ownership/durability guards.
