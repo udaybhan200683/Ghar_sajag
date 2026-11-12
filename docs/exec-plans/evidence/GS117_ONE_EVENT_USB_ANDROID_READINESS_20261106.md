@@ -1390,3 +1390,49 @@ owner decision is exact permission for one intentional S3 reboot with host fully
 prepared for the existing challenge-bound config exchange; that operation is
 currently explicitly excluded. Do not force reboot via COM or revive grants.
 No replacement infrastructure or routine project-approval renewal is required.
+
+## GS-117 — 2026-11-12 approved reboot prepared, not executed
+
+Baselinefbadf41 local=origin/context PASS. Read trusted Jira11983 exact one-S3-
+reboot scope; existing no-reset bootstrap could not perform it. Minimal helper
+extension uses existing Espressif HardReset(uses_usb=True) on SAME COM10 handle,
+discards old buffered input, then existing bootstrap_config(require_boot=True)
+fences fresh boot/challenge. No C3 access, pairing or firmware change. New private
+v22 SHA1624311002fcbc6b84288fe5bd5439e9b33c25f92eada4b732c6742658e5ee2e
+is separately reviewed for s3_runtime_bootstrap_reboot_11983. Existing standing
+no-reset operation uses preserved/versioned v23 and cannot use the reboot review.
+Existing shared locks/audit reserve gs117-reboot-11983.used.json with exclusive
+write-once before hardware: repeated reservation rejected. Old grants untouched.
+Final196/196 console tests PASS via actual source-review execution (195 earlier
+PASS); reset-once/fresh-boot fence and second-reservation rejection added.
+Final review1d9889ecaceecab33be52665db4869c5ef41a9dc6acd1ddfe131da88a3c0eab7.
+
+Prepared existing ingress/time/portal, PG/caregiver TLS PASS, fresh bounded lease
+candidate; normal RunAs returned OS 'operation was canceled by the user' with no
+child/session receipt. Intent not inferred, no retry. Thus no 8445 activation,
+COM10/COM4 open, reset, challenge or envelope. REBOOT11983 USED RECORD FALSE:
+authorization is unconsumed and remains the existing exact scope; no duplicate
+project consent requested. services-reboot11983-20261112T015847Z has evidence.
+
+Before spending one reboot, policy audit found desired Home version0/confignull
+and canonical P0_ACTIVITY defaults OPEN. Requested actual Home policy through
+existing caregiver Settings or approved saved configuration; answer pending.
+Do not invent policy numbers or force-enable rules. Correct activity-group
+values are not yet available for a complete signed envelope; no desired-policy
+write was made. This input gap is separate from Windows UAC, the first actual
+execution blocker. Cold-start11975 remains ON HOLD, opticalTC0010/5, no fresh
+EventKey/ACK/cloud/PG/API/APK result. Prior positive C3 progression preserved.
+
+Confirmed startup-only/one-hour TEST_ONLY recovery gap remains under existing
+GS-40/GS-173 commercial lifecycle qualification, not fixed by one reboot or
+longer expiry. Do not attribute this conditional Engineering path to all
+production builds without source/evidence. Required commercial retained config,
+short authority/time/credential refresh and revocation recovery remain mandatory
+and not qualified; no infrastructure rewrite in this execution.
+
+Task-owned time/ingress/portal stopped, no new Windows session tasks. Final
+8445/task/UDP4468/serial-helper counts all0;443 preserved. No
+firmware/registry/journal/key/latch modification. Source commitsb5537d1/e3cc90a,
+source-reviewed private versions preserved. Next: complete normal OS UAC with
+owner present and supply real household policy, then use UNCONSUMED11983 reboot
+with host ready; do not seek the same reboot/project approval again.

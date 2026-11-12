@@ -227,3 +227,10 @@ scope: use BootstrapS3 and verified engineering bootstrap source-review receipt,
 COM10 only/no intentional reset/one exchange, existing shared locks and audit.
 Never revive historical grants or require repeated Jira consent for that scope.
 Source/test changes require a fresh source-bound review; no blind hardware retry.
+
+Owner11979 commercial-development policy: audit canonical Jira/source/history
+before design; reuse existing product implementations, avoid temporary functional
+shortcuts and unnecessary enterprise tooling, and prioritize real elder-care
+use cases. GS-117 is current P0. Run mandatory affected development gates; full
+release qualification remains separate. See docs/product/ENGINEERING_PRINCIPLES.md and GS-D034
+for standing Engineering versus strict release-family controls.

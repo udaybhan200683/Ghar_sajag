@@ -1875,3 +1875,12 @@ normal guarded operational time/session persistence remains. Flash/reset/erase,
 commissioning/enrollment/key changes and production remain excluded. No blind
 retry. C3 cold-start correction11975 remains ON HOLD. Implementation/physical
 qualification are separate and not established by this decision.
+
+### GS-D034 — commercial configuration recovery requirement, owner11983
+The one-hour startup-only TEST_ONLY envelope is an Engineering execution
+limitation, not the commercial recovery design. R1 must retain legitimate
+provisioning and recover securely across reboot/outage, authenticated time,
+ownership/credential renewal and policy updates, preserving revocation and
+short-lived authority. Increasing expiry, disabling checks or hourly manual
+reboots do not satisfy qualification. Existing GS-40/GS-173 own reconciliation;
+implementation/qualification remain open and do not displace first GS-117 E2E.
