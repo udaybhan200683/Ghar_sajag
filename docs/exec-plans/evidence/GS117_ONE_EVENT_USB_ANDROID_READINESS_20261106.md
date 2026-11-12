@@ -1,3 +1,37 @@
+## Owner12026 implementation plan — same existing account, no raw-policy gate
+
+BUG_CLASSIFICATION=R1_FIX (development Settings authorization configuration)
+REQUIREMENT_SOURCE=GS-D034 owner12026; GS76/109 current authenticated authority
+TASK_SCOPE=existing account-maintenance operator; same fixed TEST_ONLY Home;
+standard ADMIN/OWNER membership assignment/revocation/audit; raw USB E2E
+OUT_OF_SCOPE=new identity service/entitlement framework; production/RC/other
+Homes; credential/session/history changes; C3 cold-start11975 ON HOLD
+
+Existing source reused: gs179_change_login private credentials/password check,
+filesystem lock and Store transactions; registered Engineering lab admission;
+current Home/Hub registry; audit_log; unchanged server Settings authorizer and
+versioned configuration repository. No supported membership-assignment operation
+exists in current local command: implement only that missing operator capability.
+Authentication is actual saved password verification plus registered local owner/
+fixture/active Home/epoch proof, not a claimed email or Jira comment as credential.
+Grant standard existing roles only for current bound account/Home, record prior
+roles and support fenced audited revocation. Idempotent replay cannot create
+extra accounts or privilege. Do not modify credentials/session/business rows.
+
+Affected application/backend authorization/configuration control plane; no Node/
+Hub source change. Add permanent positive, denial, idempotency, atomic failure,
+revocation, production/cross-Home/epoch and current-session Settings tests using
+existing SQLite/isolated TLS PostgreSQL fixtures. Run new and affected backend/
+PWA/contracts, framework/mapping and browser behavior validation per GS116/130.
+Reuse unrelated firmware/Windows receipts; no target build absent target change.
+
+Source proof: hub_runtime.cpp:844 permits raw Node admission without activity
+authority; target hub_runtime_adapter.cpp:2112 passes optional decision context
+but always dispatches authenticated event/run_state_once. Policy gate belongs
+to rule decisions, not raw motion. Do not use v0/null to block raw TC001. Genuine
+Settings save/retrieve validation may use isolated approved test policy; no live
+household values invented. Source/docs approved design, not implemented/PASS.
+
 ## 2026-11-12 07:31 UTC — same existing account; no fresh product event
 
 GS179 real locked/non-elevated execution/no UAC and host mTLS route observed.

@@ -528,3 +528,9 @@ for existing Engineering ingress Start/Close. It retains bounded standing
 network authority and all hardware exclusions. Actual locked-session execution
 is required; implementation/qualification evidence remains in the existing
 GS179_SESSION_INGRESS_RECOVERY_20261104.md handoff, not a new master design.
+
+GS-D034 owner12026 clarifies registered DEV Home administration via existing
+GS179 authenticated local maintenance and standard ADMIN/OWNER memberships for
+the same account, with audit/revocation and no production/cross-Home scope.
+Raw motion and activity-rule policy prerequisites are separate; DECISION_LOG.md
+and release contract govern. Execution remains in existing GS117 handoff.

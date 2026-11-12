@@ -289,3 +289,11 @@ through existing GS-179 tooling. UNKNOWN/NOT_VERIFIED never grants privileged
 Engineering access or RC/production qualification. Current report availability
 does not establish running-image attestation; inherited freshness remains until
 a trustworthy replacement is implemented and reviewed.
+
+GS-D034 owner12026: registered Engineering operator may assign existing ADMIN/
+OWNER memberships to the same authenticated account only in gs177-test-product
+through audited local account maintenance. No public bypass, production/RC or
+cross-Home entitlement; credentials/sessions/history preserved. This is a scoped
+development authorization correction, not commercial identity qualification.
+Raw motion durability/delivery is independent of optional activity policy; rule
+decisions retain policy prerequisites. See GS-D034 and existing GS117 handoff.

@@ -1904,3 +1904,28 @@ GS-D034 final live note2026-11-12: actual timed closure reported by a poll18.35s
 nominal1800s idle deadline; exact physical transition unverified, controller alive; SYSTEM actor not independently read.
 This does not approve a timing tolerance or establish strict-cutoff/full acceptance.
 Existing GS179 owns disposition; source unchanged, release guards remain.
+
+### GS-D034 LOCKED clarification — existing developer Home administration (owner12026)
+
+For registered isolated Engineering Home gs177-test-product, the verified local
+owner/developer may use the existing GS179 private account-maintenance control
+plane to assign the SAME authenticated saved account existing Home ADMIN/OWNER
+memberships. No new account, credential or session identity is created. This
+operation is separately authorized by owner12026, not by the network-only grant.
+Require registered lab operator UID/host and Engineering fixture proof, current
+private account/password authentication, active TEST_ONLY Home and current Hub/
+Home/epoch/consent binding. Make assignment/revocation transactional and audited
+in existing authorization persistence; preserve password hash, email, account ID,
+sessions and business history. No public self-promotion route, claimed-role
+header, runtime flag entitlement, production/RC or cross-Home privilege. Reuse
+normal Settings authorization and current-role/revocation checks. Implementation
+and qualification pending; actual owner instruction is not a fabricated grant.
+
+Raw USB-triggered motion validation does not require a household activity policy: 
+HubRuntime::run_state_once explicitly permits authenticated durable raw admission
+without activity-rule authority. Existing target code gates only rule evaluation
+on test_activity_home_ready. Retain actual TLS/time/ownership/durability guards.
+Morning/routine decision acceptance still requires its genuine policy. No policy
+defaults may be invented to validate Settings; desired and Hub-applied remain
+independent. Prior work-state statements treating v0/null as a raw-motion blocker
+are superseded only in that scope; historical evidence remains intact.

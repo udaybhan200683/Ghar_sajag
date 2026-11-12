@@ -1,3 +1,16 @@
+## GS117 — owner12026 correction approved, implementation pending
+
+Canonical8b56886/context PASS, current same account CAREGIVER/FAMILY confirmed
+by real APK/private credential/database evidence. Extend existing GS179 local
+maintenance for fixed registered Engineering Home ADMIN/OWNER assignment plus
+audited revocation; preserve account/email/password/sessions/history. Existing
+password-only command cannot perform this. No public authorization relaxation.
+Raw motion policy dependency was disproved by hub_runtime.cpp run_state_once
+and target adapter: only rule decisions require activity policy, not raw motion
+durable admission/ACK/CloudSync. Historical126/1 remains background, not fresh
+acceptance. Implement/validate access first, then use existing S3 recovery/one
+USB event without invented policy.11983 unused,11975 ON HOLD, TC0010/5.
+
 ## GS-179 / GS-117 — 2026-11-12 07:31 UTC live result; no full acceptance
 
 Actual installed S4U/Highest task/ACL/pins verified, locked NON-admin invocation
