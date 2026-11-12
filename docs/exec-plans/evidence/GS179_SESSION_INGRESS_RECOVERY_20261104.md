@@ -1,3 +1,131 @@
+## 2026-11-12 07:31 UTC — final live result: partial qualification, same account preserved
+
+Independent installed-task verification and actual locked/non-elevated Start,
+restricted route, host mTLS, permission/invalid-lease negatives and closure after
+controller termination are recorded below. No installation/RunAs/UAC repeated.
+
+Separate REAL timed test: source-defined genuine-activity timestamp remained
+06:47:56.645398Z; nominal1800s idle deadline07:17:56.645398Z, absolute lease end
+07:47:56.645398Z. No genuine activity note/renewal or SessionClose issued. Monitor
+confirmed controller alive and8445 open at07:17:47.747Z and07:18:02.285Z, then
+8445 closed at07:18:14.990Z while controller still alive and443 remained1.
+Thus automatic timed closure OBSERVED; the final open/closed poll timestamps are5.64s and18.35s
+after nominal deadline; OS-query/poll timing does not establish an exact
+physical transition instant. Do NOT claim a strict<=1800s LISTENER-close PASS. Current
+production authority guard subsequently rejected this unexpired-but-idle lease
+with network_sublease_expired_or_idle. The nominal authority inactivity cutoff
+and actual listener-dispatch timing are separate evidence. Existing GS179 owns
+this qualification gap/disposition; no undocumented tolerance, proven root cause or source change.
+
+SYSTEM actor remains UNVERIFIED. Non-elevated TaskScheduler queries cannot read
+SYSTEM task metadata; Operational log disabled. Normal read-only WSL filesystem
+access to the protected closure record was also ACCESS_DENIED; no privilege/ACL
+change, alternate escalation or history manipulation attempted. Requested the
+existing administrator's read-only closed/closureSid projection after07:18;
+no output received yet. Do not infer SYSTEM execution from listener disappearance.
+Full GS179 acceptance NOT achieved; keep In Progress, including original ticket
+criteria beyond this scoped executor capability. No new infrastructure source.
+
+Explicitly stopped ONLY task-owned host signed-time process2008 and WSL service/
+controller processes AFTER timed network closure. First-run services had already
+been stopped. Final07:31:23 Windows:8445=0,4468=0,visible temporary task count0,
+consent0,serial helpers0,443=1; installed fixed executorReady/lastResult0 retained.
+Task-owned Linux live processes=[],WSL8445/4468 absent. SYSTEM inventory remains
+protected (visible task count is not a privileged all-task census). Network
+closures were automatic; final HOST-service cleanup was explicit, not claimed
+as automatic all-service cleanup. No SessionClose was used in either test.
+
+User steering: use ONLY same existing logged-in account. No other account used,
+created or switched to; no password/session/role change or logout/reinstall.
+Actual installed Settings screenshot confirms same email as saved observer login,
+roleCAREGIVER, correct TEST_ONLY Home and policy not_authorized. Read-only DB
+corroborates CAREGIVER/FAMILY,active,epoch1,consentACTIVE. This is a Home permission
+issue, NOT a need for another account. Existing login-change preserves role;
+bootstrap_admin would create a new account/Home and was NOT invoked. No direct
+SQL role update, forged admin session or relaxed settings authorizer. Same-account
+permission correction must use legitimate current Home authorization; actual
+policy values are still missing (authenticated host desired GET200/v0/confignull).
+No policy defaults invented and no policy write. Owner11983 reboot record still
+absent; no C3/S3 serial, flash, reset, commissioning, enrollment/key operation,
+INJECT_MOTION or fresh EventKey. Android actual approved APK/version/hash/visible
+connected Reports and Settings verified;210 historical records not a fresh event.
+All fresh C3/S3/CloudSync/event-PG/API/APK stages NOT_RUN; opticalTC0010/5.11975
+cold-start ON HOLD; permanent commercial configuration lifecycle issue remains.
+
+Newly executed: actual Windows/WSL/network/Android observations and production
+negative checks detailed below; traceability consistency check PASS238/288/29,
+context PASS and diff-check PASS. Historical27/21/55/22 software suites reused,
+NOT relabelled fresh. No source/build/profile change; no unrelated regressions,
+firmware builds or release campaign. Resume with the protected cleanup actor
+receipt and timing-gap disposition; then same-account legitimate policy setup
+before consuming preserved11983 and existing one-event web-to-real-board-to-APK.
+
+## 2026-11-12 live milestone — installed executor independently verified
+
+Baseline d87d740 local=remote/context2026-11-12.006 PASS. Read owner12023 receipt
+and current GS179/GS117 handoffs; canonical source unchanged. Independently ran
+existing production installation verifier from NON-elevated DELL SID1001:
+manifest installed06:18:16.2740680Z, standing hashb04b9968…, four reviewed source
+hashes match, protected file ownership/ACL pass. Actual task Ready/S4U/Highest,
+fixed C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe and protected
+script/action; owner task permissions read/execute, no write. Execution limit3m,
+IgnoreNew, both battery-stop flags false. No reinstall or RunAs/UAC invocation.
+
+Evidence root: ~/.local/state/ghar-sajag/gs117-tc001/unattended-live-20261112T062100Z.
+Actual WTSINFOEX Win10 x64 query confirmed LOCKED/Console1/flags0 at06:26:19;
+caller administrator=false. Existing task invoked by non-elevated controller,
+protected Start receipt success/administrator=true at06:28:04, task result0,
+consent0. Existing services and immutable3600s lease827e9ae1… were reused.
+Actual Windows8445 listener and .6:8445->172.17.152.10:8445 route PASS, Private
+Airtel_Agrim192.168.1.0/24;443 retained. Non-elevated firewall read is blocked,
+not independently called PASS; pinned elevated SessionStart/Tick admission checks
+its exact rule. Windows host mTLS GET desired-policy returned200, CA/IP hostname
+validated and server leaf matched installed certca8d5be7…. Classification is
+HOST_MTLS_READ_ONLY, NOT actual physical S3 authentication. Response version0,
+confignull, appliednull; no event inserted. Unknown image hashes stay UNKNOWN.
+
+Fresh negative observations: protected source Open/Write permission denied with
+hash unchanged; arbitrary operation rejected by ValidateSet before task request;
+wrong lease elevated receipt false/stageAUTHORITY (original active route retained).
+Production functions reject wrong Home and RC/Production environment. Other
+wrong-network/revocation/idle/overlap branches retain unchanged historical mock
+coverage; no live grant revocation, unsafe network change or source tampering.
+
+Controller-loss test: stopped ONLY existing web-controller226138 at06:41:07.790Z,
+no SessionClose; by06:43:26 Windows8445=0, visible reconciliation task0,443=1,
+executorReady/consent0. This proves automatic controller-loss closure, not
+independent SYSTEM expiry. Original host time/ingress stopped before second test.
+SYSTEM task metadata/state is admin-only; TaskScheduler Operational log disabled;
+no ACL or OS-log configuration weakened to read it. Timed idle/SYSTEM test uses
+fresh existing bounded services and lease7eaf4776… in sibling evidence directory
+unattended-expiry-20261112T064647Z. Lease06:47:56.645Z–07:47:56.645Z, genuine-work
+idle deadline07:17:56.645Z; no note_development_activity/renewal. Second Start
+success at06:50:43 with no UAC (desktop UNLOCKED then; first locked proof above).
+Await timed cleanup; no SYSTEM-execution PASS inferred from listener absence.
+Requested read-only closureSid projection from existing Administrator PowerShell
+after07:18 because protected audit cannot be read by non-elevated controller.
+
+GS117: existing handsetZA2237MRHN/package/version3/hashf44df9a8… verified fresh,
+no reinstall/logout/account change. Screenshot shows real connected Reports,
+gs177-test-product,210 HISTORICAL durable records; no fresh EventKey asserted.
+Accessibility tree empty despite visible UI; visual capture used only for
+non-invasive readiness. Existing Settings tab navigation/screenshot confirms
+current existing email is CAREGIVER and actual policy panel not_authorized;
+read-only backend membership is CAREGIVER/FAMILY/active, epoch1, consentACTIVE.
+One OTHER account has Settings authority, but owner explicitly requires SAME
+existing login; no account switch/creation, role promotion or credential change.
+Login-change utility intentionally preserves role and is not a role-repair path.
+No invented policy/default or policy publish. Same-account supported permission
+correction remains to be resolved; no bypass.11983 reboot used record still
+absent; C3 cold-start11975 ON HOLD. No C3/S3 serial operation or INJECT_MOTION,
+no new EventKey/real Hub ACK/CloudSync event/PG event/API event/APK new event.
+Formal opticalTC0010/5. Permanent commercial configuration lifecycle gap open.
+
+No implementation changes or software-suite reruns: prior endpoint27/Windows21/
+framework55/mapping22 are historical. One diagnostic DB read initially lacked
+bundled libpq path and failed before query; using existing configured dependency
+environment made the read-only role query succeed. No assertion/security change.
+
 ## 2026-11-12 06:15 UTC — existing manual administrator installation handoff
 
 Owner reports genuine manually elevated Administrator PowerShell succeeds; this

@@ -1,3 +1,39 @@
+## 2026-11-12 07:31 UTC — same existing account; no fresh product event
+
+GS179 real locked/non-elevated execution/no UAC and host mTLS route observed.
+Automatic network closure after controller stop and timed idle closure observed;
+SYSTEM actor remains unverified and the final open/closed polls were5.64–18.35s after nominal idle
+threshold (exact transition unresolved), so no full qualification/Done. Existing GS179 handoff owns
+exact evidence. Final8445/4468/helpers0,443 preserved; fixed executorReady retained.
+Host-service cleanup explicit; no SessionClose used. No code changes/suite reruns.
+User requires current logged-in account only: retained SAME email/account/cookie;
+no switch/new account/logout/role/password change. Actual installed APK byte hash
+matches, connected Reports shows210 historical events. Settled Settings screenshot
+confirms that same email CAREGIVER and policy not_authorized; DB corroborates
+CAREGIVER/FAMILY. Proper same-account Home permission/configuration is needed,
+not another account or bypass. Desiredpolicy authenticated HOST GET200/v0/null;
+no new policy/defaults.11983 reboot UNUSED,11975 ON HOLD. No C3/S3 COM access,
+injection, EventKey, new durableACK/CloudSync/PG/API/APK result; opticalTC0010/5.
+
+## 2026-11-12 — current-account preserved; live unattended ingress milestone
+
+GS179 installed task independently verified; real locked/non-elevated Start
+returns protected administrator receipt/no UAC, exact .6:8445 route and HOST mTLS
+GET200/installed leaf checked. Not physical S3 authentication. Closure observed
+after stopping only controller, without SessionClose; separate idle/SYSTEM test
+pending. See existing GS179 handoff and private unattended-live/expiry directories.
+
+Fresh Android exact handset/package/version/APK hash matches; real Reports
+screenshot connected to correct Home with210 HISTORICAL records. User requires
+same existing email/login: no account switch/creation/logout/credential or role
+mutation. Actual Settings screenshot confirms this same account has CAREGIVER
+role and policy not_authorized; backend assignment CAREGIVER/FAMILY/active/epoch1.
+Same-account permission correction must use legitimate Home authorization; no
+guard bypass or new account. Existing change-login command preserves roles and
+is not the repair. Authenticated Hub-credential HOST read confirms desiredv0/
+confignull/appliednull.11983 reboot UNUSED; no serial/injection/EventKey or fresh
+HubACK/CloudSync/PG/API/APK event; opticalTC0010/5.11975 remains ON HOLD.
+
 ## 2026-11-12 05:30 UTC — unattended setup remains the first blocker
 
 Resumed7b7c248 local=remote/context PASS; reviewed source unchanged. One requested

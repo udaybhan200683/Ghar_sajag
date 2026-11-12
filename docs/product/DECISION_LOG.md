@@ -1893,3 +1893,14 @@ and protected reviewed code, retain authority/revocation/source/fixture/network
 guards and existing3600s/1800s/session cleanup. No general elevated commands,
 UAC-policy change, permanent exposure or hardware authority. Actual locked-session
 Windows qualification is mandatory; source/mocks do not establish acceptance.
+
+GS-D034 qualification note2026-11-12 (no requirement change): administrator
+installation independently verified; actual locked/non-elevated fixed-task Start
+and host mTLS route observed, followed by closure after controller termination.
+Timed idle/SYSTEM actor verification remains pending; no full acceptance, physical
+Hub event, image qualification or release PASS. Existing GS179 handoff owns evidence.
+
+GS-D034 final live note2026-11-12: actual timed closure reported by a poll18.35s after
+nominal1800s idle deadline; exact physical transition unverified, controller alive; SYSTEM actor not independently read.
+This does not approve a timing tolerance or establish strict-cutoff/full acceptance.
+Existing GS179 owns disposition; source unchanged, release guards remain.

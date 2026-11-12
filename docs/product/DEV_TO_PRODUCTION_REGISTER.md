@@ -136,3 +136,15 @@ GS-D034 owner11986: existing GS179 launcher now has a narrow administrator-insta
 unattended network Start/Close path. Implementation is separate from actual locked
 Windows qualification (NOT_RUN); no production/hardware exception. Source snapshots,
 request/task ACLs, authority/revocation and existing cleanup remain mandatory.
+
+GS-D034 qualification update2026-11-12: installed fixed executor independently
+verified (owner12023 plus target ACL/hash/XML read). Actual locked non-elevated
+Start/no UAC, exact route and HOST mTLS read observed; automatic closure followed
+controller termination. Separate timed idle/SYSTEM actor proof pending. This is
+network-operation evidence, not physical Hub event or release qualification.
+
+Final live observation2026-11-12: timed automatic closure observed with controller
+alive, with final open/closed poll timestamps5.64s/18.35s past nominal deadline;
+exact physical transition timing is not established by these OS-query polls. SYSTEM actor proof protected/pending. Strict idle-cutoff/full
+qualification remain OPEN; no silent tolerance. All temporary services/exposure
+cleaned,443 retained; no new physical product event or source change.

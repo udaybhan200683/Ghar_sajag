@@ -1,3 +1,44 @@
+## GS-179 / GS-117 — 2026-11-12 07:31 UTC live result; no full acceptance
+
+Actual installed S4U/Highest task/ACL/pins verified, locked NON-admin invocation
+succeeded/no UAC, .6:8445 route and HOST mTLS GET200/leaf verified (not physical
+S3). Invalid lease/operation, protected-write and Home/release guards rejected.
+Closure observed after controller termination without SessionClose. Separate
+idle test: controller alive, last activity06:47:56, nominal cut07:17:56.645;
+listener open07:18:02.285,closed07:18:14.990. Timed auto closure observed, but strict
+1800s listener cutoff NOT qualified; SYSTEM closureSid protected/awaiting genuine
+administrator read. Do not claim full GS179 PASS/Done or relax deadline tolerance.
+Final temporary Windows/WSL8445/4468/helpers0,visible Tick0,443 preserved; fixed
+executorReady retained. Host services explicitly cleaned after automatic network
+closure; no claim of automatic all-service cleanup. Source unchanged, historical
+27/21/55/22 reused; mapping consistency/context/diff checks PASS.
+Same EXISTING account/login preserved per owner. Actual APK hash/UI and Settings
+confirm same email CAREGIVER; DB CAREGIVER/FAMILY,policy not_authorized. No separate
+account needed/used, role grant, forged session, login change or SQL authorization
+patch. Legitimate same-account Settings permission/policy setup unresolved; host
+mTLS desiredv0/confignull.11983 reboot UNUSED; no serial/injection/EventKey or new
+C3/S3/CloudSync/PG/API/APK event; opticalTC0010/5.11975 ON HOLD. GS117 remains P0.
+See existing GS179 handoff/private evidence; next evidence is protected closureSid
+plus timing-gap disposition, then legitimate same-account policy before11983.
+
+## GS-179 / GS-117 — 2026-11-12 live unattended milestone; timed cleanup pending
+
+Owner12023 installation independently verified from non-elevated DELL: S4U/Highest,
+restricted task/files, four pinned hashes match. Actual LOCKED WTS session1 and
+non-elevated Start succeeded with protected administrator receipt/no UAC. Real
+.6:8445->currentWSL8445 and host authenticated mTLS GET200/installed leaf verified;
+this is NOT physical S3 authentication. Actual automatic controller-loss cleanup
+removed8445/visible Tick without SessionClose,443 preserved. Separate timed idle/
+SYSTEM test pending07:17:56 UTC; protected SYSTEM actor proof requested read-only,
+not inferred from port closure. Full GS179 acceptance NOT complete.
+Existing Android APK/current hash and real connected Reports screenshot verified;
+210 historical events only. Same currently signed-in email shows CAREGIVER and
+actual Settings not_authorized. Saved-login DB role CAREGIVER/FAMILY; same-account
+permission correction/policy still unresolved. No account switch/role mutation,
+logout/reinstall or credential change.11983 reboot UNUSED,11975 ON HOLD; no serial,
+injection, EventKey/downstream fresh event; opticalTC0010/5. Source unchanged,
+historical27/21/55/22 reused. Details in existing GS179 handoff/private live dirs.
+
 ## GS-179 — 2026-11-12 06:15 UTC manual setup action prepared
 
 Owner confirms manual Windows administrator elevation works; no automated RunAs
