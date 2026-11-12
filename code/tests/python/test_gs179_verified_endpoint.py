@@ -26,6 +26,56 @@ from gs179_verified_endpoint import (
 )
 
 
+class EngineeringSnapshotTest(unittest.TestCase):
+    def test_controller_identity_and_release_isolation(self):
+        """GS179-UNATTENDED-003: task environment cannot hide RC caller."""
+        from gs179_verified_endpoint import _verify_engineering_controller
+        with tempfile.TemporaryDirectory() as temp:
+            proc = Path(temp)
+            manifest = dict(controller_pid=42, source='GS117_EXISTING_BOUNDED_ENGINEERING_INGRESS')
+            for mode in ('', 'ENGINEERING'):
+                (proc/'environ').write_bytes(('GHAR_SAJAG_QUALIFICATION_MODE='+mode).encode())
+                _verify_engineering_controller(proc, manifest, 42)
+            for mode in ('RC', 'PRODUCTION', 'RELEASE_CANDIDATE', 'RELEASE', 'COMMERCIAL'):
+                (proc/'environ').write_bytes(('GHAR_SAJAG_QUALIFICATION_MODE='+mode).encode())
+                with self.assertRaisesRegex(ValueError, 'release_controller'):
+                    _verify_engineering_controller(proc, manifest, 42)
+            with self.assertRaisesRegex(ValueError, 'controller_identity_mismatch'):
+                _verify_engineering_controller(proc, manifest, 43)
+
+    def test_protected_snapshots_not_caller_source_execute(self):
+        """GS179-UNATTENDED-002: project tamper never executes privileged code."""
+        import gs179_engineering_validator as v
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp) / 'protected'; base.mkdir()
+            source = Path(temp) / 'source'; source.mkdir()
+            names = ('gs179-windows-lan-proxy.ps1', 'gs179_engineering_validator.py',
+                     'gs179_verified_endpoint.py', 'gs117_hil_authorization.py')
+            hashes = {}
+            for name in names:
+                data = b"# pinned snapshot\n"
+                (base / name).write_bytes(data); (source / name).write_bytes(data)
+                hashes[name] = hashlib.sha256(data).hexdigest()
+            import json
+            manifest = dict(schema='GS179_ENGINEERING_EXECUTOR_V1', sources=hashes)
+            (base / 'installation.json').write_text(json.dumps(manifest), encoding='utf-8-sig')
+            with patch.object(v, 'ROOT', source):
+                # Restore modules after exercising real loader on inert test bytes.
+                with patch.dict(sys.modules):
+                    v.load_snapshot(base)
+                (source / names[0]).write_text('unreviewed')
+                with self.assertRaisesRegex(ValueError, 'reviewed_project_source_changed'):
+                    v.load_snapshot(base)
+                (source / names[0]).write_bytes((base / names[0]).read_bytes())
+                (base / names[2]).write_text('unreviewed')
+                with self.assertRaisesRegex(ValueError, 'protected_snapshot_changed'):
+                    v.load_snapshot(base)
+                manifest['sources']['../evil.py'] = 'a' * 64
+                (base / 'installation.json').write_text(json.dumps(manifest))
+                with self.assertRaisesRegex(ValueError, 'protected_manifest_invalid'):
+                    v.load_snapshot(base)
+
+
 class VerifiedEndpointTest(unittest.TestCase):
     def test_current_private_address_only(self):
         def runner(*args, **kwargs):

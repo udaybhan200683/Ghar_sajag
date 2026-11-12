@@ -2746,6 +2746,7 @@
         "../tools/context/ghar_sajag_context_preflight.sh",
         "scripts/build_validation_targets.py",
         "tools/local/gs179_verified_endpoint.py",
+        "tools/local/gs179_engineering_validator.py",
         "tools/local/gs179_laptop_browser.py",
         "tools/local/gs179_laptop_caregiver_browser.cjs"
       ],

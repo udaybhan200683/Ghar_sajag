@@ -234,3 +234,11 @@ shortcuts and unnecessary enterprise tooling, and prioritize real elder-care
 use cases. GS-117 is current P0. Run mandatory affected development gates; full
 release qualification remains separate. See docs/product/ENGINEERING_PRINCIPLES.md and GS-D034
 for standing Engineering versus strict release-family controls.
+
+GS-179 owner11986 permits one administrator installation of the existing
+launcher’s fixed Engineering ingress task. Subsequent non-elevated Start/Close
+requests use that task, not RunAs. Protected snapshots and task ACLs must match;
+source changes need reviewed administrator redeployment, never silent repinning.
+Locked-session Windows execution, independent cleanup and authenticated routing
+remain mandatory live qualification; mocks are not acceptance. This adds no
+hardware/reset authority. See the existing GS179_SESSION_INGRESS_RECOVERY handoff.

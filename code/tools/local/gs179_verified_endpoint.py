@@ -592,6 +592,22 @@ def revoke_network_window(window, expected_sha256, reason):
 
 
 
+def _verify_engineering_controller(proc, manifest, controller_pid):
+    """Bind requests to the existing live controller, including release exclusion.
+
+    Task Scheduler supplies a clean environment; inspect the controller's own
+    OS process environment rather than accidentally admitting an RC caller.
+    """
+    if (manifest.get('controller_pid') != controller_pid or
+            manifest.get('source') != 'GS117_EXISTING_BOUNDED_ENGINEERING_INGRESS'):
+        raise ValueError('physical_session_controller_identity_mismatch')
+    environment = dict(entry.split(b'=', 1) for entry in
+                       proc.joinpath('environ').read_bytes().split(b'\0') if b'=' in entry)
+    mode = environment.get(b'GHAR_SAJAG_QUALIFICATION_MODE', b'').strip().upper()
+    if mode in {b'RELEASE', b'RELEASE_CANDIDATE', b'RC', b'PRODUCTION', b'COMMERCIAL'}:
+        raise ValueError('physical_session_release_controller')
+
+
 def _physical_service_identity(controller_pid, service_directory):
     import os
     private_json = _network_private_json
@@ -607,6 +623,7 @@ def _physical_service_identity(controller_pid, service_directory):
             directory.stat().st_uid != os.getuid() or directory.stat().st_mode & 0o077):
         raise ValueError('physical_session_service_directory_invalid')
     manifest = private_json(directory / 'launch-manifest.json')
+    _verify_engineering_controller(proc, manifest, controller_pid)
     process = next(p for p in manifest['processes'] if p['script'] == 'gs117-active-ingress.py')
     script = directory / process['script']
     if script.is_symlink() or hashlib.sha256(script.read_bytes()).hexdigest() != process['sha256']:

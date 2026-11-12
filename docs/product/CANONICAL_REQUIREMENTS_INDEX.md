@@ -522,3 +522,9 @@ R1_WORK_STATE and existing GS-117/GS-179 handoffs.
 GS-D034 USB-first clarification #11958–11962 separates routine functional
 admission from image qualification. DECISION_LOG.md and release contract govern;
 UNKNOWN running hash must be reported, not used as a daily-ROM prerequisite.
+
+GS-D034 owner11986 approves a narrow administrator-installed scheduled executor
+for existing Engineering ingress Start/Close. It retains bounded standing
+network authority and all hardware exclusions. Actual locked-session execution
+is required; implementation/qualification evidence remains in the existing
+GS179_SESSION_INGRESS_RECOVERY_20261104.md handoff, not a new master design.

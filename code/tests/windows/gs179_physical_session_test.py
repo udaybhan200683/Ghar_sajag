@@ -24,7 +24,7 @@ function Get-ScheduledTask {param($TaskName,$ErrorAction) return @{Name=$TaskNam
 $tokens=$null;$errors=$null
 $tree=[Management.Automation.Language.Parser]::ParseFile('__SOURCE__',[ref]$tokens,[ref]$errors)
 if($errors.Count){throw ($errors|Out-String)}
-foreach($name in @('Is-Rfc1918','Get-Ipv4Network','Test-EquivalentIpv4Scope','Get-PhysicalSessionDecision','Close-PhysicalSession','Register-PhysicalSessionTasks','Invoke-PhysicalSessionTick','Get-PhysicalSessionWindow','Get-PhysicalAuthority','Assert-PhysicalWindowOrder','Continue-PhysicalDevelopmentLease','Set-PhysicalExpiryTask')) {
+foreach($name in @('Is-Rfc1918','Get-Ipv4Network','Test-EquivalentIpv4Scope','Get-PhysicalSessionDecision','Close-PhysicalSession','Register-PhysicalSessionTasks','Invoke-PhysicalSessionTick','Get-PhysicalSessionWindow','Get-PhysicalAuthority','Assert-PhysicalWindowOrder','Continue-PhysicalDevelopmentLease','Set-PhysicalExpiryTask','Assert-EngineeringRequest','Assert-EngineeringProtectedPath','Get-EngineeringInstallation')) {
  $node=$tree.Find({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true)
  . ([scriptblock]::Create($node.Extent.Text))
 }
@@ -40,6 +40,48 @@ foreach($name in @('Is-Rfc1918','Get-Ipv4Network','Test-EquivalentIpv4Scope','Ge
         self.assertEqual(result.returncode, 0, result.stderr)
         import json
         return json.loads(result.stdout.strip())
+
+    def test_engineering_installation_acl_rejects_caller_write(self):
+        """GS179-UNATTENDED-004: owner can read/run, never replace privileged code."""
+        result = self.powershell(r"""
+function Stop-WithError($m){throw $m}
+function Get-Item {param($LiteralPath) return [pscustomobject]@{Attributes=[IO.FileAttributes]::Normal}}
+function Get-Acl {param($LiteralPath) return $script:testAcl}
+$sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+function Rule($identity,$rights){return [Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.SecurityIdentifier]::new($identity),$rights,'Allow')}
+$script:testAcl=[pscustomobject]@{Owner='BUILTIN\Administrators';Access=@((Rule 'S-1-5-18' 'FullControl'),(Rule 'S-1-5-32-544' 'FullControl'),(Rule $sid 'ReadAndExecute'))}
+Assert-EngineeringProtectedPath 'fixed' $sid
+$script:testAcl.Access=@((Rule $sid 'Modify'))
+$rejected=0
+try{Assert-EngineeringProtectedPath 'fixed' $sid;throw 'accepted_write'}catch{if($_.Exception.Message -ne 'engineering_installation_acl_invalid'){throw};$rejected++}
+$script:testAcl.Access=@((Rule 'S-1-1-0' 'ReadAndExecute'))
+try{Assert-EngineeringProtectedPath 'fixed' $sid;throw 'accepted_everyone'}catch{if($_.Exception.Message -ne 'engineering_installation_acl_invalid'){throw};$rejected++}
+$script:testAcl.Owner='DELL'
+try{Assert-EngineeringProtectedPath 'fixed' $sid;throw 'accepted_user_owner'}catch{if($_.Exception.Message -ne 'engineering_installation_owner_invalid'){throw};$rejected++}
+@{rejected=$rejected;allowed=1}|ConvertTo-Json -Compress
+""")
+        self.assertEqual(result, dict(rejected=3, allowed=1))
+
+    def test_engineering_executor_request_allowlist(self):
+        """GS179-UNATTENDED-001: strict data only, never elevated code."""
+        result = self.powershell(r"""
+function Stop-WithError($m){throw $m}
+$valid=[pscustomobject]@{operation='Start';pid=123;directory='/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/services-test';lease=('a'*64);nonce=('b'*32)}
+Assert-EngineeringRequest $valid
+$cases=@(@{operation='powershell'},@{pid=0},@{pid='123'},@{directory='C:\evil.ps1'},@{lease='expired'},@{nonce='../evil'})
+$rejected=0
+foreach($change in $cases){
+ $r=$valid|ConvertTo-Json|ConvertFrom-Json
+ foreach($k in $change.Keys){$r.$k=$change[$k]}
+ try{Assert-EngineeringRequest $r;throw 'accepted_invalid_request'}catch{if($_.Exception.Message -ne 'engineering_request_invalid'){throw};$rejected++}
+}
+$r=$valid|ConvertTo-Json|ConvertFrom-Json
+$r|Add-Member -NotePropertyName executable -NotePropertyValue 'evil.exe'
+try{Assert-EngineeringRequest $r;throw 'accepted_executable'}catch{if($_.Exception.Message -ne 'engineering_request_invalid'){throw};$rejected++}
+$valid.operation='Close';Assert-EngineeringRequest $valid
+@{rejected=$rejected;allowed=2}|ConvertTo-Json -Compress
+""")
+        self.assertEqual(result, dict(rejected=7, allowed=2))
 
     def test_session_policy_failure_recovery_matrix(self):
         import json
@@ -229,7 +271,7 @@ ConvertTo-Json -InputObject $all -Depth 5 -Compress
             try:
                 row={'script':script.name,'pid':child.pid,'sha256':hashlib.sha256(script.read_bytes()).hexdigest()}
                 manifest=directory/'launch-manifest.json'
-                manifest.write_text(json.dumps({'processes':[row]}));manifest.chmod(0o600)
+                manifest.write_text(json.dumps({'processes':[row],'controller_pid':os.getpid(),'source':'GS117_EXISTING_BOUNDED_ENGINEERING_INGRESS'}));manifest.chmod(0o600)
                 status=directory/'ingress-runtime-status.json'
                 runtime={'pid':child.pid,'at':datetime.now(timezone.utc).isoformat(),'status':{
                     'listener_ready':'YES','postgres_ready':'YES','trusted_time_ready':'YES','profile':'GS179_TEST_ONLY'}}
@@ -428,7 +470,7 @@ $expired=$false;try{Get-PhysicalSessionWindow @($a) 'network-A' 'approval' $at.A
             script=directory/'gs117-active-ingress.py';script.write_text('import time;time.sleep(60)')
             child=subprocess.Popen([sys.executable,str(script)])
             try:
-                for name,row in [('launch-manifest.json',{'processes':[{'script':script.name,'pid':child.pid,'sha256':hashlib.sha256(script.read_bytes()).hexdigest()}]}),('ingress-runtime-status.json',{'pid':child.pid,'at':datetime.now(timezone.utc).isoformat(),'status':{'listener_ready':'YES','postgres_ready':'YES','trusted_time_ready':'YES','profile':'GS179_TEST_ONLY'}})]:
+                for name,row in [('launch-manifest.json',{'controller_pid':os.getpid(),'source':'GS117_EXISTING_BOUNDED_ENGINEERING_INGRESS','processes':[{'script':script.name,'pid':child.pid,'sha256':hashlib.sha256(script.read_bytes()).hexdigest()}]}),('ingress-runtime-status.json',{'pid':child.pid,'at':datetime.now(timezone.utc).isoformat(),'status':{'listener_ready':'YES','postgres_ready':'YES','trusted_time_ready':'YES','profile':'GS179_TEST_ONLY'}})]:
                     f=directory/name;f.write_text(json.dumps(row));f.chmod(0o600)
                 with patch.object(auth,'DEV_STATE',state),patch.object(auth,'DEV_POLICY',policy_path),patch.object(auth,'DEV_MODE_AUDIT',audit),patch.object(auth,'load_development',return_value=policy),patch.object(auth,'development_status',return_value=status),patch.object(Path,'home',return_value=home),patch.object(endpoint,'NETWORK_APPROVAL_PINS',pins),patch.object(endpoint,'wsl_ipv4',return_value='172.17.152.10'),patch.object(auth,'development_session',side_effect=AssertionError('network cannot reserve hardware')):
                     bad=copy.deepcopy(comments);next(iter(bad.values()))['body']='fabricated'

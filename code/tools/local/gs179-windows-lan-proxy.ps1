@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet("Audit", "Start", "Stop", "Watch", "RegisterWatch", "UnregisterWatch", "SessionStart", "SessionTick", "SessionClose")]
+    [ValidateSet("Audit", "Start", "Stop", "Watch", "RegisterWatch", "UnregisterWatch", "SessionStart", "SessionTick", "SessionClose", "InstallEngineeringExecutor", "InvokeEngineeringExecutor", "RunEngineeringExecutor")]
     [string]$Action,
     [string]$WslAddress = "",
     [string]$PreviousWslAddress = "",
@@ -16,7 +16,8 @@ param(
     [string]$NetworkApprovalSha256 = '',
     [string]$NetworkLeaseId = '',
     [ValidateRange(1, 3600)][int]$SessionSeconds = 3600,
-    [switch]$SessionRestricted
+    [switch]$SessionRestricted,
+    [ValidateSet("Start","Close")][string]$EngineeringOperation = "Start"
 )
 
 $ErrorActionPreference = "Stop"
@@ -29,7 +30,7 @@ $RuleDisplayName = "Ghar Sajag GS-179 Local Validation HTTPS"
 if ($EndpointKind -eq "PhysicalHubIngress") {
     # Explicit GS-117 TEST_ONLY data ingress; never the loopback test console.
     # Reuse the same Private/Domain Wi-Fi, subnet and administrator guards.
-    if ($Action -notlike "Session*" -and $Action -notin @("Audit", "Start", "Stop")) {
+    if ($Action -notlike "Session*" -and $Action -notin @("Audit", "Start", "Stop", "InstallEngineeringExecutor", "InvokeEngineeringExecutor", "RunEngineeringExecutor")) {
         throw "GS179-WINDOWS-PROXY BLOCKED: physical_hub_ingress_watch_not_enabled"
     }
     $RuleName = "GS117-Physical-Hub-mTLS"
@@ -367,7 +368,8 @@ function Get-PhysicalAuthority([string]$Reference,[int]$PidValue,[string]$Direct
         Stop-WithError 'physical_session_network_inputs_invalid'
     }
     $helper='\\wsl.localhost\Ubuntu\home\udaybhan\projects\Ghar_sajag_r1\code\tools\local\gs179_verified_endpoint.py'
-    if ((Get-FileHash $helper -Algorithm SHA256).Hash -ne $ExpectedHelper) {
+    if (-not (Test-Path -LiteralPath 'C:\ProgramData\GharSajagEngineeringIngress\installation.json') -and
+        (Get-FileHash $helper -Algorithm SHA256).Hash -ne $ExpectedHelper) {
         Stop-WithError 'physical_session_authority_helper_changed'
     }
     $wsl=Join-Path ([Environment]::SystemDirectory) 'wsl.exe'
@@ -375,8 +377,19 @@ function Get-PhysicalAuthority([string]$Reference,[int]$PidValue,[string]$Direct
     if ($Window) { $networkArgs=@('--network-window',$Window,'--network-approval-sha256',$ApprovalHash) }
     if ($Window -eq 'DEV') { $networkArgs+=@('--network-lease-id',$LeaseId) }
     if ($IssueNext) { $networkArgs+='--issue-development-sublease' }
-    $raw=& $wsl --exec /usr/bin/python3 /home/udaybhan/projects/Ghar_sajag_r1/code/tools/local/gs179_verified_endpoint.py `
-        --physical-ingress-authority $Reference --controller-pid $PidValue --service-directory $Directory @networkArgs
+    $installation=Join-Path $env:ProgramData 'GharSajagEngineeringIngress\installation.json'
+    if (Test-Path -LiteralPath $installation) {
+        $installed=Get-EngineeringInstallation
+        if ((Get-FileHash $PSCommandPath -Algorithm SHA256).Hash -eq $installed.proxySha256 -and
+            $ExpectedHelper -eq $installed.sources.'gs179_verified_endpoint.py') {
+            $runner='/mnt/c/ProgramData/GharSajagEngineeringIngress/gs179_engineering_validator.py'
+            $raw=& $wsl --distribution Ubuntu --user udaybhan --exec /usr/bin/python3 -I -S $runner `
+                --physical-ingress-authority $Reference --controller-pid $PidValue --service-directory $Directory @networkArgs
+        } else { Stop-WithError 'engineering_installed_source_changed' }
+    } else {
+        $raw=& $wsl --exec /usr/bin/python3 /home/udaybhan/projects/Ghar_sajag_r1/code/tools/local/gs179_verified_endpoint.py `
+            --physical-ingress-authority $Reference --controller-pid $PidValue --service-directory $Directory @networkArgs
+    }
     if ($LASTEXITCODE -ne 0) { Stop-WithError 'physical_session_authority_or_services_unavailable' }
     return ($raw | ConvertFrom-Json)
 }
@@ -488,6 +501,157 @@ function Invoke-PhysicalSessionTick($State) {
         Save-PhysicalSession $State
         return [pscustomobject]@{Decision=$decision;ExitCode=0;Deadline=$State.deadline}
     } catch { Close-PhysicalSession $State;throw }
+}
+
+# GS-179 owner11986: fixed Task Scheduler executor, not a command service.
+$EngineeringTaskName='GharSajag-Engineering-Ingress'
+$EngineeringBase='C:\ProgramData\GharSajagEngineeringIngress'
+function Assert-EngineeringProtectedPath([string]$Path,[string]$OwnerSid) {
+    $item=Get-Item -LiteralPath $Path
+    $acl=Get-Acl -LiteralPath $Path
+    if($item.Attributes -band [IO.FileAttributes]::ReparsePoint -or
+        $acl.Owner -notin @('BUILTIN\Administrators','NT AUTHORITY\SYSTEM')) {Stop-WithError 'engineering_installation_owner_invalid'}
+    foreach($rule in $acl.Access) {
+        $sid=$rule.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value
+        if($rule.AccessControlType -ne 'Allow' -or $sid -notin @('S-1-5-18','S-1-5-32-544',$OwnerSid) -or
+            ($sid -eq $OwnerSid -and ($rule.FileSystemRights -band [Security.AccessControl.FileSystemRights]::Write))) {
+            Stop-WithError 'engineering_installation_acl_invalid'
+        }
+    }
+}
+function Get-EngineeringInstallation {
+    $path=Join-Path $EngineeringBase 'installation.json'
+    $m=Get-Content -LiteralPath $path -Raw|ConvertFrom-Json
+    if($m.schema -ne 'GS179_ENGINEERING_EXECUTOR_V1' -or $m.ownerSid -ne [Security.Principal.WindowsIdentity]::GetCurrent().User.Value -or
+        $m.authorityHash -notmatch '^[a-f0-9]{64}$') {Stop-WithError 'engineering_installation_identity_invalid'}
+    foreach($p in @($EngineeringBase,$path)) {Assert-EngineeringProtectedPath $p $m.ownerSid}
+    foreach($entry in $m.sources.PSObject.Properties) {
+        if($entry.Name -notin @('gs179-windows-lan-proxy.ps1','gs179_engineering_validator.py','gs179_verified_endpoint.py','gs117_hil_authorization.py')) {
+            Stop-WithError 'engineering_snapshot_name_invalid'
+        }
+        $file=Join-Path $EngineeringBase $entry.Name
+        Assert-EngineeringProtectedPath $file $m.ownerSid
+        if((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash -ne $entry.Value) {Stop-WithError 'engineering_snapshot_changed'}
+    }
+    if(@($m.sources.PSObject.Properties).Count -ne 4) {Stop-WithError 'engineering_snapshot_incomplete'}
+    return $m
+}
+function Assert-EngineeringRequest($r) {
+    $keys=@($r.PSObject.Properties.Name|Sort-Object)
+    if(($keys -join ',') -ne 'directory,lease,nonce,operation,pid' -or $r.operation -notin @('Start','Close') -or
+        $r.nonce -notmatch '^[a-f0-9]{32}$' -or $r.lease -notmatch '^[a-f0-9]{64}$' -or
+        $r.pid -isnot [int] -or $r.pid -lt 1 -or
+        $r.directory -notmatch '^/home/udaybhan/\.local/state/ghar-sajag/gs117-tc001/[A-Za-z0-9_-]+$') {
+        Stop-WithError 'engineering_request_invalid'
+    }
+}
+if($Action -eq 'InstallEngineeringExecutor') {
+    Assert-Administrator
+    if($env:ProgramData -ne 'C:\ProgramData' -or $EndpointKind -ne 'PhysicalHubIngress' -or $ApprovalRef -ne 'GS-179#11947' -or $NetworkWindow -ne 'DEV' -or
+        $NetworkApprovalSha256 -notmatch '^[a-f0-9]{64}$') {Stop-WithError 'engineering_install_inputs_invalid'}
+    # Install once; an existing installation is never silently replaced.
+    if(Test-Path -LiteralPath $EngineeringBase) {Stop-WithError 'engineering_installation_already_exists'}
+    $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    $source='\\wsl.localhost\Ubuntu\home\udaybhan\projects\Ghar_sajag_r1\code\tools\local'
+    $acl=New-Object Security.AccessControl.DirectorySecurity
+    $acl.SetAccessRuleProtection($true,$false)
+    $acl.SetOwner([Security.Principal.SecurityIdentifier]::new('S-1-5-32-544'))
+    foreach($s in @('S-1-5-18','S-1-5-32-544',$sid)) {
+        $rights=if($s -eq $sid){'ReadAndExecute'}else{'FullControl'}
+        $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.SecurityIdentifier]::new($s),$rights,'ContainerInherit,ObjectInherit','None','Allow'))
+    }
+    New-Item -ItemType Directory -Path $EngineeringBase|Out-Null
+    Set-Acl -LiteralPath $EngineeringBase -AclObject $acl
+    $sources=[ordered]@{}
+    foreach($name in @('gs179-windows-lan-proxy.ps1','gs179_engineering_validator.py','gs179_verified_endpoint.py','gs117_hil_authorization.py')) {
+        $from=Join-Path $source $name;$to=Join-Path $EngineeringBase $name
+        $hash=(Get-FileHash $from -Algorithm SHA256).Hash.ToLowerInvariant()
+        Copy-Item -LiteralPath $from -Destination $to
+        $fa=Get-Acl $to;$fa.SetOwner([Security.Principal.SecurityIdentifier]::new('S-1-5-32-544'));Set-Acl $to $fa
+        if((Get-FileHash $to -Algorithm SHA256).Hash -ne $hash){Stop-WithError 'engineering_install_copy_changed'}
+        $sources[$name]=$hash
+    }
+    $m=[ordered]@{schema='GS179_ENGINEERING_EXECUTOR_V1';ownerSid=$sid;authorityHash=$NetworkApprovalSha256;
+        installed=[DateTimeOffset]::UtcNow.ToString('o');sources=$sources;proxySha256=$sources['gs179-windows-lan-proxy.ps1']}
+    $path=Join-Path $EngineeringBase 'installation.json'
+    $m|ConvertTo-Json -Depth 5|Set-Content -LiteralPath $path -Encoding UTF8
+    $fa=Get-Acl $path;$fa.SetOwner([Security.Principal.SecurityIdentifier]::new('S-1-5-32-544'));Set-Acl $path $fa
+    $exe=Join-Path ([Environment]::SystemDirectory) 'WindowsPowerShell\v1.0\powershell.exe'
+    $args='-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+(Join-Path $EngineeringBase 'gs179-windows-lan-proxy.ps1')+'" -Action RunEngineeringExecutor -EndpointKind PhysicalHubIngress'
+    $taskAction=New-ScheduledTaskAction -Execute $exe -Argument $args
+    $principal=New-ScheduledTaskPrincipal -UserId $sid -LogonType S4U -RunLevel Highest
+    $settings=New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 3) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+    Register-ScheduledTask -TaskName $EngineeringTaskName -Action $taskAction -Principal $principal -Settings $settings|Out-Null
+    $scheduler=New-Object -ComObject 'Schedule.Service';$scheduler.Connect()
+    $task=$scheduler.GetFolder('\').GetTask($EngineeringTaskName)
+    $task.SetSecurityDescriptor("D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GRGX;;;$sid)",0)
+    Get-EngineeringInstallation|ConvertTo-Json -Depth 5
+    exit 0
+}
+if($Action -in @('InvokeEngineeringExecutor','RunEngineeringExecutor')) {
+    if($EndpointKind -ne 'PhysicalHubIngress'){Stop-WithError 'engineering_endpoint_invalid'}
+    $m=Get-EngineeringInstallation
+    $requestDir=Join-Path $env:LOCALAPPDATA 'GharSajag\EngineeringIngress'
+    $requestPath=Join-Path $requestDir 'request.json'
+    if($Action -eq 'InvokeEngineeringExecutor') {
+        $r=[pscustomobject]@{operation=$EngineeringOperation;pid=$ControllerPid;directory=$ServiceDirectory;lease=$NetworkLeaseId;nonce=[Guid]::NewGuid().ToString('N')}
+        Assert-EngineeringRequest $r
+        New-Item -ItemType Directory -Path $requestDir -Force|Out-Null
+        if((Get-Item $requestDir).Attributes -band [IO.FileAttributes]::ReparsePoint){Stop-WithError 'engineering_request_reparse'}
+        $r|ConvertTo-Json -Compress|Set-Content -LiteralPath ($requestPath+'.tmp') -Encoding UTF8
+        Move-Item -LiteralPath ($requestPath+'.tmp') -Destination $requestPath -Force
+        Start-ScheduledTask -TaskName $EngineeringTaskName
+        $resultPath=Join-Path $EngineeringBase ($r.nonce+'.result.json')
+        $deadline=[DateTimeOffset]::UtcNow.AddSeconds(150)
+        while(-not(Test-Path $resultPath)) {
+            if([DateTimeOffset]::UtcNow -ge $deadline){Stop-WithError 'engineering_executor_receipt_timeout'}
+            Start-Sleep -Milliseconds 500
+        }
+        Assert-EngineeringProtectedPath $resultPath $m.ownerSid
+        $result=Get-Content -LiteralPath $resultPath -Raw|ConvertFrom-Json
+        $result|ConvertTo-Json -Depth 5
+        if(-not $result.success){exit 1};exit 0
+    }
+    Assert-Administrator
+    if($PSCommandPath -ne (Join-Path $EngineeringBase 'gs179-windows-lan-proxy.ps1')){Stop-WithError 'engineering_executor_path_invalid'}
+    if((Get-Item $requestPath).Length -gt 2048 -or (Get-Item $requestPath).Attributes -band [IO.FileAttributes]::ReparsePoint){Stop-WithError 'engineering_request_size_or_reparse'}
+    $r=Get-Content -LiteralPath $requestPath -Raw|ConvertFrom-Json
+    Assert-EngineeringRequest $r
+    $reservation=Join-Path $EngineeringBase ($r.nonce+'.used')
+    $f=[IO.File]::Open($reservation,'CreateNew','Write','None');$f.Dispose()
+    $ra=Get-Acl $reservation;$ra.SetOwner([Security.Principal.SecurityIdentifier]::new('S-1-5-32-544'));Set-Acl $reservation $ra
+    $success=$false;$failure='';$session='';$stage='AUTHORITY'
+    try {
+        $helper=$m.sources.'gs179_verified_endpoint.py'
+        # The existing validator checks live standing authority, controller, lab,
+        # service, credentials, network, expiry and revocation before mutation.
+        $exe=Join-Path ([Environment]::SystemDirectory) 'WindowsPowerShell\v1.0\powershell.exe'
+        if($r.operation -eq 'Start') {
+            $null=Get-PhysicalAuthority 'GS-179#11947' $r.pid $r.directory $helper 'DEV' $m.authorityHash $r.lease
+            $stage='SESSION_START'
+            $output=& $exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $PSCommandPath -Action SessionStart -EndpointKind PhysicalHubIngress -ApprovalRef 'GS-179#11947' -ControllerPid $r.pid -ServiceDirectory $r.directory -AuthorityHelperSha256 $helper -NetworkWindow DEV -NetworkApprovalSha256 $m.authorityHash -NetworkLeaseId $r.lease -SessionSeconds 3600 2>&1
+            if($LASTEXITCODE -ne 0){throw 'existing_session_start_failed'}
+        } else {
+            $stage='SESSION_CLOSE'
+            $active=@(Get-ChildItem 'C:\ProgramData\GharSajag\PhysicalIngress' -Filter '*.json'|ForEach-Object {
+                Assert-PhysicalSessionFile $_.FullName
+                $s=Get-Content $_.FullName -Raw|ConvertFrom-Json
+                if(-not $s.closed -and $s.networkLeaseId -eq $r.lease -and $s.directory -eq $r.directory -and $s.pid -eq $r.pid){$s}
+            })
+            if($active.Count -ne 1){throw 'matching_session_required'}
+            $s=$active[0];$session=$s.activation
+            $output=& $exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $s.script -Action SessionClose -EndpointKind PhysicalHubIngress -SessionFile ('C:\ProgramData\GharSajag\PhysicalIngress\'+([IO.Path]::GetFileNameWithoutExtension($s.script))+'.json') 2>&1
+            if($LASTEXITCODE -ne 0){throw 'existing_session_close_failed'}
+        }
+        $success=$true
+    } catch {$failure='existing_bounded_operation_failed'}
+    # Result is bounded, contains no secrets or subprocess output, and is
+    # administrator-owned. Existing immutable session audit remains authoritative.
+    $result=[ordered]@{nonce=$r.nonce;operation=$r.operation;success=$success;failure=$failure;stage=$stage;at=[DateTimeOffset]::UtcNow.ToString('o');ownerSid=$m.ownerSid;administrator=$true;session=$session}
+    $resultPath=Join-Path $EngineeringBase ($r.nonce+'.result.json')
+    $result|ConvertTo-Json -Compress|Set-Content -LiteralPath $resultPath -Encoding UTF8
+    $fa=Get-Acl $resultPath;$fa.SetOwner([Security.Principal.SecurityIdentifier]::new('S-1-5-32-544'));Set-Acl $resultPath $fa
+    if(-not $success){exit 1};exit 0
 }
 
 if ($Action -like 'Session*') {

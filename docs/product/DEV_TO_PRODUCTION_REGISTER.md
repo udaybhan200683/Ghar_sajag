@@ -131,3 +131,8 @@ Automatic startup mode reporting is implemented under DTP-010. Current running
 identity and RC/Production target differentiation remain NOT_VERIFIED; the
 24-hour audited-capture dependency is an unresolved standing-workflow gap.
 Existing production-isolation evidence and all release blockers remain.
+
+GS-D034 owner11986: existing GS179 launcher now has a narrow administrator-installed
+unattended network Start/Close path. Implementation is separate from actual locked
+Windows qualification (NOT_RUN); no production/hardware exception. Source snapshots,
+request/task ACLs, authority/revocation and existing cleanup remain mandatory.

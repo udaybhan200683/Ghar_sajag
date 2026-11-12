@@ -1,3 +1,58 @@
+## 2026-11-12 — owner11986 unattended executor implementation
+
+BUG_CLASSIFICATION=TEST_INFRA_ONLY
+REQUIREMENT_SOURCE=DECISION_LOG.md GS-D034 owner11986
+TASK_SCOPE=existing GS179 bounded ingress Start/Close from non-elevated controller
+OUT_OF_SCOPE=hardware authority; C3 cold-start11975 (ON HOLD); provisioning redesign
+
+Audit: existing reconnect/watch task is InteractiveToken/Highest and cannot
+create an ingress session while locked. Existing physical Tick/Expiry tasks
+start only after privileged SessionStart. The unrelated disabled USB auto-watch
+task was not invoked or changed. Reuse SessionStart/Tick/Close, standing authority,
+private Wi-Fi/firewall scope,3600s lease/1800s idle, nonoverlap and SYSTEM cleanup.
+
+Minimal extension in the SAME gs179-windows-lan-proxy.ps1:
+InstallEngineeringExecutor (one genuine administrator setup),
+InvokeEngineeringExecutor (non-elevated fixed Start/Close request), and
+RunEngineeringExecutor (fixed Task Scheduler action). No general command/path
+parameter. Request schema rejects extra fields and noncanonical values. OwnerSID
+has read/execute only on task/installation; Administrators+SYSTEM own/write them.
+S4U Highest requests no stored password, does not bypass UAC, and must be tested
+with the real locked Windows session and available WSL distro. The designated
+Windows/WSL OS and administrators remain trusted; this does not defend against
+an already compromised OS/administrator. No permanent network listener.
+
+Installation C:\ProgramData\GharSajagEngineeringIngress contains protected
+source snapshots and manifest hashes. Existing authority runs through isolated
+/usr/bin/python3 -I -S using a small snapshot adapter, preserving canonical
+logical paths but never importing caller-replaced repository code. Both current
+canonical hashes and protected bytes must match. All bytes validate before any
+snapshot loads. Source changes fail closed until administrator-reviewed redeploy.
+Task request nonce reservations and bounded protected results supplement, not
+replace, existing immutable lease/session audit. Close remains possible after
+authority loss; existing independent cleanup retains responsibility on failure.
+Controller PID/manifest and its own release-mode environment are checked, since
+the Scheduled Task has a clean environment. No privilege for RC/Production.
+
+Offline evidence so far: endpoint27/27 PASS; Windows baseline20/20 PASS before
+controller-binding change; subsequent run found2 incomplete old test manifests,
+now corrected to supply real controller/source identity. Final21/21 PASS after supplying the actual controller/source fixture fields.
+New request and ACL tests separately2/2 PASS. Isolated REAL snapshot --mode-status
+exit0, Python compilation/diff-check PASS. Framework55/55 PASS for registry input
+update. First endpoint run exposed9 errors from test fixture module pollution;
+fixed by verifying every executable snapshot before loading either; rerun passed.
+One test command used an invalid Python module namespace and failed; corrected
+PYTHONPATH invocation passed. No failure is treated as physical acceptance.
+
+Final mapping238 features/288 modules/29 physical definitions and22/22 tests PASS.
+Initial new mapping row failed strict metadata validation; corrected registry IDs,
+physical definition and anchors; no validator assertions weakened.
+
+One-time administrator setup and locked-session live qualification NOT_RUN.
+No network exposure, hardware port access, reboot or injection in this change.
+11983 reboot remains unused; actual household policy input gap remains separate.
+GS117 remains P0/In Progress, fresh E2E NOT_RUN, formal opticalTC0010/5.
+
 ## 2026-11-11 final live result — scoped correction delivered
 
 Source4c6740b/f287032 pushed/remote verified. Actual normal UAC now succeeds;
@@ -570,3 +625,16 @@ Private execution evidence `~/.local/state/ghar-sajag/gs179-approved-AB-20261105
 ### GS117 offline follow-up — 2026-11-05
 
 [Session134 RCA](GS117_SESSION134_OFFLINE_RCA_20261105.md) completed without reopening A/B or changing GS179. Network qualification remains PASS. Radio cause/watchdog causality unresolved; liveness gating and missing diagnostic fields are source-linked. It corrects two earlier physical-report interpretations:20 retained lines was not a configured tail limit, and the helper's requested90s phase was followed by10s collection. Original physical receipts and failed authorization remain untouched. Future collector/diagnostic corrections require separate review; no new physical authority is requested or created.
+
+### 2026-11-12 source review before administrator deployment
+
+Reviewed fixed executable/task action, strict request schema, protected snapshot
+loading before execution, ownerSID read/execute ACL, S4U principal, nonce
+reservation, release-controller rejection, and reuse of all existing lifecycle
+guards. This is a Codex source review, not an impersonated owner/independent signature.
+One-time owner-approved OS administrator consent remains genuine Windows UAC.
+
+- `gs179-windows-lan-proxy.ps1` SHA256 `8c3f3ecd83e5bf854a5188028fa87fe8cc823b49d0638e1b806d7307c5ff9056`
+- `gs179_engineering_validator.py` SHA256 `b0725a9c9786f7c52f16765791cd206052e082a9f8813ce363084e1ff56de5db`
+- `gs179_verified_endpoint.py` SHA256 `c9b3cb79895d19ef6854aa55084d59b50e014804e43422fb73d84c1f3ceb8c7c`
+- `gs117_hil_authorization.py` SHA256 `1d321595cbe590d6ca983c23878eafdf2e0841631b8ea0c230873ef28baa21bf`
