@@ -231,7 +231,7 @@ class CaregiverLoginChangeTests(unittest.TestCase):
              patch("sys.stdin", Tty()), patch("sys.stderr", Tty()), \
              patch("builtins.input", return_value=self.NEW_EMAIL), \
              patch("getpass.getpass", side_effect=(self.new_password, self.new_password)):
-            self.assertEqual(change_login_main(), 0)
+            self.assertEqual(change_login_main([]), 0)
         credential = self._credentials()
         self.assertEqual(credential["email"], self.NEW_EMAIL)
         with self.store.connect() as db:

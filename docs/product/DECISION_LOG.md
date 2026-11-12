@@ -1918,8 +1918,10 @@ Home/epoch/consent binding. Make assignment/revocation transactional and audited
 in existing authorization persistence; preserve password hash, email, account ID,
 sessions and business history. No public self-promotion route, claimed-role
 header, runtime flag entitlement, production/RC or cross-Home privilege. Reuse
-normal Settings authorization and current-role/revocation checks. Implementation
-and qualification pending; actual owner instruction is not a fabricated grant.
+normal Settings authorization and current-role/revocation checks. Implemented through the existing private maintenance command; focused14/14 TLS
+PostgreSQL checks and live same-session Reports/Settings200 verified on2026-11-12.
+Broader affected regression and physical APK/E2E qualification remain separate;
+actual owner instruction is not a fabricated machine-verifiable grant.
 
 Raw USB-triggered motion validation does not require a household activity policy:
 HubRuntime::run_state_once explicitly permits authenticated durable raw admission

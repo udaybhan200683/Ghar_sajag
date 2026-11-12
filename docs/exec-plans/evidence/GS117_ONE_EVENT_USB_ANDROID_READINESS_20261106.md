@@ -1,3 +1,63 @@
+## 2026-11-12 owner12026 — existing account restored, physical run blocked by handset
+
+Existing maintenance helper extended with grant-dev-home-admin / revoke-dev-home-admin
+(no public privilege endpoint). Fixed Home/Hub, owner-only current credential/password,
+registered Engineering host/build, local verified-TLS PostgreSQL, active membership/
+consent/ownership epoch required. Updates only two membership roles and atomic audit;
+revocation restores audited previous pair, rejects conflicting later changes. Production,
+other Home, stale/revoked ownership, wrong account and remote/insecure DB fail closed.
+
+Live same account7ea51122-cdbb-4106-a054-c4704464bf92 ADMIN/OWNER granted audit1.
+Existing same-session Settings403->200; Reports200 before/after. Account/email/hash,
+all existing sessions, event records and private credential file byte snapshot unchanged.
+Private evidence: ~/.local/state/ghar-sajag/gs117-tc001/dev-account-12026/assignment-and-same-session.json.
+Live policy values not invented/saved; desired0/appliednull. Save/retrieve/exact-Hub apply
+and revocation proven in isolated TLS PG tests only, not physical S3 policy application.
+
+14 new production-path TLS PG tests PASS; initial6 failures came from duplicate role
+column labels in test assertion query and were corrected, no product assertions relaxed.
+Connected Lite23 tests/runtime12/scenarios3, framework55, mapping22 PASS. Final affected
+gates completed with the explicit failures below. Fresh existing bootstrap review229399757f18648ced5b40d81caf9ced131bc801a2d9899a8b19e4ecd3bb532f
+required because earlier reviews pin pre-unattended endpoint hash; review passed using
+existing authorized workflow, no ledgers rewritten. Historical194 console result remains
+separate; refreshed review executed196/196 for required new source binding.
+
+Windows task non-admin Start returned success/admin true, no UAC; current .6:8445 and443
+listeners verified. Physical S3 authentication not established. Existing AndroidReady failed
+TC001_APPROVED_ANDROID_DEVICE_NOT_AUTHORIZED_OR_CONNECTED; exact known adb devices -l
+returns empty list. Operator notified. Portal/controller, ingress and signed-time services stopped;
+Windows8445/UDP4468/tasks0 and4431 verified. Automatic network closure preceded
+an explicit Close request which returned existing_bounded_operation_failed;
+retain that failure and do not claim full automatic/SYSTEM cleanup qualification.
+No COM access/reboot/config envelope/injection/fresh EventKey.11983 remains unused,
+11975 remains ON HOLD, raw USB E2EBLOCKED, optical0/5. Exact next action reconnect/unlock
+approved handset/open same-account app; then existing S3 recovery and one motion Run.
+
+Validation checkpoint2026-11-12: `make gs179-postgres-e2e` executed86 tests,
+85PASS/1FAIL/errors0. All14 new DEV admin tests and real isolated-PG Settings/
+desired/applied/role/revocation cases passed. The sole failure is existing
+GS117_HUB_ROUTE_001 exact old PowerShell allowlist-string assertion, which does
+not include the already-approved installed Engineering executor actions. No
+Windows source changed here; preserve/defer this GS179 test expectation issue,
+not a product security bypass or a PASS. Existing canonical role authorizer unchanged.
+`make validation-backend` completed FAIL (25/28 stages PASS); Python stage894 tests/6FAIL/1 canonical
+classic-ESP32 skip. Three traceability failures captured the new row before its
+registration correction; corrected mapping22 PASS, no full894 rerun. Other three
+failures also exist in prior tooling-1793949402279035611/python.log: static payload
+budget, physical catalogue evidence and legacy GS_HIL_COMMISSIONING string test.
+Backend report: code/evidence/validation_framework/backend-1794472119156674609/report.json.
+Its source_unchanged=false reflects traceability CSV registration correction during
+the run (the CSV is a registered fingerprint input); no reusable all-source PASS
+receipt claimed. Corrected final mapping22/framework55 pass. Existing GS178
+production host vertical41/41, console196/196, issuer53/53, endpoint27/27, Reports8/8
+and worker21/21 stages pass. Full backend remains FAIL, not acceptance.
+P0 host26 assertions/browser1 passed but product_statusPARTIAL means gateFAIL;
+diagnostic-foundation98 has one historical parent-stage allowlist failure. Do not
+claim mandatory overall backend PASS or release acceptance. No unrelated product
+or firmware fixes were attempted to hide those failures. Shared UI source and
+native APK unchanged; complete PWA/release/target gates NOT_RUN for this iteration;
+actual isolated shared-browser execution is retained separately from physical APK.
+
 ## Owner12026 implementation plan — same existing account, no raw-policy gate
 
 BUG_CLASSIFICATION=R1_FIX (development Settings authorization configuration)

@@ -677,7 +677,7 @@ run_health_source() {
 change_login() {
     load_config
     export GS179_CAREGIVER_CREDENTIALS="${GS179_CAREGIVER_CREDENTIALS:-$STATE_ROOT/caregiver-login.json}"
-    python3 "$REPO_ROOT/code/tools/local/gs179_change_login.py"
+    python3 "$REPO_ROOT/code/tools/local/gs179_change_login.py" "$@"
 }
 
 run_caregiver_browser() {
@@ -709,6 +709,8 @@ case "${1:-}" in
     logs) journalctl --user-unit=gs179-laptop.service --no-pager -n "${2:-100}" ;;
     event) run_event ;;
     change-login) change_login ;;
+    grant-dev-home-admin) change_login --grant-development-home-admin ;;
+    revoke-dev-home-admin) change_login --revoke-development-home-admin ;;
     browser) run_caregiver_browser ;;
     run) run_service ;;
     proxy-start|network-refresh) start_service ;;
@@ -721,5 +723,5 @@ case "${1:-}" in
     record-proxy-target) record_proxy_target "${2:-}" ;;
     start-mdns-advertiser) load_config; start_mdns_advertiser ;;
     mdns-status) mdns_status ;;
-    *) printf 'Usage: %s {provision|install-unit|start|stop|restart|status|health|dev-start|wait-local|proxy-start|proxy-audit|proxy-watch-register|proxy-watch-unregister|network-refresh|network-refresh-config|record-proxy-target IP|start-mdns-advertiser|mdns-status|logs [N]|event|health-source|browser|change-login}\n' "$0"; exit 2 ;;
+    *) printf 'Usage: %s {provision|install-unit|start|stop|restart|status|health|dev-start|wait-local|proxy-start|proxy-audit|proxy-watch-register|proxy-watch-unregister|network-refresh|network-refresh-config|record-proxy-target IP|start-mdns-advertiser|mdns-status|logs [N]|event|health-source|browser|change-login|grant-dev-home-admin|revoke-dev-home-admin}\n' "$0"; exit 2 ;;
 esac

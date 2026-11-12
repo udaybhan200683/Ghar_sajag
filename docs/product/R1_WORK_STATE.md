@@ -1,15 +1,55 @@
-## GS117 — owner12026 correction approved, implementation pending
+## GS117 — owner12026 existing-account access restored; Android disconnected
 
-Canonical8b56886/context PASS, current same account CAREGIVER/FAMILY confirmed
-by real APK/private credential/database evidence. Extend existing GS179 local
-maintenance for fixed registered Engineering Home ADMIN/OWNER assignment plus
-audited revocation; preserve account/email/password/sessions/history. Existing
-password-only command cannot perform this. No public authorization relaxation.
-Raw motion policy dependency was disproved by hub_runtime.cpp run_state_once
-and target adapter: only rule decisions require activity policy, not raw motion
-durable admission/ACK/CloudSync. Historical126/1 remains background, not fresh
-acceptance. Implement/validate access first, then use existing S3 recovery/one
-USB event without invented policy.11983 unused,11975 ON HOLD, TC0010/5.
+Starting canonical8b56886; approved decision commits3f8b6c8/43f928d,
+context2026-11-12.007 PASS. Existing private account-maintenance command now
+supports fixed registered TEST_ONLY Home ADMIN/OWNER assignment and fenced
+revocation using existing password/host/build/active Hub/Home/epoch/consent
+checks and atomic audit. No public API relaxation or new account/entitlement.
+Live owner12026 assignment audit_id1: same account7ea51122-cdbb-4106-a054-c4704464bf92,
+CAREGIVER/FAMILY -> ADMIN/OWNER. Same authenticated session Settings403->200,
+Reports200->200. Snapshot verified unchanged accounts/password/session/event/
+credential bytes. No live household defaults saved; desired0/appliednull remain.
+Isolated TLS PostgreSQL new14/14 PASS (initial6 assertion failures were duplicate
+SQL role-column aliases in test helper, corrected); connected Lite23/runtime12/
+scenarios3 PASS; framework55/mapping22 PASS. Affected integration runs completed; overall failures retained below.
+Raw authenticated motion admission/ACK/CloudSync does not require activity
+policy; optional decision authority gates rules only. Policy0 is not a raw-motion
+blocker. Fresh S3 bootstrap source review229399757f18648ced5b40d81caf9ced131bc801a2d9899a8b19e4ecd3bb532f
+passed196/196 after prior endpoint source changes; historical reviews preserved.
+Existing installed non-admin executor Start PASS/no UAC; Windows .6:8445 and443
+observed. Current AndroidReady BLOCKED; known ADB devices list EMPTY. No serial
+access, reboot11983 still UNUSED, no injection/EventKey/downstream fresh proof.
+Task-owned portal/ingress/time services stopped; Windows8445/UDP4468 and temporary
+tasks0, caregiver4431. Network closure was observed after controller stop; later
+explicit Close returned existing_bounded_operation_failed. Do not claim full
+automatic cleanup/SYSTEM qualification from this mixed evidence. Next: reconnect/unlock existing
+ZA2237MRHN, open same-account APK, then restore S3 via unused11983 and one
+existing web motion Run.11975 ON HOLD; formal opticalTC0010/5; GS117InProgress.
+
+Validation checkpoint2026-11-12: `make gs179-postgres-e2e` executed86 tests,
+85PASS/1FAIL/errors0. All14 new DEV admin tests and real isolated-PG Settings/
+desired/applied/role/revocation cases passed. The sole failure is existing
+GS117_HUB_ROUTE_001 exact old PowerShell allowlist-string assertion, which does
+not include the already-approved installed Engineering executor actions. No
+Windows source changed here; preserve/defer this GS179 test expectation issue,
+not a product security bypass or a PASS. Existing canonical role authorizer unchanged.
+`make validation-backend` completed FAIL (25/28 stages PASS); Python stage894 tests/6FAIL/1 canonical
+classic-ESP32 skip. Three traceability failures captured the new row before its
+registration correction; corrected mapping22 PASS, no full894 rerun. Other three
+failures also exist in prior tooling-1793949402279035611/python.log: static payload
+budget, physical catalogue evidence and legacy GS_HIL_COMMISSIONING string test.
+Backend report: code/evidence/validation_framework/backend-1794472119156674609/report.json.
+Its source_unchanged=false reflects traceability CSV registration correction during
+the run (the CSV is a registered fingerprint input); no reusable all-source PASS
+receipt claimed. Corrected final mapping22/framework55 pass. Existing GS178
+production host vertical41/41, console196/196, issuer53/53, endpoint27/27, Reports8/8
+and worker21/21 stages pass. Full backend remains FAIL, not acceptance.
+P0 host26 assertions/browser1 passed but product_statusPARTIAL means gateFAIL;
+diagnostic-foundation98 has one historical parent-stage allowlist failure. Do not
+claim mandatory overall backend PASS or release acceptance. No unrelated product
+or firmware fixes were attempted to hide those failures. Shared UI source and
+native APK unchanged; complete PWA/release/target gates NOT_RUN for this iteration;
+actual isolated shared-browser execution is retained separately from physical APK.
 
 ## GS-179 / GS-117 — 2026-11-12 07:31 UTC live result; no full acceptance
 

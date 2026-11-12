@@ -2776,6 +2776,8 @@
         "tests/integration/test_gs178_vertical.py",
         "tests/integration/test_gs178_security.py",
         "tests/integration/test_gs179_postgres_security.py",
+        "tests/integration/test_gs179_development_admin.py",
+        "tools/local/gs179_change_login.py",
         "tests/integration/test_gs179_runtime_composition.py",
         "tools/local/gs179-laptop-server.sh",
         "tools/local/gs179-windows-lan-proxy.ps1",

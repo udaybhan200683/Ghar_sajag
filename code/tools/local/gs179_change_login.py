@@ -346,7 +346,117 @@ def update_existing_login(store: Store, credentials_path: Path, new_email: str,
         _remove_pending(pending_path)
 
 
-def main() -> int:
+# Owner12026 adds an OPERATOR operation to the existing private local maintenance
+# control plane. This is not a caregiver self-promotion API or network entitlement.
+DEV_HOME = 'gs177-test-product'
+DEV_HUB = 'hub-e072a1d38d34'
+DEV_OWNER_REF = 'GS-117#12026'
+
+
+def _registered_development_operator(store: Store, credentials_path: Path) -> dict:
+    import socket
+    import gs179_verified_endpoint as endpoint
+    # Reuse registration/build evidence, not network authority as a role grant.
+    # Operation authority is the canonical owner12026 local maintenance scope.
+    endpoint.engineering_functional_admission()
+    expected = Path.home() / '.local/state/ghar-sajag/gs179-laptop/caregiver-login.json'
+    if credentials_path.resolve() != expected.resolve():
+        raise LoginChangeError('registered_private_account_path_required')
+    if store.local:
+        raise LoginChangeError('registered_development_postgres_required')
+    from psycopg.conninfo import conninfo_to_dict
+    fields = conninfo_to_dict(store.url)
+    if (fields.get('host') not in {'localhost', '127.0.0.1', '::1'} or
+            fields.get('sslmode') != 'verify-full'):
+        raise LoginChangeError('registered_local_verified_tls_database_required')
+    return {'uid': os.getuid(), 'host': socket.gethostname(), 'epoch': 1}
+
+
+def assign_existing_development_admin(store: Store, credentials_path: Path,
+                                      *, revoke: bool = False) -> dict:
+    """Fixed-Home authenticated operator assignment, atomic audit and revocation.
+
+    Never modifies accounts, password hashes, sessions, epochs, events, or the
+    private credential file. Existing opaque sessions resolve current roles on
+    every request, so revocation takes effect without accepting client claims.
+    """
+    path = Path(credentials_path)
+    _check_private_directory(path.parent)
+    _check_private_file(path)
+    operator = _registered_development_operator(store, path)
+    with _locked(path):
+        if path.with_name(path.name + '.pending').exists():
+            raise LoginChangeError('pending_login_change_must_be_reconciled_first')
+        credentials = _read_json(path)
+        _, home = _check_profile(credentials)
+        if home != DEV_HOME:
+            raise LoginChangeError('registered_development_home_required')
+        with store.connect() as db:
+            account = _account_in_transaction(store, db, credentials, lock=True)
+            suffix = ' FOR UPDATE' if not store.local else ''
+            row = store.sql(db,
+                '''SELECT m.role AS lite_role,c.role AS durable_role,
+                          m.active AS member_active,m.ownership_epoch,
+                          h.test_only,h.ownership_epoch AS home_epoch,
+                          c.active AS caregiver_active,p.consent_state,
+                          r.state AS hub_state,r.home_id AS hub_home,
+                          r.installation_epoch AS hub_epoch
+                   FROM lite_memberships m JOIN lite_homes h ON h.home_id=m.home_id
+                   JOIN households p ON p.home_id=m.home_id
+                   JOIN household_caregivers c ON c.home_id=m.home_id AND c.caregiver_id=m.account_id
+                   JOIN hub_ownership_registry r ON r.hub_device_id=?
+                   WHERE m.account_id=? AND m.home_id=?''' + suffix,
+                (DEV_HUB, account['account_id'], home)).fetchone()
+            if (not row or not row['test_only'] or not row['member_active'] or
+                    not row['caregiver_active'] or row['consent_state'] != 'ACTIVE' or
+                    row['hub_state'] != 'ACTIVE' or row['hub_home'] != home or
+                    row['ownership_epoch'] != operator['epoch'] or
+                    row['home_epoch'] != operator['epoch'] or row['hub_epoch'] != operator['epoch']):
+                raise LoginChangeError('current_registered_home_ownership_required')
+            before = [row['lite_role'], row['durable_role']]
+            if before[0] not in {'ADMIN', 'CAREGIVER'} or before[1] not in {'OWNER','PRIMARY','BACKUP','FAMILY'}:
+                raise LoginChangeError('current_home_role_invalid')
+            prior = store.sql(db,
+                '''SELECT action,details_json FROM audit_log WHERE home_id=?
+                   AND subject_type='ACCOUNT_MEMBERSHIP' AND subject_id=?
+                   AND action IN ('dev.home_admin.granted','dev.home_admin.revoked')
+                   ORDER BY audit_id DESC LIMIT 1''', (home,account['account_id'])).fetchone()
+            target = ['ADMIN','OWNER']
+            if revoke:
+                if not prior or prior['action'] != 'dev.home_admin.granted':
+                    raise LoginChangeError('active_audited_development_assignment_required')
+                details = prior['details_json']
+                details = json.loads(details) if isinstance(details,str) else details
+                previous = details.get('previous_roles')
+                if (details.get('owner_ref') != DEV_OWNER_REF or details.get('epoch') != operator['epoch'] or
+                        before != target or not isinstance(previous,list) or len(previous)!=2 or
+                        previous[0] not in {'ADMIN','CAREGIVER'} or previous[1] not in {'OWNER','PRIMARY','BACKUP','FAMILY'}):
+                    raise LoginChangeError('development_assignment_changed_or_audit_invalid')
+                target = previous
+            elif before == target:
+                return {'status':'ALREADY_AUTHORIZED','home_id':home,'account_id':account['account_id'],
+                        'roles':target,'credentials_and_sessions_preserved':True}
+            action = 'dev.home_admin.revoked' if revoke else 'dev.home_admin.granted'
+            details = {'owner_ref':DEV_OWNER_REF,'profile':'GS179_TEST_ONLY','epoch':operator['epoch'],
+                       'operator':operator,'previous_roles':before,'assigned_roles':target,
+                       'hub_id':DEV_HUB}
+            store.sql(db,'UPDATE lite_memberships SET role=? WHERE account_id=? AND home_id=?',
+                      (target[0],account['account_id'],home))
+            store.sql(db,'UPDATE household_caregivers SET role=? WHERE caregiver_id=? AND home_id=?',
+                      (target[1],account['account_id'],home))
+            audit = store.sql(db,
+                '''INSERT INTO audit_log(home_id,occurred_at,actor_type,actor_id,action,
+                   subject_type,subject_id,details_json) VALUES(?,?,'SYSTEM',?,?,'ACCOUNT_MEMBERSHIP',?,?)
+                   RETURNING audit_id''',
+                (home,int(time.time()),'registered-development-operator:'+str(operator['uid'])+'@'+operator['host'],
+                 action,account['account_id'],json.dumps(details,sort_keys=True))).fetchone()
+            return {'status':'REVOKED' if revoke else 'GRANTED','home_id':home,
+                    'account_id':account['account_id'],'roles':target,'audit_id':audit['audit_id'],
+                    'credentials_and_sessions_preserved':True}
+
+
+def main(argv: list[str] | None = None) -> int:
+    arguments = sys.argv[1:] if argv is None else argv
     dsn = os.environ.get("GS179_LOCAL_SERVER_DSN", "")
     credential_value = os.environ.get("GS179_CAREGIVER_CREDENTIALS", "")
     if not dsn or not credential_value:
@@ -354,6 +464,13 @@ def main() -> int:
         return 2
     credentials_path = Path(credential_value).expanduser()
     try:
+        if arguments in (['--grant-development-home-admin'], ['--revoke-development-home-admin']):
+            result = assign_existing_development_admin(Store(dsn), credentials_path,
+                        revoke=arguments[0] == '--revoke-development-home-admin')
+            print(json.dumps(result,sort_keys=True))
+            return 0
+        if arguments:
+            raise LoginChangeError('account_maintenance_operation_not_supported')
         if not sys.stdin.isatty() or not sys.stderr.isatty():
             raise LoginChangeError("interactive_tty_required_hidden_password_input_unavailable")
         store = Store(dsn)

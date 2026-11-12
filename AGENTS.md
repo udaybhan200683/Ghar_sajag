@@ -242,3 +242,14 @@ source changes need reviewed administrator redeployment, never silent repinning.
 Locked-session Windows execution, independent cleanup and authenticated routing
 remain mandatory live qualification; mocks are not acceptance. This adds no
 hardware/reset authority. See the existing GS179_SESSION_INGRESS_RECOVERY handoff.
+
+Existing-account DEV Home administration (GS-D034 owner12026): reuse the
+private `gs179-laptop-server.sh grant-dev-home-admin` maintenance operation for
+the authenticated saved account in registered `gs177-test-product`; use
+`revoke-dev-home-admin` for its audited reversal. Never create another account,
+change credentials, relax public authorization, or patch live roles directly.
+The operation retains registered Engineering operator/build, private current
+password, active Home/Hub/epoch/consent, verified-TLS database and audit guards.
+Raw motion admission/ACK/CloudSync does not require an activity policy; rule
+scenarios still require their genuine admitted policy. Keep live policy values
+unset rather than inventing household defaults.
