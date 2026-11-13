@@ -376,7 +376,9 @@ int main() {{
         self.assertIn('compare_exchange_weak', state)
         self.assertIn('FixtureCommissioningStatus::TimedOut', owner)
         self.assertIn('FixtureCommissioningStatus::AuthenticatedRejoin', owner)
-        self.assertNotIn('GS_HIL_COMMISSIONING', build_script)
+        # Explicit OFF is the production contract; mentioning the option is safe.
+        self.assertIn('GS_HIL_COMMISSIONING=OFF', build_script)
+        self.assertNotIn('GS_HIL_COMMISSIONING=ON', build_script)
         self.assertNotIn('set(GS_HIL_COMMISSIONING ON', cmake)
         self.assertIn('GS_HIL_COMMISSIONING=OFF',
                       (ROOT / "scripts/build_secure_fota_hub.py").read_text())

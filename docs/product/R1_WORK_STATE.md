@@ -1,3 +1,13 @@
+## GS-117 resumed execution findings — 2026-11-13
+
+Current Engineering image rehashed unchanged: `7baba567f896bdb1c24804a698c2d2dbc9e8edf8e072087f0f0300f76fb19603`; no rebuild.
+Fresh Windows pySerial USB enumeration confirms COM10 serial E0:72:A1:D3:8D:34 and COM4 serial 14:63:93:C5:D1:58 without opening ports. This resolves the earlier WMI-only USB identity limitation; installed application/slot remains unverified.
+GS114#11681 and the prior execution record establish the official ESP-IDF OtatoolTarget app API as the previously used update path. The retired private diagnostic writer is not the only established mechanism. A differing newly generated bootloader hash does not establish installed rollback incompatibility.
+Specific remaining technical check: IDF6.0.3 `switch_ota_partition` updates sequence/CRC while preserving state bytes; it does not set candidate state NEW. Actual selector state and installed rollback semantics must be established before selecting an updated app. No device write/reset/serial open has occurred.
+The obsolete commissioning assertion was corrected to require explicit GS_HIL_COMMISSIONING=OFF and reject ON. The affected test file ran 21 tests, all PASS. Production guards are retained.
+The prepared private controller explicitly terminates at3600 seconds and launches children with its invoking interpreter. Existing GS179 already contains Continue-PhysicalDevelopmentLease close-before-open handoff. Reuse that path for continuity; the prior ad hoc missing-psycopg command was outside the application dependency environment, not evidence of database failure. Session lifecycle correction is not yet implemented or qualified.
+Fresh-event TC001 remains next after safe deployment; no fresh EventKey, physical renewal or APK PASS is claimed. Original141/1 remains unresolved, no longer prerequisite. Cold-start remains ON HOLD. Prior worktree changes are preserved.
+
 ## GS-117 — S3 R1 outbox build entry corrected — 2026-11-13
 
 The existing `code/firmware/hub/target/esp32s3/idf/build-outbox.sh` is now the
