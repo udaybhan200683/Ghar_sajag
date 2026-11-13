@@ -139,4 +139,3 @@ No task-owned runtime services remain. Backend8444/PostgreSQL55432 preserved.
    and later actual APK. Phone absence never gates upstream evidence.
 8. Only after original-event recovery/acceptance, proceed five fresh runs and
    >1h/multi-day qualification. Do not claim source/build/OS tests as physical PASS.
-
