@@ -3077,6 +3077,7 @@ class TC001Test(unittest.TestCase):
                    "phone_receipt": {"adb_serial": "ZA2237MRHN", "package": "in.gharsajag.caregiver.discoverytest",
                                      "version_name": "0.4.0-connected-lite-staging", "signer_sha256": "b" * 64,
                                      "backend_origin": "https://laptop.local"},
+                   "android_receipt_fresh": True,
                    "c3": {"port": "COM10", "usb_hwid": "c3", "serial_number": "c3s",
                           "image_sha256": "a" * 64, "firmware_source_head": "a" * 40},
                    "s3": {"port": "COM11", "usb_hwid": "s3", "serial_number": "s3s",
