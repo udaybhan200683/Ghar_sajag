@@ -1343,6 +1343,17 @@ class TC001Test(unittest.TestCase):
                               'backend_origin': 'https://192.168.1.6'},
         }
 
+    def test_android_receipt_refresh_does_not_change_authorized_event_fixture(self):
+        before = self._motion_fixture()
+        after = {**before, "phone_receipt": {
+            "package": "in.gharsajag.caregiver.discoverytest",
+            "signer_sha256": "c" * 64,
+            "backend_origin": "https://192.168.1.6",
+        }}
+        self.assertTrue(tc.same_registered_event_fixture(before, after))
+        after["s3"] = {**after["s3"], "serial_number": "different-hub"}
+        self.assertFalse(tc.same_registered_event_fixture(before, after))
+
     def test_motion_event_readiness_requires_fresh_one_use_fixture_authority(self):
         fixture = self._motion_fixture()
         policy = {'identity': hil_auth.IDENTITY, 'owner_approval_ref': 'GS-117#future-one-use',
@@ -2194,6 +2205,25 @@ class TC001Test(unittest.TestCase):
                         tc.exact_fixture()
                 phone_state["backend_origin"] = "https://laptop.local"
                 phone.write_text(json.dumps(phone_state))
+                phone_state["observed_at"] = (
+                    datetime.now(timezone.utc) - timedelta(hours=25)).isoformat()
+                phone.write_text(json.dumps(phone_state))
+                with self.assertRaisesRegex(ValueError, "installed_APK_backend_Home"):
+                    tc.exact_fixture()
+                backend_fixture = tc.exact_fixture(require_fresh_android=False)
+                self.assertEqual(backend_fixture["phone_receipt"]["package"],
+                                 "in.gharsajag.caregiver.discoverytest")
+                self.assertFalse(backend_fixture["android_receipt_fresh"])
+                fixture["phone_install_receipt"] = str(root / "not-present-phone.json")
+                write()
+                backend_fixture = tc.exact_fixture(require_fresh_android=False)
+                self.assertIsNone(backend_fixture["phone_receipt"])
+                with self.assertRaisesRegex(ValueError, "actual_Android_APK_installation_receipt_missing"):
+                    tc.exact_fixture()
+                fixture["phone_install_receipt"] = str(phone)
+                phone_state["observed_at"] = now
+                phone.write_text(json.dumps(phone_state))
+                write()
                 fixture["hub_id"] = "hub-e072a1d38d34"
                 fixture["physical_device_id"] = "c3-146393c5d158"
                 ingress_state["hub_id"] = fixture["hub_id"]
@@ -3040,7 +3070,7 @@ class TC001Test(unittest.TestCase):
                 "apk_observation": "NOT_VERIFIED", "stages": {
                     name: {"status": "NOT_VERIFIED", "reason": "not reached"} for name in tc.STAGES}}
 
-    def execute(self, report, serial_data, baseline=None, outcome=None, home_origin="https://laptop.local", ports_override=None, mode_state=True, pending_observations=0):
+    def execute(self, report, serial_data, baseline=None, outcome=None, home_origin="https://laptop.local", ports_override=None, mode_state=True, pending_observations=0, android_ready_status="PASS", android_error=None):
         fixture = {"home_id": "gs177-test-product", "physical_device_id": "test-c3-bedroom",
                    "expected_caregiver_origin": "https://laptop.local",
                    "approval_ref": "test", "hub_id": "test-hub-a", "installation_epoch": 1,
@@ -3090,10 +3120,11 @@ class TC001Test(unittest.TestCase):
                       "ui_dump_sha256": hashlib.sha256(apk_ui).hexdigest()}
         state_dir = tempfile.TemporaryDirectory()
         self.addCleanup(state_dir.cleanup)
+        android_observation = android_error if android_error is not None else apk_result
         with (patch.object(tc, "STATE", Path(state_dir.name)),
-              patch.object(controller, "readiness", return_value={"backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS", "DEVELOPMENT_ENDPOINT_READY": "PASS", "LAPTOP_LAN_ENDPOINT_TLS_READY": "PASS"}, "caregiver_home": {"caregiver_home_ready": True, "backend_origin": home_origin}, "android_apk": {"status": "PASS"}, "hub_ingress": {"status": "PASS"}}),
+              patch.object(controller, "readiness", return_value={"backend": {"POSTGRES_READY": "PASS", "CAREGIVER_HTTPS_READY": "PASS", "DEVELOPMENT_ENDPOINT_READY": "PASS", "LAPTOP_LAN_ENDPOINT_TLS_READY": "PASS"}, "caregiver_home": {"caregiver_home_ready": True, "backend_origin": home_origin}, "android_apk": {"status": android_ready_status}, "hub_ingress": {"status": "PASS"}}),
               patch.object(tc, "exact_fixture", return_value=fixture),
-              patch.object(tc, "powershell", side_effect=[ports if ports_override is None else ports_override, serial_data, apk_result]) as hardware,
+              patch.object(tc, "powershell", side_effect=[ports if ports_override is None else ports_override, serial_data, android_observation]) as hardware,
               patch.object(tc, "backend", side_effect=[baseline] +
                   [{"durable_count": 0, "caregiver_count": 0}] * pending_observations + [outcome]),
               patch.object(controller, "save")):
@@ -3130,6 +3161,71 @@ class TC001Test(unittest.TestCase):
                 self.assertEqual(report["event_key"]["event_sequence"], sequence)
                 self.assertFalse(report["serial_evidence"]["s3_uart_opened"])
                 self.assertEqual(report["duplicate_count"], 0)
+
+    def test_android_unavailable_does_not_block_real_backend_event_stages(self):
+        report = self.report()
+        c3 = ["HIL_OK command=INJECT_MOTION",
+              "PIR -> NodeRuntime session=12 seq=9",
+              "NodeMessage sent session=12 seq=9",
+              "Application ACK session=12 seq=9 class=0 retired=1"]
+        with patch.object(tc, "development_input_trial", return_value=False):
+            self.execute(report, {"c3": c3}, android_ready_status="BLOCKED",
+                         android_error=ValueError(
+                             "TC001_APPROVED_ANDROID_DEVICE_NOT_AUTHORIZED_OR_CONNECTED"))
+        for name in ("environment", "c3_identity", "s3_identity", "c3_injection",
+                     "node_event_key", "s3_admission", "backend_commit",
+                     "postgres_exactly_once", "hub_cloudsync", "caregiver_api"):
+            self.assertEqual(report["stages"][name]["status"], "PASS", name)
+        self.assertEqual(report["event_key"], {
+            "physical_device_id": "test-c3-bedroom", "logical_node_id": "bedroom",
+            "origin_session_id": 12, "event_sequence": 9})
+        self.assertEqual(report["stages"]["android_apk"]["status"], "NOT_VERIFIED")
+        self.assertEqual(report["overall"], "PARTIAL")
+
+    def test_android_stage_without_install_receipt_preserves_event_and_skips_adb(self):
+        controller = tc.Controller()
+        report = self.report()
+        fixtures = (
+            {"home_id": "gs177-test-product", "phone_receipt": None,
+             "android_receipt_fresh": False},
+            {"home_id": "gs177-test-product", "phone_receipt": {
+                "package": "in.gharsajag.caregiver.discoverytest"},
+             "android_receipt_fresh": False},
+        )
+        with patch.object(controller, "save"), patch.object(tc, "powershell") as observer:
+            for fixture in fixtures:
+                controller._verify_android_stage(report, fixture)
+                self.assertEqual(report["stages"]["android_apk"]["status"], "NOT_VERIFIED")
+                self.assertIn("backend event is preserved",
+                              report["stages"]["android_apk"]["reason"])
+        observer.assert_not_called()
+
+    def test_portal_separates_single_event_from_android_and_keeps_campaign_gate(self):
+        self.assertEqual(tc.HTML.count(
+            "const singleReady=baseReady&&d.motion_event_once_authorization&&d.motion_event_once_authorization.status==='PASS'"), 2)
+        self.assertEqual(tc.HTML.count(
+            "const campaignReady=baseReady&&d.android_apk&&d.android_apk.status==='PASS'"), 2)
+        self.assertIn("Verify this exact EventKey in the installed Android APK", tc.HTML)
+        self.assertIn("/api/verify-android", tc.HTML)
+
+    def test_android_followup_rejects_unaccepted_or_arbitrary_run(self):
+        controller = tc.Controller()
+        with self.assertRaisesRegex(ValueError, "RUN_ID_INVALID"):
+            controller.start_android_verification("../outside")
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            report = {"run_id": "TC001-USB-ONE-EVENT-20261113T120000Z-a1b2c3d4",
+                      "execution_kind": "SINGLE_EVENT", "event_source": "C3_HIL_INJECTED",
+                      "event_key": {"physical_device_id": "c3-146393c5d158"},
+                      "stages": {name: {"status": "NOT_VERIFIED"} for name in tc.STAGES}}
+            path = state / (report["run_id"] + ".json")
+            path.write_text(json.dumps(report), encoding="utf-8")
+            path.chmod(0o600)
+            with (patch.object(tc, "STATE", state),
+                  patch.object(tc, "exact_fixture", side_effect=AssertionError("must reject before fixture lookup")),
+                  self.assertRaisesRegex(ValueError, "BACKEND_EVENT_NOT_ACCEPTED")):
+                controller.start_android_verification(report["run_id"])
+            self.assertFalse(controller.lock.locked())
 
     def test_dev_wait_accepts_late_genuine_commit_but_remains_bounded_and_separate(self):
         for development, pending, expected, attempts in ((True, 16, "PASS", 17),
@@ -3845,6 +3941,32 @@ class TC001Test(unittest.TestCase):
                     self.assertEqual(json.loads(response.read()), report)
                 once.assert_called_once_with()
                 campaign.assert_not_called()
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+
+    def test_loopback_android_followup_uses_saved_run_only(self):
+        server = ThreadingHTTPServer(("127.0.0.1", 0), tc.Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        url = f"http://127.0.0.1:{server.server_address[1]}/api/verify-android"
+        run_id = "TC001-USB-ONE-EVENT-20261113T120000Z-a1b2c3d4"
+        try:
+            report = {"run_id": run_id, "stages": {"caregiver_api": {"status": "PASS"}}}
+            with (patch.object(tc.CONTROLLER, "start_android_verification", return_value=report) as verify,
+                  patch.object(tc.CONTROLLER, "start_motion_event_once") as inject,
+                  patch.object(tc.CONTROLLER, "start") as campaign):
+                request = urllib.request.Request(
+                    url, data=json.dumps({"operation": "verify_android_event", "run_id": run_id}).encode(),
+                    method="POST", headers={"Host": "127.0.0.1:18791", "Origin": tc.ORIGIN,
+                    "X-CSRF-Token": tc.CONTROLLER.csrf, "Content-Type": "application/json"})
+                with urllib.request.urlopen(request, timeout=3) as response:
+                    self.assertEqual(response.status, 202)
+                    self.assertEqual(json.loads(response.read()), report)
+            verify.assert_called_once_with(run_id)
+            inject.assert_not_called()
+            campaign.assert_not_called()
         finally:
             server.shutdown()
             server.server_close()

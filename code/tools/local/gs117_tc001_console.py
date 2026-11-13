@@ -39,6 +39,16 @@ MORNING_APPROVAL = Path.home() / ".config/ghar-sajag/gs117-tc001/morning-routine
 ORIGIN = "http://127.0.0.1:18791"
 STATUSES = ("NOT_STARTED", "RUNNING", "PASS", "FAIL", "BLOCKED", "PARTIAL", "NOT_VERIFIED", "NOT_IMPLEMENTED")
 CAMPAIGN_RUNS = 5
+SINGLE_EVENT_RUN_ID = re.compile(
+    r"TC001-USB-ONE-EVENT-[0-9]{8}T[0-9]{6}Z-[a-f0-9]{8}\Z")
+ANDROID_OBSERVER_UNAVAILABLE = {
+    "TC001_APPROVED_ANDROID_DEVICE_NOT_AUTHORIZED_OR_CONNECTED",
+    "TC001_ANDROID_ADB_DEVICE_QUERY_TIMEOUT",
+    "TC001_ANDROID_ADB_DEVICE_QUERY_FAILED",
+    "TC001_APPROVED_ANDROID_APP_NOT_FOREGROUNDED",
+    "TC001_APPROVED_ANDROID_APP_NOT_FOREGROUNDED_AFTER_REFRESH",
+    "TC001_ANDROID_APP_UI_NOT_AVAILABLE",
+}
 # DEV fixture observation-freshness limit; it is not an installed-image lifetime.
 IMAGE_RECEIPT_MAX_AGE_SECONDS = 24 * 60 * 60
 MORNING_STAGES = ("caregiver_network", "applied_household_policy", "enrolled_room_nodes", "trusted_hub_configuration",
@@ -130,7 +140,7 @@ def development_input_trial(fixture):
     return True
 
 
-def exact_fixture() -> dict:
+def exact_fixture(*, require_fresh_android: bool = True) -> dict:
     if not FIXTURE.is_file() or FIXTURE.stat().st_mode & 0o777 != 0o600:
         raise ValueError("owner_only_fixture_approval_and_identity_file_missing")
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
@@ -212,33 +222,48 @@ def exact_fixture() -> dict:
     expected_origin = fixture.get("expected_caregiver_origin", "")
     if not re.fullmatch(r"https://[a-z0-9-]+\.local", expected_origin):
         raise ValueError("TEST_ONLY_caregiver_origin_missing")
+    phone_receipt = None
+    android_receipt_fresh = False
     phone_path = Path(fixture.get("phone_install_receipt", ""))
-    if not phone_path.is_file():
-        raise ValueError("actual_Android_APK_installation_receipt_missing")
-    phone = json.loads(phone_path.read_text(encoding="utf-8"))
     try:
-        phone_observed = datetime.fromisoformat(phone["observed_at"])
-        phone_age = (datetime.now(timezone.utc) - phone_observed).total_seconds()
-    except (KeyError, TypeError, ValueError):
-        raise ValueError("current_Android_APK_observation_time_missing") from None
-    if (phone.get("profile") != "GS179_TEST_ONLY" or
-            phone.get("package") not in {"in.gharsajag.caregiver", "in.gharsajag.caregiver.discoverytest"} or
-            phone.get("installed") is not True or
-            phone.get("home_id") != fixture["home_id"] or
-            not re.fullmatch(r"[0-9a-f]{64}", phone.get("signer_sha256", "")) or
-            phone_observed.tzinfo is None or not 0 <= phone_age <= 86400):
-        raise ValueError("installed_APK_backend_Home_or_signer_unverified")
-    adb_serial = phone.get("adb_serial") or phone.get("device_serial")
-    if not isinstance(adb_serial, str) or not re.fullmatch(r"[A-Za-z0-9._:-]{1,64}", adb_serial):
-        raise ValueError("actual_Android_ADB_device_identity_receipt_missing")
-    if phone.get("backend_origin") != expected_origin:
-        tls_dir = Path.home() / ".local/share/ghar-sajag/gs179-laptop/tls/android"
+        if not phone_path.is_file():
+            raise ValueError("actual_Android_APK_installation_receipt_missing")
+        phone = json.loads(phone_path.read_text(encoding="utf-8"))
+        if (phone.get("profile") != "GS179_TEST_ONLY" or
+                phone.get("package") not in {"in.gharsajag.caregiver", "in.gharsajag.caregiver.discoverytest"} or
+                phone.get("installed") is not True or
+                phone.get("home_id") != fixture["home_id"] or
+                not re.fullmatch(r"[0-9a-f]{64}", phone.get("signer_sha256", ""))):
+            raise ValueError("installed_APK_backend_Home_or_signer_unverified")
         try:
-            fixture["caregiver_origin_verification"] = verify_caregiver_origin_alias(
-                expected_origin, phone.get("backend_origin"),
-                tls_dir / "ca.pem", tls_dir / "server.pem")
-        except (ValueError, OSError):
-            raise ValueError("installed_APK_backend_Home_or_signer_unverified") from None
+            phone_observed = datetime.fromisoformat(phone["observed_at"])
+            phone_age = (datetime.now(timezone.utc) - phone_observed).total_seconds()
+            android_receipt_fresh = phone_observed.tzinfo is not None and 0 <= phone_age <= 86400
+        except (KeyError, TypeError, ValueError):
+            if require_fresh_android:
+                raise ValueError("current_Android_APK_observation_time_missing") from None
+        if require_fresh_android and not android_receipt_fresh:
+            raise ValueError("installed_APK_backend_Home_or_signer_unverified")
+        adb_serial = phone.get("adb_serial") or phone.get("device_serial")
+        if not isinstance(adb_serial, str) or not re.fullmatch(r"[A-Za-z0-9._:-]{1,64}", adb_serial):
+            raise ValueError("actual_Android_ADB_device_identity_receipt_missing")
+        if phone.get("backend_origin") != expected_origin:
+            tls_dir = Path.home() / ".local/share/ghar-sajag/gs179-laptop/tls/android"
+            try:
+                fixture["caregiver_origin_verification"] = verify_caregiver_origin_alias(
+                    expected_origin, phone.get("backend_origin"),
+                    tls_dir / "ca.pem", tls_dir / "server.pem")
+            except (ValueError, OSError):
+                raise ValueError("installed_APK_backend_Home_or_signer_unverified") from None
+        phone_receipt = {
+            "adb_serial": adb_serial, "package": phone["package"],
+            "version_name": phone.get("version_name") or phone.get("version"),
+            "signer_sha256": phone["signer_sha256"], "home_id": phone["home_id"],
+            "backend_origin": phone["backend_origin"],
+        }
+    except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        if require_fresh_android:
+            raise
     if not development_input_trial(fixture):
         if not fixture.get("hub_ingress_receipt"):
             raise ValueError("authenticated_persistent_Hub_ingress_receipt_missing")
@@ -268,12 +293,8 @@ def exact_fixture() -> dict:
         # proof. Runtime ACK, current registry, mTLS/DB/API/APK verification
         # still decide the outcome; this is not TC001_READY qualification.
         fixture['target_trust_status'] = 'NOT_VERIFIED_BEFORE_DEV_INPUT'
-    fixture["phone_receipt"] = {
-        "adb_serial": adb_serial, "package": phone["package"],
-        "version_name": phone.get("version_name") or phone.get("version"),
-        "signer_sha256": phone["signer_sha256"], "home_id": phone["home_id"],
-        "backend_origin": phone["backend_origin"],
-    }
+    fixture["phone_receipt"] = phone_receipt
+    fixture["android_receipt_fresh"] = bool(phone_receipt is not None and android_receipt_fresh)
     return fixture
 
 
@@ -377,6 +398,18 @@ def motion_event_once_authorization(fixture: dict, path: Path | None = None) -> 
         "authorization_scope_id": status["authorization_scope_id"],
         "sessions_remaining": 1,
     }
+
+
+def same_registered_event_fixture(before: dict, after: dict) -> bool:
+    """Compare only identities that authorize the physical event operation."""
+    identity_keys = ("home_id", "hub_id", "installation_epoch", "physical_device_id")
+    board_keys = ("port", "usb_hwid", "serial_number", "image_sha256",
+                  "firmware_source_head", "active_slot", "partition_sha256")
+    return (
+        all(before.get(key) == after.get(key) for key in identity_keys) and
+        all(before.get(board, {}).get(key) == after.get(board, {}).get(key)
+            for board in ("c3", "s3") for key in board_keys)
+    )
 
 
 def morning_run_approval(path: Path, fixture: dict, policy_version: int) -> dict:
@@ -714,8 +747,8 @@ class Controller:
             motion_event_status = {"status": "BLOCKED", "reason": "fixture_not_available"}
             android_status = {"status": "NOT_VERIFIED", "reason": "fixture_not_available"}
             try:
-                fixture = exact_fixture()
-                fixture_status = {"status": "PASS", "qualification": ("DEV_INPUT_TRIAL" if fixture.get("target_trust_status") else "QUALIFIED_FIXTURE"), "reason": ("DEV input prerequisites verified; physical delivery must pass in this run" if fixture.get("target_trust_status") else "exact owner-only fixture and current receipts verified")}
+                fixture = exact_fixture(require_fresh_android=False)
+                fixture_status = {"status": "PASS", "qualification": ("DEV_INPUT_TRIAL" if fixture.get("target_trust_status") else "QUALIFIED_FIXTURE"), "reason": ("DEV input prerequisites verified; physical delivery must pass in this run" if fixture.get("target_trust_status") else "exact owner-only fixture and non-Android prerequisites verified")}
                 try:
                     enrollment = backend({
                         "action": "baseline", "home_id": fixture["home_id"],
@@ -763,11 +796,17 @@ class Controller:
                         "status": "BLOCKED",
                         "reason": str(error) if isinstance(error, ValueError) else type(error).__name__,
                     }
-                try:
-                    android_status = powershell("AndroidReady", fixture["phone_receipt"])
-                    android_status["reason"] = "approved phone and installed APK package/version verified; no event injected"
-                except (ValueError, OSError, subprocess.SubprocessError) as error:
-                    android_status = {"status": "BLOCKED", "reason": str(error) if isinstance(error, ValueError) else type(error).__name__}
+                if (fixture.get("phone_receipt") is not None and
+                        fixture.get("android_receipt_fresh") is True):
+                    try:
+                        android_status = powershell("AndroidReady", fixture["phone_receipt"])
+                        android_status["reason"] = "approved phone and installed APK package/version verified; no event injected"
+                    except (ValueError, OSError, subprocess.SubprocessError) as error:
+                        android_status = {"status": "BLOCKED", "reason": str(error) if isinstance(error, ValueError) else type(error).__name__}
+                else:
+                    android_status = {"status": "NOT_VERIFIED",
+                                      "reason": ("Android install identity receipt is stale or unavailable; "
+                                                 "independent backend stages remain eligible")}
             except (ValueError, OSError, json.JSONDecodeError) as error:
                 fixture_status = {"status": "BLOCKED", "reason": str(error) if isinstance(error, ValueError) else type(error).__name__}
             ingress_status = active_hub_ingress_listener()
@@ -1483,7 +1522,7 @@ class Controller:
         import gs117_hil_authorization as auth
         session_entered = False
         try:
-            fixture = exact_fixture()
+            fixture = exact_fixture(require_fresh_android=False)
             admission=motion_event_once_authorization(fixture)
             automatic=admission.get('mode')=='ENGINEERING_AUTOMATIC'
             scope=(auth.engineering_functional_session('motion_event_once') if automatic else
@@ -1494,14 +1533,8 @@ class Controller:
                 if not automatic and not auth._development_motion_event_once_scope_valid(policy):
                     raise auth.AuthorizationSafetyFailure(
                         "development_motion_event_scope_changed_before_reservation")
-                current_fixture = exact_fixture()
-                identity_keys = ("home_id", "hub_id", "installation_epoch", "physical_device_id")
-                board_keys = ("port", "usb_hwid", "serial_number", "image_sha256",
-                              "firmware_source_head", "active_slot", "partition_sha256")
-                if (any(current_fixture.get(key) != fixture.get(key) for key in identity_keys) or
-                        any(current_fixture.get(board, {}).get(key) != fixture.get(board, {}).get(key)
-                            for board in ("c3", "s3") for key in board_keys) or
-                        current_fixture.get("phone_receipt") != fixture.get("phone_receipt")):
+                current_fixture = exact_fixture(require_fresh_android=False)
+                if not same_registered_event_fixture(fixture, current_fixture):
                     raise auth.AuthorizationSafetyFailure(
                         "single_event_fixture_changed_after_authorization_reservation")
                 report["approval_ref"] = policy["owner_approval_ref"]
@@ -1598,8 +1631,7 @@ class Controller:
                            readiness["physical_boards"].get("s3") == "PASS"
             ingress_ready = readiness.get("hub_ingress", {}).get("status") == "PASS"
             if not backend_ready or not home_ready or not boards_ready or \
-                    readiness.get("fixture", {}).get("status") != "PASS" or \
-                    readiness.get("android_apk", {}).get("status") != "PASS" or not ingress_ready:
+                    readiness.get("fixture", {}).get("status") != "PASS" or not ingress_ready:
                 reasons = []
                 if not backend_ready:
                     reasons.append("backend/PostgreSQL/local HTTPS or verified LAN HTTPS forwarding unavailable")
@@ -1608,7 +1640,7 @@ class Controller:
                 if not ingress_ready:
                     reasons.append("GS-179 mTLS listener not currently bound on 8445; " +
                                    readiness.get("hub_ingress", {}).get("reason", "not ready"))
-                for field in ("fixture", "android_apk"):
+                for field in ("fixture",):
                     if readiness.get(field, {}).get("status") != "PASS":
                         reasons.append(field + ": " + readiness.get(field, {}).get("reason", "not ready"))
                 self._campaign_stage(campaign, "campaign_preflight", "BLOCKED", "; ".join(reasons))
@@ -1622,6 +1654,11 @@ class Controller:
                     raise auth.AuthorizationSafetyFailure(
                         'development_campaign_fixture_or_scope_mismatch') from error
                 raise
+            if readiness.get("android_apk", {}).get("status") != "PASS":
+                reasons.append("android_apk: " + readiness.get("android_apk", {}).get("reason", "not ready"))
+                self._campaign_stage(campaign, "campaign_preflight", "BLOCKED", "; ".join(reasons))
+                campaign["overall"] = "BLOCKED"
+                return
             self._campaign_stage(campaign, "campaign_preflight", "PASS",
                                   "TEST_ONLY fixture, current backend/Home, both USB identities, and ADB package ready; no board serial opened")
             # One-use approval is consumed only after all static readiness checks
@@ -1690,6 +1727,183 @@ class Controller:
         campaign["stages"][name] = {"status": status, "reason": reason, "at": utc()}
         self.save(campaign)
 
+    def _verify_android_stage(self, report: dict, fixture: dict) -> None:
+        """Observe one already backend-verified EventKey in the installed APK."""
+        if (not isinstance(fixture.get("phone_receipt"), dict) or
+                fixture.get("android_receipt_fresh") is not True):
+            report["apk_observation"] = "NOT_VERIFIED"
+            self.mark(report, "android_apk", "NOT_VERIFIED",
+                      "backend event is preserved; a fresh installed-APK identity receipt is required")
+            return
+        apk_request = {**fixture, "event_key": report.get("event_key")}
+        try:
+            apk = powershell("AndroidVerify", apk_request)
+        except (ValueError, OSError, subprocess.SubprocessError) as error:
+            reason = str(error) if isinstance(error, ValueError) else type(error).__name__
+            if reason in ANDROID_OBSERVER_UNAVAILABLE:
+                report["apk_observation"] = "NOT_VERIFIED"
+                self.mark(report, "android_apk", "NOT_VERIFIED",
+                          "backend event is preserved; approved Android observer unavailable: " + reason)
+            else:
+                report["apk_observation"] = "AUTOMATED_FAIL"
+                self.mark(report, "android_apk", "FAIL", reason)
+            return
+
+        screenshot_b64 = apk.pop("screenshot_png_b64", None)
+        ui_hierarchy_b64 = apk.pop("ui_hierarchy_xml_b64", None)
+        if (apk.get("status") in {"BLOCKED", "NOT_VERIFIED"}):
+            report["apk_observation"] = "NOT_VERIFIED"
+            self.mark(report, "android_apk", "NOT_VERIFIED",
+                      str(apk.get("reason") or "approved Android observer unavailable"))
+            return
+        if (apk.get("status") != "PASS" or apk.get("observation") != "AUTOMATED_PASS" or
+                apk.get("event_key") != report.get("event_key") or
+                apk.get("home_id") != fixture["home_id"] or
+                not isinstance(screenshot_b64, str) or
+                not isinstance(ui_hierarchy_b64, str)):
+            report["apk_observation"] = "AUTOMATED_FAIL"
+            self.mark(report, "android_apk", "FAIL",
+                      "actual installed APK did not expose the exact EventKey in Reports/Event details with bounded UI evidence")
+            return
+        if (apk.get("home_id") != fixture["home_id"] or
+                not same_https_origin(apk.get("backend_origin"),
+                                      fixture["phone_receipt"]["backend_origin"])):
+            import gs117_hil_authorization as auth
+            raise auth.AuthorizationSafetyFailure(
+                "actual APK Home or backend origin differs from the authorized fixture")
+        if "CONNECTED" not in str(apk.get("backend_status", "")):
+            report["apk_observation"] = "AUTOMATED_FAIL"
+            self.mark(report, "android_apk", "FAIL",
+                      "actual APK authenticated backend connection was not observed")
+            return
+        try:
+            screenshot = base64.b64decode(screenshot_b64, validate=True)
+            ui_hierarchy = base64.b64decode(ui_hierarchy_b64, validate=True)
+        except ValueError:
+            report["apk_observation"] = "AUTOMATED_FAIL"
+            self.mark(report, "android_apk", "FAIL",
+                      "Android screenshot or UI hierarchy evidence was not valid base64")
+            return
+        if not screenshot.startswith(b"\x89PNG\r\n\x1a\n") or len(screenshot) > 8 * 1024 * 1024:
+            report["apk_observation"] = "AUTOMATED_FAIL"
+            self.mark(report, "android_apk", "FAIL",
+                      "Android screenshot evidence was invalid or exceeded the size bound")
+            return
+        if (len(ui_hierarchy) > 2 * 1024 * 1024 or
+                hashlib.sha256(ui_hierarchy).hexdigest() != apk.get("ui_dump_sha256")):
+            report["apk_observation"] = "AUTOMATED_FAIL"
+            self.mark(report, "android_apk", "FAIL",
+                      "Android UI hierarchy exceeded its size limit or failed its digest check")
+            return
+        screenshot_path = STATE / (report["run_id"] + "-android.png")
+        ui_path = STATE / (report["run_id"] + "-android.xml")
+        with screenshot_path.open("xb") as stream:
+            stream.write(screenshot)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(screenshot_path, 0o600)
+        with ui_path.open("xb") as stream:
+            stream.write(ui_hierarchy)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(ui_path, 0o600)
+        report["apk_observation"] = "AUTOMATED_PASS"
+        report["apk_evidence"] = {key: apk.get(key) for key in
+                                  ("package", "device_serial", "version_name", "signer_sha256",
+                                   "signer_source", "home_id", "backend_origin", "backend_status",
+                                   "reports_view", "event_details_open", "event_key", "event_label",
+                                   "logical_node_id", "ui_dump_sha256")}
+        report["apk_evidence"]["screenshot_file"] = screenshot_path.name
+        report["apk_evidence"]["screenshot_sha256"] = hashlib.sha256(screenshot).hexdigest()
+        report["apk_evidence"]["ui_hierarchy_file"] = ui_path.name
+        report["apk_evidence"]["ui_hierarchy_sha256"] = hashlib.sha256(ui_hierarchy).hexdigest()
+        self.mark(report, "android_apk", "PASS",
+                  "actual foreground Parivar Saathi APK Reports/Event details exposed the exact new EventKey; private screenshot saved")
+
+    def start_android_verification(self, run_id: str) -> dict | None:
+        """Recheck an existing backend event in Android without replaying C3 input."""
+        if not isinstance(run_id, str) or not SINGLE_EVENT_RUN_ID.fullmatch(run_id):
+            raise ValueError("TC001_ANDROID_VERIFY_RUN_ID_INVALID")
+        if not self.lock.acquire(blocking=False):
+            return None
+        started = False
+        try:
+            report_path = STATE / (run_id + ".json")
+            info = report_path.lstat()
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or
+                    info.st_mode & 0o077 or report_path.parent.resolve() != STATE.resolve()):
+                raise ValueError("TC001_ANDROID_VERIFY_REPORT_NOT_PRIVATE")
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            if not isinstance(report, dict):
+                raise ValueError("TC001_ANDROID_VERIFY_REPORT_INVALID")
+            stages = report.get("stages")
+            if (report.get("run_id") != run_id or report.get("execution_kind") != "SINGLE_EVENT" or
+                    report.get("event_source") != "C3_HIL_INJECTED" or
+                    not isinstance(stages, dict) or any(
+                        not isinstance(stages.get(name), dict) or
+                        stages[name].get("status") != "PASS"
+                        for name in ("c3_injection", "node_event_key", "s3_admission",
+                                     "hub_cloudsync", "backend_commit", "postgres_exactly_once",
+                                     "caregiver_api"))):
+                raise ValueError("TC001_ANDROID_VERIFY_BACKEND_EVENT_NOT_ACCEPTED")
+            event_key = report.get("event_key")
+            fixture = exact_fixture()
+            expected_fixture = report.get("fixture") or {}
+            if (not isinstance(event_key, dict) or set(event_key) != {
+                    "physical_device_id", "logical_node_id", "origin_session_id", "event_sequence"} or
+                    event_key.get("physical_device_id") != fixture.get("physical_device_id") or
+                    event_key.get("logical_node_id") != "bedroom" or
+                    type(event_key.get("origin_session_id")) is not int or
+                    event_key["origin_session_id"] <= 0 or
+                    type(event_key.get("event_sequence")) is not int or
+                    event_key["event_sequence"] <= 0 or
+                    expected_fixture.get("home_id") != fixture.get("home_id") or
+                    expected_fixture.get("hub_id") != fixture.get("hub_id") or
+                    expected_fixture.get("installation_epoch") != fixture.get("installation_epoch") or
+                    (expected_fixture.get("android_package") is not None and
+                     expected_fixture.get("android_package") != fixture.get("phone_receipt", {}).get("package")) or
+                    (expected_fixture.get("android_signer_sha256") is not None and
+                     expected_fixture.get("android_signer_sha256") != fixture.get("phone_receipt", {}).get("signer_sha256"))):
+                raise ValueError("TC001_ANDROID_VERIFY_FIXTURE_OR_EVENT_KEY_MISMATCH")
+            if not isinstance(fixture.get("phone_receipt"), dict):
+                raise ValueError("TC001_ANDROID_VERIFY_INSTALL_IDENTITY_NOT_AVAILABLE")
+            if stages["android_apk"].get("status") == "PASS":
+                return report
+            self.current = report
+            report["android_verification_attempted_at"] = utc()
+            self.mark(report, "android_apk", "RUNNING",
+                      "verifying the saved original EventKey in the registered Android APK; no motion input will be sent")
+            threading.Thread(target=self.execute_android_verification,
+                             args=(report, fixture), daemon=True).start()
+            started = True
+            return report
+        finally:
+            if not started and self.lock.locked():
+                self.lock.release()
+
+    def execute_android_verification(self, report: dict, fixture: dict) -> None:
+        import gs117_hil_authorization as auth
+        try:
+            self._verify_android_stage(report, fixture)
+        except auth.AuthorizationSafetyFailure as error:
+            report["apk_observation"] = "AUTOMATED_FAIL"
+            self.mark(report, "android_apk", "FAIL", str(error))
+        except (OSError, ValueError, subprocess.SubprocessError) as error:
+            reason = str(error) if isinstance(error, ValueError) else type(error).__name__
+            report["apk_observation"] = "NOT_VERIFIED"
+            self.mark(report, "android_apk", "NOT_VERIFIED", reason)
+        finally:
+            statuses = [report.get("stages", {}).get(name, {}).get("status") for name in STAGES]
+            report["overall"] = ("FAIL" if "FAIL" in statuses else
+                                 "BLOCKED" if "BLOCKED" in statuses else
+                                 "PASS" if all(status == "PASS" for status in statuses) else "PARTIAL")
+            report["android_verification_completed_at"] = utc()
+            self.save(report)
+            if isinstance(self.current, dict) and self.current.get("run_id") == report.get("run_id"):
+                self.current = report
+            if self.lock.locked():
+                self.lock.release()
+
     def execute(self, report: dict, *, fixture_override: dict | None = None,
                 release_lock: bool = True) -> None:
         import gs117_hil_authorization as auth
@@ -1699,14 +1913,13 @@ class Controller:
             if (observed.get("POSTGRES_READY") != "PASS" or
                     observed.get("CAREGIVER_HTTPS_READY") != "PASS" or
                     readiness["caregiver_home"].get("caregiver_home_ready") is not True or
-                    readiness.get("android_apk", {}).get("status") != "PASS" or
                     readiness.get("hub_ingress", {}).get("status") != "PASS"):
                 self.mark(report, "environment", "BLOCKED",
-                          "backend/PostgreSQL, caregiver Home, or approved ADB APK readiness unavailable")
+                          "backend/PostgreSQL, caregiver Home, or bounded Hub ingress readiness unavailable")
                 return
-            fixture = fixture_override if fixture_override is not None else exact_fixture()
+            fixture = fixture_override if fixture_override is not None else exact_fixture(require_fresh_android=False)
             if readiness["caregiver_home"].get("backend_origin") != fixture["expected_caregiver_origin"]:
-                self.mark(report, "environment", "BLOCKED", "installed_APK_and_caregiver_Home_use_different_backends")
+                self.mark(report, "environment", "BLOCKED", "caregiver_Home_and_registered_fixture_origins_differ")
                 return
             report["source_head"] = subprocess.check_output(
                 ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True, timeout=5).strip()
@@ -1717,12 +1930,15 @@ class Controller:
                        "firmware_source_head": fixture["c3"]["firmware_source_head"]},
                 "s3": {"port": fixture["s3"]["port"], "image_sha256": fixture["s3"]["image_sha256"],
                        "firmware_source_head": fixture["s3"]["firmware_source_head"]},
-                "android_package": fixture["phone_receipt"]["package"],
-                "android_signer_sha256": fixture["phone_receipt"]["signer_sha256"],
+                "android_package": ((fixture.get("phone_receipt") or {}).get("package")),
+                "android_signer_sha256": ((fixture.get("phone_receipt") or {}).get("signer_sha256")),
             }
             if "caregiver_origin_verification" in fixture:
                 report["caregiver_origin_verification"] = fixture["caregiver_origin_verification"]
-            self.mark(report, "environment", "PASS", "TEST_ONLY backend/Home, exact fixture, and installed ADB APK verified")
+            report["android_readiness_at_event_start"] = readiness.get("android_apk", {}).get(
+                "status", "NOT_VERIFIED")
+            self.mark(report, "environment", "PASS",
+                      "TEST_ONLY backend/Home, exact fixture and bounded ingress verified; Android observation is a separate stage")
             ports = powershell("List")
             if isinstance(ports, dict):
                 ports = [ports]
@@ -1860,65 +2076,7 @@ class Controller:
             report["source_freshness"] = outcome.get("source_freshness", "NOT_VERIFIED")
             report["monitoring"] = outcome.get("monitoring", "NOT_VERIFIED")
             self.mark(report, "caregiver_api", "PASS", "authorized TEST_ONLY caregiver API returned original EventKey once; monitoring freshness recorded separately")
-            apk_request = {**fixture, "event_key": report["event_key"]}
-            apk = powershell("AndroidVerify", apk_request)
-            screenshot_b64 = apk.pop("screenshot_png_b64", None)
-            ui_hierarchy_b64 = apk.pop("ui_hierarchy_xml_b64", None)
-            if (apk.get("status") != "PASS" or apk.get("observation") != "AUTOMATED_PASS" or
-                    apk.get("event_key") != report["event_key"] or
-                    apk.get("home_id") != fixture["home_id"] or
-                    not isinstance(screenshot_b64, str) or
-                    not isinstance(ui_hierarchy_b64, str)):
-                report["apk_observation"] = "AUTOMATED_FAIL"
-                self.mark(report, "android_apk", "FAIL", "actual installed APK did not expose the exact EventKey in Reports/Event details with bounded UI evidence")
-                return
-            if (apk.get("home_id") != fixture["home_id"] or
-                    not same_https_origin(apk.get("backend_origin"),
-                                          fixture["phone_receipt"]["backend_origin"])):
-                raise auth.AuthorizationSafetyFailure(
-                    "actual APK Home or backend origin differs from the authorized fixture")
-            if "CONNECTED" not in str(apk.get("backend_status", "")):
-                report["apk_observation"] = "AUTOMATED_FAIL"
-                self.mark(report, "android_apk", "FAIL",
-                          "actual APK authenticated backend connection was not observed")
-                return
-            try:
-                screenshot = base64.b64decode(screenshot_b64, validate=True)
-                ui_hierarchy = base64.b64decode(ui_hierarchy_b64, validate=True)
-            except ValueError:
-                self.mark(report, "android_apk", "FAIL", "Android screenshot or UI hierarchy evidence was not valid base64")
-                return
-            if not screenshot.startswith(b"\x89PNG\r\n\x1a\n") or len(screenshot) > 8 * 1024 * 1024:
-                self.mark(report, "android_apk", "FAIL", "Android screenshot evidence was invalid or exceeded the size bound")
-                return
-            if (len(ui_hierarchy) > 2 * 1024 * 1024 or
-                    hashlib.sha256(ui_hierarchy).hexdigest() != apk.get("ui_dump_sha256")):
-                self.mark(report, "android_apk", "FAIL", "Android UI hierarchy exceeded its size limit or failed its digest check")
-                return
-            screenshot_path = STATE / (report["run_id"] + "-android.png")
-            ui_path = STATE / (report["run_id"] + "-android.xml")
-            with screenshot_path.open("xb") as stream:
-                stream.write(screenshot)
-                stream.flush()
-                os.fsync(stream.fileno())
-            os.chmod(screenshot_path, 0o600)
-            with ui_path.open("xb") as stream:
-                stream.write(ui_hierarchy)
-                stream.flush()
-                os.fsync(stream.fileno())
-            os.chmod(ui_path, 0o600)
-            report["apk_observation"] = "AUTOMATED_PASS"
-            report["apk_evidence"] = {key: apk.get(key) for key in
-                                      ("package", "device_serial", "version_name", "signer_sha256",
-                                       "signer_source",
-                                       "home_id", "backend_origin", "backend_status", "reports_view",
-                                       "event_details_open", "event_key",
-                                       "event_label", "logical_node_id", "ui_dump_sha256")}
-            report["apk_evidence"]["screenshot_file"] = screenshot_path.name
-            report["apk_evidence"]["screenshot_sha256"] = hashlib.sha256(screenshot).hexdigest()
-            report["apk_evidence"]["ui_hierarchy_file"] = ui_path.name
-            report["apk_evidence"]["ui_hierarchy_sha256"] = hashlib.sha256(ui_hierarchy).hexdigest()
-            self.mark(report, "android_apk", "PASS", "actual foreground Parivar Saathi APK Reports/Event details exposed the exact new EventKey; private screenshot saved")
+            self._verify_android_stage(report, fixture)
             report["overall"] = "PASS" if all(
                 report["stages"][name]["status"] == "PASS" for name in STAGES) else "PARTIAL"
         except auth.AuthorizationSafetyFailure:
@@ -2028,6 +2186,16 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == "/api/run" and request == {"operation": "motion_event_once"}:
             report = CONTROLLER.start_motion_event_once()
             self.reply(202 if report else 409, report or {"error": "another_test_is_running"})
+        elif (self.path == "/api/verify-android" and isinstance(request, dict) and
+              set(request) == {"operation", "run_id"} and
+              request.get("operation") == "verify_android_event"):
+            try:
+                report = CONTROLLER.start_android_verification(request.get("run_id"))
+            except (OSError, ValueError, json.JSONDecodeError) as error:
+                self.reply(409, {"error": str(error) if isinstance(error, ValueError)
+                                 else type(error).__name__}); return
+            self.reply(202 if report else 409,
+                       report or {"error": "another_test_is_running"})
         elif (self.path == "/api/scenarios/morning-routine/run" and
               isinstance(request, dict) and set(request) <= {"interval_seconds"}):
             try:
@@ -2048,14 +2216,14 @@ HTML = """<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewp
 <section><h2>Previous evidence</h2><div id="previous"></div></section>
 <script>let csrf='',current=null;const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const esc=s=>escape(s);const stageList=x=>'<ol>'+Object.entries(x.stages||{}).map(([k,v])=>{const value=typeof v==='string'?{status:v,reason:''}:v||{};return '<li>'+esc(k)+': <b>'+esc(value.status||'NOT_VERIFIED')+'</b> — '+esc(value.reason||'')+' <small>'+esc(value.at||'')+'</small></li>'}).join('')+'</ol>';
-function oneRun(x){if(!x)return '<p>No individual run started.</p>';let key=x.event_key?JSON.stringify(x.event_key):'not observed';let image=x.apk_evidence&&x.apk_evidence.screenshot_file&&/^TC001-[A-Za-z0-9_-]+-android\\.png$/.test(x.apk_evidence.screenshot_file)?'<p><img alt="Private Android APK event evidence" src="/evidence/'+esc(x.apk_evidence.screenshot_file)+'"></p>':'';return '<p><b>'+esc(x.run_id)+'</b> — '+esc(x.overall)+' — APK '+esc(x.apk_observation||'NOT_VERIFIED')+'</p><p>EventKey: <code>'+esc(key)+'</code></p><p>Duplicate durable rows: '+esc(x.duplicate_count??'NOT_VERIFIED')+'</p>'+stageList(x)+image}
+function oneRun(x){if(!x)return '<p>No individual run started.</p>';let key=x.event_key?JSON.stringify(x.event_key):'not observed';let image=x.apk_evidence&&x.apk_evidence.screenshot_file&&/^TC001-[A-Za-z0-9_-]+-android\\.png$/.test(x.apk_evidence.screenshot_file)?'<p><img alt="Private Android APK event evidence" src="/evidence/'+esc(x.apk_evidence.screenshot_file)+'"></p>':'';const stages=x.stages||{},status=n=>(stages[n]&&stages[n].status)||'NOT_VERIFIED';const eligible=x.execution_kind==='SINGLE_EVENT'&&/^TC001-USB-ONE-EVENT-[0-9]{8}T[0-9]{6}Z-[a-f0-9]{8}$/.test(x.run_id||'')&&status('backend_commit')==='PASS'&&status('postgres_exactly_once')==='PASS'&&status('caregiver_api')==='PASS'&&status('android_apk')!=='PASS';const verify=eligible?'<p><button data-verify-run="'+esc(x.run_id)+'">Verify this exact EventKey in the installed Android APK</button> Connect the approved handset after backend delivery is verified; this action will not inject another event.</p>':'';return '<p><b>'+esc(x.run_id)+'</b> — '+esc(x.overall)+' — APK '+esc(x.apk_observation||'NOT_VERIFIED')+'</p><p>EventKey: <code>'+esc(key)+'</code></p><p>Duplicate durable rows: '+esc(x.duplicate_count??'NOT_VERIFIED')+'</p>'+stageList(x)+image+verify}
 function campaign(x){if(!x)return 'No execution yet.';if(x.execution_kind==='SINGLE_EVENT')return oneRun(x)+'<p>Authorization: '+esc(x.authorization_outcome||'NOT_RUN')+'; one-use session consumed: '+esc(x.authorization_session_consumed??false)+'</p>';let active=x.active_run;return '<p><b>'+esc(x.run_id)+'</b> — '+esc(x.overall)+' — '+esc(x.passed_runs||0)+'/'+esc(x.planned_runs||5)+' PASS; '+esc(x.completed_runs||0)+' completed.</p>'+stageList(x)+(active?'<h3>Active or latest individual run</h3>'+oneRun(active):'')+(x.not_run||[]).map(n=>'<p>'+esc(n.run_number)+': '+esc(n.status)+' — '+esc(n.reason)+'</p>').join('')}
-async function refresh(){let r=await fetch('/api/status',{cache:'no-store'}),d=await r.json();csrf=d.csrf;current=d.current;const readiness={backend:d.backend,caregiver_home:d.caregiver_home,physical_boards:d.physical_boards,fixture:d.fixture,campaign_approval:d.campaign_approval,motion_event_once_authorization:d.motion_event_once_authorization,hub_ingress:d.hub_ingress,android_apk:d.android_apk};document.getElementById('readiness').textContent=JSON.stringify(readiness,null,2);document.getElementById('power-mode').textContent='C3 power/HIL mode: '+(current&&current.active_run&&current.active_run.c3_power_mode||'HIL_AWAKE_TEST_ONLY profile receipt only; runtime checked before injection');const baseReady=d.backend&&d.backend.POSTGRES_READY==='PASS'&&d.backend.CAREGIVER_HTTPS_READY==='PASS'&&d.backend.DEVELOPMENT_ENDPOINT_READY==='PASS'&&d.caregiver_home&&d.caregiver_home.caregiver_home_ready===true&&d.physical_boards&&d.physical_boards.c3==='PASS'&&d.physical_boards.s3==='PASS'&&d.fixture&&d.fixture.status==='PASS'&&d.physical_enrollment&&d.physical_enrollment.status==='PASS'&&d.hub_ingress&&d.hub_ingress.status==='PASS'&&d.android_apk&&d.android_apk.status==='PASS';const singleReady=baseReady&&d.motion_event_once_authorization&&d.motion_event_once_authorization.status==='PASS';const campaignReady=baseReady&&d.campaign_approval&&d.campaign_approval.status==='PASS';document.getElementById('single-event').disabled=!!d.running||!singleReady;document.getElementById('run').disabled=!!d.running||!campaignReady;document.getElementById('blocked').textContent=singleReady?(d.fixture.qualification==='DEV_INPUT_TRIAL'?'One authorized DEV input is ready; actual ACK, PostgreSQL, API and APK evidence must pass in this run.':'Current one-event fixture and authorization gates pass.'):(d.motion_event_once_authorization&&d.motion_event_once_authorization.reason)||(d.campaign_approval&&d.campaign_approval.reason)||'Readiness gates are not all PASS.';document.getElementById('current').innerHTML=campaign(current);document.getElementById('previous').innerHTML=d.previous.map(x=>'<details><summary>'+esc(x.run_id)+' — '+esc(x.overall)+'</summary>'+oneRun(x)+(x.runs||[]).map(id=>'<p>Run: '+esc(id)+'</p>').join('')+'</details>').join('')||'No saved runs yet.';}
+async function refresh(){let r=await fetch('/api/status',{cache:'no-store'}),d=await r.json();csrf=d.csrf;current=d.current;const readiness={backend:d.backend,caregiver_home:d.caregiver_home,physical_boards:d.physical_boards,fixture:d.fixture,campaign_approval:d.campaign_approval,motion_event_once_authorization:d.motion_event_once_authorization,hub_ingress:d.hub_ingress,android_apk:d.android_apk};document.getElementById('readiness').textContent=JSON.stringify(readiness,null,2);document.getElementById('power-mode').textContent='C3 power/HIL mode: '+(current&&current.active_run&&current.active_run.c3_power_mode||'HIL_AWAKE_TEST_ONLY profile receipt only; runtime checked before injection');const baseReady=d.backend&&d.backend.POSTGRES_READY==='PASS'&&d.backend.CAREGIVER_HTTPS_READY==='PASS'&&d.backend.DEVELOPMENT_ENDPOINT_READY==='PASS'&&d.caregiver_home&&d.caregiver_home.caregiver_home_ready===true&&d.physical_boards&&d.physical_boards.c3==='PASS'&&d.physical_boards.s3==='PASS'&&d.fixture&&d.fixture.status==='PASS'&&d.physical_enrollment&&d.physical_enrollment.status==='PASS'&&d.hub_ingress&&d.hub_ingress.status==='PASS';const singleReady=baseReady&&d.motion_event_once_authorization&&d.motion_event_once_authorization.status==='PASS';const campaignReady=baseReady&&d.android_apk&&d.android_apk.status==='PASS'&&d.campaign_approval&&d.campaign_approval.status==='PASS';document.getElementById('single-event').disabled=!!d.running||!singleReady;document.getElementById('run').disabled=!!d.running||!campaignReady;document.getElementById('blocked').textContent=singleReady?(d.android_apk&&d.android_apk.status==='PASS'?'One authorized USB event is ready; actual C3/S3/backend and Android evidence must pass.':'Physical/backend event execution is ready; Android is a separate exact-EventKey verification stage and will not block this run.'):(d.motion_event_once_authorization&&d.motion_event_once_authorization.reason)||(d.campaign_approval&&d.campaign_approval.reason)||'Physical/backend readiness gates are not all PASS.';document.getElementById('current').innerHTML=campaign(current);document.getElementById('previous').innerHTML=d.previous.map(x=>'<details><summary>'+esc(x.run_id)+' — '+esc(x.overall)+'</summary>'+oneRun(x)+(x.runs||[]).map(id=>'<p>Run: '+esc(id)+'</p>').join('')+'</details>').join('')||'No saved runs yet.';}
 function morningStages(x){if(!x)return 'No Morning Routine attempt yet.';const nodeStages=x.node_event_stages||{};return '<p><b>'+esc(x.run_id)+'</b> — '+esc(x.overall)+'; acceptance '+esc(x.acceptance)+'</p><p>First blocked stage: <code>'+esc(x.first_failing_stage)+'</code></p><ol>'+Object.entries(x.stages||{}).map(([k,v])=>'<li>'+esc(k)+': <b>'+esc(v.status)+'</b> — '+esc(v.reason)+'</li>').join('')+'</ol><h4>Physical Node event path</h4><ol>'+Object.entries(nodeStages).map(([k,v])=>'<li>'+esc(k)+': <b>'+esc(v.status)+'</b> — '+esc(v.reason)+'</li>').join('')+'</ol><p>Physical operations: '+esc(JSON.stringify(x.physical_operations||[]))+'; EventKeys: '+esc(JSON.stringify(x.event_keys||[]))+'</p>'}
 function roomNames(steps,filter){if(!Array.isArray(steps))return 'Unavailable';return steps.filter(s=>s&&s.enabled===true&&(filter==='all'||s.required===(filter==='required'))).map(s=>s.location).join(', ')||'None'}
-async function refresh(){let r=await fetch('/api/status',{cache:'no-store'}),d=await r.json();csrf=d.csrf;current=d.current;const readiness={backend:d.backend,caregiver_home:d.caregiver_home,physical_boards:d.physical_boards,fixture:d.fixture,campaign_approval:d.campaign_approval,motion_event_once_authorization:d.motion_event_once_authorization,hub_ingress:d.hub_ingress,android_apk:d.android_apk};document.getElementById('readiness').textContent=JSON.stringify(readiness,null,2);document.getElementById('power-mode').textContent='C3 power/HIL mode: '+(current&&current.active_run&&current.active_run.c3_power_mode||'HIL_AWAKE_TEST_ONLY profile receipt only; runtime checked before injection');const baseReady=d.backend&&d.backend.POSTGRES_READY==='PASS'&&d.backend.CAREGIVER_HTTPS_READY==='PASS'&&d.backend.DEVELOPMENT_ENDPOINT_READY==='PASS'&&d.caregiver_home&&d.caregiver_home.caregiver_home_ready===true&&d.physical_boards&&d.physical_boards.c3==='PASS'&&d.physical_boards.s3==='PASS'&&d.fixture&&d.fixture.status==='PASS'&&d.physical_enrollment&&d.physical_enrollment.status==='PASS'&&d.hub_ingress&&d.hub_ingress.status==='PASS'&&d.android_apk&&d.android_apk.status==='PASS';const singleReady=baseReady&&d.motion_event_once_authorization&&d.motion_event_once_authorization.status==='PASS';const campaignReady=baseReady&&d.campaign_approval&&d.campaign_approval.status==='PASS';document.getElementById('single-event').disabled=!!d.running||!singleReady;document.getElementById('run').disabled=!!d.running||!campaignReady;document.getElementById('blocked').textContent=singleReady?(d.fixture.qualification==='DEV_INPUT_TRIAL'?'One authorized DEV input is ready; actual ACK, PostgreSQL, API and APK evidence must pass in this run.':'Current one-event fixture and authorization gates pass.'):(d.motion_event_once_authorization&&d.motion_event_once_authorization.reason)||(d.campaign_approval&&d.campaign_approval.reason)||'Readiness gates are not all PASS.';document.getElementById('current').innerHTML=campaign(current);document.getElementById('previous').innerHTML=d.previous.map(x=>'<details><summary>'+esc(x.run_id)+' — '+esc(x.overall)+'</summary>'+oneRun(x)+(x.runs||[]).map(id=>'<p>Run: '+esc(id)+'</p>').join('')+'</details>').join('')||'No saved runs yet.';const mr=d.morning_readiness||{},policy=mr.applied_policy||{},display=policy.display_config||policy.applied_config||policy.desired_config||{},steps=display.activity_rules&&display.activity_rules.morning_steps;document.getElementById('morning-version').textContent=String(policy.desired_version??'Unavailable')+' / '+String(policy.applied_version??'Unavailable');document.getElementById('morning-included').textContent=roomNames(steps,'all');document.getElementById('morning-required').textContent=roomNames(steps,'required');document.getElementById('morning-optional').textContent=roomNames(steps,'optional');document.getElementById('morning-policy').textContent='Desired / applied household configuration: '+(policy.status||'BLOCKED')+' — '+(policy.reason||'unavailable');document.getElementById('morning-blocked').textContent='Caregiver LAN HTTPS: '+((d.backend&&d.backend.LAPTOP_LAN_ENDPOINT_TLS_READY)||'NOT_VERIFIED')+((d.backend&&d.backend.LAPTOP_LAN_ENDPOINT_TLS_READY_REASON)?' ('+d.backend.LAPTOP_LAN_ENDPOINT_TLS_READY_REASON+')':'')+'; '+(mr.room_fixtures&&mr.room_fixtures.reason||'Room fixture status unavailable')+'; '+(mr.hardware_authorization&&mr.hardware_authorization.reason||'hardware authorization unavailable')+'; '+(mr.physical_ingress&&mr.physical_ingress.reason||'physical ingress unavailable');const morningReady=d.backend&&d.backend.POSTGRES_READY==='PASS'&&d.backend.CAREGIVER_HTTPS_READY==='PASS'&&d.backend.DEVELOPMENT_ENDPOINT_READY==='PASS'&&d.caregiver_home&&d.caregiver_home.caregiver_home_ready===true&&d.android_apk&&d.android_apk.status==='PASS'&&d.hub_ingress&&d.hub_ingress.status==='PASS'&&mr.applied_policy&&mr.applied_policy.status==='PASS'&&mr.room_fixtures&&mr.room_fixtures.status==='PASS'&&mr.hardware_authorization&&mr.hardware_authorization.status==='PASS'&&mr.physical_ingress&&mr.physical_ingress.status==='PASS';document.getElementById('morning-run').disabled=!!d.running||!morningReady;document.getElementById('morning-current').innerHTML=morningStages(d.morning_routine);document.getElementById('morning-history').innerHTML=(d.morning_history||[]).map(x=>'<details><summary>'+esc(x.run_id)+' — '+esc(x.overall)+'</summary>'+morningStages(x)+'</details>').join('')||'No saved attempts.';}
+async function refresh(){let r=await fetch('/api/status',{cache:'no-store'}),d=await r.json();csrf=d.csrf;current=d.current;const readiness={backend:d.backend,caregiver_home:d.caregiver_home,physical_boards:d.physical_boards,fixture:d.fixture,campaign_approval:d.campaign_approval,motion_event_once_authorization:d.motion_event_once_authorization,hub_ingress:d.hub_ingress,android_apk:d.android_apk};document.getElementById('readiness').textContent=JSON.stringify(readiness,null,2);document.getElementById('power-mode').textContent='C3 power/HIL mode: '+(current&&current.active_run&&current.active_run.c3_power_mode||'HIL_AWAKE_TEST_ONLY profile receipt only; runtime checked before injection');const baseReady=d.backend&&d.backend.POSTGRES_READY==='PASS'&&d.backend.CAREGIVER_HTTPS_READY==='PASS'&&d.backend.DEVELOPMENT_ENDPOINT_READY==='PASS'&&d.caregiver_home&&d.caregiver_home.caregiver_home_ready===true&&d.physical_boards&&d.physical_boards.c3==='PASS'&&d.physical_boards.s3==='PASS'&&d.fixture&&d.fixture.status==='PASS'&&d.physical_enrollment&&d.physical_enrollment.status==='PASS'&&d.hub_ingress&&d.hub_ingress.status==='PASS';const singleReady=baseReady&&d.motion_event_once_authorization&&d.motion_event_once_authorization.status==='PASS';const campaignReady=baseReady&&d.android_apk&&d.android_apk.status==='PASS'&&d.campaign_approval&&d.campaign_approval.status==='PASS';document.getElementById('single-event').disabled=!!d.running||!singleReady;document.getElementById('run').disabled=!!d.running||!campaignReady;document.getElementById('blocked').textContent=singleReady?(d.android_apk&&d.android_apk.status==='PASS'?'One authorized USB event is ready; actual C3/S3/backend and Android evidence must pass.':'Physical/backend event execution is ready; Android is a separate exact-EventKey verification stage and will not block this run.'):(d.motion_event_once_authorization&&d.motion_event_once_authorization.reason)||(d.campaign_approval&&d.campaign_approval.reason)||'Physical/backend readiness gates are not all PASS.';document.getElementById('current').innerHTML=campaign(current);document.getElementById('previous').innerHTML=d.previous.map(x=>'<details><summary>'+esc(x.run_id)+' — '+esc(x.overall)+'</summary>'+oneRun(x)+(x.runs||[]).map(id=>'<p>Run: '+esc(id)+'</p>').join('')+'</details>').join('')||'No saved runs yet.';const mr=d.morning_readiness||{},policy=mr.applied_policy||{},display=policy.display_config||policy.applied_config||policy.desired_config||{},steps=display.activity_rules&&display.activity_rules.morning_steps;document.getElementById('morning-version').textContent=String(policy.desired_version??'Unavailable')+' / '+String(policy.applied_version??'Unavailable');document.getElementById('morning-included').textContent=roomNames(steps,'all');document.getElementById('morning-required').textContent=roomNames(steps,'required');document.getElementById('morning-optional').textContent=roomNames(steps,'optional');document.getElementById('morning-policy').textContent='Desired / applied household configuration: '+(policy.status||'BLOCKED')+' — '+(policy.reason||'unavailable');document.getElementById('morning-blocked').textContent='Caregiver LAN HTTPS: '+((d.backend&&d.backend.LAPTOP_LAN_ENDPOINT_TLS_READY)||'NOT_VERIFIED')+((d.backend&&d.backend.LAPTOP_LAN_ENDPOINT_TLS_READY_REASON)?' ('+d.backend.LAPTOP_LAN_ENDPOINT_TLS_READY_REASON+')':'')+'; '+(mr.room_fixtures&&mr.room_fixtures.reason||'Room fixture status unavailable')+'; '+(mr.hardware_authorization&&mr.hardware_authorization.reason||'hardware authorization unavailable')+'; '+(mr.physical_ingress&&mr.physical_ingress.reason||'physical ingress unavailable');const morningReady=d.backend&&d.backend.POSTGRES_READY==='PASS'&&d.backend.CAREGIVER_HTTPS_READY==='PASS'&&d.backend.DEVELOPMENT_ENDPOINT_READY==='PASS'&&d.caregiver_home&&d.caregiver_home.caregiver_home_ready===true&&d.android_apk&&d.android_apk.status==='PASS'&&d.hub_ingress&&d.hub_ingress.status==='PASS'&&mr.applied_policy&&mr.applied_policy.status==='PASS'&&mr.room_fixtures&&mr.room_fixtures.status==='PASS'&&mr.hardware_authorization&&mr.hardware_authorization.status==='PASS'&&mr.physical_ingress&&mr.physical_ingress.status==='PASS';document.getElementById('morning-run').disabled=!!d.running||!morningReady;document.getElementById('morning-current').innerHTML=morningStages(d.morning_routine);document.getElementById('morning-history').innerHTML=(d.morning_history||[]).map(x=>'<details><summary>'+esc(x.run_id)+' — '+esc(x.overall)+'</summary>'+morningStages(x)+'</details>').join('')||'No saved attempts.';}
 async function post(path,payload){let r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(payload)});let data=await r.json();if(!r.ok)alert(data.error||'Request failed');if(path==='/api/scenarios/morning-routine/run'&&r.ok){document.getElementById('morning-current').innerHTML=morningStages(data)}await refresh()}
-document.getElementById('single-event').onclick=()=>post('/api/run',{operation:'motion_event_once'});document.getElementById('run').onclick=()=>post('/api/run',{});document.getElementById('morning-run').onclick=()=>post('/api/scenarios/morning-routine/run',{interval_seconds:Number(document.getElementById('stimulus-interval').value)});refresh();setInterval(refresh,2000);
+document.getElementById('single-event').onclick=()=>post('/api/run',{operation:'motion_event_once'});document.getElementById('run').onclick=()=>post('/api/run',{});document.getElementById('morning-run').onclick=()=>post('/api/scenarios/morning-routine/run',{interval_seconds:Number(document.getElementById('stimulus-interval').value)});document.addEventListener('click',event=>{const button=event.target.closest('button[data-verify-run]');if(button)post('/api/verify-android',{operation:'verify_android_event',run_id:button.dataset.verifyRun})});refresh();setInterval(refresh,2000);
 </script></html>"""
 
 
