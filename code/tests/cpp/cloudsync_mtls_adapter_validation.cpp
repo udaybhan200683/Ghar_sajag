@@ -124,6 +124,13 @@ int main() {
         expected_method = HTTP_METHOD_POST;
         expected_content_length = 2;
         expected_url = "https://backend.invalid/v1/homes/home-1/events";
+        provider.value.test_only_authority_refresh_only = true;
+        check(!channel.post(path, "{}").network_attempted &&
+              !channel.get("/v1/homes/home-1/config/desired").network_attempted &&
+              !channel.post("/v1/homes/home-1/config/applied", "{}").network_attempted &&
+              initialized == 3,
+              "expired-configuration recovery identity cannot publish or access policy");
+        provider.value.test_only_authority_refresh_only = false;
         provider.value.test_only_software_identity = false;
         check(!channel.post(path, "{}").server_authenticated && initialized == 3,
               "software key without TEST_ONLY identity marker refused");

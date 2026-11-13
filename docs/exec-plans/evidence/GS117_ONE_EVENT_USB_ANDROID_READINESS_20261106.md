@@ -1,3 +1,57 @@
+## 2026-11-13 — GS-40 runtime renewal source correction; deployment NOT_RUN
+
+P0 remains original EventKey `c3-146393c5d158 / bedroom / 141 / 1`.
+The existing physical C3 generation and authenticated S3 durable ACK are proven;
+PostgreSQL/API remained zero in the original bounded run. No replacement event
+was generated. No independent current journal scan has yet established that
+141/1 remains in the actual outbox; do not equate the earlier ACK with that scan.
+
+The expired startup envelope prevented periodic authenticated-time recovery
+before the existing authority refresh. The corrected TEST_ONLY implementation
+uses a fresh target challenge/P-256 key and the existing signed/encrypted G40E
+format on the existing mTLS authority endpoint. A separately configured existing
+provisioning signer issues same-material replacement configuration; missing
+configuration issuer fails closed. Only generation and expiry may differ.
+Expiry remains bounded; it is not disabled or lengthened. Publication requires
+both current configuration and current signed authority. The restricted recovery
+identity can only POST authority refresh; policy uses the normal current-authority
+channel. The refresh owner renews before expiry with bounded 15/30/60s retry.
+The fixture replay cache is bounded by live entries rather than a lifetime count;
+the signed-time request counter no longer stops the service after 256 requests.
+
+Affected evidence: bootstrap **201 checks PASS**; cloudsync-security-ut PASS
+(production/TEST_ONLY TLS adapters, trust provider and Python 14+15+13+6 tests);
+updated restricted-recovery adapter PASS; feature mapping **22/22 PASS**;
+ESP-IDF 6.0.3 TEST_ONLY S3 target build PASS. Target emitted the existing unused
+retirement_ack_sent warning; no new warning is claimed fixed. One initial new
+C++ test compile failed on an unqualified namespace and was corrected; initial
+new traceability entries failed registration checks and were corrected. See
+[design/evidence](GS40_RUNTIME_CONFIGURATION_RENEWAL_20261113.md) and
+[receipts](GS40_RENEWAL_20261113/source-receipt.json).
+
+**Not deployed and not physically fixed.** Running S3 firmware is unchanged.
+The private ingress composition must provide the reviewed same-material template
+and existing provisioning signer; the old composition fails closed for renewal.
+A safe, separately authorized firmware update must preserve actual journal,
+credentials, association and event identity. The single #11983 reboot is USED;
+no further reset/flash was performed or inferred as approved. Before any update,
+review original-event durability and the supported update/recovery path.
+
+Autonomous cold boot, secure production provisioning, credential rotation,
+physical outage/restart, original141/1 recovery, Android, >1h endurance and
+multi-day qualification remain NOT_RUN/NOT_VERIFIED. TEST_ONLY secrets remain
+RAM-only. This does not solve the production lifecycle or waive GS-D034 lease
+limits. Signed-time wrapper child cleanup and GS-179 qualification remain PARTIAL.
+C3 parser source fix is not deployed; host unchanged-timeout correction remains
+committed. Cold-start sensing stays ON HOLD. No serial/network/hardware operation
+was performed during this source-only milestone. Existing backend/database and
+caregiver HTTPS are preserved; current temporary exposure is checked separately.
+
+Next: complete reviewed private ingress renewal composition; inspect/establish
+safe original-event retention across the supported firmware-update procedure;
+deploy only within applicable explicit scope; verify expired renewal, recover
+141/1 to PostgreSQL/API, then the same key in Android. No new injection.
+
 ## 2026-11-12 12:04 UTC — Android connected; foreground unavailable; no hardware operation
 
 Resume baseline1ffed158193187222eaed3045e13173b57bd0ec5, canonical branch and origin

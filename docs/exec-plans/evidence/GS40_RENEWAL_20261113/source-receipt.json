@@ -1,0 +1,25 @@
+{
+  "schema": "GS40_RENEWAL_SOURCE_EVIDENCE_V1",
+  "baseline": "abf05b5af0b7363ecdfbeffc4fb9c41140e1d32e",
+  "recorded_utc": "2026-11-13T11:51:21.084788+00:00",
+  "source_sha256": {
+    "code/firmware/hub/target/esp32/hub_runtime_adapter.cpp": "e1cb78233e8e52ce71b49be64be6d5d71b02f3ac39e266d7e8b9b85558a8999d",
+    "code/firmware/hub/target/esp32s3/gs40_test_only_bootstrap.cpp": "5aef6ab083ec2bb85ac96a669f62c52b5496bfb4f5934ac1640f1951b8e53ae7",
+    "code/firmware/hub/target/esp32s3/gs40_test_only_bootstrap.hpp": "0679a9d63db480b3054943a0d29878ec69f0925baae319702c8ed1d984a1728a",
+    "code/firmware/hub/target/esp32s3/gs40_test_only_runtime.cpp": "ae728156394f406772f1196b4a3bcacdb75284164c18835e060b518891156609",
+    "code/firmware/hub/target/esp32s3/gs40_test_only_runtime.hpp": "25a586faf23040d5a0f7bd7ffd2c61aca35d2530693158670fa95aab7bae18fe",
+    "code/firmware/hub/target/esp32s3/https_backend_channel.cpp": "732f05f9dbc995e38af3bd968d3359d02191f043afd0053660968615f11425e4",
+    "code/firmware/hub/target/esp32s3/https_backend_channel.hpp": "1345ee26a628e7e28de1e21ef1509f0b2192c1001f07665de2aae8a39bb895c2",
+    "code/tools/hil/gs40_test_bootstrap.py": "abe1b8188397f8d2f541ef921168edd54e68bcc084c1bbe57ec06afbc47861f8",
+    "code/tests/cpp/gs40_test_only_bootstrap_validation.cpp": "e55770f5606f59e35037631f17015c4c35701055d258cb8e02971a907966f495",
+    "code/tests/cpp/cloudsync_mtls_adapter_validation.cpp": "8c164970c1c937c7656e2d494aef83b54d4fbd11687ceab2c1ca314acf1329c2",
+    "code/tests/support/test_gs68_gs40_identity_time_e2e.py": "8206a56247ec939f0e514219227c6343205cfa8163b6762fd2dabdac93df49a2"
+  },
+  "target_bin_sha256": "f500c702e94c01ce0a33be5f17fce3e6c634d170223983c1e7981c36ccb5a470",
+  "target_profile": "ESP-IDF 6.0.3 ESP32-S3 GS40_TEST_ONLY_CLOUDSYNC=ON; no flash",
+  "deployed": false,
+  "original_event": "c3-146393c5d158/bedroom/141/1",
+  "physical_renewal": "NOT_RUN",
+  "journal_event_independent_scan": "NOT_VERIFIED",
+  "endurance_seconds": 0
+}

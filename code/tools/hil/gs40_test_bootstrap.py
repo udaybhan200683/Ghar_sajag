@@ -269,7 +269,7 @@ class SignedTimeService:
         return self
 
     def _serve(self):
-        while not self.stop.is_set() and self.requests < 256:
+        while not self.stop.is_set():
             try:
                 request, address = self.socket.recvfrom(1024)
             except socket.timeout:
@@ -306,12 +306,27 @@ class AuthorityService:
     active credentials/current ownership. Ingest rechecks independently.
     """
     def __init__(self, issuer, ownership_db, lock, *, clock=time.time, enabled=False,
-                 signer=None):
+                 signer=None, configuration_fields=None, configuration_signer=None,
+                 configuration_home_id=None):
         if enabled is not True:
             raise ValueError("explicit_test_only_composition_required")
         self.issuer, self.db, self.lock, self.clock = issuer, ownership_db, lock, clock
         self.signer = signer if signer is not None else rsa3072()
-        self._seen = set()
+        if any(value is not None for value in (
+                configuration_fields, configuration_signer, configuration_home_id)):
+            if (not isinstance(configuration_fields, dict) or
+                    configuration_signer is None or
+                    not isinstance(configuration_home_id, str) or
+                    not configuration_home_id.startswith("gs177-test-") or
+                    configuration_signer.key_size != 3072 or
+                    public_der(configuration_signer) == public_der(self.signer)):
+                raise ValueError("explicit_separate_test_configuration_issuer_required")
+        self.configuration_fields = (dict(configuration_fields)
+                                     if configuration_fields is not None else None)
+        self.configuration_signer = configuration_signer
+        self.configuration_home_id = configuration_home_id
+        # Bounded live replay state, not a lifetime limit on ordinary renewals.
+        self._seen = {}
 
     @property
     def public_key_der(self):
@@ -322,9 +337,14 @@ class AuthorityService:
         with self.lock:
             context = authorize_cloud_tls_context(peer, trusted_now=datetime.fromtimestamp(now, timezone.utc),
                 time_readiness=TimeReadiness.TRUSTED, credentials=self.issuer, ownership_db=self.db)
+            configuration_request = (isinstance(body, dict) and
+                                     body.get("protocol") == "GS40T/1/CONFIG")
             expected = {"protocol", "hub_id", "credential_generation", "certificate_fingerprint_sha256",
                         "boot_generation", "nonce"}
-            if (not isinstance(body, dict) or set(body) != expected or body["protocol"] != "GS40T/1"
+            if configuration_request:
+                expected |= {"configuration_generation", "target_public_key"}
+            if (not isinstance(body, dict) or set(body) != expected or
+                    body["protocol"] not in {"GS40T/1", "GS40T/1/CONFIG"}
                     or body["hub_id"] != context.permanent_hub_id
                     or not (
                         (context.permanent_hub_id.startswith("test-hub-") and
@@ -342,8 +362,34 @@ class AuthorityService:
                     or body["credential_generation"] != record.generation):
                 raise PermissionError("credential_generation_mismatch")
             challenge = (context.certificate_fingerprint_sha256, body["boot_generation"], body["nonce"])
-            if challenge in self._seen or len(self._seen) >= 256:
+            self._seen = {key: expiry for key, expiry in self._seen.items() if expiry > now}
+            if challenge in self._seen or len(self._seen) >= 4096:
                 raise PermissionError("authority_challenge_replay_or_limit")
+            if configuration_request:
+                fields = self.configuration_fields
+                if (fields is None or self.configuration_signer is None or
+                        context.home_id != self.configuration_home_id or
+                        fields.get(9) != context.permanent_hub_id.encode() or
+                        fields.get(12) != context.certificate_fingerprint_sha256.encode() or
+                        fields.get(13) != record.generation.to_bytes(8, "big") or
+                        (21 in fields and fields[21] != context.home_id.encode()) or
+                        (17 in fields and fields[17] != context.home_id.encode()) or
+                        type(body["configuration_generation"]) is not int or
+                        not 0 < body["configuration_generation"] < 2**64 - 1 or
+                        not isinstance(body["target_public_key"], str) or
+                        re.fullmatch(r"04[0-9a-f]{128}", body["target_public_key"]) is None):
+                    raise PermissionError("invalid_configuration_renewal")
+                renewed = dict(fields)
+                renewed[14] = max(now, body["configuration_generation"] + 1).to_bytes(8, "big")
+                renewed[15] = (now + 3600).to_bytes(8, "big")
+                try:
+                    envelope = encode_config(bytes.fromhex(body["nonce"]),
+                        bytes.fromhex(body["target_public_key"]), renewed,
+                        self.configuration_signer)
+                except (ValueError, TypeError, OverflowError):
+                    raise PermissionError("invalid_configuration_renewal") from None
+                self._seen[challenge] = now + 3600
+                return envelope
             hub, home = context.permanent_hub_id.encode(), context.home_id.encode()
             # Current epoch is also the authority revision. Any transfer changes
             # epoch; credential replacement is independently fingerprint-bound.
@@ -359,5 +405,5 @@ class AuthorityService:
                 bytes([len(home)]) + home)
             signature = self.signer.sign(b"GS40T/1/AUTHORITY\x00" + unsigned,
                                          padding.PKCS1v15(), hashes.SHA256())
-            self._seen.add(challenge)
+            self._seen[challenge] = now + 60
             return unsigned + signature

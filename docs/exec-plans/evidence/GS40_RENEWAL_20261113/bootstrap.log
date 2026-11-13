@@ -1,0 +1,8 @@
+make: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS40_TEST_ONLY_CLOUDSYNC_BUILD=1 -Ibuild/gs40_generated -I. -Ifirmware/common/shared/include -Ifirmware/node -Ifirmware/hub -Ifirmware/common/security \
+	firmware/hub/target/esp32s3/gs40_test_only_bootstrap.cpp \
+	firmware/hub/lifecycle/configuration/config_service.cpp \
+	tests/cpp/gs40_test_only_bootstrap_validation.cpp -lcrypto -o build/gs40_test_only_bootstrap_validation
+./build/gs40_test_only_bootstrap_validation
+GS40 TEST_ONLY bootstrap checks=201 PASS
+make: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1/code'

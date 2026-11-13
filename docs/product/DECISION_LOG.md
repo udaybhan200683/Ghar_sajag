@@ -1952,3 +1952,12 @@ GS-40/GS-173 implementation/qualification gap under the approved owner 24/7
 direction. Temporary ingress lease limits and all locked security/durability
 decisions remain unchanged. See the existing GS117 execution handoff for exact
 source, tests, EventKey, cleanup and acceptance evidence.
+
+GS-D034 implementation evidence, 2026-11-13 (owner12072/12073): source now
+renews TEST_ONLY configuration through a fresh provisioning-root-authenticated
+G40E exchange on the existing mTLS authority route; current configuration and
+current authority remain independent publication requirements. This is not an
+expiry waiver, production credential path, persistent fixture-secret storage,
+firmware deployment approval or a change to privileged ingress lease limits.
+Deployment, original141/1 recovery, restart and endurance remain unverified.
+See GS40_RUNTIME_CONFIGURATION_RENEWAL_20261113 under canonical evidence.

@@ -813,6 +813,7 @@ Gs40TestOnlyRuntimeConfig& Gs40TestOnlyRuntimeConfig::operator=(Gs40TestOnlyRunt
     credential_generation = other.credential_generation;
     envelope_generation = other.envelope_generation;
     envelope_expiry_utc = other.envelope_expiry_utc;
+    configuration_identity = other.configuration_identity;
     activity_home_id = std::move(other.activity_home_id);
     household_timezone = std::move(other.household_timezone);
     activity_rules = std::move(other.activity_rules);
@@ -1015,9 +1016,34 @@ bool Gs40TestOnlyEnvelopeSession::accept(
     if (!decrypted) return reject("aead");
     Gs40TestOnlyRuntimeConfig candidate;
     const bool parsed = parse_payload(plaintext, candidate);
+    // Keep a bounded identity of all signed content except the two fields a
+    // renewal may replace. This also binds secrets after their RAM wiping.
+    std::vector<std::uint8_t> identity{'G','4','0','I',1};
+    bool identity_valid = parsed;
+    for (std::size_t offset = 5; identity_valid && offset < plaintext.size();) {
+        std::uint16_t size = 0;
+        if (!read_u16(plaintext, offset + 1, size) ||
+                offset + 3U + size > plaintext.size()) { identity_valid = false; break; }
+        const auto tag = plaintext[offset];
+        if (tag != 14 && tag != 15)
+            identity.insert(identity.end(), plaintext.begin() + offset,
+                            plaintext.begin() + offset + 3U + size);
+        offset += 3U + size;
+    }
+#if defined(ESP_PLATFORM)
+    const auto* identity_md = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+    identity_valid = identity_valid && identity_md != nullptr &&
+        mbedtls_md(identity_md, identity.data(), identity.size(),
+                   candidate.configuration_identity.data()) == 0;
+#else
+    identity_valid = identity_valid && SHA256(identity.data(), identity.size(),
+                                             candidate.configuration_identity.data()) != nullptr;
+#endif
+    volatile std::uint8_t* identity_bytes = identity.data();
+    for (std::size_t i = 0; i < identity.size(); ++i) identity_bytes[i] = 0;
     volatile std::uint8_t* plain = plaintext.data();
     for (std::size_t i = 0; i < plaintext.size(); ++i) plain[i] = 0;
-    if (!parsed || candidate.envelope_generation == 0 ||
+    if (!parsed || !identity_valid || candidate.envelope_generation == 0 ||
         candidate.time_public_key_der == root_public_key_der_ ||
         candidate.authority_public_key_der == root_public_key_der_) return reject("payload_policy");
     config = std::move(candidate);
@@ -1040,7 +1066,29 @@ void Gs40TestOnlyEnvelopeSession::clear() {
 Gs40TestOnlyMaterialSource::Gs40TestOnlyMaterialSource(
     Gs40TestOnlyRuntimeConfig&& config, const S3TrustedHubTimeSource& time,
     const S3HubMonotonicClock& clock)
-    : config_(std::move(config)), time_(time), clock_(clock) {}
+    : config_(std::move(config)), time_(time), clock_(clock),
+      configuration_window_{config_.envelope_generation, config_.envelope_expiry_utc} {}
+
+Gs40TestOnlyMaterialSource::ConfigurationWindow
+Gs40TestOnlyMaterialSource::configuration_window() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return configuration_window_;
+}
+
+bool Gs40TestOnlyMaterialSource::install_configuration_renewal(
+    const Gs40TestOnlyRuntimeConfig& candidate, std::uint64_t trusted_now_utc) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!candidate.valid_material_shape() || trusted_now_utc == 0 ||
+            std::all_of(config_.configuration_identity.begin(),
+                        config_.configuration_identity.end(), [](auto v) { return v == 0; }) ||
+            candidate.configuration_identity != config_.configuration_identity ||
+            candidate.envelope_generation <= configuration_window_.generation ||
+            candidate.envelope_expiry_utc <= trusted_now_utc ||
+            candidate.envelope_expiry_utc - trusted_now_utc > 3600)
+        return false;
+    configuration_window_ = {candidate.envelope_generation, candidate.envelope_expiry_utc};
+    return true;
+}
 
 bool Gs40TestOnlyMaterialSource::install_authority_lease(
     const Gs40TestOnlyAuthorityLease& lease, std::uint64_t now_ms,
@@ -1162,6 +1210,7 @@ bool Gs40TestOnlyMaterialSource::current_material(S3CloudTrustMaterial& material
     const auto now_ms = clock_.now_ms();
     if (!lease_ready_ || now_ms < 0 || static_cast<std::uint64_t>(now_ms) >= lease_.expires_monotonic_ms ||
         !time_.trusted_hub_time(now_ms, time) || !time.trusted ||
+        time.utc_now <= 0 || static_cast<std::uint64_t>(time.utc_now) >= configuration_window_.expiry_utc ||
         time.boot_generation != lease_.boot_generation ||
         lease_.credential_generation != config_.credential_generation ||
         lease_.certificate_fingerprint_sha256 != config_.credential_fingerprint_sha256)
@@ -1194,6 +1243,7 @@ bool Gs40TestOnlyMaterialSource::bootstrap_identity(
     result.client_certificate_pem = config_.client_certificate_pem;
     result.test_only_client_private_key_pem = config_.client_private_key_pem;
     result.test_only_software_identity = true;
+    result.test_only_authority_refresh_only = true;
     result.rsa_bits = 3072;
     result.permanent_hub_id = config_.permanent_hub_id;
     result.certificate_fingerprint_sha256 = config_.credential_fingerprint_sha256;
@@ -1212,6 +1262,53 @@ bool Gs40TestOnlyBootstrapIdentityProvider::current_identity(
     TrustedHubTimeSnapshot snapshot;
     return now_ms > 0 && time_.trusted_hub_time(now_ms, snapshot) &&
         material_.bootstrap_identity(snapshot, identity);
+}
+
+bool gs40_test_only_renew_configuration(
+    Gs40TestOnlyMaterialSource& material, const S3TrustedHubTimeSource& time,
+    const S3HubMonotonicClock& clock, Gs40TestOnlyEnvelopeSession& session,
+    HttpsBackendChannel& channel) {
+    const auto fail = [&]() { session.clear(); return false; };
+    const auto started_ms = clock.now_ms();
+    TrustedHubTimeSnapshot snapshot;
+    if (started_ms <= 0 || !time.trusted_hub_time(started_ms, snapshot) ||
+            !snapshot.trusted || snapshot.utc_now <= 0 || snapshot.boot_generation == 0)
+        return fail();
+    std::array<std::uint8_t, 32> nonce{};
+    std::vector<std::uint8_t> public_key;
+    if (!session.begin(nonce, public_key)) return fail();
+    const auto& config = material.config();
+    const auto previous = material.configuration_window();
+    if (!config.valid_material_shape() || previous.generation == 0) return fail();
+    const auto body = std::string("{\"protocol\":\"GS40T/1/CONFIG\",\"hub_id\":\"") +
+        config.permanent_hub_id + "\",\"credential_generation\":" +
+        std::to_string(config.credential_generation) +
+        ",\"certificate_fingerprint_sha256\":\"" + config.credential_fingerprint_sha256 +
+        "\",\"boot_generation\":" + std::to_string(snapshot.boot_generation) +
+        ",\"nonce\":\"" + hex_bytes(nonce.data(), nonce.size()) +
+        "\",\"configuration_generation\":" + std::to_string(previous.generation) +
+        ",\"target_public_key\":\"" + hex_bytes(public_key.data(), public_key.size()) + "\"}";
+    const auto response = channel.post("/v1/test/authority/refresh", body);
+    const auto received_ms = clock.now_ms();
+    TrustedHubTimeSnapshot received_time;
+    if (!response.network_attempted || !response.server_authenticated ||
+            !response.message_complete || response.status != 200 || response.body.size() < 4 ||
+            response.body.size() > Gs40TestOnlyEnvelopeSession::kMaximumEnvelopeBytes + 4 ||
+            received_ms < started_ms || received_ms - started_ms > 30000 ||
+            !time.trusted_hub_time(received_ms, received_time) || !received_time.trusted ||
+            received_time.utc_now <= 0 || received_time.boot_generation != snapshot.boot_generation)
+        return fail();
+    const auto* frame = reinterpret_cast<const std::uint8_t*>(response.body.data());
+    const auto length = (static_cast<std::uint32_t>(frame[0]) << 24) |
+        (static_cast<std::uint32_t>(frame[1]) << 16) |
+        (static_cast<std::uint32_t>(frame[2]) << 8) | frame[3];
+    if (length != response.body.size() - 4) return fail();
+    Gs40TestOnlyRuntimeConfig candidate;
+    if (!session.accept(std::vector<std::uint8_t>(frame + 4, frame + response.body.size()), candidate) ||
+            !material.install_configuration_renewal(candidate,
+                static_cast<std::uint64_t>(received_time.utc_now)))
+        return fail();
+    return true;
 }
 
 bool gs40_test_only_refresh_authority(

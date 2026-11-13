@@ -1,0 +1,6 @@
+make: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS40_TEST_ONLY_CLOUDSYNC_BUILD=1 -Ibuild/gs40_generated -I. -Ifirmware/common/shared/include -Ifirmware/node -Ifirmware/hub -Ifirmware/common/security -Itests/cpp/p2d_idf_fake firmware/hub/target/esp32s3/https_backend_channel.cpp tests/cpp/cloudsync_mtls_adapter_validation.cpp -o build/gs40_testonly_mtls_adapter_validation
+make: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+GS-CLOUD-MTLS-TESTONLY-UT-001 PASS
+CLOUDSYNC TEST_ONLY SOFTWARE MTLS PASS cases=5 physical=NOT_RUN
+GS-CLOUD-MTLS-DEADLINE-001 PASS checks=4

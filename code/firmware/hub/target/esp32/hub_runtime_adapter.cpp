@@ -282,6 +282,7 @@ struct CloudAuthorityRefreshContext {
     const S3HubMonotonicClock* clock{nullptr};
     AuthenticatedTimeRandomSource* random{nullptr};
     HttpsBackendChannel* channel{nullptr};
+    HttpsBackendChannel* policy_channel{nullptr};
     Gs40TestOnlyAuthorityLeaseVerifier* verifier{nullptr};
     S3CloudTrustProvisioning* trust{nullptr};
     QueueHandle_t policy_queue{nullptr};
@@ -295,9 +296,40 @@ struct Gs40TestOnlyConfigurationAck {
 
 void cloud_authority_refresh_task(void* opaque) {
     auto& context = *static_cast<CloudAuthorityRefreshContext*>(opaque);
+    Milliseconds next_configuration_attempt_ms = 0;
+    unsigned configuration_retry = 0;
     for (;;) {
-        const bool refreshed =
-            gs40_test_only_refresh_time(context.material->config(), *context.time) == ESP_OK &&
+        const auto time_result =
+            gs40_test_only_recover_time(context.material->config(), *context.time);
+        bool configuration_current = false;
+        if (time_result == ESP_OK) {
+            const auto now_ms = context.clock->now_ms();
+            TrustedHubTimeSnapshot snapshot;
+            if (context.time->trusted_hub_time(now_ms, snapshot) &&
+                    snapshot.trusted && snapshot.utc_now > 0) {
+                const auto utc = static_cast<std::uint64_t>(snapshot.utc_now);
+                auto window = context.material->configuration_window();
+                const bool renewal_due = window.expiry_utc <= utc ||
+                    window.expiry_utc - utc <= 300;
+                if (renewal_due && now_ms >= next_configuration_attempt_ms) {
+                    const bool renewed = gs40_test_only_refresh_configuration(
+                        *context.material, *context.time, *context.clock, *context.channel);
+                    if (renewed) {
+                        configuration_retry = 0;
+                        next_configuration_attempt_ms = 0;
+                        ESP_LOGI(kTag, "TEST_ONLY configuration renewed; authority refresh required");
+                    } else {
+                        const auto delay_ms = 15000U << std::min(configuration_retry, 2U);
+                        configuration_retry = std::min(configuration_retry + 1U, 2U);
+                        next_configuration_attempt_ms = context.clock->now_ms() + delay_ms;
+                        ESP_LOGW(kTag, "TEST_ONLY configuration renewal pending; bounded retry");
+                    }
+                    window = context.material->configuration_window();
+                }
+                configuration_current = window.expiry_utc > utc;
+            }
+        }
+        const bool refreshed = configuration_current &&
             gs40_test_only_refresh_authority(*context.material, *context.time,
                 *context.clock, *context.random, *context.channel, *context.verifier);
         if (!refreshed) {
@@ -313,14 +345,14 @@ void cloud_authority_refresh_task(void* opaque) {
                     if (owned_ack && owned_ack->authority == current &&
                         !gs40_test_only_ack_household_config(
                             context.material->config(), current, owned_ack->version,
-                            *context.channel)) {
+                            *context.policy_channel)) {
                         ESP_LOGW(kTag, "TEST_ONLY applied-config acknowledgement remains pending");
                     }
                     ack = nullptr;
                 }
                 auto policy = std::make_unique<Gs40TestOnlyHouseholdPolicy>();
                 const auto fetched = gs40_test_only_fetch_household_config(
-                    context.material->config(), current, *context.channel, *policy);
+                    context.material->config(), current, *context.policy_channel, *policy);
                 if (fetched == Gs40TestOnlyConfigSyncResult::PolicyReady) {
                     auto* pending = policy.release();
                     if (xQueueSend(context.policy_queue, &pending, 0) != pdTRUE) {
@@ -1333,7 +1365,7 @@ void secure_owner_task(void*) {
         return;
     }
     CloudAuthorityRefreshContext refresh_context{test_material, test_time,
-        test_clock, test_random, &bootstrap_channel, test_lease_verifier,
+        test_clock, test_random, &bootstrap_channel, &cloud_composition.cloud_channel, test_lease_verifier,
         &cloud_composition.trust, config_policy_queue, config_acknowledgement_queue};
     if (!gs40_test_only_refresh_authority(*test_material, *test_time, *test_clock,
             *test_random, bootstrap_channel, *test_lease_verifier)) {

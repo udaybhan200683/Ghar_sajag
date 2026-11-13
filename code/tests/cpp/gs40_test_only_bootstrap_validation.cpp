@@ -18,6 +18,7 @@
 #include <cstring>
 #include <cstdint>
 #include <cstdlib>
+#include <functional>
 #include <iostream>
 #include <limits>
 #include <string>
@@ -26,8 +27,12 @@
 using namespace gs::hub::target;
 
 namespace gs::hub::target {
-BackendHttpResponse HttpsBackendChannel::post(const std::string&, const std::string&) {
-    return {};
+static std::function<BackendHttpResponse(const std::string&, const std::string&)> renewal_reply;
+HttpsBackendChannel::HttpsBackendChannel(std::string, std::string, std::string) {}
+HttpsBackendChannel::~HttpsBackendChannel() = default;
+BackendHttpResponse HttpsBackendChannel::get(const std::string&) { return {}; }
+BackendHttpResponse HttpsBackendChannel::post(const std::string& path, const std::string& body) {
+    return renewal_reply ? renewal_reply(path, body) : BackendHttpResponse{};
 }
 }
 
@@ -197,15 +202,17 @@ std::vector<std::uint8_t> signed_config(EVP_PKEY* signer,
     const std::string& timezone = "Etc/UTC",
     const std::string& hub_id = "test-hub-000001",
     const std::string& fixture_home_id = {},
-    bool configurable_morning = false) {
+    bool configurable_morning = false,
+    std::uint64_t configuration_generation = 1,
+    std::uint64_t configuration_expiry = 1893456000) {
     std::vector<std::uint8_t> plain{'G','4','0','P',1};
     field(plain,1,"gs40-lab"); field(plain,2,"test-passphrase");
     field(plain,3,"https://127.0.0.1:9443"); field(plain,4,"127.0.0.1");
     field(plain,5,"-----BEGIN CERTIFICATE-----\nTEST ROOT\n-----END CERTIFICATE-----\n");
     field(plain,6,"127.0.0.1"); field(plain,7,std::vector<std::uint8_t>{0x12,0x34});
     field(plain,8,time_der); field(plain,9,hub_id); field(plain,10,cert); field(plain,11,key);
-    field(plain,12,fingerprint); field(plain,13,number(1)); field(plain,14,number(1));
-    field(plain,15,number(1893456000)); field(plain,16,authority_der);
+    field(plain,12,fingerprint); field(plain,13,number(1)); field(plain,14,number(configuration_generation));
+    field(plain,15,number(configuration_expiry)); field(plain,16,authority_der);
     field(plain,17,"home1"); field(plain,18,timezone);
     field(plain,19,activity_rules(configurable_morning)); field(plain,20,std::vector<std::uint8_t>{0});
     if (!fixture_home_id.empty()) field(plain,21,fixture_home_id);
@@ -311,6 +318,139 @@ int main() {
           config.household_timezone=="Etc/UTC" &&
           config.activity_rules.morning_bedroom_location=="bedroom",
           "parsed signed Home activity configuration");
+
+    // GS40-RENEW-02: only another root-authenticated, same-material bundle
+    // may reactivate an expired configuration; a lease alone is insufficient.
+    class RenewalClock final : public S3HubMonotonicClock {
+    public:
+        gs::Milliseconds value{1000};
+        gs::Milliseconds now_ms() const override { return value; }
+    } renewal_clock;
+    class RenewalTime final : public S3TrustedHubTimeSource {
+    public:
+        gs::EpochSeconds utc{1700000000};
+        bool trusted_hub_time(gs::Milliseconds now, gs::hub::TrustedHubTimeSnapshot& out) const override {
+            out = {true, now, utc, 1}; return true;
+        }
+    } renewal_time;
+    const auto renewal_candidate = [&](std::uint64_t generation, std::uint64_t expiry,
+                                       const std::string& timezone = "Etc/UTC") {
+        Gs40TestOnlyEnvelopeSession exchange(config_der);
+        std::array<std::uint8_t,32> nonce{}; std::vector<std::uint8_t> public_key;
+        check(exchange.begin(nonce,public_key),"renewal fresh target session");
+        Gs40TestOnlyRuntimeConfig candidate;
+        check(exchange.accept(signed_config(config_root,nonce,public_key,time_der,
+            authority_der,cert,client_private,fingerprint,timezone,"test-hub-000001",{},
+            false,generation,expiry),candidate),"renewal verifies existing signed encrypted format");
+        return candidate;
+    };
+    auto initial_renewal = renewal_candidate(1,1700000030);
+    initial_renewal.clear_wifi_secret();
+    Gs40TestOnlyMaterialSource renewable(std::move(initial_renewal),renewal_time,renewal_clock);
+    Gs40TestOnlyAuthorityLease active;
+    active.binding = {"home1","test-hub-000001",1};
+    active.authority_revision=1;active.credential_generation=1;
+    active.certificate_fingerprint_sha256=fingerprint;active.boot_generation=1;
+    active.expires_monotonic_ms=61000;active.active=true;
+    check(renewable.install_authority_lease(active,1000,1),"initial current authority installed");
+    S3CloudTrustMaterial publication;
+    check(renewable.current_material(publication),"current configuration and lease allow publication");
+    CloudTlsIdentity recovery_identity;
+    gs::hub::TrustedHubTimeSnapshot recovery_time{true,1000,1700000000,1};
+    check(renewable.bootstrap_identity(recovery_time,recovery_identity) &&
+          recovery_identity.permits_test_route("/v1/test/authority/refresh",false) &&
+          !recovery_identity.permits_test_route("/v1/test/authority/refresh",true) &&
+          !recovery_identity.permits_test_route("/v1/homes/home1/events",false) &&
+          !recovery_identity.permits_test_route("/v1/homes/home1/node-health",false),
+          "recovery identity cannot publish events or obtain policy");
+    renewal_time.utc=1700000031;renewal_clock.value=32000;
+    check(!renewable.current_material(publication),"configuration expiry fences even an unexpired authority lease");
+    check(!renewable.install_configuration_renewal(renewal_candidate(1,1700001000),1700000031),
+          "configuration generation replay rejected");
+    check(!renewable.install_configuration_renewal(renewal_candidate(2,1700000030),1700000031),
+          "expired signed renewal rejected");
+    check(!renewable.install_configuration_renewal(renewal_candidate(2,1700010000),1700000031),
+          "unbounded configuration lifetime rejected");
+    check(!renewable.install_configuration_renewal(renewal_candidate(2,1700001000,"Asia/Kolkata"),1700000031),
+          "signed material substitution rejected");
+    check(renewable.install_configuration_renewal(renewal_candidate(2,1700003631),1700000031),
+          "fresh signed same-material bundle recovers expired window after Wi-Fi secret wiping");
+    check(renewable.current_material(publication),"fresh configuration plus current lease resumes publication");
+    for(std::uint64_t cycle=3;cycle<=6;++cycle) {
+        renewal_time.utc+=3500;renewal_clock.value+=3500000;
+        const auto utc=static_cast<std::uint64_t>(renewal_time.utc);
+        check(renewable.install_configuration_renewal(renewal_candidate(cycle,utc+3600),utc),
+              "consecutive configuration cycle accepted without reboot");
+        check(!renewable.current_material(publication),"renewed configuration does not rescue expired authority");
+        active.expires_monotonic_ms=static_cast<std::uint64_t>(renewal_clock.value)+60000;
+        check(renewable.install_authority_lease(active,renewal_clock.value,1) &&
+              renewable.current_material(publication),"fresh authority resumes each renewal cycle");
+    }
+
+    // Execute the real request/verification orchestration, with only HTTP mocked.
+    HttpsBackendChannel renewal_channel("https://test.invalid", "", "");
+    Gs40TestOnlyEnvelopeSession http_session(config_der);
+    unsigned renewal_requests=0;
+    renewal_reply = [&](const std::string& path, const std::string& body) {
+        ++renewal_requests;
+        check(path=="/v1/test/authority/refresh", "renewal uses existing restricted endpoint");
+        const auto hex_field = [&](const std::string& name) {
+            const auto start=body.find("\""+name+"\":\"");
+            check(start!=std::string::npos,"renewal challenge field present");
+            const auto value_start=start+name.size()+4;
+            const auto end=body.find('"',value_start);
+            const auto value=body.substr(value_start,end-value_start);
+            std::vector<std::uint8_t> decoded;
+            for(std::size_t i=0;i<value.size();i+=2)
+                decoded.push_back(static_cast<std::uint8_t>(std::stoul(value.substr(i,2),nullptr,16)));
+            return decoded;
+        };
+        const auto nonce_bytes=hex_field("nonce");
+        std::array<std::uint8_t,32> nonce{};
+        check(nonce_bytes.size()==nonce.size(),"renewal nonce size");
+        std::copy(nonce_bytes.begin(),nonce_bytes.end(),nonce.begin());
+        const auto encrypted=signed_config(config_root,nonce,hex_field("target_public_key"),
+            time_der,authority_der,cert,client_private,fingerprint,"Etc/UTC",
+            "test-hub-000001",{},false,7,renewal_time.utc+3600);
+        gs::hub::BackendHttpResponse response;
+        response.network_attempted=true;response.server_authenticated=true;
+        response.message_complete=true;response.status=200;
+        for(int shift=24;shift>=0;shift-=8)
+            response.body.push_back(static_cast<char>((encrypted.size()>>shift)&255));
+        response.body.append(reinterpret_cast<const char*>(encrypted.data()),encrypted.size());
+        return response;
+    };
+    check(gs40_test_only_renew_configuration(renewable,renewal_time,renewal_clock,
+          http_session,renewal_channel) && renewal_requests==1 &&
+          renewable.configuration_window().generation==7,
+          "one fresh HTTP exchange installs authenticated configuration");
+    const auto valid_renewal_reply = renewal_reply;
+    renewal_reply = [&](const std::string& path,const std::string& body) {
+        auto response=valid_renewal_reply(path,body);
+        response.body.back() ^= 1;
+        return response;
+    };
+    check(!gs40_test_only_renew_configuration(renewable,renewal_time,renewal_clock,
+          http_session,renewal_channel) && renewable.configuration_window().generation==7,
+          "tampered encrypted HTTP envelope preserves admitted configuration");
+    renewal_reply = [&](const std::string& path,const std::string& body) {
+        auto response=valid_renewal_reply(path,body);
+        response.server_authenticated=false;
+        return response;
+    };
+    check(!gs40_test_only_renew_configuration(renewable,renewal_time,renewal_clock,
+          http_session,renewal_channel) && renewable.configuration_window().generation==7,
+          "unauthenticated transport cannot renew configuration");
+    renewal_reply = [&](const std::string&,const std::string&) {
+        ++renewal_requests;
+        gs::hub::BackendHttpResponse unavailable;unavailable.network_attempted=true;
+        unavailable.status=503;return unavailable;
+    };
+    check(!gs40_test_only_renew_configuration(renewable,renewal_time,renewal_clock,
+          http_session,renewal_channel) && renewal_requests==4 &&
+          renewable.configuration_window().generation==7,
+          "outage preserves configuration and performs no hidden retry");
+    renewal_reply = {};
 
     Gs40TestOnlyEnvelopeSession configurable_session(config_der);
     std::array<std::uint8_t,32> configurable_challenge{};

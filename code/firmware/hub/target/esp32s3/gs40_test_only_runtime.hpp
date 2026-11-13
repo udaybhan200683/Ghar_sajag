@@ -61,6 +61,14 @@ bool gs40_test_only_local_minute(const Gs40TestOnlyRuntimeConfig& config,
 esp_err_t gs40_test_only_refresh_time(
     const Gs40TestOnlyRuntimeConfig& config,
     AuthenticatedHubTimeProvider& time_provider);
+// Authenticated time for the restricted mTLS configuration recovery path.
+// Does not make expired configuration or publication authority current.
+esp_err_t gs40_test_only_recover_time(
+    const Gs40TestOnlyRuntimeConfig& config,
+    AuthenticatedHubTimeProvider& time_provider);
+bool gs40_test_only_refresh_configuration(
+    Gs40TestOnlyMaterialSource& material, const S3TrustedHubTimeSource& time,
+    const S3HubMonotonicClock& clock, HttpsBackendChannel& channel);
 esp_err_t gs40_test_only_bootstrap_time(
     const Gs40TestOnlyRuntimeConfig& config,
     AuthenticatedTimeFloorStore& floor_store,

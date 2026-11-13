@@ -1,0 +1,36 @@
+Executing action: all (aliases: build)
+Running ninja in directory /home/udaybhan/projects/Ghar_sajag_r1/code/build/validation_targets/gs40-config-a92bd821
+Executing "ninja all"...
+[1/9] Performing build step for 'bootloader'
+[1/1] cd /home/udaybhan/projects/Ghar_sajag_r1/code/build/validation_targets/gs40-config-a92bd821/bootloader && /home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/bin/python /home/udaybhan/.espressif/v6.0.3/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x0 /home/udaybhan/projects/Ghar_sajag_r1/code/build/validation_targets/gs40-config-a92bd821/bootloader/bootloader.bin
+Bootloader binary size 0x5330 bytes. 0x2cd0 bytes (35%) free.
+[2/9] No install step for 'bootloader'
+[3/9] Completed 'bootloader'
+[4/9] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/home/udaybhan/projects/Ghar_sajag_r1/code/firmware/hub/target/esp32/hub_runtime_adapter.cpp.obj
+/home/udaybhan/projects/Ghar_sajag_r1/code/firmware/hub/target/esp32/hub_runtime_adapter.cpp: In function 'void gs::hub::target::{anonymous}::secure_owner_task(void*)':
+/home/udaybhan/projects/Ghar_sajag_r1/code/firmware/hub/target/esp32/hub_runtime_adapter.cpp:1988:24: warning: unused variable 'retirement_ack_sent' [-Wunused-variable]
+ 1988 |             const auto retirement_ack_sent = esp_now_send(
+      |                        ^~~~~~~~~~~~~~~~~~~
+[5/9] Linking C static library esp-idf/main/libmain.a
+[6/9] Generating esp-idf/esp_system/ld/sections.ld
+NOTE: /home/udaybhan/.espressif/v6.0.3/esp-idf/components/bt/host/nimble/Kconfig.in:1453: BT_NIMBLE_MESH_PROVISIONER: 'default 0' is not a valid bool value (only 'y' and 'n' are allowed). Value is treated as 'n'.
+NOTE: /home/udaybhan/.espressif/v6.0.3/esp-idf/components/fatfs/Kconfig:230: FATFS_PRINT_LLI: 'default 0' is not a valid bool value (only 'y' and 'n' are allowed). Value is treated as 'n'.
+NOTE: /home/udaybhan/.espressif/v6.0.3/esp-idf/components/fatfs/Kconfig:235: FATFS_PRINT_FLOAT: 'default 0' is not a valid bool value (only 'y' and 'n' are allowed). Value is treated as 'n'.
+[7/9] Linking CXX executable gs_r1_s3_hub.elf; Checking ioctl definition overlaps
+[8/9] Generating binary image from built executable
+esptool v5.4.0
+Creating ESP32-S3 image...
+Merged 3 ELF sections.
+Successfully created ESP32-S3 image.
+Generated /home/udaybhan/projects/Ghar_sajag_r1/code/build/validation_targets/gs40-config-a92bd821/gs_r1_s3_hub.bin
+[9/9] cd /home/udaybhan/projects/Ghar_sajag_r1/code/build/validation_targets/gs40-config-a92bd821 && /home/udaybhan/.espressif/python_env/idf6.0_py3.14_env/bin/python /home/udaybhan/.espressif/v6.0.3/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app /home/udaybhan/projects/Ghar_sajag_r1/code/build/validation_targets/gs40-config-a92bd821/partition_table/partition-table.bin /home/udaybhan/projects/Ghar_sajag_r1/code/build/validation_targets/gs40-config-a92bd821/gs_r1_s3_hub.bin
+gs_r1_s3_hub.bin binary size 0x22c870 bytes. Smallest app partition is 0x400000 bytes. 0x1d3790 bytes (46%) free.
+
+Project build complete. To flash, run:
+ idf.py flash
+or
+ idf.py -p PORT flash
+or
+ python -m esptool --chip esp32s3 -b 460800 --before default-reset --after hard-reset write-flash --flash-mode dio --flash-size 16MB --flash-freq 40m 0x0 code/build/validation_targets/gs40-config-a92bd821/bootloader/bootloader.bin 0x8000 code/build/validation_targets/gs40-config-a92bd821/partition_table/partition-table.bin 0xf000 code/build/validation_targets/gs40-config-a92bd821/ota_data_initial.bin 0x20000 code/build/validation_targets/gs40-config-a92bd821/gs_r1_s3_hub.bin
+or from the "/home/udaybhan/projects/Ghar_sajag_r1/code/build/validation_targets/gs40-config-a92bd821" directory
+ python -m esptool --chip esp32s3 -b 460800 --before default-reset --after hard-reset write-flash "@flash_args"

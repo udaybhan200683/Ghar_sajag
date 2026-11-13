@@ -534,3 +534,11 @@ GS179 authenticated local maintenance and standard ADMIN/OWNER memberships for
 the same account, with audit/revocation and no production/cross-Home scope.
 Raw motion and activity-rule policy prerequisites are separate; DECISION_LOG.md
 and release contract govern. Execution remains in existing GS117 handoff.
+
+GS-40 runtime renewal (2026-11-13):
+[renewal source design/evidence](../exec-plans/evidence/GS40_RUNTIME_CONFIGURATION_RENEWAL_20261113.md)
+is IMPLEMENTATION_DESIGN / TEST_EVIDENCE for owner12072/12073. It reuses the
+TEST_ONLY configuration and mTLS authority mechanisms; it does not define a new
+production provisioning contract or supersede locked expiry/ownership rules.
+Source/build PASS is distinct from unexecuted deployment, physical recovery and
+endurance. Original event141/1 remains the required recovery target.

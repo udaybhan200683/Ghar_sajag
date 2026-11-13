@@ -61,6 +61,9 @@ struct Gs40TestOnlyRuntimeConfig {
     std::uint64_t credential_generation{0};
     std::uint64_t envelope_generation{0};
     std::uint64_t envelope_expiry_utc{0};
+    // Identity of the signed payload excluding only generation/expiry. Remains
+    // available after Wi-Fi secret wiping; never authorizes publication itself.
+    std::array<std::uint8_t, 32> configuration_identity{};
     // Optional authenticated Home behavior snapshot used only by the isolated
     // GS-40 product profile. It is enabled only when the signed envelope's
     // Home matches the live authority lease. The bounded target timezone adapter
@@ -149,6 +152,10 @@ private:
 
 class Gs40TestOnlyMaterialSource final : public S3CloudTrustMaterialSource {
 public:
+    struct ConfigurationWindow {
+        std::uint64_t generation{0};
+        std::uint64_t expiry_utc{0};
+    };
     Gs40TestOnlyMaterialSource(Gs40TestOnlyRuntimeConfig&& config,
                                const S3TrustedHubTimeSource& time,
                                const S3HubMonotonicClock& clock);
@@ -156,6 +163,9 @@ public:
                                 std::uint64_t now_monotonic_ms,
                                 std::uint64_t current_boot_generation);
     void invalidate();
+    ConfigurationWindow configuration_window() const;
+    bool install_configuration_renewal(const Gs40TestOnlyRuntimeConfig& candidate,
+                                      std::uint64_t trusted_now_utc);
     bool current_material(S3CloudTrustMaterial& material) const override;
     bool bootstrap_identity(const TrustedHubTimeSnapshot& time,
                             CloudTlsIdentity& identity) const;
@@ -168,6 +178,7 @@ private:
     const S3HubMonotonicClock& clock_;
     Gs40TestOnlyAuthorityLease lease_;
     bool lease_ready_{false};
+    ConfigurationWindow configuration_window_;
 };
 
 // Initial mTLS identity is allowed to call only the test authority refresh
@@ -207,5 +218,12 @@ bool gs40_test_only_refresh_authority(
     AuthenticatedTimeRandomSource& random,
     HttpsBackendChannel& channel,
     Gs40TestOnlyAuthorityLeaseVerifier& verifier);
+
+bool gs40_test_only_renew_configuration(
+    Gs40TestOnlyMaterialSource& material,
+    const S3TrustedHubTimeSource& time,
+    const S3HubMonotonicClock& clock,
+    Gs40TestOnlyEnvelopeSession& session,
+    HttpsBackendChannel& channel);
 
 }  // namespace gs::hub::target

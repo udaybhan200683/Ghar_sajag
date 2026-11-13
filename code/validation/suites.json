@@ -1317,7 +1317,7 @@
       "success": "^CLOUDSYNC MTLS ADAPTER PASS cases=(9) physical=NOT_RUN$",
       "required_success": [
         "Ran 14 tests",
-        "Ran 10 tests",
+        "Ran 15 tests",
         "Ran 13 tests",
         "^CLOUDSYNC TEST_ONLY SOFTWARE MTLS PASS cases=5 physical=NOT_RUN$",
         "GS-CLOUD-TRUST-PROVIDER PASS suites=5 physical=NOT_RUN",

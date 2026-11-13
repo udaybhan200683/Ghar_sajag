@@ -1,0 +1,103 @@
+make: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DCONFIG_ESP_TLS_USE_DS_PERIPHERAL=1 -Ibuild/gs40_generated -I. -Ifirmware/common/shared/include -Ifirmware/node -Ifirmware/hub -Ifirmware/common/security -Itests/cpp/p2d_idf_fake firmware/hub/target/esp32s3/https_backend_channel.cpp tests/cpp/cloudsync_mtls_adapter_validation.cpp -o build/cloudsync_mtls_adapter_validation
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS40_TEST_ONLY_CLOUDSYNC_BUILD=1 -Ibuild/gs40_generated -I. -Ifirmware/common/shared/include -Ifirmware/node -Ifirmware/hub -Ifirmware/common/security -Itests/cpp/p2d_idf_fake firmware/hub/target/esp32s3/https_backend_channel.cpp tests/cpp/cloudsync_mtls_adapter_validation.cpp -o build/gs40_testonly_mtls_adapter_validation
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_CLOUD_TRUST_TEST_ONLY_FIXTURE=1 -DGS40_TEST_ONLY_CLOUDSYNC_BUILD=1 -pthread -DGS_ENABLE_TRACE=0 -Ibuild/gs40_generated -I. -Ifirmware/common/shared/include -Ifirmware/node -Ifirmware/hub -Ifirmware/common/security build/obj/base/a38e3d41a9bf5fdf/firmware/common/shared/src/rules.o build/obj/base/a38e3d41a9bf5fdf/firmware/common/shared/src/logging.o build/obj/base/a38e3d41a9bf5fdf/tests/support/host/logging/file_log_sink.o build/obj/base/a38e3d41a9bf5fdf/firmware/common/transport/data_plane_codec.o build/obj/base/a38e3d41a9bf5fdf/firmware/common/transport/node_retirement_protocol.o build/obj/base/a38e3d41a9bf5fdf/firmware/common/transport/session_id.o build/obj/base/a38e3d41a9bf5fdf/firmware/node/sensing/sensing.o build/obj/base/a38e3d41a9bf5fdf/firmware/node/communication/radio/node_radio.o build/obj/base/a38e3d41a9bf5fdf/firmware/node/power/power.o build/obj/base/a38e3d41a9bf5fdf/firmware/node/lifecycle/lifecycle.o build/obj/base/a38e3d41a9bf5fdf/firmware/node/storage/node_store.o build/obj/base/a38e3d41a9bf5fdf/firmware/node/lifecycle/fota/fota_receiver.o build/obj/base/a38e3d41a9bf5fdf/firmware/node/runtime/node_runtime.o build/obj/base/a38e3d41a9bf5fdf/firmware/hub/event_processing/ingest/ingest.o build/obj/base/a38e3d41a9bf5fdf/firmware/hub/commissioning/registry/node_registry.o build/obj/base/a38e3d41a9bf5fdf/firmware/hub/storage/journal.o build/obj/base/a38e3d41a9bf5fdf/firmware/hub/storage/durable_transition.o build/obj/base/a38e3d41a9bf5fdf/firmware/hub/storage/node_retirement_snapshot.o build/obj/base/a38e3d41a9bf5fdf/firmware/hub/storage/hub_durability_owner.o build/obj/base/a38e3d41a9bf5fdf/firmware/hub/storage/durable_journal_slot_store.o build/obj/base/a38e3d41a9bf5fdf/firmware/hub/runtime/time/clock.o build/obj/base/a38e3d41a9bf5fdf/firmware/hub/event_processing/coverage/coverage.o build/obj/base/a38e3d41a9bf5fdf/firmware/hub/routines/routine_service.o build/obj/base/a38e3d41a9bf5fdf/firmware/hub/runtime/ui/resident_ui.o build/obj/base/a38e3d41a9bf5fdf/firmware/hub/lifecycle/configuration/config_service.o build/obj/base/a38e3d41a9bf5fdf/firmware/hub/cloud_sync/cloud_sync.o build/obj/base/a38e3d41a9bf5fdf/firmware/hub/runtime/hub_runtime.o build/obj/base/a38e3d41a9bf5fdf/firmware/hub/runtime/hub_checkpoint_codec.o build/obj/base/a38e3d41a9bf5fdf/firmware/hub/storage/runtime_state_store.o build/obj/base/a38e3d41a9bf5fdf/firmware/common/security/security.o build/obj/base/a38e3d41a9bf5fdf/firmware/hub/storage/durable_event_outbox.o build/obj/base/a38e3d41a9bf5fdf/tests/support/host/security/openssl_commissioning_crypto.o firmware/hub/target/esp32s3/cloud_trust_provider.cpp firmware/hub/target/esp32s3/gs40_test_only_bootstrap.cpp tests/cpp/cloud_trust_provider_validation.cpp -lcrypto -o build/cloud_trust_provider_validation
+build/cloudsync_mtls_adapter_validation
+GS-CLOUD-MTLS-UT-001 PASS
+GS-CLOUD-MTLS-UT-002 PASS
+GS-CLOUD-MTLS-UT-003 PASS
+GS-CLOUD-MTLS-UT-004 PASS
+GS-CLOUD-MTLS-UT-005 PASS
+GS-CLOUD-MTLS-UT-006 PASS
+GS-CLOUD-MTLS-UT-007 PASS
+GS-CLOUD-MTLS-UT-008 PASS
+GS-CLOUD-MTLS-UT-009 PASS
+CLOUDSYNC MTLS ADAPTER PASS cases=9 physical=NOT_RUN
+GS-CLOUD-MTLS-DEADLINE-001 PASS checks=4
+build/gs40_testonly_mtls_adapter_validation
+GS-CLOUD-MTLS-TESTONLY-UT-001 PASS
+CLOUDSYNC TEST_ONLY SOFTWARE MTLS PASS cases=5 physical=NOT_RUN
+GS-CLOUD-MTLS-DEADLINE-001 PASS checks=4
+build/cloud_trust_provider_validation
+GS68-D05-AUTHORITY-PROVIDER PASS
+GS68-D05-CERT-VALIDITY-001 PASS
+GS117-CLOUD-PAIR-001 PASS PKCS1/PKCS8/wrong-key
+GS117-CLOUD-PAIR-CACHE-001 PASS immutable-proof/live-authority
+GS68-D12-CREDENTIAL-PROVIDER PASS
+GS68-D06-TIME-STATE-MACHINE PASS
+GS68-D06-SIGNED-PROOF-CRYPTO PASS
+GS40-PROVIDER-CLOUDSYNC-INTEGRATION PASS
+GS-CLOUD-TRUST-PROVIDER PASS suites=5 physical=NOT_RUN
+PYTHONPATH=backend:. python3 -m unittest discover -s tests/support -p 'test_cloudsync_security.py' -v
+test_001_valid_dedicated_rsa3072_maps_current_owner (test_cloudsync_security.CloudSyncSecurityTest.test_001_valid_dedicated_rsa3072_maps_current_owner) ... ok
+test_002_unknown_or_cloned_identity_rejected (test_cloudsync_security.CloudSyncSecurityTest.test_002_unknown_or_cloned_identity_rejected) ... ok
+test_003_revoked_credential_rejected (test_cloudsync_security.CloudSyncSecurityTest.test_003_revoked_credential_rejected) ... ok
+test_004_wrong_signing_purpose_rejected (test_cloudsync_security.CloudSyncSecurityTest.test_004_wrong_signing_purpose_rejected) ... ok
+test_005_unsupported_algorithm_rejected (test_cloudsync_security.CloudSyncSecurityTest.test_005_unsupported_algorithm_rejected) ... ok
+test_006_wrong_key_size_rejected (test_cloudsync_security.CloudSyncSecurityTest.test_006_wrong_key_size_rejected) ... ok
+test_007_expired_certificate_rejected (test_cloudsync_security.CloudSyncSecurityTest.test_007_expired_certificate_rejected) ... ok
+test_008_trusted_time_required (test_cloudsync_security.CloudSyncSecurityTest.test_008_trusted_time_required) ... ok
+test_009_missing_and_corrupt_certificate_rejected (test_cloudsync_security.CloudSyncSecurityTest.test_009_missing_and_corrupt_certificate_rejected) ... ok
+test_010_wrong_eku_rejected (test_cloudsync_security.CloudSyncSecurityTest.test_010_wrong_eku_rejected) ... ok
+test_011_missing_ownership_or_transfer_rejected (test_cloudsync_security.CloudSyncSecurityTest.test_011_missing_ownership_or_transfer_rejected) ... ok
+test_012_repeated_lookup_preserves_state (test_cloudsync_security.CloudSyncSecurityTest.test_012_repeated_lookup_preserves_state) ... ok
+test_013_typed_context_binds_current_home_epoch_and_time_readiness (test_cloudsync_security.CloudSyncSecurityTest.test_013_typed_context_binds_current_home_epoch_and_time_readiness) ... ok
+test_014_not_yet_valid_certificate_rejected (test_cloudsync_security.CloudSyncSecurityTest.test_014_not_yet_valid_certificate_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 3.939s
+
+OK
+PYTHONPATH=backend:. python3 -m unittest discover -s tests/support -p 'test_gs68_gs40_identity_time_e2e.py' -v
+test_001_issued_identity_mtls_nodehealth_and_caregiver_status (test_gs68_gs40_identity_time_e2e.Gs68Gs40IdentityTimeE2eTest.test_001_issued_identity_mtls_nodehealth_and_caregiver_status) ... ok
+test_002_ownership_transfer_and_credential_revocation_fail_closed (test_gs68_gs40_identity_time_e2e.Gs68Gs40IdentityTimeE2eTest.test_002_ownership_transfer_and_credential_revocation_fail_closed) ... ok
+test_003_credential_revocation_fails_closed_after_tls_chain_validation (test_gs68_gs40_identity_time_e2e.Gs68Gs40IdentityTimeE2eTest.test_003_credential_revocation_fails_closed_after_tls_chain_validation) ... ok
+test_004_expired_and_wrong_source_credentials_rejected (test_gs68_gs40_identity_time_e2e.Gs68Gs40IdentityTimeE2eTest.test_004_expired_and_wrong_source_credentials_rejected) ... ok
+test_005_gs117_physical_config_is_exact_fixture_only (test_gs68_gs40_identity_time_e2e.Gs68Gs40IdentityTimeE2eTest.test_005_gs117_physical_config_is_exact_fixture_only) ... ok
+test_005a_morning_rule_encoder_preserves_legacy_and_emits_bounded_ar2 (test_gs68_gs40_identity_time_e2e.Gs68Gs40IdentityTimeE2eTest.test_005a_morning_rule_encoder_preserves_legacy_and_emits_bounded_ar2) ... ok
+test_006_gs117_physical_authority_is_bound_to_exact_home (test_gs68_gs40_identity_time_e2e.Gs68Gs40IdentityTimeE2eTest.test_006_gs117_physical_authority_is_bound_to_exact_home) ... ok
+test_007_persistent_physical_fixture_certificate_mtls_and_home_rejection (test_gs68_gs40_identity_time_e2e.Gs68Gs40IdentityTimeE2eTest.test_007_persistent_physical_fixture_certificate_mtls_and_home_rejection) ... ok
+test_008_signed_time_reuses_injected_key_over_existing_udp_carrier (test_gs68_gs40_identity_time_e2e.Gs68Gs40IdentityTimeE2eTest.test_008_signed_time_reuses_injected_key_over_existing_udp_carrier) ... ok
+test_009_time_private_binding_is_explicit_and_never_wildcard_or_public (test_gs68_gs40_identity_time_e2e.Gs68Gs40IdentityTimeE2eTest.test_009_time_private_binding_is_explicit_and_never_wildcard_or_public) ... ok
+test_fresh_signed_configuration_recovers_expiry_and_repeats (test_gs68_gs40_identity_time_e2e.RuntimeConfigurationRenewalTest.test_fresh_signed_configuration_recovers_expiry_and_repeats) ... ok
+test_missing_issuer_and_failed_authentication_cannot_renew (test_gs68_gs40_identity_time_e2e.RuntimeConfigurationRenewalTest.test_missing_issuer_and_failed_authentication_cannot_renew) ... ok
+test_renewal_rejects_wrong_context_generation_key_and_replay (test_gs68_gs40_identity_time_e2e.RuntimeConfigurationRenewalTest.test_renewal_rejects_wrong_context_generation_key_and_replay) ... ok
+test_replay_window_does_not_become_lifetime_renewal_limit (test_gs68_gs40_identity_time_e2e.RuntimeConfigurationRenewalTest.test_replay_window_does_not_become_lifetime_renewal_limit) ... ok
+test_signed_time_counter_does_not_stop_available_service (test_gs68_gs40_identity_time_e2e.RuntimeConfigurationRenewalTest.test_signed_time_counter_does_not_stop_available_service) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 23.360s
+
+OK
+PYTHONPATH=backend:. python3 -m unittest discover -s tests/python -p 'test_gs168_pilot_issuer.py' -v
+test_backend_registry_adapter_tracks_active_revoked_and_unknown_rows (test_gs168_pilot_issuer.PilotIssuerTests.test_backend_registry_adapter_tracks_active_revoked_and_unknown_rows) ... ok
+test_expiry_and_future_start (test_gs168_pilot_issuer.PilotIssuerTests.test_expiry_and_future_start) ... ok
+test_fixture_authority_rejects_changed_certificate_key_and_expiry (test_gs168_pilot_issuer.PilotIssuerTests.test_fixture_authority_rejects_changed_certificate_key_and_expiry) ... ok
+test_fixture_authority_rejects_partial_symlink_and_public_files (test_gs168_pilot_issuer.PilotIssuerTests.test_fixture_authority_rejects_partial_symlink_and_public_files) ... ok
+test_invalid_hub_id_and_key_type_rejected (test_gs168_pilot_issuer.PilotIssuerTests.test_invalid_hub_id_and_key_type_rejected) ... ok
+test_issue_csr_binding_and_verify (test_gs168_pilot_issuer.PilotIssuerTests.test_issue_csr_binding_and_verify) ... ok
+test_no_duplicate_issue_and_clean_renewal (test_gs168_pilot_issuer.PilotIssuerTests.test_no_duplicate_issue_and_clean_renewal) ... ok
+test_outage_recovery_and_metadata_restart (test_gs168_pilot_issuer.PilotIssuerTests.test_outage_recovery_and_metadata_restart) ... ok
+test_physical_fixture_authority_persists_and_is_namespace_isolated (test_gs168_pilot_issuer.PilotIssuerTests.test_physical_fixture_authority_persists_and_is_namespace_isolated) ... ok
+test_production_namespace_and_safe_inventory (test_gs168_pilot_issuer.PilotIssuerTests.test_production_namespace_and_safe_inventory) ... ok
+test_revoke_and_no_implicit_reissue (test_gs168_pilot_issuer.PilotIssuerTests.test_revoke_and_no_implicit_reissue) ... ok
+test_sequential_batch (test_gs168_pilot_issuer.PilotIssuerTests.test_sequential_batch) ... ok
+test_wrong_hub_and_wrong_csr_public_key (test_gs168_pilot_issuer.PilotIssuerTests.test_wrong_hub_and_wrong_csr_public_key) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 11.647s
+
+OK
+PYTHONPATH=backend:. python3 -m unittest discover -s tests/python -p 'test_node_health_status.py' -v
+test_authenticated_ingest_flows_to_snapshot_with_distinct_times (test_node_health_status.NodeHealthStatusTest.test_authenticated_ingest_flows_to_snapshot_with_distinct_times) ... ok
+test_authenticated_profiled_contact_and_independent_freshness (test_node_health_status.NodeHealthStatusTest.test_authenticated_profiled_contact_and_independent_freshness) ... ok
+test_never_seen_active_enrollment_is_unknown_until_authenticated_contact (test_node_health_status.NodeHealthStatusTest.test_never_seen_active_enrollment_is_unknown_until_authenticated_contact) ... ok
+test_read_model_rejects_replaced_hub_key_fingerprint (test_node_health_status.NodeHealthStatusTest.test_read_model_rejects_replaced_hub_key_fingerprint) ... ok
+test_rechecks_transfer_epoch_and_rejects_boolean_as_integer (test_node_health_status.NodeHealthStatusTest.test_rechecks_transfer_epoch_and_rejects_boolean_as_integer) ... ok
+test_rejects_untrusted_context_home_epoch_node_profile_and_replay (test_node_health_status.NodeHealthStatusTest.test_rejects_untrusted_context_home_epoch_node_profile_and_replay) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.159s
+
+OK
+make: Leaving directory '/home/udaybhan/projects/Ghar_sajag_r1/code'

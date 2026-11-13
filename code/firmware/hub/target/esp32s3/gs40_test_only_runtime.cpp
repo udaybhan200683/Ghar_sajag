@@ -421,9 +421,9 @@ esp_err_t gs40_test_only_bootstrap_time(
     return gs40_test_only_refresh_time(config, time_provider);
 }
 
-esp_err_t gs40_test_only_refresh_time(
+static esp_err_t refresh_authenticated_time(
     const Gs40TestOnlyRuntimeConfig& config,
-    AuthenticatedHubTimeProvider& time_provider) {
+    AuthenticatedHubTimeProvider& time_provider, bool enforce_envelope_expiry) {
     if (!config.valid_material_shape()) return ESP_ERR_INVALID_STATE;
     auto* netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
     esp_netif_ip_info_t ip{};
@@ -470,13 +470,36 @@ esp_err_t gs40_test_only_refresh_time(
     TrustedHubTimeSnapshot snapshot;
     const auto now_ms = static_cast<Milliseconds>(esp_timer_get_time() / 1000);
     if (!time_provider.trusted_hub_time(now_ms, snapshot) || !snapshot.trusted || snapshot.utc_now <= 0 ||
-        static_cast<std::uint64_t>(snapshot.utc_now) >= config.envelope_expiry_utc)
+        (enforce_envelope_expiry &&
+         static_cast<std::uint64_t>(snapshot.utc_now) >= config.envelope_expiry_utc))
         return ESP_ERR_INVALID_STATE;
     timeval clock{};
     clock.tv_sec = static_cast<time_t>(snapshot.utc_now);
     if (static_cast<std::int64_t>(clock.tv_sec) != snapshot.utc_now || settimeofday(&clock, nullptr) != 0)
         return ESP_FAIL;
     return ESP_OK;
+}
+
+esp_err_t gs40_test_only_refresh_time(
+    const Gs40TestOnlyRuntimeConfig& config, AuthenticatedHubTimeProvider& time_provider) {
+    return refresh_authenticated_time(config, time_provider, true);
+}
+
+esp_err_t gs40_test_only_recover_time(
+    const Gs40TestOnlyRuntimeConfig& config, AuthenticatedHubTimeProvider& time_provider) {
+    return refresh_authenticated_time(config, time_provider, false);
+}
+
+bool gs40_test_only_refresh_configuration(
+    Gs40TestOnlyMaterialSource& material, const S3TrustedHubTimeSource& time,
+    const S3HubMonotonicClock& clock, HttpsBackendChannel& channel) {
+    const auto root_size = static_cast<std::size_t>(
+        _binary_gs40_test_config_root_der_end - _binary_gs40_test_config_root_der_start);
+    if (root_size == 0 || root_size > 2048) return false;
+    Gs40TestOnlyEnvelopeSession session(std::vector<std::uint8_t>(
+        _binary_gs40_test_config_root_der_start,
+        _binary_gs40_test_config_root_der_start + root_size));
+    return gs40_test_only_renew_configuration(material, time, clock, session, channel);
 }
 
 esp_err_t gs40_test_only_connect_wifi(Gs40TestOnlyRuntimeConfig& config) {

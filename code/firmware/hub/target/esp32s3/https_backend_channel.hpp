@@ -13,6 +13,11 @@ struct CloudTlsIdentity {
     // builds and is accepted only for identities explicitly marked TEST_ONLY.
     std::string test_only_client_private_key_pem;
     bool test_only_software_identity{false};
+    bool test_only_authority_refresh_only{false};
+    bool permits_test_route(const std::string& path, bool get_request) const {
+        return !test_only_authority_refresh_only ||
+            (!get_request && path == "/v1/test/authority/refresh");
+    }
 #endif
     void* ds_context{nullptr};
     unsigned rsa_bits{0};

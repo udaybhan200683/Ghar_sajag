@@ -391,5 +391,126 @@ class Gs68Gs40IdentityTimeE2eTest(unittest.TestCase):
                     SignedTimeService(**options)
                 constructor.assert_not_called()
 
+class RuntimeConfigurationRenewalTest(unittest.TestCase):
+    """GS40-RENEW-01: current mTLS authority reuses the existing encrypted envelope."""
+    @classmethod
+    def setUpClass(cls):
+        cls.authority_signer = rsa3072()
+        cls.configuration_signer = rsa3072()
+
+    def setUp(self):
+        self.now = 1700000000
+        self.context = SimpleNamespace(permanent_hub_id=PHYSICAL_GS117_HUB,
+            home_id=PHYSICAL_GS117_HOME, certificate_fingerprint_sha256="a" * 64,
+            installation_epoch=1)
+        self.issuer = SimpleNamespace(by_fingerprint=lambda _: SimpleNamespace(generation=2))
+        self.fields = {index: b"fixture" for index in range(1, 17)}
+        self.fields.update({3:b"https://localhost",4:b"localhost",6:b"127.0.0.1",
+            9:PHYSICAL_GS117_HUB.encode(),12:b"a" * 64,13:(2).to_bytes(8,"big"),
+            14:(self.now-7200).to_bytes(8,"big"),15:(self.now-3600).to_bytes(8,"big"),
+            21:PHYSICAL_GS117_HOME.encode()})
+        self.service = AuthorityService(self.issuer, object(), threading.RLock(),
+            clock=lambda:self.now, enabled=True, signer=self.authority_signer,
+            configuration_fields=self.fields, configuration_signer=self.configuration_signer,
+            configuration_home_id=PHYSICAL_GS117_HOME)
+
+    def request(self, sequence=1):
+        target = ec.generate_private_key(ec.SECP256R1())
+        return target, {"protocol":"GS40T/1/CONFIG", "hub_id":PHYSICAL_GS117_HUB,
+            "credential_generation":2, "certificate_fingerprint_sha256":"a"*64,
+            "boot_generation":7,"nonce":sequence.to_bytes(32,"big").hex(),
+            "configuration_generation":self.now-7200,
+            "target_public_key":target.public_key().public_bytes(
+                serialization.Encoding.X962,serialization.PublicFormat.UncompressedPoint).hex()}
+
+    def exchange(self, body):
+        with patch("gs40_test_bootstrap.authorize_cloud_tls_context",return_value=self.context):
+            return self.service.refresh(object(),body)
+
+    def decode(self, frame, target, body):
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+        self.assertEqual(int.from_bytes(frame[:4],"big"),len(frame)-4)
+        envelope=frame[4:]
+        self.assertEqual(envelope[:5],b"G40E\x01")
+        nonce=bytes.fromhex(body["nonce"])
+        self.assertEqual(envelope[5:37],nonce)
+        self.configuration_signer.public_key().verify(envelope[-384:],
+            b"GS40T/1/CONFIG\x00"+envelope[:-384],padding.PKCS1v15(),hashes.SHA256())
+        ephemeral=ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(),envelope[37:102])
+        key=HKDF(algorithm=hashes.SHA256(),length=32,salt=nonce,
+            info=b"GS40T/1/CONFIG/AES256GCM\x00").derive(target.exchange(ec.ECDH(),ephemeral))
+        plaintext=AESGCM(key).decrypt(envelope[102:114],envelope[116:-384],envelope[:116])
+        self.assertEqual(plaintext[:5],b"G40P\x01")
+        fields={};offset=5
+        while offset<len(plaintext):
+            tag=plaintext[offset];size=int.from_bytes(plaintext[offset+1:offset+3],"big")
+            fields[tag]=plaintext[offset+3:offset+3+size];offset+=3+size
+        return fields
+
+    def test_fresh_signed_configuration_recovers_expiry_and_repeats(self):
+        generation=int.from_bytes(self.fields[14],"big")
+        for index in range(1,5):
+            target,body=self.request(index);body["configuration_generation"]=generation
+            fields=self.decode(self.exchange(body),target,body)
+            next_generation=int.from_bytes(fields[14],"big")
+            self.assertGreater(next_generation,generation)
+            self.assertEqual(int.from_bytes(fields[15],"big"),self.now+3600)
+            for tag,value in self.fields.items():
+                if tag not in (14,15):self.assertEqual(fields[tag],value)
+            generation=next_generation;self.now+=3700
+
+    def test_renewal_rejects_wrong_context_generation_key_and_replay(self):
+        _,body=self.request()
+        self.exchange(body)
+        with self.assertRaisesRegex(PermissionError,"replay"):
+            self.exchange(body)
+        for changes in ({"hub_id":"hub-e072a1d38d35"},
+                        {"credential_generation":3},{"target_public_key":"04"+"0"*128},
+                        {"configuration_generation":0},{"configuration_generation":True}):
+            _,candidate=self.request(2);candidate.update(changes)
+            with self.subTest(changes=changes),self.assertRaises(PermissionError):
+                self.exchange(candidate)
+        self.context.home_id="gs177-test-other"
+        _,candidate=self.request(3)
+        with self.assertRaises(PermissionError):self.exchange(candidate)
+
+    def test_missing_issuer_and_failed_authentication_cannot_renew(self):
+        _,body=self.request()
+        self.service.configuration_fields=None
+        with self.assertRaises(PermissionError):self.exchange(body)
+        with patch("gs40_test_bootstrap.authorize_cloud_tls_context",
+                   side_effect=PermissionError("revoked")):
+            with self.assertRaisesRegex(PermissionError,"revoked"):
+                self.service.refresh(object(),body)
+
+    def test_replay_window_does_not_become_lifetime_renewal_limit(self):
+        _,body=self.request();body={k:v for k,v in body.items()
+            if k not in ("configuration_generation","target_public_key")};body["protocol"]="GS40T/1"
+        self.service.signer=SimpleNamespace(sign=lambda *_:b"x"*384)
+        for index in range(1,400):
+            body["nonce"]=index.to_bytes(32,"big").hex();self.exchange(body);self.now+=15
+        self.assertLessEqual(len(self.service._seen),4)
+
+    def test_signed_time_counter_does_not_stop_available_service(self):
+        import base64
+        fixture=TestOnlySignedTimeFixture(private_key=self.authority_signer)
+        response={"payload_b64":base64.b64encode(b"p"*456).decode()}
+        with patch.object(fixture,"proof_command",return_value=response):
+            service=SignedTimeService(fixture=fixture).start()
+            try:
+                with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as client:
+                    client.settimeout(1)
+                    for index in range(1,301):
+                        frame=b"GSTQ\x01"+(1).to_bytes(8,"big")+index.to_bytes(32,"big")
+                        client.sendto(frame,("127.0.0.1",service.port))
+                        self.assertEqual(client.recv(1024),b"p"*456)
+                self.assertEqual(service.requests,300)
+                self.assertTrue(service.worker.is_alive())
+            finally:
+                service.close()
+            self.assertFalse(service.worker.is_alive())
+
+
 if __name__ == "__main__":
     unittest.main()

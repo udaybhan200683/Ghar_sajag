@@ -96,6 +96,7 @@ BackendHttpResponse HttpsBackendChannel::request(const std::string& path,
     if (cloud_identity_ != nullptr) {
         if (!cloud_identity_->current_identity(identity)) return result;
 #if defined(GS40_TEST_ONLY_CLOUDSYNC_BUILD) && GS40_TEST_ONLY_CLOUDSYNC_BUILD
+        if (!identity.permits_test_route(path, get_request)) return result;
         test_only_software_identity = identity.test_only_software_identity &&
             identity.ds_context == nullptr &&
             !identity.test_only_client_private_key_pem.empty();
@@ -239,8 +240,9 @@ BackendHttpResponse HttpsBackendChannel::request(const std::string& path,
     }
     const auto length = esp_http_client_fetch_headers(client);
     constexpr std::size_t kMaximumConfigurationResponseBytes = 16U * 1024U;
-    const std::size_t response_limit = (test_configuration_path || test_configuration_ack_path)
-        ? kMaximumConfigurationResponseBytes : HttpBackendTransport::kMaximumResponseBytes;
+    const std::size_t response_limit = test_authority_path ? 24580U :
+        ((test_configuration_path || test_configuration_ack_path)
+            ? kMaximumConfigurationResponseBytes : HttpBackendTransport::kMaximumResponseBytes);
     if (length < 0 || length > static_cast<std::int64_t>(response_limit)) return result;
     result.status = static_cast<unsigned>(esp_http_client_get_status_code(client));
     // open completed SSL handshake with required CA and hostname verification.
