@@ -1,3 +1,72 @@
+## GS-117 — S3 R1 outbox build entry corrected — 2026-11-13
+
+The existing `code/firmware/hub/target/esp32s3/idf/build-outbox.sh` is now the
+authoritative product S3 build entry. With no profile argument it selects the
+registered GS40 TEST_ONLY Engineering/UART profile; `release` selects a
+separate Release profile. Both use fresh profile-specific sdkconfig/build
+directories, the same physical outbox partition map, and a generated-table,
+target, paired-C3 and OTA-slot verifier. The script rejects `gs_journal` and
+does not access hardware.
+
+Verified no-argument command:
+
+```sh
+cd code/firmware/hub/target/esp32s3/idf
+./build-outbox.sh
+```
+
+Engineering build PASS, ESP-IDF 6.0.3, root:
+`/home/udaybhan/projects/.ghar_sajag_s3_outbox_lifecycle_build/engineering/20261113T181542Z-73453-3WWjYs`
+
+- Resolved existing public config-root DER:
+  `~/.config/ghar-sajag/gs117-tc001/config-root-public.der`, SHA-256
+  `53c5e81b87d1510c0d137d64a2e0b8989e250dcf981c33a34c5783db314e887a`.
+- Resolved existing fixture-pinned C3 image:
+  `~/.local/state/ghar-sajag/gs117-tc001/provenance-refresh-20261031T0501Z/trusted-artifacts/c3-current-app.bin`, SHA-256
+  `589dc9f98ef78fed97709e2ffb845b0a0eb6ccf5babfd9cc149743539932acb7`.
+- S3 app: 2,304,176 bytes, SHA-256
+  `7baba567f896bdb1c24804a698c2d2dbc9e8edf8e072087f0f0300f76fb19603`.
+
+Explicit Release build PASS using the existing production pair at
+`code/build/validation_targets/gs116-zxit7bc5/assets/node_firmware.bin`
+(C3 SHA-256 `45affeab2f3cff25594560eaff1cd94411dd327ab8d69dcb22ca9cd17dc2afdd`),
+root:
+`/home/udaybhan/projects/.ghar_sajag_s3_outbox_lifecycle_build/release/20261113T183804Z-86434-PWLRKN`.
+The generated Release config uses only shared target/outbox defaults and has
+TEST_ONLY/GS40/HIL options off. S3 app: 2,201,536 bytes, SHA-256
+`a7e5179e7a9740322d5803852fa8c37c6fda27223910c0a4d9300686a7a34e9d`.
+
+Both builds decoded the generated partition binary and matched the canonical
+outbox map. Partition-table SHA-256 for each:
+`bb0066feee7368e621c6f0f0d7bfdf47cbc5bbbf4cfdd9eccab9525ad683f82a`.
+Verified entries include `ota_0=0x20000/0x400000`,
+`ota_1=0x420000/0x400000`, `gs_outbox=0x820000/0x400000`, and
+`gs_state=0xC20000/0x40000`, plus expected NVS/OTA-data/PHY offsets. Both app
+images fit the 4 MiB OTA slot; esptool identified the S3 and embedded C3 image
+targets correctly.
+
+Focused validation: the 3 new outbox rejection/layout/missing-Release-input
+tests PASS; shell syntax, suite JSON and diff checks PASS. The full existing
+`make s3-fixture-commissioning-test` ran 21 tests and had 1 pre-existing
+assertion failure: `test_s3_option_is_opt_in_and_legacy_broad_hil_stays_rejected`
+expects `GS_HIL_COMMISSIONING` absent from the committed
+`scripts/build_validation_targets.py`, although that same committed builder
+explicitly passes it as `OFF` and verifies it disabled. The assertion/source
+mismatch predates this build-entry change and is left intact.
+
+An initial Release verification correctly caught an incorrect assumption that
+the raw ESP-IDF Release defaults select USB Serial/JTAG. This target's raw
+defaults select UART0 as well; the final verifier checks the actual SDK defaults
+list to ensure the Engineering GS40 TEST_ONLY/UART layers are absent from
+Release. The corrected full Release build and generated-image checks PASS.
+
+No board was accessed, flashed, reset, erased or reformatted. The output is
+build-verified only, not deployment or running-image evidence. Next: resume the
+existing standing-authorized app-only S3 update path, first verifying the exact
+COM10 identity, running partition/journal compatibility and preservation state;
+never use the generated full `idf.py flash` command. S3 reboot #11983 remains
+USED and cannot be repeated.
+
 ## OWNER PAUSE — 2026-11-13 — final S3 binary ready; no flash
 
 User explicitly requested pause at a logical checkpoint. Stop here; no further

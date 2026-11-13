@@ -1,9 +1,10 @@
 # Isolated R1 ESP32-S3 N16R8 target
 
-Authority: GS-D030. ESP-IDF v6.0.3. The default target profile still uses the
-historical 2 MiB `gs_journal` map. `build-outbox.sh` selects the separate
-4 MiB `gs_outbox` plus 256 KiB `gs_state` candidate map and two 4 MiB OTA slots.
-Both are development layouts, not approved commercial capacity guarantees.
+Authority: GS-D030. ESP-IDF v6.0.3. Raw ESP-IDF defaults still include the
+historical 2 MiB `gs_journal` map. The authoritative product entry point,
+`build-outbox.sh`, always selects the separate 4 MiB `gs_outbox` plus 256 KiB
+`gs_state` layout and two 4 MiB OTA slots. These remain development layouts,
+not approved commercial capacity guarantees.
 The original classic target and C3 firmware are unchanged. Product composition
 reuses the entire classic target's `main` component and shared application;
 a configuration-only S3 component enables native ESP-IDF PSRAM startup.
@@ -25,44 +26,82 @@ No camera/AI library is added. No efuse or security configuration is changed.
 
 ## Reproducible builds
 
-Activate `/home/udaybhan/.espressif/v6.0.3/esp-idf/export.sh` first.
-For the product composition, preserve the exact existing ignored C3 asset at
-`../../esp32/idf/main/node_firmware.bin` (931408 bytes at the source checkpoint).
-Copy the source-worktree asset without rebuilding or modifying C3 firmware,
-then compare SHA-256. Do not add generated assets/binaries to Git.
+Use the existing outbox entry point for S3 product images. A no-argument call
+selects the GS-117 Engineering profile; `release` explicitly selects a Release
+profile. Both profiles use the same partition table and isolated build logic.
 
 ```sh
-idf.py -C firmware/hub/target/esp32s3/idf -B /tmp/gs-s3-product-build \
-  -D SDKCONFIG=/tmp/gs-s3-product-sdkconfig -D IDF_TARGET=esp32s3 build size
+cd code/firmware/hub/target/esp32s3/idf
+./build-outbox.sh
+GS_NODE_FIRMWARE_ASSET=/path/to/existing/production-pair/assets/node_firmware.bin ./build-outbox.sh release
+```
+
+The default Engineering build reads the registered TEST_ONLY fixture at
+`~/.config/ghar-sajag/gs117-tc001/fixture.json`, verifies its Home/Hub/C3
+identity and pinned C3 image SHA-256, and resolves exactly one matching
+`c3-current-app.bin` under the fixture's existing
+`~/.local/state/ghar-sajag/gs117-tc001/provenance-refresh-*/trusted-artifacts/`
+records. The image is copied byte-for-byte into that run's isolated `assets`
+directory under the linker-required name `node_firmware.bin`; the C3 image is
+not rebuilt or modified. The existing public config-root DER is resolved from
+`~/.config/ghar-sajag/gs117-tc001/config-root-public.der` and checked as a DER
+public key. Explicit input overrides are accepted only when their content
+matches the registered fixture input.
+
+Release requires an explicitly selected existing C3 production-pair asset in
+an `assets/` directory and its sibling `report.json`; the report must bind the
+asset hash and show TEST_ONLY/HIL pathways disabled. There is no fallback to
+the Engineering fixture asset. Missing or ambiguous inputs fail before CMake.
+
+Each call creates a fresh, profile-specific SDK config and build directory
+outside the source tree. `GS_S3_OUTBOX_BUILD_ROOT` may select a parent directory;
+the script creates a unique child for the chosen profile and preserves earlier
+builds. This prevents an old Release/Engineering `sdkconfig` from contaminating
+the next invocation. Only `engineering` and `release` are accepted; selecting
+`gs_journal` as a profile is rejected.
+
+Before success, the script decodes the generated partition-table binary using
+the installed ESP-IDF parser and requires the generated table and source CSV to
+match these exact entries: `ota_0` 0x20000/4 MiB, `ota_1` 0x420000/4 MiB,
+`gs_outbox` 0x820000/4 MiB LittleFS and `gs_state` 0xC20000/256 KiB NVS,
+including the NVS/OTA-data/PHY entries. It also verifies ESP32-S3 target and
+image header, the 4 MiB application-slot fit, C3 image target, and profile
+flags. Engineering must have GS40 TEST_ONLY CloudSync, UART0, and its existing
+software-key/stack configuration enabled. Release must have TEST_ONLY and HIL
+features disabled. The command only builds; it never flashes, resets, formats
+or accesses a board. Do not add generated assets or binaries to Git.
+
+For the isolated diagnostic only, activate
+`/home/udaybhan/.espressif/v6.0.3/esp-idf/export.sh` and use a separate build
+directory. Raw `idf.py` product builds are not the deployable S3 R1 entry point:
+they do not resolve the registered fixture pair or run the outbox contract
+verifier.
+
+```sh
 idf.py -C firmware/hub/target/esp32s3/idf -B /tmp/gs-s3-diagnostic-build \
   -D SDKCONFIG=/tmp/gs-s3-diagnostic-sdkconfig -D IDF_TARGET=esp32s3 \
   -D 'SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.diagnostic.defaults' \
   -D GS_S3_DIAGNOSTIC_ONLY=ON build size
 ```
 
-For an explicitly selected physical TEST_ONLY fixture image, the full product
-composition may combine `GS40_TEST_ONLY_CLOUDSYNC=ON` with
-`GS_HIL_COMMISSIONING=ON`. Both remain default-OFF. Supply the isolated
+For a separate explicitly selected physical commissioning fixture image, the
+full product composition may combine `GS40_TEST_ONLY_CLOUDSYNC=ON` with
+`GS_HIL_COMMISSIONING=ON`. Both options remain default-OFF in the raw CMake
+configuration. Supply the isolated
 TEST_ONLY config-root public DER outside the repository and the exact paired
 C3 app asset; this composes the existing fixture commissioning adapter with
 the existing CloudSync runtime. It does not create credentials, enroll devices,
 or make the image deployable by itself. `GS_HIL_BUILD`, `GS_HIL_CONTROL`,
 `GS_HIL_C8_ACK_DROP`, `GS_HIL_C8_ACK_HOLD`, and `GS_HIL_SIGNED_FOTA` remain
-rejected in this CloudSync profile. Build and deployment are separate actions.
+rejected in this CloudSync profile. This is a distinct GS-114 fixture profile;
+the canonical GS-117 Engineering build enables GS40 TEST_ONLY CloudSync but
+keeps `GS_HIL_COMMISSIONING=OFF`. Build and deployment are separate actions.
 
-For the GS-117 board whose identified COM interface is the CH343 UART bridge,
-select `sdkconfig.gs40_test_only_uart.defaults` instead of
-`sdkconfig.gs40_test_only.defaults`. The existing GS40 one-shot signed and
-encrypted envelope then uses UART0; it retains the same challenge, identity,
-signature and payload validation. The USB Serial/JTAG profile remains available
-for boards that expose that native interface. Both profiles are default-OFF.
-
-From this directory, `./build-outbox.sh` builds the full Hub against the
-explicit `gs_outbox` / `gs_state` candidate profile in an isolated build tree
-under `/home/udaybhan/projects/.ghar_sajag_s3_outbox_lifecycle_build`. It does
-not flash or format a device. The selected profile is source-controlled in
-`sdkconfig.defaults.outbox`; the generated sdkconfig and build files stay
-outside the repository.
+The GS-117 default Engineering invocation selects
+`sdkconfig.gs40_test_only.defaults` followed by
+`sdkconfig.gs40_test_only_uart.defaults`, because its identified board console
+is the CH343 UART0 bridge. The raw GS40 SDK defaults remain opt-in for other
+build paths; this wrapper's no-argument profile is explicitly Engineering.
 
 The diagnostic verifies PSRAM startup/scratch, heap, Wi-Fi STA and ESP-NOW init
 with no association, peers, application transmissions, ownership enrollment or

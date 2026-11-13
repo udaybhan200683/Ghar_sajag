@@ -1,6 +1,7 @@
 """Focused parser/build-isolation tests for the S3-only commissioning fixture."""
 from pathlib import Path
 import hashlib
+import os
 import subprocess
 import tempfile
 import unittest
@@ -8,6 +9,8 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "firmware/hub/target/esp32/idf/main/fixture_commissioning_control.cpp"
+OUTBOX_BUILDER = ROOT / "firmware/hub/target/esp32s3/idf/build-outbox.sh"
+OUTBOX_PARTITIONS = ROOT / "firmware/hub/target/esp32s3/idf/partitions.s3-outbox-candidate.csv"
 sys.path.insert(0, str(ROOT))
 from scripts.build_gs114_fixture_pair import (
     build_environment,
@@ -20,6 +23,34 @@ from scripts.build_gs114_fixture_pair import (
 
 
 class S3FixtureCommissioning(unittest.TestCase):
+    def test_outbox_builder_rejects_incompatible_gs_journal_profile(self):
+        result = subprocess.run(["bash", str(OUTBOX_BUILDER), "gs_journal"],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("Partition layouts cannot be selected as profiles", result.stderr)
+
+    def test_outbox_release_requires_existing_production_pair(self):
+        env = os.environ.copy()
+        env.pop("GS_NODE_FIRMWARE_ASSET", None)
+        env.pop("GS40_TEST_ONLY_CONFIG_ROOT_DER", None)
+        result = subprocess.run(["bash", str(OUTBOX_BUILDER), "release"], env=env,
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("release profile requires GS_NODE_FIRMWARE_ASSET", result.stderr)
+
+    def test_outbox_candidate_matches_physical_partition_contract(self):
+        partitions = parse_partitions_from_text(OUTBOX_PARTITIONS.read_text())
+        self.assertEqual(partitions, {
+            "nvs": ("data", "nvs", 0x9000, 0x6000),
+            "otadata": ("data", "ota", 0xF000, 0x2000),
+            "phy_init": ("data", "phy", 0x11000, 0x1000),
+            "ota_0": ("app", "ota_0", 0x20000, 0x400000),
+            "ota_1": ("app", "ota_1", 0x420000, 0x400000),
+            "gs_outbox": ("data", "littlefs", 0x820000, 0x400000),
+            "gs_state": ("data", "nvs", 0xC20000, 0x40000),
+        })
+        self.assertNotIn("gs_journal", partitions)
+
     def test_s3_build_exports_paired_asset_during_component_discovery(self):
         env = build_environment(["GS_HIL_BUILD=OFF", "GS_NODE_FIRMWARE_ASSET=/tmp/node_firmware.bin"], {})
         self.assertEqual(env["GS_NODE_FIRMWARE_ASSET"], "/tmp/node_firmware.bin")
