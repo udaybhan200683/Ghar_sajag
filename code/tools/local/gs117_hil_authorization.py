@@ -2724,13 +2724,13 @@ def dispose_reviewed_preoperation_pin_failure(path=None):
 
 
 ENGINEERING_S3_BOOTSTRAP_SHA256 = "5ef1c45d1e4b3d0ac8921c4250d6641022033160fce5a91ccab3ab3889d5a659"
-ENGINEERING_S3_REBOOT_SHA256 = "1624311002fcbc6b84288fe5bd5439e9b33c25f92eada4b732c6742658e5ee2e"
+ENGINEERING_S3_REBOOT_SHA256 = "51ed9527a777afb598d259f559c9a8bca1c1617f9925d58906debf1e4aeeb8ad"
 
 
 def _engineering_bootstrap_files(operation="s3_runtime_bootstrap"):
     reboot = operation == "s3_runtime_bootstrap_reboot_11983"
     root = Path(__file__).resolve().parents[3]
-    script = Path.home()/'.local/state/ghar-sajag/gs117-tc001/standing-readiness-prepared'/('gs117-protected-bootstrap-development-v22.py' if reboot else 'gs117-protected-bootstrap-development-v23.py')
+    script = Path.home()/'.local/state/ghar-sajag/gs117-tc001/standing-readiness-prepared'/('gs117-protected-bootstrap-development-v24.py' if reboot else 'gs117-protected-bootstrap-development-v23.py')
     if script.is_symlink() or digest(script) != (ENGINEERING_S3_REBOOT_SHA256 if reboot else ENGINEERING_S3_BOOTSTRAP_SHA256):
         raise ValueError('engineering_bootstrap_reviewed_script_changed')
     return [script, Path(__file__), root/'code/tools/local/gs117_tc001_serial_windows.py',

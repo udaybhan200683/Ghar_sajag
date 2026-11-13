@@ -4261,6 +4261,22 @@ class S3OnlyBootstrapTest(unittest.TestCase):
 
 
 class EngineeringBootstrapReviewTest(unittest.TestCase):
+    def test_reboot_bootstrap_pin_matches_current_serial_helper_and_registered_scope(self):
+        files = hil_auth._engineering_bootstrap_files(
+            "s3_runtime_bootstrap_reboot_11983")
+        script = next(path for path in files if path.name.endswith("development-v24.py"))
+        text = script.read_text()
+        helper_hash = hil_auth.digest(hil_auth.Path(hil_auth.__file__).parent /
+                                      "gs117_tc001_serial_windows.py")
+        self.assertIn("hexdigest() != '" + helper_hash + "'", text)
+        self.assertIn("'action': 'BootstrapS3Reboot11983'", text)
+        self.assertIn("next(p for p in ports if p['port'] == 'COM10')", text)
+        self.assertNotIn("COM4", text)
+        self.assertIn("'s3_boot_reset': False", text)
+        self.assertIn("'c3_boot_reset': False", text)
+        self.assertIn("observation_seconds': 90", text)
+        self.assertEqual(hil_auth.digest(script), hil_auth.ENGINEERING_S3_REBOOT_SHA256)
+
     def test_missing_review_and_modified_candidate_fail_closed(self):
         with self.assertRaises(ValueError):hil_auth.verify_engineering_bootstrap_review(None)
         with patch.object(hil_auth,'digest',return_value='0'*64):
