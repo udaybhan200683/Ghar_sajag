@@ -83,8 +83,13 @@ declares itself disabled and its `execute()` path raises
 `legacy_s3_writer_disabled_offline_ota_plan_not_authorization_ready`.
 Its planner also has no trusted source/build receipt proving the historically
 read S3 bootloader (`ae304441...`) was built with application rollback enabled.
-That bootloader hash is found in October 26 snapshots only; these are not a
-current device-state or rollback-provenance receipt. The current COM10 PNP
+The current Engineering build emitted a rollback-enabled bootloader
+(`CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y`, SHA-256
+`676eeec1b77d0fa749d1c5986482d35dcf06fe819859102305c9dd333e222f64`), but it
+does not match the historically read bootloader hash. That generated bootloader
+cannot be included in this app-only operation. The installed hash is found in
+October 26 snapshots only; these are not a current device-state or
+rollback-provenance receipt. The current COM10 PNP
 descriptor was read without opening the port, but does not independently prove
 the registered S3 MAC identity. No serial port, board, reset or flash was used.
 

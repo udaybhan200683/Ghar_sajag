@@ -179,7 +179,11 @@ is explicitly disabled: `execute()` raises
 planner also lacks trusted build provenance tying the historically observed
 bootloader hash `ae304441...` to application rollback being enabled. Matching
 backup snapshots are dated October 26 and do not prove current device state or
-rollback provenance. Do not bypass the disabled writer, replace old pins by
+rollback provenance. The current canonical Engineering build does include a
+rollback-enabled generated bootloader (`CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y`,
+SHA-256 `676eeec1b77d0fa749d1c5986482d35dcf06fe819859102305c9dd333e222f64`),
+but that differs from the historical device snapshot and cannot be deployed in
+the app-only operation. Do not bypass the disabled writer, replace old pins by
 hand, use full `idf.py flash`, modify OTA metadata, or access COM10 until the
 existing supported app-only procedure can bind this current image and pass its
 non-destructive identity/slot/persistent-state/rollback checks.
