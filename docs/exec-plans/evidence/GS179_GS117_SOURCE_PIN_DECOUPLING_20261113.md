@@ -169,3 +169,109 @@ already elevated Administrator PowerShell. The deployment itself is already
 owner-approved; this is the remaining local Windows-token boundary, not a new
 project/Jira approval. Once its success receipt is available, re-read the
 installed manifest and validator hash before using the fixed Start action.
+
+## 2026-11-13 live continuation — deployment verified; C3 command response blocks injection
+
+The earlier pending-deployment statements above are superseded by the actual
+owner receipt and independent live readback below.
+
+### GS-179 deployment and bounded session
+
+Owner-provided deployment result: `VALIDATOR_UPDATED_AND_VERIFIED`, installed
+validator SHA-256
+`eb00866c200935651b73b988894803700c98b56f8b6edadf0d0340507691abd9`.
+Independent Windows readback confirmed the protected manifest contains the same
+hash. The existing task `GharSajag-Engineering-Ingress` remains registered,
+Ready, principal DELL/S4U/Highest, with its fixed
+`RunEngineeringExecutor -EndpointKind PhysicalHubIngress` action; the protected
+root/task ACL remained intact. No reinstall, task replacement or UAC prompt
+was used.
+
+The existing bounded session and signed-time path were started. WSL TCP 8445
+was reachable through the registered Windows route; signed-time UDP 4468 was
+active. Physical S3 UART evidence recorded authenticated TLS/configuration
+activity, Hub owner startup, Home/Hub identity and an authenticated C3 rejoin
+at C3 session 141. One `/v1/homes/gs177-test-product/node-health` exchange
+returned HTTP 503; the physical ingress status receipt did not establish a
+fresh `real_hub_authenticated` status. S3 CloudSync logged state 3 with
+`submitted=0 completed=0` before any motion event. These are distinct pieces of
+evidence; they do not prove that a motion event reached CloudSync or the
+backend.
+
+The bounded Windows session deadline was 2026-11-13 06:40:45 UTC. After the
+deadline, read-only Windows checks found TCP 8445=0, UDP 4468=0, caregiver TCP
+443=1 and no per-session PhysicalIngress tasks. WSL TCP 8445 was absent; the
+registered Engineering task remained installed. Backend TCP 8444 and
+PostgreSQL 55432 remained available. The portal listener was loopback-only on
+127.0.0.1:18791. This verifies expiry cleanup for this session only; it does
+not close the previously recorded SYSTEM attribution/strict inactivity timing
+qualification gaps. GS-179 remains PARTIAL.
+
+### GS-117 physical status and first failed boundary
+
+The already approved S3 reboot #11983 was USED exactly once in the earlier
+COM10-only bootstrap. No intentional C3 reset, firmware update, flash, erase,
+commissioning, pairing, enrollment, key or protected-state change occurred in
+this continuation. COM4-open incidental reset risk remains; no reset marker was
+captured in the bounded C3 observations, which does not prove that no reset
+occurred.
+
+At 06:20 UTC the exact registered C3 COM4 returned `HIL_STATE` and
+`HIL_OK command=GET_STATE`, session 141, runtime/sensing counters 88515 and
+pending/retained/in-flight queues all zero. This was a successful point-in-time
+readiness observation. The subsequent existing web run
+`TC001-USB-ONE-EVENT-20261113T062606Z-1e08d435` passed its initial environment
+and exact C3/S3 identity checks, opened COM4, then received zero serial bytes
+and no `HIL_STATE`/GET_STATE ACK after three host-accepted writes of 10/10
+bytes over its 30-second bound. The unchanged readiness guard stopped before
+`INJECT_MOTION`. The one additional read-only COM4 observation at 06:37 UTC
+(`c3-readonly-20261113T063801Z-resume.json`) recorded one host-accepted 10/10
+byte `GET_STATE` write, `bytes_read=0`, no ACK and no response line. S3 UART
+was not opened for these C3 checks.
+
+Earlier same-day captured output contains `HIL_ERROR command_too_long` followed
+by `HIL_ERROR unknown_command=STATE`; another observation contains
+`unknown_command=!`. The C3 command parser source does not discard the remainder
+of an overlong input line after clearing its buffer, so a suffix can be parsed
+as a separate bogus command. This is a confirmed parser recovery defect and a
+plausible contributor to the observed malformed commands, but current evidence
+does not identify where those extra input bytes originated or prove this is
+the exclusive cause of missing GET_STATE replies. The helper's hardcoded
+command is `GET_STATE\n`; its 10/10 host write receipt proves host API
+acceptance only, not C3 receipt. Current running C3 image identity and console
+mapping are UNKNOWN / NOT_VERIFIED. No source change or firmware operation was
+made because the root cause is not isolated and no C3 image deployment was
+authorized.
+
+Historical C3 session 126/sequence 1 demonstrates the existing USB-injected
+path has worked: the captured report has C3 `HIL_OK command=INJECT_MOTION`,
+NodeRuntime event generation, authenticated class-0 application ACK, exactly
+one PostgreSQL row, caregiver API result and later supplemental exact-key APK
+evidence. It remains historical and cannot substitute for this run.
+
+Current new-run stages: exact C3/S3 fixture identity and S3 authenticated rejoin
+have evidence; C3 GET_STATE readiness is intermittent/BLOCKED. No
+`INJECT_MOTION`, EventKey, motion event, S3 motion ACK, CloudSync event,
+PostgreSQL event, caregiver API event or Android presentation was generated.
+The first failed event-flow boundary is the C3 USB command-response/readiness
+gate; all downstream motion-event stages are NOT_RUN. Android was not needed
+for this diagnosis. USB-triggered E2E is NOT_ACCEPTED, formal optical TC-001 is
+0/5 and the five-run campaign is 0/5. C3 cold-start work stays ON HOLD.
+
+### Validation, worktree and next action
+
+No validation suite was run, per the current execution direction. Historical
+endpoint27/27 and Windows mock21/21 receipts were reused as unchanged evidence;
+they do not validate this physical run. Current local and remote HEAD are
+`3afdcd1b798a64e9f02d65fe264c7f552aaaf0f8`. The working tree retains the
+pre-existing uncommitted `code/tools/local/gs117_tc001_serial_windows.py`
+change (10-second query interval and bounded startup-drain logic) and unrelated
+untracked assets; none were staged or changed in this continuation.
+
+Next action: establish the running C3 image's actual USB console input mapping
+and isolate the source of the malformed/absent GET_STATE command response
+using an already supported non-destructive evidence path. Do not reopen COM4
+or issue another motion command without a concrete hypothesis and a fresh
+genuinely passing readiness guard. Do not weaken the guard or attribute the
+failure solely to the overlong-line defect until the input source is proven.
+Jira checkpoint comments: GS-117 #12057 and GS-179 #12058.

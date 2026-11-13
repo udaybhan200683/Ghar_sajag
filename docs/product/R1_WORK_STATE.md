@@ -12423,3 +12423,66 @@ do not infer owner intent and do not retry blindly. A new read-only check
 confirmed the protected validator and manifest remain at the previous matching
 hash, task Ready, 8445=0, UDP4468=0, caregiver443=1. Exact next action remains
 the already-approved hash-pinned command in the owner's elevated PowerShell.
+
+### 2026-11-13 — validator deployed; physical event remains blocked before injection
+
+Owner reports `VALIDATOR_UPDATED_AND_VERIFIED`; independent readback confirmed
+installed validator SHA-256 `eb00866c200935651b73b988894803700c98b56f8b6edadf0d0340507691abd9`
+matches the protected manifest. Existing `GharSajag-Engineering-Ingress` task
+remains registered with fixed `RunEngineeringExecutor -EndpointKind
+PhysicalHubIngress` action, DELL/S4U/Highest principal and preserved task ACL.
+Ordinary GS-117 checkout source no longer invalidates ingress admission. This
+is live deployment verification, not completion of all GS-179 criteria.
+
+The existing bounded ingress and signed-time service were active during the
+physical session. Physical S3 evidence shows a fresh authenticated TEST_ONLY
+configuration, TLS validation, authenticated HTTP 200 exchanges, Hub owner
+startup and authenticated C3 rejoin at session 141. One node-health request
+returned 503; runtime status did not report fresh `real_hub_authenticated`,
+and no event was submitted to CloudSync. The approved S3 reboot #11983 was
+consumed once; no intentional C3 reset, firmware update, erase, pairing, key,
+enrollment or protected-state operation occurred. COM4-open incidental reset
+risk remains; bounded observations captured no reset marker, which does not
+prove that no reset occurred.
+
+C3 readiness is now the first failing boundary. At 06:20 UTC, COM4 returned
+`HIL_STATE` and `GET_STATE` ACK with session 141, positive runtime/sensing
+counters (88515), and empty queues. The existing web run at 06:26 UTC then
+opened the exact registered COM4 and received no bytes or `GET_STATE` ACK
+after three host-accepted 10/10-byte queries; its unchanged fail-closed guard
+stopped before `INJECT_MOTION`. A separate bounded read-only observation at
+06:37 UTC also had one host-accepted 10/10-byte `GET_STATE` write, zero bytes
+read and no ACK. Earlier serial output included `command_too_long` followed
+by `unknown_command=STATE`, and later `unknown_command=!`. These records show
+intermittent C3 command/response behavior, but do not prove the bytes reached
+the target or establish the source of malformed input. The current running C3
+image/console identity remains UNKNOWN / NOT_VERIFIED. Do not bypass readiness,
+repeat injection, or claim that the parser overflow is the proven cause.
+
+No fresh motion command, EventKey, C3 event, S3 application ACK for a motion,
+CloudSync event, PostgreSQL business event, caregiver API event or Android
+presentation was produced. Historical session 126/sequence 1 remains support
+evidence only. USB-triggered E2E remains NOT_ACCEPTED; formal optical TC-001
+remains 0/5; five-run campaign remains 0/5. C3 cold-start work remains ON HOLD.
+
+The 3600-second Windows session expired at 06:40:45 UTC. Independent final
+checks found TCP 8445=0, UDP 4468=0, ephemeral PhysicalIngress tasks absent,
+and caregiver TCP 443=1; WSL ingress 8445 was absent. The registered
+Engineering task remains installed. Existing backend/PostgreSQL listeners
+8444/55432 remain available; the portal is loopback-only on 18791. This records
+expiry cleanup for this session, not full SYSTEM attribution or strict idle
+deadline qualification; GS-179 remains PARTIAL.
+
+No test suite was run. The prior 27/27 endpoint and 21/21 Windows mock receipts
+remain historical and unchanged. Local and remote HEAD were
+`3afdcd1b798a64e9f02d65fe264c7f552aaaf0f8`. Existing uncommitted change in
+`gs117_tc001_serial_windows.py` and unrelated untracked assets were preserved.
+Detailed private run evidence and the next diagnostic boundary are recorded in
+[`GS-179 / GS-117 source-pin decoupling evidence`](../exec-plans/evidence/GS179_GS117_SOURCE_PIN_DECOUPLING_20261113.md).
+Dated Jira updates: GS-117 #12057 and GS-179 #12058.
+
+Next: use source and preserved physical evidence to identify why the existing
+COM4 `GET_STATE` command path intermittently returns no reply, while proving
+the running image's command-console mapping through an already supported
+non-destructive mechanism. Do not reopen COM4 or inject another event without
+a concrete diagnostic hypothesis and a genuinely passing readiness guard.
