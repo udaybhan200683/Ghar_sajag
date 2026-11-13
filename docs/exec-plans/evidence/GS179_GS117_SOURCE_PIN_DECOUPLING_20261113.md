@@ -149,3 +149,23 @@ its direct non-elevated invocation failed closed with
 UDP 4468 = 0, caregiver TCP 443 = 1. No protected file, task, port, device or
 authority state was changed by the check. Elevated deployment and actual
 post-deployment executor behavior are still NOT_RUN.
+
+### UAC launch result — 2026-11-13
+
+The first `Start-Process -Verb RunAs` wrapper did not launch because Windows
+PowerShell rejects combining `-Verb RunAs` with standard-output/error
+redirection; it failed before creating a UAC child. The corrected standard
+`RunAs` invocation then created `consent.exe` in interactive Console session 1
+and waited. Windows subsequently returned `The operation was canceled by the
+user`; no elevated child or installation receipt was produced. This records the
+OS result and does not establish that the owner deliberately refused consent.
+No retry was made. A fresh read-only check confirmed that the task remained
+Ready, the protected validator and manifest still matched the old
+`b0725a9c9786f7c52f16765791cd206052e082a9f8813ce363084e1ff56de5db` hash,
+8445=0, UDP4468=0, and caregiver443=1. No protected or network state changed.
+
+The exact hash-pinned operation above remains the next action in the owner's
+already elevated Administrator PowerShell. The deployment itself is already
+owner-approved; this is the remaining local Windows-token boundary, not a new
+project/Jira approval. Once its success receipt is available, re-read the
+installed manifest and validator hash before using the fixed Start action.

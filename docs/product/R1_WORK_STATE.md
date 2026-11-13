@@ -12414,3 +12414,12 @@ Administrator PowerShell session; then verify the returned installed hash and
 task, start the existing bounded ingress, and resume GS-117 physical S3/C3
 readiness. No phone is required before fresh backend delivery. #11983 remains
 UNUSED; C3 cold-start remains ON HOLD; no EventKey exists from this attempt.
+
+2026-11-13 UAC launch update: a first wrapper failed locally before UAC due to
+an invalid `Start-Process` parameter combination. The corrected standard
+RunAs request displayed `consent.exe` in Console session 1, then Windows
+returned `The operation was canceled by the user`. No elevated child/receipt;
+do not infer owner intent and do not retry blindly. A new read-only check
+confirmed the protected validator and manifest remain at the previous matching
+hash, task Ready, 8445=0, UDP4468=0, caregiver443=1. Exact next action remains
+the already-approved hash-pinned command in the owner's elevated PowerShell.
