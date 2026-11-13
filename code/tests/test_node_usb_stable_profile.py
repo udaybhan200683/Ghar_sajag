@@ -2,11 +2,15 @@
 from pathlib import Path
 import ast
 import subprocess
+import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[1]
 NODE=ROOT/'firmware/node/target/esp32c3'
+sys.path.insert(0,str(ROOT))
+from tools.local import gs117_tc001_serial_windows as serial_tool
 
 class UsbStableProfile(unittest.TestCase):
     def test_sleep_gate_profile_matrix(self):
@@ -69,6 +73,74 @@ int main() { return 0; }
         branch=source[start:end]
         self.assertIn('hil_log_state()',branch)
         self.assertNotIn('#if GS_BAT_C8_PHYSICAL_WAKE',branch)
+
+    # GS117-HIL-CMD-LINE-001: bounded malformed-line rejection and recovery.
+    def test_hil_command_parser_recovers_after_oversized_serial_line(self):
+        source=ROOT/'tests/cpp/hil_command_line_validation.cpp'
+        with tempfile.TemporaryDirectory() as tmp:
+            binary=Path(tmp)/'hil_command_line_validation'
+            subprocess.run(['g++','-std=c++17','-Wall','-Wextra','-Werror','-pedantic',
+                            '-I'+str(ROOT),str(source),'-o',str(binary)],check=True)
+            result=subprocess.run([str(binary)],check=True,capture_output=True,text=True)
+        self.assertIn('C3 HIL command parser PASS checks=7',result.stdout)
+
+    # GS117-C3-REOPEN-001: repeated bounded observations release and reacquire COM4.
+    def test_c3_readonly_observer_reopens_registered_port_for_following_run(self):
+        class Clock:
+            def __init__(self): self.value=0.0
+            def __call__(self):
+                value=self.value
+                self.value+=0.05
+                return value
+
+        class FakeSerial:
+            def __init__(self):
+                self.port='';self.buffer=bytearray();self.is_open=False;self.writes=[]
+                self.timeout=None;self.write_timeout=None;self.dtr=True;self.rts=True
+                self.opens=0;self.closes=0
+            @property
+            def in_waiting(self): return len(self.buffer)
+            def open(self):
+                self.is_open=True;self.opens+=1
+            def write(self,value):
+                self.writes.append(value)
+                if value==b'GET_STATE\n':
+                    self.buffer.extend(
+                        b'I (100) HIL_STATE role=c3 session=141 '
+                        b'power_mode=HIL_AWAKE_TEST_ONLY hil_build=0 hil_control=1 '
+                        b'physical_wake=0 runtime_live=11 sensing_live=12 '
+                        b'pending_inject=0 retained=0 in_flight=0\n'
+                        b'I (101) HIL_OK command=GET_STATE\n')
+                return len(value)
+            def flush(self): pass
+            def read(self,count):
+                value=bytes(self.buffer[:count]);del self.buffer[:count];return value
+            def close(self):
+                self.is_open=False;self.closes+=1
+
+        c3={'port':'COM4','serial_number':'14:63:93:C5:D1:58',
+            'usb_hwid':'USB VID:PID=303A:1001 SER=14:63:93:C5:D1:58'}
+        s3={'port':'COM10','serial_number':'E0:72:A1:D3:8D:34',
+            'usb_hwid':'USB VID:PID=303A:1001 SER=E0:72:A1:D3:8D:34'}
+        streams=[FakeSerial(),FakeSerial()]
+        clock=Clock()
+        with (patch.object(serial_tool,'ports',return_value=[c3,s3]),
+              patch.object(serial_tool.serial,'Serial',side_effect=streams),
+              patch.object(serial_tool.time,'monotonic',side_effect=clock),
+              patch.object(serial_tool.time,'sleep',return_value=None)):
+            results=[serial_tool.observe_node(
+                {'c3':c3,'s3':s3,'observation_seconds':10}) for _ in range(2)]
+
+        self.assertEqual(len(results),2)
+        for stream,result in zip(streams,results):
+            self.assertEqual(stream.port,'COM4')
+            self.assertEqual(stream.opens,1)
+            self.assertEqual(stream.closes,1)
+            self.assertFalse(stream.is_open)
+            self.assertEqual(stream.writes,[b'GET_STATE\n'])
+            self.assertEqual(result['get_state_ack_count'],1)
+            self.assertFalse(result['s3_serial_opened'])
+            self.assertFalse(result['motion_injection'])
 
     def test_ack_retry_and_recovery_paths_are_unmodified_by_sleep_profile(self):
         adapter=(NODE/'node_runtime_adapter.cpp').read_text()

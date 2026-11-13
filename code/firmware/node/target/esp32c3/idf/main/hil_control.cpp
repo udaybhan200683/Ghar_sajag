@@ -1,4 +1,5 @@
 #include "firmware/node/target/esp32c3/node_runtime_adapter.hpp"
+#include "hil_command_line.hpp"
 
 #include "esp_log.h"
 #include "esp_app_desc.h"
@@ -59,7 +60,7 @@ void dispatch_command(const char* command) {
 }
 
 void control_task(void*) {
-    std::string command;
+    gs::node::target::HilCommandLine command_line;
     ESP_LOGI(kTag,
              "HIL_READY role=c3 protocol=1 version=%s power_mode=%s hil_build=%d hil_control=%d physical_wake=%d",
              esp_app_get_description()->version, kPowerMode,
@@ -72,15 +73,18 @@ void control_task(void*) {
             continue;
         }
         const char ch = static_cast<char>(value);
-        if (ch == '\r') continue;
-        if (ch == '\n') {
-            dispatch_command(command.c_str());
-            command.clear();
-        } else if (command.size() < 63) {
-            command.push_back(ch);
-        } else {
-            ESP_LOGW(kTag, "HIL_ERROR command_too_long");
-            command.clear();
+        switch (command_line.push(ch)) {
+            case gs::node::target::HilCommandLine::Result::NeedMore:
+                break;
+            case gs::node::target::HilCommandLine::Result::CommandReady:
+                dispatch_command(command_line.command());
+                command_line.clear();
+                break;
+            case gs::node::target::HilCommandLine::Result::CommandTooLong:
+                ESP_LOGW(kTag, "HIL_ERROR command_too_long; discarding through line terminator");
+                break;
+            case gs::node::target::HilCommandLine::Result::DiscardedLine:
+                break;
         }
     }
 }

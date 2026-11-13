@@ -2711,6 +2711,8 @@
       "command": ["python3", "tests/test_node_usb_stable_profile.py"],
       "inputs": [
         "tests/test_node_usb_stable_profile.py",
+        "tests/cpp/hil_command_line_validation.cpp",
+        "firmware/node/target/esp32c3/idf/main/hil_command_line.hpp",
         "firmware/node/target/esp32c3/physical_wake_capability.hpp",
         "firmware/node/target/esp32c3/node_runtime_adapter.cpp",
         "firmware/node/target/esp32c3/idf/main/hil_control.cpp",
