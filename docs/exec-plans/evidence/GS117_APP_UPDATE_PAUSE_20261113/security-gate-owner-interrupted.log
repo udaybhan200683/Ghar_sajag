@@ -1,0 +1,31 @@
+make: Entering directory '/home/udaybhan/projects/Ghar_sajag_r1/code'
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DCONFIG_ESP_TLS_USE_DS_PERIPHERAL=1 -Ibuild/gs40_generated -I. -Ifirmware/common/shared/include -Ifirmware/node -Ifirmware/hub -Ifirmware/common/security -Itests/cpp/p2d_idf_fake firmware/hub/target/esp32s3/https_backend_channel.cpp tests/cpp/cloudsync_mtls_adapter_validation.cpp -o build/cloudsync_mtls_adapter_validation
+g++ -B/usr/bin -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -DGS_PRODUCT_AI=0 -DGS_CLOUD_TRUST_TEST_ONLY_FIXTURE=1 -DGS40_TEST_ONLY_CLOUDSYNC_BUILD=1 -pthread -DGS_ENABLE_TRACE=0 -Ibuild/gs40_generated -I. -Ifirmware/common/shared/include -Ifirmware/node -Ifirmware/hub -Ifirmware/common/security build/obj/base/57343f48cf9ef705/firmware/common/shared/src/rules.o build/obj/base/57343f48cf9ef705/firmware/common/shared/src/logging.o build/obj/base/57343f48cf9ef705/tests/support/host/logging/file_log_sink.o build/obj/base/57343f48cf9ef705/firmware/common/transport/data_plane_codec.o build/obj/base/57343f48cf9ef705/firmware/common/transport/node_retirement_protocol.o build/obj/base/57343f48cf9ef705/firmware/common/transport/session_id.o build/obj/base/57343f48cf9ef705/firmware/node/sensing/sensing.o build/obj/base/57343f48cf9ef705/firmware/node/communication/radio/node_radio.o build/obj/base/57343f48cf9ef705/firmware/node/power/power.o build/obj/base/57343f48cf9ef705/firmware/node/lifecycle/lifecycle.o build/obj/base/57343f48cf9ef705/firmware/node/storage/node_store.o build/obj/base/57343f48cf9ef705/firmware/node/lifecycle/fota/fota_receiver.o build/obj/base/57343f48cf9ef705/firmware/node/runtime/node_runtime.o build/obj/base/57343f48cf9ef705/firmware/hub/event_processing/ingest/ingest.o build/obj/base/57343f48cf9ef705/firmware/hub/commissioning/registry/node_registry.o build/obj/base/57343f48cf9ef705/firmware/hub/storage/journal.o build/obj/base/57343f48cf9ef705/firmware/hub/storage/durable_transition.o build/obj/base/57343f48cf9ef705/firmware/hub/storage/node_retirement_snapshot.o build/obj/base/57343f48cf9ef705/firmware/hub/storage/hub_durability_owner.o build/obj/base/57343f48cf9ef705/firmware/hub/storage/durable_journal_slot_store.o build/obj/base/57343f48cf9ef705/firmware/hub/runtime/time/clock.o build/obj/base/57343f48cf9ef705/firmware/hub/event_processing/coverage/coverage.o build/obj/base/57343f48cf9ef705/firmware/hub/routines/routine_service.o build/obj/base/57343f48cf9ef705/firmware/hub/runtime/ui/resident_ui.o build/obj/base/57343f48cf9ef705/firmware/hub/lifecycle/configuration/config_service.o build/obj/base/57343f48cf9ef705/firmware/hub/cloud_sync/cloud_sync.o build/obj/base/57343f48cf9ef705/firmware/hub/runtime/hub_runtime.o build/obj/base/57343f48cf9ef705/firmware/hub/runtime/hub_checkpoint_codec.o build/obj/base/57343f48cf9ef705/firmware/hub/storage/runtime_state_store.o build/obj/base/57343f48cf9ef705/firmware/common/security/security.o build/obj/base/57343f48cf9ef705/firmware/hub/storage/durable_event_outbox.o build/obj/base/57343f48cf9ef705/tests/support/host/security/openssl_commissioning_crypto.o firmware/hub/target/esp32s3/cloud_trust_provider.cpp firmware/hub/target/esp32s3/gs40_test_only_bootstrap.cpp tests/cpp/cloud_trust_provider_validation.cpp -lcrypto -o build/cloud_trust_provider_validation
+build/cloudsync_mtls_adapter_validation
+GS-CLOUD-MTLS-UT-001 PASS
+GS-CLOUD-MTLS-UT-002 PASS
+GS-CLOUD-MTLS-UT-003 PASS
+GS-CLOUD-MTLS-UT-004 PASS
+GS-CLOUD-MTLS-UT-005 PASS
+GS-CLOUD-MTLS-UT-006 PASS
+GS-CLOUD-MTLS-UT-007 PASS
+GS-CLOUD-MTLS-UT-008 PASS
+GS-CLOUD-MTLS-UT-009 PASS
+CLOUDSYNC MTLS ADAPTER PASS cases=9 physical=NOT_RUN
+GS-CLOUD-MTLS-DEADLINE-001 PASS checks=4
+build/gs40_testonly_mtls_adapter_validation
+GS-CLOUD-MTLS-TESTONLY-UT-001 PASS
+CLOUDSYNC TEST_ONLY SOFTWARE MTLS PASS cases=5 physical=NOT_RUN
+GS-CLOUD-MTLS-DEADLINE-001 PASS checks=4
+build/cloud_trust_provider_validation
+GS68-D05-AUTHORITY-PROVIDER PASS
+GS68-D05-CERT-VALIDITY-001 PASS
+GS117-CLOUD-PAIR-001 PASS PKCS1/PKCS8/wrong-key
+GS117-CLOUD-PAIR-CACHE-001 PASS immutable-proof/live-authority
+GS68-D12-CREDENTIAL-PROVIDER PASS
+GS68-D06-TIME-STATE-MACHINE PASS
+GS68-D06-SIGNED-PROOF-CRYPTO PASS
+GS40-PROVIDER-CLOUDSYNC-INTEGRATION PASS
+GS-CLOUD-TRUST-PROVIDER PASS suites=5 physical=NOT_RUN
+PYTHONPATH=backend:. python3 -m unittest discover -s tests/support -p 'test_cloudsync_security.py' -v
+make: *** [Makefile:659: cloudsync-security-ut] Terminated

@@ -1,0 +1,51 @@
+{
+  "schema": "GS117_APP_ONLY_UPDATE_PLAN_V1",
+  "recorded_utc": "2026-11-13T15:25:35.400725+00:00",
+  "owner_authority": "GS-D034 standing registered app-only updates; owner chat2026-11-13; Jira12081",
+  "per_update_human_approval_required": false,
+  "home_id": "gs177-test-product",
+  "device_id": "hub-e072a1d38d34",
+  "port": "COM10",
+  "usb_serial": "E0:72:A1:D3:8D:34",
+  "candidate_image": "/home/udaybhan/projects/Ghar_sajag_r1/code/build/validation_targets/gs40-renewal-ygh27qw_/gs_r1_s3_hub.bin",
+  "candidate_sha256": "96799fcbbe27ff7241fce54ed2d6e0d35b0571adecebb0c12ccb6d523faaad85",
+  "candidate_bytes": 2279536,
+  "candidate_version": "gs40-renewal-79270d0",
+  "candidate_partition_table_sha256": "4828fb04f0569bcc5ffafaf887bb7f360e6ab858ec29df00297671f5f2a468fe",
+  "firmware_scope": "GS40_TEST_ONLY_CLOUDSYNC ON; full product; no commissioning or signed-FOTA trigger",
+  "update_tool": "ESP-IDF6.0.3 OtatoolTarget.write_ota_partition; exact app slot only",
+  "otatool_sha256": "da713515caf674b4169c764ffb1e4dd068637bab8db26e6f48b7f09ceebdcb85",
+  "esptool_version": "5.4.0 Windows Python3.12",
+  "write_slot": 0,
+  "expected_slot_offset": 131072,
+  "expected_slot_capacity": 4194304,
+  "preserve": [
+    "bootloader",
+    "partition_table",
+    "NVS_identity_keys",
+    "OTA1_recovery",
+    "gs_outbox",
+    "gs_state",
+    "Home_Hub_C3_enrollment",
+    "original_c3_bedroom_141_1"
+  ],
+  "necessary_update_metadata": "Existing official OTA selector mechanism only; private backup before and verification after",
+  "before_write": [
+    "exact live USB and ROM identity",
+    "current table matches supported layout; image fits",
+    "private backup and reader compatibility review",
+    "original141/1 journal evidence",
+    "verified recovery artifact",
+    "host authenticated configuration, time and ingress READY"
+  ],
+  "not_authorized": [
+    "whole_flash_or_data_erase",
+    "NVS_or_key_or_enrollment_changes",
+    "production",
+    "unrelated_devices"
+  ],
+  "current_blocker": "Approved Airtel_Agrim private network not visible; currentYogi Public192.168.1.39; configuredendpoint192.168.1.6",
+  "physical_state_snapshot": "NOT_RUN",
+  "firmware_write": "NOT_RUN",
+  "new_event_injection": false
+}

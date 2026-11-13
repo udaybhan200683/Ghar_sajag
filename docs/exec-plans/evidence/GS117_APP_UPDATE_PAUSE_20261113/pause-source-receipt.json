@@ -1,0 +1,37 @@
+{
+  "paused_at_owner_request": true,
+  "observed_utc": "2026-11-13T15:29:01.476786+00:00",
+  "contract_commit": "dfda882be7a30b78704fe54f7d9dc02fd68c21be",
+  "source_changes_committed": false,
+  "source_files": {
+    "code/tests/python/test_component_gate.py": "eb30f46b7f353adac19212e6bebafed759aab170b122365a9879adb49371bf1f",
+    "code/tests/python/test_gs117_tc001_console.py": "a1d07b5552bfef0da3f6cd395da6d212ff71c8ae2fc113a00934e2f8f8cedce4",
+    "code/tests/support/test_gs68_gs40_identity_time_e2e.py": "547bee058bf813e72cb8b3c754afdfebb8981b37bcde2e0faf80d46e6e59bed0",
+    "code/tools/hil/gs40_test_bootstrap.py": "d6a20322226f4e9e05fa93c83456d30264f2beb78d31d6f58fb72047bdd0a89d",
+    "code/tools/local/gs117_hil_authorization.py": "7c40f23cc980d7aaafe00800821e0fd49a470a1b19b3d75cc1e4e1624c0fae6e",
+    "code/tools/local/gs117_tc001_serial_windows.py": "9f5d1bb1c849d635789988cf382bb921014ba989d594eb0d79b07ff64c8a6838",
+    "code/validation/suites.json": "dcd3286d09661859a26992739b70f915eb2550ccea6d94940d1ea7398fba329e",
+    "docs/validation/MASTER_TRACEABILITY.csv": "e98940e823fef66e0ce749b945bce3e25c8736f61ad88ce7853e423a4ea9c68e"
+  },
+  "preexisting_change_preserved": "code/tools/local/gs117_tc001_serial_windows.py",
+  "security_gate": "INTERRUPTED_OWNER_PAUSE; make57110 descendants stopped; no completed PASS",
+  "physical_flash": "NOT_RUN",
+  "original_event": "c3-146393c5d158/bedroom/141/1",
+  "network": {
+    "actual_ssid": "Yogi",
+    "category": "Public",
+    "ipv4": "192.168.1.39",
+    "approved_ssid": "Airtel_Agrim",
+    "approved_visible": false,
+    "configured_backend": "192.168.1.6"
+  },
+  "last_verified_cleanup": {
+    "TCP8445": 0,
+    "UDP4468": 0,
+    "caregiver443": 1,
+    "probe_processes": 0,
+    "probe_udp": 0
+  },
+  "littlefs_python_in_idf_env": "NOT_INSTALLED",
+  "historical_reboot11983": "USED"
+}

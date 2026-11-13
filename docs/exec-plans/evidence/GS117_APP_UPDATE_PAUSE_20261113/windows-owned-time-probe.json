@@ -1,0 +1,14 @@
+[
+  {
+    "case": "normal_owner_pipe_close",
+    "status": "PASS",
+    "windows_pid": 14060,
+    "port": 59500
+  },
+  {
+    "case": "abrupt_wsl_owner_exit",
+    "status": "PASS",
+    "windows_pid": 11760,
+    "port": 50847
+  }
+]

@@ -1,0 +1,47 @@
+esptool v5.4.0
+Image size: 2279536 bytes
+
+ESP32-S3 Image Header
+=====================
+Image version: 1
+Entry point: 0x403756a4
+Segments: 6
+Flash size: 16MB
+Flash freq: 40m
+Flash mode: DIO
+
+ESP32-S3 Extended Image Header
+==============================
+WP pin: 0xee (disabled)
+Flash pins drive settings: clk_drv: 0x0, q_drv: 0x0, d_drv: 0x0, cs0_drv: 0x0, hd_drv: 0x0, wp_drv: 0x0
+Chip ID: 9 (ESP32-S3)
+Minimal chip revision: v0.0, (legacy min_rev = 0)
+Maximal chip revision: v0.99
+
+Segments Information
+====================
+Segment   Length   Load addr   File offs  Memory types
+-------  -------  ----------  ----------  ------------
+      0  0x10e6f8  0x3c110020  0x00000018  DROM
+      1  0x018f8  0x3fc97500  0x0010e718  BYTE_ACCESSIBLE, MEM_INTERNAL, DRAM
+      2  0x105ad8  0x42000020  0x00110018  IROM
+      3  0x038cc  0x3fc98df8  0x00215af8  BYTE_ACCESSIBLE, MEM_INTERNAL, DRAM
+      4  0x1344c  0x40374000  0x002193cc  MEM_INTERNAL, IRAM
+      5  0x00024  0x50000000  0x0022c820  RTC_DATA
+
+ESP32-S3 Image Footer
+=====================
+Checksum: 0x54 (valid)
+Validation hash: dcbb0a87a8c47e78d71fad4c90d3372dd079becac6c52a163debea253c66e184 (valid)
+
+Application Information
+=======================
+Project name: gs_r1_s3_hub
+App version: gs40-renewal-79270d0
+Compile time: Nov 13 2026 15:13:49
+ELF file SHA256: ba8a5f175c8bb0a2591b9db5b6003c32e55e2080032f38a646087f4457c2c4de
+ESP-IDF: v6.0.3
+Minimal eFuse block revision: 0.0
+Maximal eFuse block revision: 1.99
+MMU page size: 64 KB
+Secure version: 0
