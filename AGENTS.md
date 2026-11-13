@@ -253,3 +253,12 @@ password, active Home/Hub/epoch/consent, verified-TLS database and audit guards.
 Raw motion admission/ACK/CloudSync does not require an activity policy; rule
 scenarios still require their genuine admitted policy. Keep live policy values
 unset rather than inventing household defaults.
+
+Owner2026-11-13 standing Engineering app-update direction: ordinary app-only
+updates for registered S3 COM10 and C3 COM4/Home gs177-test-product do not need
+repeated chat/Jira flash approval. Reuse official ESP-IDF tools, existing locks
+and audit. Preserve exact-device/image/profile/partition/recovery checks and
+bootloader/table/NVS/keys/recovery/outbox/state. Necessary update-related ROM
+entry and boot are included; no full erase, enrollment/key/eFuse or production
+change. Historical GS40 bootstrap grants/latches remain unchanged and are not
+firmware-update authority. See GS-D034 for the superseding scoped decision.

@@ -297,3 +297,14 @@ cross-Home entitlement; credentials/sessions/history preserved. This is a scoped
 development authorization correction, not commercial identity qualification.
 Raw motion durability/delivery is independent of optional activity policy; rule
 decisions retain policy prerequisites. See GS-D034 and existing GS117 handoff.
+
+## Registered Engineering app updates — 2026-11-13 owner clarification
+
+GS-D034 standing app-only update direction removes recurring owner-consent
+requests for the exact registered TEST_ONLY C3/S3 fixture. Existing technical
+identity, firmware, partition, recovery and data-preservation checks remain.
+Expected update-related ROM entry/boot is included; full erase, protected-state
+changes, production and unrelated reset operations remain excluded. Historical
+bootstrap scopes/latches are not update grants and must not be repinned to
+permit an unrelated official update operation. Release-family controls remain
+unchanged. See the LOCKED GS-D034 section for exact scope and boundaries.

@@ -1,3 +1,14 @@
+## 2026-11-13 — Owner authorizes standing registered Engineering app updates
+
+Owner explicitly removed repeated flash-consent requests for routine app-only
+updates. Canonical GS-D034 scope now covers registered S3/C3 and necessary
+update-related ROM entry/boot, with exact identity/image/partition/recovery/data
+preservation retained. No hardware operation follows merely from editing this
+contract. Existing GS114 official otatool procedure is reused; old latched
+bootstrap11897 is preserved and not used as an update grant. Original141/1
+remains P0. Final uniquely versioned S3 build is in progress; no flash yet.
+Code/test work is preserved unstaged until this contract checkpoint is committed.
+
 ## 2026-11-13 — Live Home/enrollment audit and renewal-material composition
 
 Additional read-only protected-scope audit: the historical ledger is blocked

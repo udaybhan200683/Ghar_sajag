@@ -1970,3 +1970,39 @@ configuration/credential/publication freshness; refresh must not enroll, revoke
 or replace identities implicitly. This reuses existing lifecycle contracts and
 does not waive revocation, protected-update review or GS-D034 network bounds.
 See the GS40 renewal evidence for actual source and unqualified physical status.
+
+### GS-D034 — standing app-only Engineering updates (LOCKED, owner chat 2026-11-13)
+
+Owner explicitly directs implementation/deployment and removes recurring flash
+approval for the registered TEST_ONLY fixture. This supersedes only the earlier
+per-update human-consent exclusion for ordinary app-only Engineering updates.
+Scope: Home gs177-test-product, S3 hub-e072a1d38d34/COM10 and C3
+c3-146393c5d158/COM4, using existing official ESP-IDF update tools. A new chat/Jira
+approval, historical bootstrap grant, fixed-use counter or arbitrary consent
+expiry is not required for each supported application update. This standing
+owner direction is revocable and does not apply to production or other devices.
+
+Retain exact physical identity, Engineering image/profile and image checksum,
+partition bounds/compatibility, private recovery evidence, storage preservation,
+firmware authenticity where applicable, rollback/recovery and exclusive-device
+ownership checks. Expected ROM entry and normal boot that are necessary parts
+of this application update are covered; arbitrary reset loops are not. Preserve
+bootloader, partition table, NVS/identity/keys, recovery image, outbox and state.
+No whole-device erase, enrollment/ownership change, key/eFuse modification or
+production operation is included. Stop before a write if these technical safety
+conditions are not satisfied; do not reinterpret a wrong device or corrupt
+image as an approval prompt that can be bypassed.
+
+Reuse the GS-114 app-only ESP-IDF otatool/preservation procedure and GS-117
+existing fixture locks/audit. The unrelated historical GS40 bootstrap record is
+not the application-update admission record. Its latch, consumption and sources
+remain immutable. Actual unresolved identity/authentication/durability failures
+still require diagnosis; do not erase history or silently reset counters.
+Ordinary GS117 console/test edits must not invalidate an unchanged official
+update tool. Bind a deployment to its image, intended storage/profile, actual
+update tool and recovery plan; changes to those inputs require technical review,
+not another routine human-consent cycle. Product monitoring has no dependency on
+an Engineering update consent, browser, foreground phone or developer session.
+
+This is authorization/contract direction, not deployed firmware or qualification.
+Original141/1 recovery remains P0; no replacement event. C3 cold-start ON HOLD.

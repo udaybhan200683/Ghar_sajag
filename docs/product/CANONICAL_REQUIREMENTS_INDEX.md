@@ -542,3 +542,9 @@ TEST_ONLY configuration and mTLS authority mechanisms; it does not define a new
 production provisioning contract or supersede locked expiry/ownership rules.
 Source/build PASS is distinct from unexecuted deployment, physical recovery and
 endurance. Original event141/1 remains the required recovery target.
+
+2026-11-13 owner standing Engineering app-update clarification is LOCKED under
+GS-D034 in DECISION_LOG, with scope mirrored in R1_RELEASE_CONTRACT and AGENTS.
+It supersedes recurring human flash consent for registered TEST_ONLY app updates
+only, retaining actual device/image/storage safety and strict release controls.
+Historical bootstrap grants are not the update workflow; their evidence remains.
