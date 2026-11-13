@@ -417,6 +417,8 @@ $tooLong=$false;try{Get-PhysicalSessionWindow @() 'scope' 'activation' $at 3601|
         result=self.powershell(r"""
 function Stop-WithError($reason){throw $reason}
 function Get-FileHash {param($Path,$Algorithm) return @{Hash=('b'*64)} }
+function Test-Path {param($LiteralPath,$Path,$PathType,$ErrorAction) return $false}
+$env:ProgramData='C:\ProgramData'
 $results=@()
 foreach($hash in @('',('a'*64))) {
  try {Get-PhysicalAuthority 'GS-117#99999' 123 '/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/services-test' $hash | Out-Null;throw 'expected rejection'}
@@ -683,6 +685,8 @@ if($script:continued -ne 1){throw 'expired outer renewed'}
         result=self.powershell(r"""
 function Stop-WithError($reason){throw $reason}
 function Get-FileHash {param($Path,$Algorithm) return @{Hash=('b'*64)}}
+function Test-Path {param($LiteralPath,$Path,$PathType,$ErrorAction) return $false}
+$env:ProgramData='C:\ProgramData'
 $results=@()
 foreach($ref in @('GS-179#11916','GS-179#11947','GS-179#99999')) {
  try{Get-PhysicalAuthority $ref 123 '/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/services-test' ('a'*64) 'DEV' ('c'*64) ('d'*64)|Out-Null;throw 'expected rejection'}

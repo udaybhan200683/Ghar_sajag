@@ -864,3 +864,13 @@ One-time owner-approved OS administrator consent remains genuine Windows UAC.
 - `gs179_engineering_validator.py` SHA256 `b0725a9c9786f7c52f16765791cd206052e082a9f8813ce363084e1ff56de5db`
 - `gs179_verified_endpoint.py` SHA256 `c9b3cb79895d19ef6854aa55084d59b50e014804e43422fb73d84c1f3ceb8c7c`
 - `gs117_hil_authorization.py` SHA256 `1d321595cbe590d6ca983c23878eafdf2e0841631b8ea0c230873ef28baa21bf`
+
+### 2026-11-13 — GS-117 mutable-source coupling investigation
+
+See [GS-179 / GS-117 source-pin decoupling](GS179_GS117_SOURCE_PIN_DECOUPLING_20261113.md)
+for the exact `reviewed_project_source_changed` cause, bounded validator change,
+focused test results, protected installation hashes/ACL, and the required
+one-time administrator deployment boundary. The installed task and protected
+snapshots were not modified. Live 8445 remains closed until that reviewed
+validator update is deployed; caregiver 443 remains intact. No physical event
+or S3 reboot occurred; #11983 remains UNUSED.

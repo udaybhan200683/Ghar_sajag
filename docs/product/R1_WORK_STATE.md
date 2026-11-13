@@ -12353,3 +12353,32 @@ EventKey in Android later. Do not request the handset before backend delivery
 is established. Five-run campaign remains 0/5; formal optical TC-001 remains
 0/5; GS-179 cleanup qualification remains PARTIAL; C3 cold-start work stays
 ON HOLD.
+
+### 2026-11-13 — GS-179 mutable GS-117 source pin removed from ingress admission
+
+Owner requirements GS-179 #12039 / GS-117 #12040 identified the first blocker:
+the installed protected validator compared current `gs117_hil_authorization.py`
+bytes to its installation hash and rejected a bootstrap-pin-only source update
+(`reviewed_project_source_changed`). The network task executes the installed,
+administrator-protected GS-117 snapshot, not current checkout bytes. The
+existing validator now retains all protected snapshot/manifest checks and
+current GS-179 executor source checks while permitting ordinary GS-117 source
+edits; GS-117 path symlinks remain rejected. No new privileged action, source
+execution path, or authority was added.
+
+Focused checks: GS-179 Python endpoint/validator 27/27 PASS; Windows session
+mock 21/21 PASS after making two pre-install test fixtures independent of the
+real task/ProgramData environment; compilation and diff check PASS. No broad
+suite was run. The live installed validator remains the old hash
+`b0725a9c...56de5db`; the corrected source is
+`eb00866c...7691abd9`. Since the existing installer refuses overwrite and no
+update action exists, the corrected protected validator is NOT_DEPLOYED. Task
+registration/ACL/pins remain intact. Windows 8445/UDP 4468 are closed; 443 is
+preserved. WSL backend 8444/PostgreSQL 55432 are listening. No hardware or
+event operation occurred, #11983 remains UNUSED, and no EventKey was created.
+See [GS-179 / GS-117 source-pin decoupling evidence](../exec-plans/evidence/GS179_GS117_SOURCE_PIN_DECOUPLING_20261113.md).
+
+Next: one administrator-authorized update of the existing protected
+validator/manifest is required before ingress Start. Then verify live bounded
+ingress and return to GS-117 physical S3/C3 readiness and one USB event. GS-179
+cleanup qualification remains PARTIAL; C3 cold-start remains ON HOLD.

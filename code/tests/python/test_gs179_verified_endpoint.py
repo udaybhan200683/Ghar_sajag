@@ -44,7 +44,7 @@ class EngineeringSnapshotTest(unittest.TestCase):
                 _verify_engineering_controller(proc, manifest, 43)
 
     def test_protected_snapshots_not_caller_source_execute(self):
-        """GS179-UNATTENDED-002: project tamper never executes privileged code."""
+        """GS179-UNATTENDED-002: protected copies execute; mutable source does not."""
         import gs179_engineering_validator as v
         with tempfile.TemporaryDirectory() as temp:
             base = Path(temp) / 'protected'; base.mkdir()
@@ -63,17 +63,45 @@ class EngineeringSnapshotTest(unittest.TestCase):
                 # Restore modules after exercising real loader on inert test bytes.
                 with patch.dict(sys.modules):
                     v.load_snapshot(base)
-                (source / names[0]).write_text('unreviewed')
+                # Ordinary application/authorization source edits do not run
+                # from the checkout and do not invalidate the fixed executor.
+                marker = source / 'must-not-execute'
+                (source / names[3]).write_text(
+                    f"from pathlib import Path\nPath({str(marker)!r}).write_text('executed')\n",
+                    encoding='utf-8')
+                with patch.dict(sys.modules):
+                    v.load_snapshot(base)
+                self.assertFalse(marker.exists())
+                (source / names[3]).unlink()
+                (source / names[3]).symlink_to(base / names[3])
                 with self.assertRaisesRegex(ValueError, 'reviewed_project_source_changed'):
-                    v.load_snapshot(base)
-                (source / names[0]).write_bytes((base / names[0]).read_bytes())
-                (base / names[2]).write_text('unreviewed')
+                    with patch.dict(sys.modules):
+                        v.load_snapshot(base)
+                (source / names[3]).unlink()
+                (source / names[3]).write_bytes(b"# pinned snapshot\n")
+
+                # A change to the canonical privileged GS-179 source still
+                # fails closed against the reviewed installation manifest.
+                (source / names[2]).write_text('unreviewed')
+                with self.assertRaisesRegex(ValueError, 'reviewed_project_source_changed'):
+                    with patch.dict(sys.modules):
+                        v.load_snapshot(base)
+                (source / names[2]).write_bytes((base / names[2]).read_bytes())
+
+                # The installed GS-117 authority snapshot remains immutable
+                # and must still match its administrator-owned manifest pin.
+                (base / names[3]).write_text('unreviewed')
                 with self.assertRaisesRegex(ValueError, 'protected_snapshot_changed'):
-                    v.load_snapshot(base)
+                    with patch.dict(sys.modules):
+                        v.load_snapshot(base)
+                (base / names[3]).write_bytes(b"# pinned snapshot\n")
+
+                # Path substitution in the protected manifest remains denied.
                 manifest['sources']['../evil.py'] = 'a' * 64
                 (base / 'installation.json').write_text(json.dumps(manifest))
                 with self.assertRaisesRegex(ValueError, 'protected_manifest_invalid'):
-                    v.load_snapshot(base)
+                    with patch.dict(sys.modules):
+                        v.load_snapshot(base)
 
 
 class VerifiedEndpointTest(unittest.TestCase):
