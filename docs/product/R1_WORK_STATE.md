@@ -60,12 +60,48 @@ defaults select UART0 as well; the final verifier checks the actual SDK defaults
 list to ensure the Engineering GS40 TEST_ONLY/UART layers are absent from
 Release. The corrected full Release build and generated-image checks PASS.
 
+### Deployment follow-up — 2026-11-13
+
+The build entry is committed and pushed as `05efb627070fe46359de3b9a3d346ca65fb79d82`.
+On resume, Windows read-only network inspection confirmed `Airtel_Agrim` is
+Private at `192.168.1.6`; caregiver TCP 443 is listening. The existing backend
+8444 and PostgreSQL 55432 processes are present. The prior one-hour controller
+PIDs and receipts are stale; there is no current 8445/4468 listener or active
+controller, so no service readiness was inferred and none was started.
+The current context preflight still reports the installed/running S3 image and
+profile as UNKNOWN/NOT_VERIFIED, profile identity unverified, and live network
+service security unverified; routine Engineering admission is therefore
+pending live guards, not blocked by a request for owner approval.
+
+Physical update remains BLOCKED before COM10 access. The saved
+`app-only-renewal-deployment-plan.json` binds the earlier image
+`96799fcb...` and table binary `4828fb04...`, not the newly built canonical
+Engineering image `7baba567...` and generated table `bb0066fe...`. The only
+preserved one-shot writer at
+`~/.local/state/ghar-sajag/gs117-tc001/s3-diagnostic-replacement-20261031/offline-preflight/application_flash_once.py`
+declares itself disabled and its `execute()` path raises
+`legacy_s3_writer_disabled_offline_ota_plan_not_authorization_ready`.
+Its planner also has no trusted source/build receipt proving the historically
+read S3 bootloader (`ae304441...`) was built with application rollback enabled.
+That bootloader hash is found in October 26 snapshots only; these are not a
+current device-state or rollback-provenance receipt. The current COM10 PNP
+descriptor was read without opening the port, but does not independently prove
+the registered S3 MAC identity. No serial port, board, reset or flash was used.
+
+Therefore standing app-only authorization does not by itself make the disabled
+writer a supported deployment procedure. Do not bypass its stop, rewrite the
+old image plan, select an OTA slot, or claim physical compatibility from the
+new build table. The next action is to resume the existing supported app-only
+update path with a current-image-bound plan and verified non-destructive
+rollback/persistent-state preflight; if that procedure remains unavailable,
+record the exact implementation gap before any device write. No fresh motion
+event was sent; the known CloudSync publication failure remains unverified on
+the new image because it is not deployed. S3 reboot #11983 remains USED.
+
 No board was accessed, flashed, reset, erased or reformatted. The output is
-build-verified only, not deployment or running-image evidence. Next: resume the
-existing standing-authorized app-only S3 update path, first verifying the exact
-COM10 identity, running partition/journal compatibility and preservation state;
-never use the generated full `idf.py flash` command. S3 reboot #11983 remains
-USED and cannot be repeated.
+build-verified only, not deployment or running-image evidence. Deployment status
+is further qualified in the follow-up above; do not use the generated full
+`idf.py flash` command. S3 reboot #11983 remains USED and cannot be repeated.
 
 ## OWNER PAUSE — 2026-11-13 — final S3 binary ready; no flash
 

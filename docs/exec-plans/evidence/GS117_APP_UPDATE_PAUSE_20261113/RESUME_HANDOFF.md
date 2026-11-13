@@ -139,3 +139,68 @@ No task-owned runtime services remain. Backend8444/PostgreSQL55432 preserved.
    and later actual APK. Phone absence never gates upstream evidence.
 8. Only after original-event recovery/acceptance, proceed five fresh runs and
    >1h/multi-day qualification. Do not claim source/build/OS tests as physical PASS.
+
+## 2026-11-13 resume checkpoint — outbox build corrected, deployment not started
+
+The owner resumed work and changed the immediate priority: deploy the corrected
+S3 image and complete a fresh physical TC-001 event; original EventKey 141/1 is
+no longer the first objective, but its data remains protected. The canonical
+builder change is committed as `05efb627070fe46359de3b9a3d346ca65fb79d82`,
+and Jira GS-117 comment #12085 records its build evidence.
+
+Context preflight PASS was observed at version `2026-11-13.001` on the parent
+commit; local and remote now match `05efb627070fe46359de3b9a3d346ca65fb79d82`.
+At the time of this note, only these status-document edits are new; the other
+dirty files and untracked assets predate this checkpoint and must be preserved.
+The build task did not access hardware. The PNP descriptor read identified a
+USB Serial/JTAG COM10 device but did not establish the registered S3 MAC identity.
+The current mode report separately says installed/running image UNKNOWN,
+profile identity unverified, and live network-service security unverified;
+routine admission remains pending live technical guards rather than another
+owner-approval request.
+
+Current network read-only check: `Airtel_Agrim`, Private, `192.168.1.6`; Windows
+caregiver TCP 443 listening. Existing WSL backend 8444 and PostgreSQL 55432
+remain running. Old controller status/lease files point to expired PIDs/deadline
+and are historical only. No current 8445/4468 listener or controller exists;
+do not infer current hub ingress or signed-time readiness. No fresh signed-time
+or ingress session was started because the update path is not ready.
+
+The canonical outbox builder produced a current Engineering image
+`7baba567f896bdb1c24804a698c2d2dbc9e8edf8e072087f0f0300f76fb19603`,
+2,304,176 bytes, with the verified outbox table binary
+`bb0066feee7368e621c6f0f0d7bfdf47cbc5bbbf4cfdd9eccab9525ad683f82a`.
+The prior private plan still binds image `96799fcb...` and table
+`4828fb04...`; it is not a plan for this new image. Inspection found the only
+preserved one-shot writer in
+`~/.local/state/ghar-sajag/gs117-tc001/s3-diagnostic-replacement-20261031/offline-preflight/application_flash_once.py`
+is explicitly disabled: `execute()` raises
+`legacy_s3_writer_disabled_offline_ota_plan_not_authorization_ready`. Its
+planner also lacks trusted build provenance tying the historically observed
+bootloader hash `ae304441...` to application rollback being enabled. Matching
+backup snapshots are dated October 26 and do not prove current device state or
+rollback provenance. Do not bypass the disabled writer, replace old pins by
+hand, use full `idf.py flash`, modify OTA metadata, or access COM10 until the
+existing supported app-only procedure can bind this current image and pass its
+non-destructive identity/slot/persistent-state/rollback checks.
+
+No new motion input was sent; no fresh EventKey exists. The previously known
+CloudSync failure is not retested because the renewal image is not deployed.
+S3 reboot #11983 remains USED. No new tests were run after the build commit;
+the focused builder run remains 21 tests with the three new cases passing and
+one pre-existing assertion/source mismatch preserved. Build script syntax,
+suite JSON parsing and staged diff checks passed. The known required
+`cloudsync-security-ut` interruption in the prior handoff is unrelated to this
+builder-only change and remains `INTERRUPTED / NOT_PASS`.
+
+### Next exact action
+
+Resolve the existing app-only deployment procedure's disabled-writer and
+rollback-provenance stop using its supported owner-reviewed update path, bound
+to the current image hash and actual registered S3 state. Do not create a
+replacement framework or perform a flash/selector write by hand. When that
+existing path is ready, start one fresh bounded signed-time/ingress session,
+verify live COM10 identity and storage-preservation prerequisites, deploy only
+the app image, verify actual running firmware and C3 rejoin, then trigger one
+fresh USB motion event and trace it through S3, CloudSync, PostgreSQL, caregiver
+API and APK. Keep cold-start correction ON HOLD.
