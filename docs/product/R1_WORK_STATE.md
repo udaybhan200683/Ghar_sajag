@@ -12620,3 +12620,42 @@ source review and permitted read-only mechanism, without another blind COM
 retry. Then restore the existing bounded ingress only for the guarded physical
 flow, verify actual S3 authentication and C3 rejoin, and run one motion event
 only after the unchanged C3 readiness gate passes.
+
+### 2026-11-13 09:15 UTC — Parser artifact and current readiness recheck
+
+Canonical preflight PASS (`2026-11-12.007`); local and origin HEAD were
+`ea182638b36daae2f9293e21b2c85e2bd0464708`. A local ignored ESP32-C3 build
+artifact exists at
+`code/firmware/node/target/esp32c3/idf/build/gs117_hil_parser_20261113/`:
+application BIN SHA-256
+`620428be4b69eb03a91ebe2832f1fece2a3d9892eb261fd723cc58f3d7d2e300`, ELF
+SHA-256 `83700f40fe9023769cc078446e6f5c3f95414ce46ff79b13907ab2fc1a0bb7d2`,
+build version `48c5d2d-dirty`, with `GS_HIL_CONTROL=ON`, `GS_HIL_BUILD=OFF`,
+and `GS_BAT_C8_PHYSICAL_WAKE=OFF`. The ELF contains the corrected
+`discarding through line terminator` parser message. This proves only that a
+local candidate was built; no installed or running-image match is established,
+no signed BIN was found in that build directory, and no firmware was deployed.
+The fixture's older expected-image record is not a receipt for this artifact.
+
+Two focused existing controller tests ran against the current worktree:
+`test_windows_injection_opens_only_c3_and_requires_matching_hub_ack` and
+`test_c3_readiness_failure_captures_exact_bounded_predicates_without_injection`
+— 2/2 PASS. The earlier parser unit tests (6/6) and ESP-IDF compile-only result
+are historical receipts. No broad suite ran. `gs179-laptop-server.sh health`
+reports PostgreSQL, caregiver HTTPS, local backend, development endpoint and
+LAN forwarding PASS; WSL TCP 8445 and signed-time UDP 4468 are absent, physical
+Hub authentication is NO, and Hub ingress is NOT_CONFIGURED. The existing
+portal status is HTTP 200 and reports TEST_ONLY fixture/enrollment and the
+one-event authorization PASS; its saved current C3 run remains BLOCKED at the
+unchanged readiness guard.
+
+No COM port was opened, no reset/flash occurred, no motion command was sent,
+and no fresh EventKey exists. The uncommitted serial-helper change and unrelated
+untracked assets remain untouched. S3 reboot #11983 is USED; C3 cold-start
+remains ON HOLD. Next is to reconcile the preserved helper change with the
+existing source-review path and establish a current C3 command response before
+any injection. If physical parser correction needs deployment, use only the
+existing protected Engineering firmware path with its applicable exact-scope
+authorization and post-install identity evidence. Continuous 24-hour
+operation/recovery qualification remains NOT_RUN; GS-D034 ingress lease limits
+remain unchanged.

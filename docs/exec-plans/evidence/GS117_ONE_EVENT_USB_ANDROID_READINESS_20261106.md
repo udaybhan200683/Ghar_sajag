@@ -1850,3 +1850,39 @@ C3 serial-response boundary without another blind query or any injection. Then
 restore bounded ingress for a real guarded run, verify authenticated S3/C3
 readiness, and send exactly one USB stimulus only after the unchanged readiness
 guard passes.
+
+### 2026-11-13 09:15 UTC — Local parser artifact; runtime still unverified
+
+Current preflight PASS at local/origin HEAD
+`ea182638b36daae2f9293e21b2c85e2bd0464708`. The ignored local C3 HIL candidate
+`code/firmware/node/target/esp32c3/idf/build/gs117_hil_parser_20261113/gs_hw_m1_node.bin`
+has SHA-256
+`620428be4b69eb03a91ebe2832f1fece2a3d9892eb261fd723cc58f3d7d2e300`; its ELF
+SHA-256 is `83700f40fe9023769cc078446e6f5c3f95414ce46ff79b13907ab2fc1a0bb7d2`,
+build version `48c5d2d-dirty`, and profile flags are HIL_CONTROL=ON,
+HIL_BUILD=OFF, PHYSICAL_WAKE=OFF. Its ELF contains the fixed overlong-line
+discard message. This is a local build artifact only: the current running
+device image remains UNKNOWN, the fixture's older expected hash does not match
+this candidate, no signed BIN is present in this build directory, and no flash
+or deployment occurred.
+
+Two focused current-worktree controller tests passed (2/2):
+`test_windows_injection_opens_only_c3_and_requires_matching_hub_ack` and
+`test_c3_readiness_failure_captures_exact_bounded_predicates_without_injection`.
+No broad test suite ran. Read-only service health currently reports backend,
+PostgreSQL, caregiver HTTPS, development endpoint and LAN forwarding PASS; TCP
+8445 and UDP 4468 are absent, authenticated Hub is NO and ingress is
+NOT_CONFIGURED. The existing portal status returns HTTP 200, but its last
+physical Run remains BLOCKED at C3 readiness. No COM access, reset, flash,
+injection, EventKey or new downstream event occurred.
+
+The parser overflow/suffix defect has a permanent source correction and a local
+compiled candidate, but deployment and the intermittent zero-byte GET_STATE
+cause remain unverified. The pre-existing serial-helper diff and untracked user
+assets are preserved. S3 reboot #11983 is USED; C3 cold-start stays ON HOLD;
+GS-179 cleanup qualification remains PARTIAL; 24-hour qualification is NOT_RUN.
+Next: reconcile the helper diff/source review, obtain a current authenticated
+C3 command response through the existing permitted path, and proceed only when
+the unchanged readiness gate passes. Any physical firmware update must follow
+the existing protected Engineering deployment authorization and retain
+post-install image identity evidence.
