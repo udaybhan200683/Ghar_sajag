@@ -1778,3 +1778,17 @@ No serial port was opened, no hardware was reset or flashed, and no `INJECT_MOTI
 The owner-approved 24/7 product operation requirement does not itself change GS-D034's 3600-second maximum / 1800-second idle limits for temporary privileged Engineering ingress. No lease or executor lifecycle was modified in this HIL parser correction. Long-duration product runtime and recovery qualification remains open under GS-117/GS-58/GS-59/GS-177/GS-178 and their existing requirements; no uptime claim is made.
 
 Next: commit only this parser/test/traceability/documentation correction while leaving the pre-existing serial-helper diff and unrelated files intact. Then use the existing current source-review workflow before one bounded C3-only observation. Any firmware deployment requires the applicable existing protected hardware authorization. Preserve the unchanged readiness guard; inject once only if it passes.
+
+### 2026-11-13 08:38 UTC — Live readiness status
+
+The existing portal `/api/status` returned PostgreSQL, caregiver HTTPS, local
+backend, development endpoint, LAN forwarding, authenticated TEST_ONLY Home,
+registered USB descriptors and enrollment as PASS. WSL TCP 8445 was not
+listening, so bounded physical ingress is BLOCKED; signed-time UDP 4468 was
+also absent. Current physical S3 authentication and C3 GET_STATE are
+NOT_VERIFIED. One-event authorization is PASS; campaign admission is blocked
+by the stale reviewed-procedure pin. No serial access, reset, injection, fresh
+EventKey or downstream event occurred. The household desired policy remains
+unset and does not gate raw motion admission. No Android access was needed for
+this backend readiness check. Local/remote HEAD:
+`0ddcca067680bf9afde4d1a46a26e916db2dfaf5`.

@@ -12506,3 +12506,32 @@ COM4 `GET_STATE` command path intermittently returns no reply, while proving
 the running image's command-console mapping through an already supported
 non-destructive mechanism. Do not reopen COM4 or inject another event without
 a concrete diagnostic hypothesis and a genuinely passing readiness guard.
+
+### 2026-11-13 08:38 UTC — Live backend-first readiness recheck
+
+Canonical preflight PASS (`2026-11-12.007`); local and origin HEAD are both
+`0ddcca067680bf9afde4d1a46a26e916db2dfaf5`. A read-only GET of the existing
+portal `/api/status` reports PostgreSQL, caregiver HTTPS, local backend,
+development endpoint and LAN forwarding PASS. The authenticated TEST_ONLY Home
+is `gs177-test-product`; physical USB descriptors and enrollment match the
+registered C3/S3. No serial port or Android device was accessed.
+
+The first active TC-001 gate remains `hub_ingress=BLOCKED`:
+`wsl_physical_ingress_listener_not_listening`; this check found no WSL TCP 8445
+or signed-time UDP 4468 listener. Current authenticated physical S3 readiness
+and C3 `GET_STATE` response are NOT_VERIFIED. The one-event authorization
+reports PASS, while the five-run campaign reports
+`development_reviewed_procedure_changed`. No Run request, COM access, reset,
+injection, fresh EventKey, or downstream event was produced. The household
+desired policy remains version 0/null; canonical source confirms raw motion
+admission/ACK/CloudSync is independent of activity-rule readiness.
+
+The installed source-review helper requires committed tracked source, while
+`code/tools/local/gs117_tc001_serial_windows.py` still has a preserved
+pre-existing tracked diff. No source pin, policy, authorization or user change
+was altered to bypass that guard. The parser fix in `043c755` remains
+source-validated only and is not proven deployed to the running C3. S3 reboot
+#11983 is USED once and must not be repeated; C3 cold-start remains ON HOLD.
+Next: reconcile the current serial-helper diff and approved source review, then
+use the existing bounded GS-179 Start path and one guarded C3 observation;
+proceed to the one-event flow only when physical readiness passes.
