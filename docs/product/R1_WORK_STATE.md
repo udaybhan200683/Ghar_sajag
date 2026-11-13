@@ -1,5 +1,12 @@
 ## 2026-11-13 — GS-40 runtime renewal source correction; deployment NOT_RUN
 
+Delivery checkpoint: source milestone `79270d021d6b7b7656a01eab758ed7eb20f9c591`
+was pushed and independently matched origin. Jira GS-40#12075 and GS-117#12076
+record actual source/build acceptance and unexecuted deployment. Preserved
+uncommitted serial-helper work and unrelated untracked assets are not part of
+that commit. No hardware update was performed. This documentation follow-up
+adds no runtime behavior or new acceptance claim.
+
 P0 remains original EventKey `c3-146393c5d158 / bedroom / 141 / 1`.
 The existing physical C3 generation and authenticated S3 durable ACK are proven;
 PostgreSQL/API remained zero in the original bounded run. No replacement event
