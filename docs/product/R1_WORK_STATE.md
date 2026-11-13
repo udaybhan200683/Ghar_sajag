@@ -12294,3 +12294,52 @@ remain STALE, #11897 remains SAFETY_LATCHED 1/1, #11886 remains intact,
 capture fresh matching C3/S3 and Android evidence; a separate one-use
 `motion_event_once` scope can then authorize one USB-triggered E2E event. The
 proposal and exact bounds are in
+## 2026-11-13 02:03 UTC — GS-117 progressive backend-first single-event path
+
+Resume baseline fd188510 / context 2026-11-12.007 PASS. Canonical branch
+feature/r1-commercial-baseline; current local/remote head after delivery:
+18191af0d995da20269f4eacd297e8d14ec86090. Existing tracked code changes were
+limited to the TC-001 controller and its test module; unrelated untracked assets
+remain preserved.
+
+Implemented GS-117 owner clarification #12034 in the existing controller:
+single-event physical/backend readiness no longer requires a fresh Android
+installation receipt or foreground observer. Android is a separate exact-key
+follow-up over the saved accepted run and cannot trigger a second USB event.
+Stale/missing Android proof remains NOT_VERIFIED; it cannot produce full
+TC-001 PASS. The five-run campaign retains its current Android gate. Event
+reservation compares Home/Hub/epoch and C3/S3 device, port, USB, image and
+source identity without coupling those identities to a refreshed phone receipt.
+Existing authorization, backend origin, USB identity, C3 readiness, authenticated
+S3, durable ACK, CloudSync, PostgreSQL and API guards are unchanged.
+
+Focused affected checks: 7/7 PASS; py_compile and git diff --check PASS.
+The first source-review attempt ran 205 console tests and failed 3 assertions
+because two test fixtures omitted the now-required android_receipt_fresh=true
+metadata (one DEV wait case and two subcases of exact-key Android success).
+Product guards were not weakened. Updated the test fixture; both affected tests
+then passed. Supported source-bound S3 review d955e71d...276928 now verifies
+operation s3_runtime_bootstrap_reboot_11983, private v22 and all reviewed source
+fingerprints at commit 18191af; its registered console module ran 205/205 PASS
+(test-report SHA-256 fe68d7a3...e9dd5). The earlier failed review was not issued
+as a receipt.
+
+No Android, USB, COM4 or COM10 access occurred. No INJECT_MOTION, EventKey,
+physical Hub authentication, S3 rejoin or backend event was generated. The
+one-time reboot marker remains absent; #11983 remains UNUSED. C3's last
+positive GET_STATE/runtime/sensing evidence is the prior Nov12 physical
+observation and was reused, not refreshed. Running image identities remain
+UNKNOWN / NOT_VERIFIED. Current WSL listeners are backend 8444 and PostgreSQL
+55432; no TCP 8445 ingress or UDP 4468 signed-time listener is active. The
+temporary 18791 portal process started during a CLI inspection was stopped and
+its listener is absent.
+
+Next: use existing GS-179 bounded launchers to restore 8445 and signed time,
+verify backend/Home authority and actual physical S3 runtime dependencies, then
+perform the already approved single S3 bootstrap/reboot only if still required.
+After genuine Hub authentication and C3 readiness pass, send one web-triggered
+USB event and preserve progressive C3/S3/backend/API results; verify that exact
+EventKey in Android later. Do not request the handset before backend delivery
+is established. Five-run campaign remains 0/5; formal optical TC-001 remains
+0/5; GS-179 cleanup qualification remains PARTIAL; C3 cold-start work stays
+ON HOLD.

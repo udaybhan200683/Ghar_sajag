@@ -1675,3 +1675,78 @@ No physical observation was repeated after the code change. Existing Engineering
 The task-owned local portal PID 246753 was stopped with TERM; subsequent process/socket checks showed no local 18791 portal and no local 8445/4468 listener. No serial helper remained. Windows-side TCP 443 was preserved by the previous verified cleanup but was not independently re-audited in this continuation. GS-117 remains Highest/In Progress.
 
 Next: when the owner permits the existing source-review workflow's required focused checks, refresh reviewed source fingerprints through that workflow, then make one bounded C3-only observation with corrected framing. Do not send `INJECT_MOTION` until the unchanged readiness guard passes. If `GET_STATE` remains absent after correctly framed, timestamped capture, diagnose the USB Serial/JTAG/installed-handler boundary from that evidence; do not infer or patch firmware from `unknown_command=Gr` alone.
+## 2026-11-13 02:03 UTC — Progressive backend-first execution checkpoint
+
+Canonical worktree / branch verified: /home/udaybhan/projects/Ghar_sajag_r1,
+feature/r1-commercial-baseline. Local and origin HEAD are both
+18191af0d995da20269f4eacd297e8d14ec86090. Context preflight PASS
+(2026-11-12.007). Existing unrelated untracked files and historical evidence
+were preserved.
+
+### Controller correction
+
+Owner clarification GS-117 #12034 was applied to the existing TC-001 controller.
+The single motion-event flow can proceed through guarded physical/backend
+readiness without Android foreground or a fresh Android APK receipt. This does
+not bypass existing authorization, fixture/Home/epoch/source identity, backend
+origin, C3 runtime, Hub authentication, durable ACK, CloudSync, PostgreSQL or
+caregiver API checks. The saved original EventKey can later be observed through
+the existing APK observer at /api/verify-android without another injection.
+Missing/stale APK identity stays NOT_VERIFIED, and full TC-001 still requires
+exact-key Android evidence. The five-run campaign remains Android-gated.
+
+One additional hidden dependency was removed: a phone-install receipt refresh
+between authorization reservation and event execution no longer marks the
+physical C3/S3/Home fixture changed. Those physical identity fields remain
+compared. The caregiver-origin error now describes the actual mismatch.
+
+### Validation and source review
+
+Focused changed-path tests: 7/7 PASS; py_compile PASS; git diff --check PASS.
+An initial supported source review ran 205 tests but issued no receipt because
+three assertions failed from stale test-fixture metadata (missing explicit
+fresh-APK-receipt boolean). The production checks were correctly fail-closed.
+After correcting the test fixture, both affected tests passed and the supported
+source review passed 205/205. Review:
+
+- Operation: s3_runtime_bootstrap_reboot_11983
+- Review SHA-256: d955e71d361956458e8c4becea313eb601738f2f8d301a969d360326ba276928
+- Reviewed commit: 18191af0d995da20269f4eacd297e8d14ec86090
+- Test report SHA-256: fe68d7a3aa02c23eb51df84497ed7acb00be2a2befd459f0a1c1d29c410e9dd5
+- Registered private script v22 SHA-256: 1624311002fcbc6b84288fe5bd5439e9b33c25f92eada4b732c6742658e5ee2e
+- Controller SHA-256: 8bc1dc8f28f8f92e7fb6c18d1eb00123c2f8ae8c6fcb89747d48a051e9dcb7f3
+- Console test SHA-256: 91828754769c74cd0b869b71f6dceb9a079465cb4d7215e6c166c40938e9532a
+- Serial helper SHA-256: b0cd5405320f6ab2a94747969f10e5d9d57a6ab58a2a083a297bbbe14500fec3
+
+### Physical/backend state
+
+No phone, COM4 or COM10 access was performed. No C3 event was injected; there
+is no fresh EventKey or event-level backend proof. The existing C3 positive
+GET_STATE/runtime/sensing observation from Nov12 is reused, not repeated.
+Current installed/running image identities remain UNKNOWN / NOT_VERIFIED.
+The #11983 one-reboot marker is absent and the authorization remains UNUSED.
+No active S3 authentication/rejoin is established.
+
+Current local WSL services: backend 8444 and PostgreSQL 55432 listening.
+Bounded Hub ingress 8445 and signed-time UDP 4468 are absent. The temporary
+portal listener used during a CLI inspection was stopped; 18791 is closed.
+No task-owned service remains active from that inspection. The approved Android
+handset was not queried; Android remains a later exact-key verification stage.
+No new activity policy was created; desired/applied policy remains unset and is
+not a prerequisite for raw motion admission.
+
+### Next action
+
+Use the installed GS-179 executor and existing bounded launchers to restore
+authenticated 8445 ingress and signed-time 4468, verifying current Home/epoch,
+backend/PostgreSQL and cleanup bounds. Then execute the refreshed existing
+COM10-only authenticated S3 bootstrap/reboot procedure if required, within the
+single unused #11983 authorization. Verify physical S3 runtime, C3 automatic
+rejoin and backend readiness before one existing web-controller
+motion_event_once operation. Preserve the original EventKey through all real
+backend stages, then perform same-key APK observation without replay. Stop at
+the first actual failure; no reset loop, flash, re-pairing or false PASS.
+
+GS-117 remains Highest / In Progress; USB event and five-run campaign remain
+NOT_RUN/0 of 5. Formal optical TC-001 remains 0/5. GS-179 residual SYSTEM
+cleanup qualification remains PARTIAL. C3 cold-start work remains ON HOLD.
