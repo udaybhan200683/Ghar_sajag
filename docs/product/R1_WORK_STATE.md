@@ -12535,3 +12535,77 @@ source-validated only and is not proven deployed to the running C3. S3 reboot
 Next: reconcile the current serial-helper diff and approved source review, then
 use the existing bounded GS-179 Start path and one guarded C3 observation;
 proceed to the one-event flow only when physical readiness passes.
+
+### 2026-11-13 08:51 UTC — Reconciled C3 silence, backend and continuous-operation scope
+
+Canonical preflight PASS (`2026-11-12.007`). Local and origin HEAD were both
+`7556dde22f8185da2cc118ecbee6271fa8cbc58f` before this evidence update. The
+pre-existing tracked modification to
+`code/tools/local/gs117_tc001_serial_windows.py` (current SHA-256
+`0425068f55836440b4d2aae34bcd41b92d9fcdef6e058939293e5a68f336d862`) and all
+untracked user assets remain untouched.
+
+Preserved COM4 observations now reconciled by exact host/target timestamps:
+06:01:58 and 06:20:38 returned `HIL_STATE` and `GET_STATE` ACK for C3 session
+141, with `HIL_AWAKE_TEST_ONLY`, `hil_build=0`, `hil_control=1`,
+`physical_wake=0`, positive and advancing runtime/sensing counters, and empty
+pending/retained/in-flight queues. At 06:17:47 the target emitted
+`command_too_long` followed by `unknown_command=STATE`; at 06:22:55 it emitted
+`unknown_command=!`. The first capture assigned two target-uptime records
+98.810 seconds apart to the same host receive timestamp, so line-to-query
+causality remains uncertain. These records are consistent with the confirmed
+old HIL parser overflow/suffix defect. The fixed parser is already committed
+and compiled/tested in source, but the diagnostic output still shows the old
+parser message at that capture; this is not a complete running-image
+identification and no physical deployment is proven.
+
+The 06:26:06 portal operation opened only registered COM4, accepted three
+complete 10-byte `GET_STATE` writes at 10-second spacing, received no response
+or ACK, and stopped at `TC001_INSTALLED_C3_HIL_MODE_UNVERIFIED`. It sent no
+`INJECT_MOTION`, produced no EventKey, and reached no S3/backend event stage.
+The separate 06:37:51 bounded read-only observation accepted one complete
+10-byte query and read zero bytes; it observed no boot marker. Host write
+acceptance does not prove C3 RX. There is not enough evidence to explain the
+zero-byte interval or identify the current image. Awake counters and HIL state
+from the successful 06:01/06:20 exchanges do not indicate sleep at those
+observed times; the later silent interval's power state is UNKNOWN.
+
+Source audit confirms the HIL console task starts after adapter initialization,
+then independently reads the serial command stream. An S3 rejoin/authentication
+failure cannot explain silence once that C3 task is running, although it remains
+a separate prerequisite for delivering an event. The current C3 failure is at
+the serial/HIL-readiness boundary, before motion injection. No COM port was
+opened and no board operation occurred in this checkpoint.
+
+The latest saved ingress run had WSL listener, PostgreSQL and trusted-time
+readiness, but `real_hub_authenticated=NO` and `hub_connected=NO`. That bounded
+session expired at 06:40:45 UTC. Current read-only checks show backend/PostgreSQL,
+caregiver HTTPS, development endpoint and LAN forwarding health PASS, while
+WSL TCP 8445 and signed-time UDP 4468 are absent and authenticated physical Hub
+status is NOT_VERIFIED. The existing portal `/api/status` returned HTTP 200 in
+6.78 seconds; a prior 3-second caller timeout was not a portal failure. The
+one-event authorization reports PASS, but the physical readiness guard remains
+closed. Desired policy v0/null is not a raw-motion prerequisite.
+
+The parser correction is the permanent source fix for overlong-line suffix
+dispatch. The broader COM4 no-response symptom is not yet root-caused; changing
+the readiness guard, repeating injection, or inferring current firmware from a
+host write would be unsafe. S3 reboot #11983 was already USED once. No reset,
+flash, enrollment change, new injection, EventKey, CloudSync event, PostgreSQL
+event, caregiver event, Android event or 24-hour qualification occurred here.
+The C3 cold-start issue remains ON HOLD. Optical TC-001 remains 0/5; fresh
+USB-triggered TC-001 and five-run acceptance remain incomplete.
+
+Owner 24/7 product-operation direction remains governed by existing GS-D007,
+GS-D009 and GS-D021–029. The GS-D034 3600-second maximum / 1800-second idle
+limits concern temporary privileged Engineering ingress, not resident
+monitoring; they were not changed. Continuous operation and endurance/recovery
+qualification are not established by the short captures. No validation suite
+was run in this evidence-only checkpoint; prior parser tests and target compile
+remain historical receipts.
+
+Next: resolve the C3 serial/firmware command-path boundary using the existing
+source review and permitted read-only mechanism, without another blind COM
+retry. Then restore the existing bounded ingress only for the guarded physical
+flow, verify actual S3 authentication and C3 rejoin, and run one motion event
+only after the unchanged C3 readiness gate passes.

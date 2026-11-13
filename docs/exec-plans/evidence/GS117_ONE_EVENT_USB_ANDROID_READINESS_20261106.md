@@ -1792,3 +1792,52 @@ EventKey or downstream event occurred. The household desired policy remains
 unset and does not gate raw motion admission. No Android access was needed for
 this backend readiness check. Local/remote HEAD:
 `0ddcca067680bf9afde4d1a46a26e916db2dfaf5`.
+
+### 2026-11-13 08:51 UTC — C3 silence and runtime checkpoint
+
+Canonical branch `feature/r1-commercial-baseline`, local/origin HEAD
+`7556dde22f8185da2cc118ecbee6271fa8cbc58f` before this evidence-only update;
+context preflight `2026-11-12.007` PASS. The existing tracked serial-helper diff
+and unrelated untracked assets were preserved. No code changed and no
+validation suite ran in this checkpoint.
+
+Preserved 06:01:58 and 06:20:38 COM4 observations returned session-141
+`HIL_STATE` plus GET_STATE ACK with `HIL_AWAKE_TEST_ONLY`, HIL flags 0/1/0,
+positive/advancing runtime and sensing counters, and empty queues. At 06:17:47
+the target logged `command_too_long` and `unknown_command=STATE`; at 06:22:55 it
+logged `unknown_command=!`. The first capture's two target-uptime markers are
+98.810 seconds apart despite one host receive timestamp; do not infer those
+records' relationship to the immediately preceding query. This is consistent
+with the already corrected source parser overflow defect, not proof of the
+entire intermittent silence cause or current firmware identity.
+
+The 06:26:06 existing web Run opened only COM4 and accepted three complete
+10-byte GET_STATE writes 10 seconds apart. It received no bytes/ACK, failed the
+unchanged `TC001_INSTALLED_C3_HIL_MODE_UNVERIFIED` guard, sent no
+`INJECT_MOTION`, and generated no EventKey. A 06:37:51 bounded read-only query
+accepted 10 bytes but received zero bytes and no boot marker. Host serial write
+acceptance is not device receipt. No current running-image hash is verified.
+Successful awake HIL counters do not support sleep as the cause at 06:01/06:20;
+power state during the 06:37 silence remains unknown.
+
+Latest saved ingress evidence showed WSL listener/PostgreSQL/trusted-time ready
+but physical Hub authentication/connectivity NO; that 3600-second session
+expired at 06:40:45 UTC. Current backend/PostgreSQL and caregiver HTTPS health
+are PASS, while TCP 8445 and UDP 4468 are absent. S3 authentication/rejoin is
+NOT_VERIFIED. The existing one-use motion authorization reports PASS, but C3
+readiness remains the first event gate. Unset activity policy does not gate raw
+motion delivery.
+
+S3 reboot #11983 is USED once and unavailable for reuse. No board operation
+occurred in this checkpoint. No fresh EventKey, S3 durable ACK, CloudSync event,
+PostgreSQL event, caregiver API event or Android event exists for this attempt.
+GS-117 remains Highest/In Progress; C3 cold-start remains ON HOLD; optical
+TC-001 remains 0/5; USB-event and five-run acceptance remain incomplete. The
+GS-D034 ingress lease bounds remain unchanged and separate from continuous
+product monitoring; 24-hour endurance/recovery remains NOT_RUN.
+
+Next: use the existing reviewed source/diagnostic path to resolve the current
+C3 serial-response boundary without another blind query or any injection. Then
+restore bounded ingress for a real guarded run, verify authenticated S3/C3
+readiness, and send exactly one USB stimulus only after the unchanged readiness
+guard passes.
