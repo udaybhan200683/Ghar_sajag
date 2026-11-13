@@ -98,3 +98,54 @@ manifest/hash and actual Start/Close path, restore bounded ingress and signed
 time, then resume GS-117 physical readiness and one-event execution. Do not
 ask for handset availability until backend delivery of a fresh event is
 verified.
+
+## Owner-approved one-time deployment handoff
+
+The local Codex Windows process is non-elevated (`IsInRole(Administrator)` =
+False), so it did not modify the protected installation. The owner-approved
+one-time operation is prepared as
+[`GS179_DEPLOY_VALIDATOR_ONCE_20261113.ps1`](GS179_DEPLOY_VALIDATOR_ONCE_20261113.ps1),
+SHA-256 `100679f56a25bd4db7cefa436ca9dcd7ab748d1a232bef857afed8aa6e6716ab`.
+It is fixed to the verified prior four hashes and the one reviewed new
+validator hash. It refuses a different task, identity, ACL, manifest, active
+8445 listener or source. It updates only `gs179_engineering_validator.py` and
+that one manifest hash, retains protected validator/manifest rollback copies,
+and checks the installed runner with `--help` before reporting success. It
+preserves the existing task action/principal/ACL, all other protected
+snapshots, TCP 443 and UDP 4468 state. It is an evidence-scoped one-time action,
+not an updater service or general installation interface.
+
+The command for the owner's already elevated PowerShell session is:
+
+```powershell
+$scriptPath = '\\wsl.localhost\Ubuntu\home\udaybhan\projects\Ghar_sajag_r1\docs\exec-plans\evidence\GS179_DEPLOY_VALIDATOR_ONCE_20261113.ps1'
+if ((Get-FileHash -LiteralPath $scriptPath -Algorithm SHA256).Hash.ToLowerInvariant() -ne '100679f56a25bd4db7cefa436ca9dcd7ab748d1a232bef857afed8aa6e6716ab') { throw 'Deployment script hash mismatch' }
+& "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $scriptPath
+```
+
+`-ExecutionPolicy Bypass` is scoped to this PowerShell process and does not
+alter UAC or machine policy. The script itself requires an actual Administrator
+token. Expected success result is `VALIDATOR_UPDATED_AND_VERIFIED`, with the
+rollback directory and installed hash printed. On failure it reports either
+`VALIDATOR_UPDATE_FAILED_ROLLED_BACK` or
+`VALIDATOR_UPDATE_FAILED_ROLLBACK_INCOMPLETE`; retain the printed backup path
+and do not retry after either failure. Before deployment, its PowerShell
+parser and pinned installation/task ACL checks passed, and its non-elevated
+guard rejected execution without changing files or ports. The script has not
+been run elevated; the installed validator remains at the previous hash and
+8445 remains closed.
+
+### Live pre-deployment recheck — 2026-11-13
+
+From the current non-elevated DELL session, the task was observed `Ready`,
+principal `DELL`, logon type `S4U`, run level `Highest`, with the expected fixed
+`RunEngineeringExecutor -EndpointKind PhysicalHubIngress` action. The protected
+validator and manifest still both contain the old
+`b0725a9c9786f7c52f16765791cd206052e082a9f8813ce363084e1ff56de5db` hash.
+The live root, manifest, validator and task security descriptors matched the
+script's exact reviewed SDDL pins. The one-time script parsed successfully and
+its direct non-elevated invocation failed closed with
+`administrator_token_required` (exit 1). Post-check showed TCP 8445 = 0,
+UDP 4468 = 0, caregiver TCP 443 = 1. No protected file, task, port, device or
+authority state was changed by the check. Elevated deployment and actual
+post-deployment executor behavior are still NOT_RUN.

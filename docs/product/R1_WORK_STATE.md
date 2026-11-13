@@ -12382,3 +12382,35 @@ Next: one administrator-authorized update of the existing protected
 validator/manifest is required before ingress Start. Then verify live bounded
 ingress and return to GS-117 physical S3/C3 readiness and one USB event. GS-179
 cleanup qualification remains PARTIAL; C3 cold-start remains ON HOLD.
+
+### 2026-11-13 — Owner-approved validator update prepared, not executed
+
+Latest owner approvals GS-179 #12043 and GS-117 #12044 authorize this exact
+one-time protected validator/manifest deployment. The Codex Windows process is
+not elevated (`IsInRole(Administrator)=False`); it did not touch protected
+files. Prepared a fixed-scope, one-time PowerShell operation in
+[`GS179_DEPLOY_VALIDATOR_ONCE_20261113.ps1`](../exec-plans/evidence/GS179_DEPLOY_VALIDATOR_ONCE_20261113.ps1),
+SHA-256 `100679f56a25bd4db7cefa436ca9dcd7ab748d1a232bef857afed8aa6e6716ab`.
+It is pinned to the actual prior installation and reviewed source hashes,
+checks task identity/action/ACL and network idle state, updates only the
+validator plus its manifest hash, keeps protected rollback copies, and verifies
+the installed loader. Static PowerShell parsing, current ACL/task-SDDL pins,
+and non-elevated fail-closed behavior PASS. No network or hardware mutation
+occurred. The installed validator is still `b0725a9c...56de5db`; TCP 8445 and
+UDP 4468 remain closed; caregiver TCP 443 remains listening. The exact
+elevated command and recovery behavior are recorded in
+[`GS179 / GS-117 source-pin decoupling evidence`](../exec-plans/evidence/GS179_GS117_SOURCE_PIN_DECOUPLING_20261113.md).
+
+Live pre-deployment recheck: task `GharSajag-Engineering-Ingress` is Ready,
+principal DELL/S4U/Highest, and the installed validator still matches the old
+manifest hash. Root, manifest, validator and task SDDL match the fixed reviewed
+pins. A direct run from the non-elevated session returned
+`administrator_token_required` (exit 1) without mutation. Current listeners:
+8445=0, UDP4468=0, caregiver443=1. The PowerShell parser passed; no physical
+hardware or protected-state operation occurred.
+
+Next action: owner runs the hash-pinned command from the already elevated
+Administrator PowerShell session; then verify the returned installed hash and
+task, start the existing bounded ingress, and resume GS-117 physical S3/C3
+readiness. No phone is required before fresh backend delivery. #11983 remains
+UNUSED; C3 cold-start remains ON HOLD; no EventKey exists from this attempt.
