@@ -1811,6 +1811,15 @@ records' relationship to the immediately preceding query. This is consistent
 with the already corrected source parser overflow defect, not proof of the
 entire intermittent silence cause or current firmware identity.
 
+The registered C3 fixture expected-image receipt is SHA-256
+`589dc9f98ef78fed97709e2ffb845b0a0eb6ccf5babfd9cc149743539932acb7`, with
+source base `7c896230f1a2f041e93c989146b25fa744714ea6` dated 2026-10-29. The
+source base predates parser-fix commit `043c755c7db0de45ac861088b1e9953071072309`
+dated 2026-11-13, so that registered expected artifact cannot validate the
+fix. This remains expected-fixture metadata, not a hash of the running image.
+No C3 firmware deployment occurred; post-install identity would be required to
+qualify the correction physically.
+
 The 06:26:06 existing web Run opened only COM4 and accepted three complete
 10-byte GET_STATE writes 10 seconds apart. It received no bytes/ACK, failed the
 unchanged `TC001_INSTALLED_C3_HIL_MODE_UNVERIFIED` guard, sent no

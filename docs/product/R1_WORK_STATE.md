@@ -12559,6 +12559,17 @@ and compiled/tested in source, but the diagnostic output still shows the old
 parser message at that capture; this is not a complete running-image
 identification and no physical deployment is proven.
 
+The registered fixture record associates expected C3 image SHA-256
+`589dc9f98ef78fed97709e2ffb845b0a0eb6ccf5babfd9cc149743539932acb7` with
+source base `7c896230f1a2f041e93c989146b25fa744714ea6` (2026-10-29), which
+predates parser-fix commit `043c755c7db0de45ac861088b1e9953071072309`
+(2026-11-13). This establishes that the registered expected artifact is not a
+valid receipt for testing the new parser correction. It is still fixture
+metadata, not evidence of the currently running image. No firmware deployment
+was authorized or performed; physical validation of the correction requires
+the existing protected Engineering image workflow and actual post-install
+identity evidence.
+
 The 06:26:06 portal operation opened only registered COM4, accepted three
 complete 10-byte `GET_STATE` writes at 10-second spacing, received no response
 or ACK, and stopped at `TC001_INSTALLED_C3_HIL_MODE_UNVERIFIED`. It sent no
