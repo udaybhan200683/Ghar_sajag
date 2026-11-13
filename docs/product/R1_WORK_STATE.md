@@ -1,3 +1,84 @@
+## 2026-11-13 09:50 UTC — Fresh C3 event 141/1 reached durable S3 ACK; CloudSync fenced
+
+Current P0 boundary has advanced beyond C3 readiness. Existing portal Run
+`TC001-USB-ONE-EVENT-20261113T094050Z-d9817817` generated original EventKey
+`c3-146393c5d158 / bedroom / 141 / 1`. Physical C3 command admission,
+NodeRuntime generation and matching authenticated S3 class-0 application ACK
+(`retired=1`) PASS. PostgreSQL and authenticated caregiver API each returned
+zero matching rows after 69 checks over 180.124 seconds. The original run is
+FAIL at backend commit; CloudSync and Android remain NOT_VERIFIED. Do not
+reinvent the event, inject another one, or count this as full TC-001 acceptance.
+
+`BUG_CLASSIFICATION=TEST_INFRA_ONLY`; owner GS-117; affected implementation is
+the existing Windows serial collector and its bounded read contract. The
+installed Python 3.12.10 / pySerial 3.5 timeout setter calls `_reconfigure_port`
+even for an unchanged value, which invokes Windows SetCommState and reapplies
+DTR/RTS control. The collector previously assigned that same timeout on every
+read. It now changes it only when the value differs, retaining the final
+deadline clamp. No firmware, event, radio, authentication or readiness predicate
+changed. A new regression failed before correction (five redundant assignments)
+and passes afterward. Before this change, the 09:37 portal run again read zero
+bytes after three complete GET_STATE writes and sent no motion. Afterward, the
+09:40 run passed readiness and produced 141/1 plus durable ACK. This is one
+physical improvement after the host correction, not proof that every historical
+silent interval had the same cause or that repeatability is qualified.
+
+The 09:31 existing C3-only observer received session-141 state/ACK, counters
+662111, empty queues and HIL_AWAKE_TEST_ONLY. Its capture records one empty
+late read; no late bytes or boot marker were observed. Windows USB interfaces
+were healthy with no matching serial-helper process; no relevant System PnP
+event was found in the earlier 06:10–06:40 failure window. These observations
+do not qualify the running-image hash. The C3 parser firmware correction remains
+source/build evidence only; no image was flashed.
+
+Existing bounded services and the installed non-elevated executor restored
+192.168.1.6:8445 to current WSL 172.17.152.10:8445 without UAC. The initial
+operator invocation omitted the existing process-scoped ExecutionPolicy switch
+and was rejected before task execution; the supported invocation then passed.
+No OS policy was persistently changed. Caregiver 443 stayed available.
+
+One existing COM10-only, 90-second read-only observer captured 3130 bytes and
+made zero serial writes; COM4 remained closed. It showed repeated
+`TEST_ONLY time/authority refresh failed; publication fenced` and CloudSync
+submitted/completed=0. It also showed authenticated Bedroom/session-141 health,
+durable_ack=1 and sleep_entries=0. No boot/reset marker appeared; port closure
+was verified. The accepted S3 envelope's 3600-second window has expired.
+`gs40_test_only_refresh_time` rejects UTC at/after envelope_expiry_utc before
+the authority-refresh HTTP call, so expiry is a blocking condition. The target
+log combines time/authority failures and does not identify every sub-error.
+The actual ingress request trace remained empty. Runtime status authentication
+flags are currently constant NO placeholders and were not used as independent
+physical authentication proof. The present failure is S3 publication authority,
+after authenticated local durable admission; activity-policy v0 is unrelated.
+
+Validation: collector module 28/28 PASS; two affected readiness tests PASS;
+py_compile PASS; new GS117-SERIAL-CONFIG-01 registered in the existing collector
+suite and traceability. Mapping consistency PASS (243 features/289 modules/29
+physical cases), mapping tests 22/22 PASS. No broad backend/firmware/release
+campaign ran. Prior unrelated failures remain historical, unresolved evidence.
+
+Private evidence: `~/.local/state/ghar-sajag/gs117-tc001/ingress-e2e-20261113T093353Z/`
+and the two portal run JSON files. The successful physical run used helper
+SHA-256 `9f5d1bb1c849d635789988cf382bb921014ba989d594eb0d79b07ff64c8a6838`,
+including the preserved pre-existing helper edits. Only the new timeout-change
+hunk is intended for this code commit; existing user edits/assets remain intact.
+
+Cleanup: installed executor Close returned success; all owned Linux children
+and portal stopped. The Windows signed-time child required an explicit,
+identity-checked stop. An initial cleanup identity comparison was rejected and
+preserved before the corrected comparison succeeded. Final Windows TCP8445=0,
+UDP4468=0, temporary tasks absent and TCP443=1; WSL8445 absent. Automatic child
+cleanup remains NOT_QUALIFIED. No reset, flash, new config envelope, enrollment
+or key modification occurred. S3 reboot #11983 remains USED; cold-start work
+remains ON HOLD. USB campaign and optical campaign remain 0/5; 24-hour
+qualification remains NOT_RUN; GS-179 remains PARTIAL.
+
+Next: correct the existing secure S3 configuration-renewal lifecycle under
+GS-40/GS-173 without disabling expiry, extending credentials indefinitely, or
+reusing the consumed reboot. Preserve 141/1 in the durable Hub path and verify
+that same EventKey through PostgreSQL/API/APK after authenticated publication
+recovers. Full TC-001 still requires actual installed Android evidence.
+
 ## 2026-11-13 — GS-117 C3 TEST_ONLY command parser recovery correction
 
 Resume checkpoint: canonical worktree `/home/udaybhan/projects/Ghar_sajag_r1`, branch `feature/r1-commercial-baseline`, starting local/origin HEAD `48c5d2d1791727fe3aa02ff65e4dfcc7b9c38fe0`; context preflight `2026-11-12.007` PASS before implementation. Existing tracked serial-helper edits and unrelated untracked user assets remain preserved and are not included in this correction.

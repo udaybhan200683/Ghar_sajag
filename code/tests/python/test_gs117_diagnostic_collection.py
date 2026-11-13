@@ -205,6 +205,39 @@ class CollectionTests(unittest.TestCase):
             self.assertGreater(partial["phase_timing"]["cleanup_elapsed_ms"], 0)
             self.assertTrue(partial["serial_capture"]["s3"]["records"])
 
+    def test_repeated_reads_preserve_com_configuration_and_clamp_final_timeout(self):
+        """GS117-SERIAL-CONFIG-01: pySerial timeout setters reconfigure open COM ports."""
+        class WindowsPortSpy(Stream):
+            def __init__(self, clock):
+                super().__init__(clock)
+                self._timeout = 0.1
+                self.timeout_changes = []
+
+            @property
+            def timeout(self):
+                return self._timeout
+
+            @timeout.setter
+            def timeout(self, value):
+                self.timeout_changes.append(value)
+                self._timeout = value
+
+        clock = Clock()
+        stream = WindowsPortSpy(clock)
+        for _ in range(5):
+            serial_tool.collect(stream, "", [], deadline=1.0, clock=clock)
+        self.assertEqual(stream.timeout_changes, [])
+        clock.now = 0.97
+        serial_tool.collect(stream, "", [], deadline=1.0, clock=clock)
+        self.assertEqual(len(stream.timeout_changes), 1)
+        self.assertLess(stream.timeout, 0.03)
+        self.assertLessEqual(clock.now, 1.0)
+        reads = len(stream.reads)
+        clock.now = 1.0
+        serial_tool.collect(stream, "", [], deadline=1.0, clock=clock)
+        self.assertEqual(len(stream.reads), reads)
+        self.assertEqual(len(stream.timeout_changes), 1)
+
     def test_broken_driver_overrun_is_reported_and_never_collected(self):
         clock = Clock()
         stream = Stream(clock)

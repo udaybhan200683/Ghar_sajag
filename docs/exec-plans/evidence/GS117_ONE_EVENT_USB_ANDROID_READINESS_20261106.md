@@ -1886,3 +1886,60 @@ C3 command response through the existing permitted path, and proceed only when
 the unchanged readiness gate passes. Any physical firmware update must follow
 the existing protected Engineering deployment authorization and retain
 post-install image identity evidence.
+
+### 2026-11-13 09:50 UTC — Physical event 141/1; first failure is now S3 publication
+
+Existing portal run `TC001-USB-ONE-EVENT-20261113T094050Z-d9817817` generated
+`c3-146393c5d158 / bedroom / 141 / 1`. C3 HIL command/NodeRuntime PASS and
+matching authenticated durable S3 class-0 ACK `retired=1` PASS. Three real C3
+transmissions were observed before the matching ACK. After 180.124 seconds and
+69 checks, PostgreSQL durable_count=0 and authenticated caregiver_count=0.
+The run remains FAIL at backend commit; Android NOT_VERIFIED; no second event
+was injected. Preserve and later verify this same EventKey.
+
+Confirmed host defect: assigning an unchanged pySerial 3.5 timeout reconfigures
+the open Windows COM port, including DTR/RTS control. Existing collect() did
+this on every read. The minimal correction skips unchanged values and retains
+the absolute-deadline clamp. The new regression failed before correction and
+passes afterward. The immediately preceding portal run
+`TC001-USB-ONE-EVENT-20261113T093713Z-59e1c304` accepted three 10-byte GET_STATE
+writes but received zero bytes and sent no injection. The corrected run then
+produced 141/1 and its durable ACK. This single physical comparison does not
+qualify long-term repeatability or exclusive causality of earlier failures.
+No C3 firmware update was needed for this successful stimulus/admission.
+
+Fresh 09:31 C3-only observation: state/ACK, session141, runtime/sensing662111,
+empty queues, HIL_AWAKE_TEST_ONLY; one empty late read and no boot marker.
+Existing services and installed non-elevated executor then established the
+bounded .6:8445→172.17.152.10:8445 route without UAC. A first invocation lacking
+the existing process-scoped ExecutionPolicy switch was rejected; the supported
+invocation passed without a persistent policy change.
+
+Existing COM10-only read-only observation: 90 seconds,3130bytes,zero writes,
+port closed, no boot marker. Actual S3 repeatedly reported time/authority
+refresh failure/publication fenced and CloudSync submitted/completed0, while
+authenticating Bedroom/session141 health with durable_ack1/sleep_entries0.
+The one-hour accepted envelope is expired; existing refresh_time rejects that
+expiry before authority HTTP renewal. This is an unavoidable publication
+blocker under the current image. Exact additional refresh sub-errors are not
+separated in its log. No physical HTTP result appeared in the ingress trace;
+the runtime status's constant NO flags are not independent physical proof.
+
+Evidence directory:
+`~/.local/state/ghar-sajag/gs117-tc001/ingress-e2e-20261113T093353Z/`.
+Successful executed helper SHA256
+`9f5d1bb1c849d635789988cf382bb921014ba989d594eb0d79b07ff64c8a6838` includes
+preserved prior helper edits plus the new timeout correction. Collector28/28,
+readiness2/2, compile and diff checks PASS; mapping243/289/29 and22/22 PASS.
+New permanent test ID GS117-SERIAL-CONFIG-01 uses the existing collector suite.
+
+Explicit executor Close PASS. Owned Linux processes/portal stopped; signed-time
+Windows child required explicit identity-checked stop. Initial cleanup identity
+comparison rejection is preserved. Final TCP8445/UDP4468=0, temporary tasks
+absent, caregiver443=1; WSL8445 absent. Automatic child cleanup is not qualified.
+No intentional/incidental reset was observed, but absent markers do not prove
+reset-free access. No flash, erase, pairing, key/registration change or new
+configuration envelope. #11983 remains USED, cold-start ON HOLD, GS179 PARTIAL,
+campaign/optical0/5 and24hour qualification NOT_RUN. Next: implement secure
+configuration renewal in the existing owner and recover publication of 141/1,
+without disabling expiry or using another unapproved reboot.

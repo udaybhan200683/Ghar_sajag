@@ -1939,3 +1939,16 @@ timeout; explicit Close failed, subsequent closure observed after controller sto
 Final temporary exposure/tasks/helpers absent,443 preserved. No serial access,
 11983 reboot or injection consumed. This is execution evidence, no policy change;
 see existing GS117 handoff.
+
+GS-D034 execution evidence, 2026-11-13: the existing collector now avoids
+reassigning an unchanged Windows pySerial timeout, which otherwise reapplies
+COM control settings. A fresh physical C3 EventKey bedroom/141/1 received its
+authenticated durable S3 ACK, but no PostgreSQL/API event arrived during the
+bounded wait. Actual S3 logs show publication fenced on time/authority refresh;
+the accepted TEST_ONLY envelope is expired. This does not authorize expiry
+bypass, indefinite credentials, a second #11983 reboot, or commercial use of
+TEST_ONLY material. Secure autonomous configuration recovery remains an open
+GS-40/GS-173 implementation/qualification gap under the approved owner 24/7
+direction. Temporary ingress lease limits and all locked security/durability
+decisions remain unchanged. See the existing GS117 execution handoff for exact
+source, tests, EventKey, cleanup and acceptance evidence.

@@ -59,7 +59,13 @@ def collect(stream, pending: str, lines: list[str], *, capture=None,
             return pending
         # Windows pySerial read uses this bounded timeout; no new reader thread
         # or cancellation mechanism owns the COM handle.
-        stream.timeout = min(0.1, remaining - OBSERVATION_IO_MARGIN_SECONDS)
+        read_timeout = min(0.1, remaining - OBSERVATION_IO_MARGIN_SECONDS)
+        # pySerial 3.5 on Windows reapplies the entire COM configuration,
+        # including DTR/RTS control, whenever timeout is assigned. Preserve
+        # the open port's configuration during ordinary reads; adjust only
+        # when the remaining deadline actually requires another timeout.
+        if getattr(stream, "timeout", None) != read_timeout:
+            stream.timeout = read_timeout
     size = min(MAX_SERIAL_CHUNK, max(1, stream.in_waiting))
     if deadline is not None and clock() >= deadline:
         return pending
