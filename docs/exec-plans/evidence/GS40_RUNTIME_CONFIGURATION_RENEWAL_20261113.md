@@ -113,3 +113,89 @@ The 3600s/1800s privileged ingress policy remains unchanged; continuous product
 operation and continuous development environment are separate unqualified gaps.
 No claim is made that a retest five days later will pass. Qualification duration
 for the physical renewal correction is zero; >1h and multi-day runs remain NOT_RUN.
+
+## 2026-11-13 — Live Home/enrollment audit and renewal-material composition
+
+Live verified-TLS PostgreSQL READ ONLY transaction (rolled back) confirms:
+Home ID **gs177-test-product**, display **GS178 TEST_ONLY**, consent ACTIVE.
+No exact ID/display match for test_home or test home was found. No alias is
+established. Preserve the registered identity; do not rename/migrate/create a
+Home to match the owner's informal label. Actual original saved account is
+ADMIN/OWNER, active, in this same Home. No credentials, session, membership,
+enrollment, registry or historical event data changed.
+
+Registered Hub hub-e072a1d38d34 is ACTIVE, Home gs177-test-product, epoch1.
+C3 c3-146393c5d158 / logical bedroom is ACTIVE under that Hub/Home, enrollment
+ generation1. Thus temporary configuration expiry has NOT removed enrollment.
+Original141/1 has **zero** durable_event_commits rows in a fresh live query.
+Actual current S3 journal retention is still NOT_VERIFIED, not declared lost.
+
+Reuse audit: AssociationRepository::load decrypts persisted association;
+NodeSecurityLink::initialize loads the expected identity and enters Rejoining.
+HubSecurityLink::initialize loads its persistent registry and rejoin checks reject
+revoked/unknown identities. No periodic re-pairing or registration TTL was found
+in those paths. No replacement registration implementation was added.
+HubRuntime::process_one commits the journal before Durable ACK; C3
+NodeRuntime::apply_ack retires retained business data only under the authenticated
+ACK contract. CloudSync::handle_backend_reply requires authenticated COMMITTED
+and exact EventKey before acknowledge_cloud; OutboxJournalBackend persists
+mark_backend_completed. DurableEventOutbox::compact_event_bodies additionally
+requires post-sync retention, current authority, checkpoint and authenticated
+retirement evidence. These owners were inspected and left unchanged. This is
+source contract evidence, not a scan of the actual current physical outbox.
+
+Existing ingress composition is now prepared to supply the already-implemented
+AuthorityService configuration_fields, separate existing provisioning signer and
+exact Home. Existing private v24 is preserved; candidate v25 extracts its same
+network/certificate/saved-Wi-Fi material builder into runtime_configuration_fields.
+Provider performs no serial opening. Candidate bootstrap main uses BootstrapS3,
+not the consumed BootstrapS3Reboot11983 operation; historical pins/grants remain
+unchanged. v25 is **NOT_REGISTERED as an executable bootstrap procedure**; its
+main was not invoked. Prepared ingress imports the field provider with an exact
+file hash and uses the existing issuer/root keys, TLS server and registered
+fixture; no new service, root, signer, credential or protocol was invented.
+
+Offline compile/AST checks PASS: provider has no COM4/COM10/helper/Popen path;
+existing v24 retained; candidate contains no consumed reboot invocation. Live
+read-only material preparation PASS: Private expected Wi-Fi/IP, TLS SAN, exact
+Home/Hub, certificate/private-key pair, fingerprint, provisioning public root,
+time root and authority root match existing fixture. No secret/config/envelope
+values logged. No envelope issued or listener started. Exact candidate hashes
+and receipts are in GS40_RENEWAL_20261113/offline-composition.json and
+ template-preparation.json. Candidate private paths are recorded there; this
+is preparation evidence, NOT physical deployment or bootstrap admission.
+
+Actual protected update preflight is not executable: development_status() fails
+closed with development_reviewed_procedure_changed. No pins, immutable approvals
+or historical safety latches were rewritten. This is the protected hardware-update
+procedure, not the corrected independent Windows networking executor. Prior
+GS-114#11681 documents the app-only otatool/preservation path; its old image,
+backup and approval are historical and were not reused as current device proof.
+No serial, ROM access, reset or flash occurred.11983 stays USED. Source-review
+reconciliation and safe current journal/update evidence are required before an
+actual app update; no approval/qualification is fabricated by this report.
+
+Affected product source has not changed, so compatible 201-check bootstrap,
+48-Python security, TLS/trust-provider, target-build and22 mapping PASS receipts
+from79270d0 are reused. New composition checks above executed; no broad suite
+rerun. First material-check harness attempt used public_der on a public-key
+object and failed; corrected test uses public_bytes and then PASS (no target
+operation in either attempt). Initial direct DB diagnostic omitted the existing
+libpq path/export prefix, failed before querying, then used the supported host
+environment and completed READ ONLY; no database/environment change required.
+
+GS117 remains P0/In Progress; cold-start sensing ON HOLD; GS179 residual cleanup
+PARTIAL. Current source renewal is not deployed, no new EventKey, CloudSync
+recovery/API/APK NOT_VERIFIED, physical renewal/endurance NOT_RUN. Next: reconcile
+the current protected application-update review using the existing workflow,
+establish actual original141/1 retention/preservation, then deploy and exercise
+fresh authenticated renewal on the SAME Home and drain the SAME EventKey.
+
+Additional read-only protected-scope audit: the historical ledger is blocked
+(one recorded safety failure) and application_flash is absent from that recorded
+scope. Strict normal loading also rejects changed reviewed procedure bytes.
+Inspecting historical metadata did not reserve a session, alter pins, clear a
+latch, expand a grant or authorize execution. Never use historical approval or
+the one USED reboot to bypass these actual hardware-update admission limits.
+The owner's deployment direction must be reconciled through the existing scoped
+update/review procedure, preserving historical latches and current journal.

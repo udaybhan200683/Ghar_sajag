@@ -1,0 +1,11 @@
+{
+  "template_material_preparation": "PASS",
+  "hub": "hub-e072a1d38d34",
+  "home": "gs177-test-product",
+  "certificate_private_key_pair": "MATCH",
+  "provisioning_root": "MATCH",
+  "time_authority_roots": "MATCH",
+  "ports_opened": false,
+  "envelope_issued": false,
+  "services_started": false
+}

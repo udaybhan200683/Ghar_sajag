@@ -1,0 +1,43 @@
+{
+  "observed_utc": "2026-11-13T13:13:57.957676+00:00",
+  "transaction": "READ ONLY; rolled back",
+  "registered_home_id": "gs177-test-product",
+  "display_name": "GS178 TEST_ONLY",
+  "test_home_matching_rows": 0,
+  "alias_established": false,
+  "hub": {
+    "id": "hub-e072a1d38d34",
+    "state": "ACTIVE",
+    "home_id": "gs177-test-product",
+    "installation_epoch": 1
+  },
+  "node": {
+    "id": "c3-146393c5d158",
+    "logical_node_id": "bedroom",
+    "hub_id": "hub-e072a1d38d34",
+    "home_id": "gs177-test-product",
+    "state": "ACTIVE",
+    "enrollment_generation": 1
+  },
+  "saved_account": {
+    "home_id": "gs177-test-product",
+    "role": "ADMIN",
+    "durable_role": "OWNER",
+    "active": true
+  },
+  "original_event_backend_count": 0,
+  "devices_opened": false,
+  "identity_or_membership_writes": false,
+  "firmware_written": false,
+  "database_tls": {
+    "sslmode": "verify-full",
+    "trusted_ca_configured": true
+  },
+  "protected_update_admission": {
+    "strict_status_error": "development_reviewed_procedure_changed",
+    "historical_ledger_blocked": true,
+    "application_flash_in_recorded_scope": false,
+    "policy_or_history_modified": false,
+    "session_reserved": false
+  }
+}

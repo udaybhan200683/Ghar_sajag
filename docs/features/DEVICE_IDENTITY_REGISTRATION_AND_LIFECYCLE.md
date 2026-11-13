@@ -30,6 +30,23 @@ Keep these concepts separate:
 | Persistent association | Node-side Home/Hub/Node/logical assignment and installation key saved in a versioned, AEAD-wrapped record. Hub-side registry and keys are saved in a separate encrypted snapshot. |
 | Authenticated rejoin | A returning enrolled Node proves the existing association and establishes a fresh session. It is not first-time registration. |
 
+### Persistent enrollment versus renewable runtime authority
+
+An enrolled C3 and registered S3 retain their legitimate Home association across
+normal reboot, sleep/wake, RF/Wi-Fi/backend outages and runtime configuration or
+credential renewal. Returning Nodes use authenticated rejoin, not commissioning.
+Expiry of an Engineering session or publication lease is not device removal.
+Publication still requires current credentials/authority; explicit removal,
+replacement, decommissioning and revocation must remain enforceable. Never rescue
+a revoked identity by automatically enrolling it again.
+
+2026-11-13 execution clarification: the registered fixture Home is
+`gs177-test-product`, display `GS178 TEST_ONLY`; `test_home` is not an established
+alias in the live records. This is environment evidence, not a new product Home.
+See canonical R1_WORK_STATE and GS40_RUNTIME_CONFIGURATION_RENEWAL_20261113 for
+source/deployment/physical gaps. Runtime renewal does not qualify autonomous
+cold-boot provisioning or physical endurance.
+
 ## 2. Simple lifecycle
 
 ```text

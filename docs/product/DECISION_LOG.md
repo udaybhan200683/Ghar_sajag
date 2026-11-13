@@ -1961,3 +1961,12 @@ expiry waiver, production credential path, persistent fixture-secret storage,
 firmware deployment approval or a change to privileged ingress lease limits.
 Deployment, original141/1 recovery, restart and endurance remain unverified.
 See GS40_RUNTIME_CONFIGURATION_RENEWAL_20261113 under canonical evidence.
+
+GS-D032/GS-D034 execution clarification,2026-11-13: live registry confirms
+registered gs177-test-product (display GS178 TEST_ONLY), ACTIVE Hub epoch1
+and ACTIVE C3 enrollment1. test_home alias is not established; no migration
+or identity change authorized/performed. Persistent enrollment is separate from
+configuration/credential/publication freshness; refresh must not enroll, revoke
+or replace identities implicitly. This reuses existing lifecycle contracts and
+does not waive revocation, protected-update review or GS-D034 network bounds.
+See the GS40 renewal evidence for actual source and unqualified physical status.

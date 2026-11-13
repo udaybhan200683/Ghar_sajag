@@ -1,0 +1,12 @@
+{
+  "historical_v24_sha256": "51ed9527a777afb598d259f559c9a8bca1c1617f9925d58906debf1e4aeeb8ad",
+  "candidate_template_sha256": "7fef648b2b1e06a935fe24415d560412272aaf376f932d183c09630a71d54377",
+  "candidate_ingress_sha256": "99cd50dec452eafe18f69830a314d1d44dc258e132ba041384ca155d874330c6",
+  "ports_opened": false,
+  "services_started": false,
+  "bootstrap_activation": "NOT_REGISTERED",
+  "template_extracted_from_existing_v24": true,
+  "no_config_or_key_values_logged": true,
+  "candidate_template_path": "/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/standing-readiness-prepared/gs117-protected-bootstrap-development-v25.py",
+  "candidate_ingress_path": "/home/udaybhan/.local/state/ghar-sajag/gs117-tc001/renewal-integration-20261113/gs117-active-ingress.py"
+}
