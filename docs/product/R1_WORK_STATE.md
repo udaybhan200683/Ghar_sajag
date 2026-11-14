@@ -25,13 +25,32 @@ report/audit contradiction was diagnosed and the handler corrected; affected
 tests pass after the correction. No fresh motion event or downstream delivery
 is claimed.
 
-The next required action is to update the existing development source-pin
-review through its committed-source procedure without disturbing unrelated
-worktree changes, then restore and validate the existing TC-001 portal/backend
-services. At the last readiness check, the portal and ingress listener ports
-were not listening; the physical event, CloudSync, PostgreSQL, caregiver API
-and Android APK checks remain outstanding. Do not bypass the stale source-pin
-authorization or treat USB re-enumeration as runtime/application acceptance.
+The existing development source-pin review was refreshed through its
+committed-source procedure (review record SHA-256
+`846cbf76e239a9e52aa1ced26ced8760ee5b6437801c247ddf2b130a9e0bf221`;
+policy SHA-256 `ac9f3c12ca22ddfc92fc13ad5f3a60bbb7ebab530c46280983943deba19fc018`).
+The local TC-001 portal is responsive on `127.0.0.1:18791`; backend PostgreSQL,
+caregiver HTTPS, Home readiness, physical USB identity enumeration, fixture,
+physical enrollment and the fresh one-event authorization all reported PASS.
+No event was injected.
+
+The current endpoint is not safe or reachable for the physical run. Windows is
+connected to `Yogi` / Public at `192.168.1.39`; the approved
+`Airtel_Agrim` / Private network is not visible in the current scan. The
+caregiver hostname does not resolve, its existing 443 proxy row still targets
+`192.168.1.6`, and the protected 8445 physical-ingress route has no listener or
+mapping. The firewall rule cannot be read without administrator access.
+`DEVELOPMENT_ENDPOINT_READY` and `hub_ingress` therefore remain blocked, and
+the Android install receipt is stale. Do not expose TEST_ONLY ingress on the
+Public network or consume the one-event grant while CloudSync delivery cannot
+reach its backend.
+
+Next action: when the approved Private network is available, resume the
+existing guarded Engineering runtime and verify its current route, active
+ingress listener, caregiver endpoint and Android install receipt. Then use the
+existing portal for exactly one fresh motion event and trace the original
+EventKey through the physical C3/S3, CloudSync, PostgreSQL, caregiver API and
+installed APK. The application update is not TC-001 acceptance.
 
 ## GS179 continuous environment requirement — 2026-11-14
 

@@ -345,3 +345,45 @@ EventKey through physical C3/S3, CloudSync, PostgreSQL, caregiver API and the
 installed APK. GS-117 remains In Progress; physical end-to-end event acceptance
 is not verified. Do not use stale source pins or treat the app update as TC-001
 completion.
+
+## 2026-11-14 follow-up — TC-001 readiness blocked before injection
+
+The source-pin review refresh and physical app-only update are complete as
+recorded above. The existing portal at `127.0.0.1:18791` responds. Its bounded
+readiness snapshot reports PostgreSQL, caregiver HTTPS, Home, physical USB
+identity enumeration (C3 COM4 and S3 COM10), fixture, physical enrollment and
+the fresh one-event authorization as PASS. The authorization was not consumed;
+no motion event or device operation occurred.
+
+Current network evidence:
+
+- Windows is on `Yogi`, category `Public`, address `192.168.1.39`; a fresh scan
+  sees only `Yogi`, not the required `Airtel_Agrim` network.
+- `desktop-3qqu64b.local` does not resolve, and the HTTPS endpoint is
+  unreachable. The development endpoint readiness is FAIL.
+- The read-only PhysicalHubIngress audit finds no 8445 listener or forwarding
+  mapping. The only observed forwarding row is the caregiver 443 route from
+  `192.168.1.6` to WSL `172.17.152.10:8444`; no 443 listener exists on the
+  current Windows address. Firewall-rule inspection is blocked by the current
+  non-administrator token.
+- The signed Engineering network authorization itself validates, but the
+  guarded runtime requires the approved private Wi-Fi and does not authorize
+  opening TEST_ONLY ingress on the current Public network. Android readiness
+  remains NOT_VERIFIED because its install receipt is stale.
+
+No event was injected because the physical Hub-to-backend route is unavailable;
+doing so would consume the one-event grant without satisfying downstream
+delivery. Do not change Windows network category, broaden firewall scope, or
+repair the forwarding route outside the existing guarded runtime. Exact next
+action: when `Airtel_Agrim` is available, resume the existing guarded
+Engineering runtime, confirm the live 443/8445 routes and readiness gates, then
+run one fresh portal motion event and trace its original EventKey through the
+physical C3/S3, CloudSync, PostgreSQL, caregiver API and installed APK.
+
+At this checkpoint the canonical branch is
+`feature/r1-commercial-baseline`, pre-documentation HEAD is
+`1c75573d35bb297dbc625fe20066f3975a010b74`, and local/upstream HEAD matched.
+The five pre-existing modified tracked files and all pre-existing untracked
+assets remain untouched. Jira remains In Progress; no Jira connector is
+available in this session, so no Jira update was made. No source or hardware
+changes were made during this readiness check.
