@@ -548,3 +548,9 @@ GS-D034 in DECISION_LOG, with scope mirrored in R1_RELEASE_CONTRACT and AGENTS.
 It supersedes recurring human flash consent for registered TEST_ONLY app updates
 only, retaining actual device/image/storage safety and strict release controls.
 Historical bootstrap grants are not the update workflow; their evidence remains.
+
+GS-D034 owner2026-11-14 clarifies continuous Engineering environment availability:
+no fixed one-hour controller/worker lifetime; existing bounded sessions rotate
+automatically while explicitly enabled, retaining independent expiry/cleanup,
+revocation, identity/network checks and audit. This does not qualify automatic
+FOTA, production access or 24/7 endurance. DECISION_LOG.md remains authority.

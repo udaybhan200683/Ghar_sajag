@@ -1,3 +1,30 @@
+## GS179 continuous environment requirement — 2026-11-14
+
+Owner requires removing the fixed one-hour runtime shutdown. GS-D034 clarified
+continuous owner-enabled environment availability with rotation of existing
+independent bounded leases, fresh guards/audit and stop/revocation cleanup.
+Source controller/worker migration is WIP, not qualified. New physical blocker:
+Windows switched to Yogi/Public; one scan sees only Yogi, Airtel_Agrim is absent.
+Old session route had already closed on inactivity; explicit Close returned
+existing_bounded_operation_failed (preserved). Old owned controller/time/ingress
+and portal were stopped; no new physical operation followed. New native-USB S3
+application built successfully,2294256bytes,SHA8769f216c85e4b098098565d1066ef9aaed3c4c443936aae931b94e9749912b1;
+corrected profile is not yet deployed. Existing physical S3 was restored to the
+known OTA1 recovery app and authenticated startup verified before network loss.
+Do not claim fresh event, CloudSync renewal or Android acceptance.
+
+## GS-117 active physical execution — 2026-11-14
+
+Current checkpoint fcd127e (local/remote matched at startup), context2026-11-13.001 PASS. Preserve all prior WIP/untracked assets.
+Actual S3-only baseline PASS: COM10 MACe072a1d38d34, bootloaderae304441… unchanged, physical table338f4a83… with required outbox layout, activeOTA1/ff111634…; selector copies29/VALID and30/UNDEFINED with valid CRCs. Raw private evidence: ~/.local/state/ghar-sajag/gs117-tc001/s3-update-baseline-163b6e8b9ab6e7e2. Existing readback v4 adds only a bounded bootloader read to the previously reviewed collector;23 focused mocked cases PASS. No C3 access/reset.
+First actual app-only update now completed: application7baba567… written/readback verified inOTA0, selected sequence31/VALID. Bootloader/table/NVS/gs_outbox/gs_state/retainedOTA1 were byte-identical before/after. Actual boot0x20000/versiongs40-renewal-d16c0640-outbox-en/ELF647b498ed confirms running new image. Its GS40 configuration failed with SerialTimeoutException: registered COM10 is native USB303A:1001, but the canonical build had forced UART0 receive while secondary USB exposed the challenge. This is a demonstrated control-transport mismatch; no motion input occurred.
+Supported selector recovery restored originalOTA1 bytes/sequence30; normal boot and authenticated bootstrap7323bytes PASS, original Home/Hub enrollment1 retained. Old firmware still reports publication fencing, so it is a recovery image, not renewal qualification. Evidence: ~/.local/state/ghar-sajag/gs117-tc001/s3-app-only-20261114; bootstrap-fad4a79dccf56c0bd42cbce0 (new-image failure), bootstrap-44db76ed43c328dbd0772157 (recovery).
+Permanent source correction in progress: existing build-outbox.sh resolves nativeUSB versus UART receiver from registered USB metadata, uses existing SDK defaults, and verifies generated transport. Unknown/mismatched transport fails. Fresh nativeUSB build running at /home/udaybhan/projects/.ghar_sajag_s3_outbox_lifecycle_build/engineering/20261114T043227Z-117450-7OvbYD; do not duplicate/rebuild without checking its log/process.
+Existing serial helper now guards official application/selector writes against protected ranges, image substitution and changed installed contracts. Pinned IDF6.0.3 OtatoolTarget positional constructor is incompatible with ParttoolTarget's added bootloader-offset parameters; the helper composes the same official classes with explicit keywords/live metadata, preserving official write/selector methods. Actual Windows offline composition PASS; focused commissioning/build/update tests38/38 PASS. Automatic FOTA remains unqualified; existing controlled Engineering USB updates preserve manual slot recovery and do not qualify FOTA rollback. Newly generated bootloader hashes are not deployment-baseline inputs.
+Current service session: controller103668, ingress103755, Windows signed-time6912, portal114768. Airtel_Agrim Private192.168.1.6; bounded Windows8445 route Start succeeded without UAC; caregiver443 preserved. Lease3f7052bd213eecff91161d4038881b026fee0566bbc2e428e13d98240c56ee38 expires2026-11-14T05:02:07Z. Existing private controller still exits at3600s; continuity correction remains pending. The interpreter error was resolved by reusing running backend PYTHONPATH plus LD_LIBRARY_PATH. Original logs archived before fresh startup; actual PIDs/timestamps verified.
+Bootstrap prepared v28 uses current helpera9a6e08d…; source-bound review468f09fd294cb6b0632286ab8469b942b409f9b5fb917112dfd12def0e9ddc4f. Preserve v24/v26/v27 and historical grants;11983 remains USED. The app-only operator's first host launch failed before hardware because operator.py shadowed Python stdlib; renamed invocation and isolated Python mode resolved it, failure logs preserved.
+Immediate next action: finish current nativeUSB build, verify its app/table/SDK profile, then repeat existing guarded app-only invocation with the corrected candidate and new unique evidence directory, restore bootstrap immediately, verify running ELF/startup and trigger one fresh portal motion_event_once. Android is downstream, not an upstream admission dependency. Original141/1 unresolved; five-run0/5; endurance/optical NOT_RUN; cold-start ON HOLD. No fresh event yet. Task source changes are not yet committed.
+
 ## GS-117 resumed execution findings — 2026-11-13
 
 Current Engineering image rehashed unchanged: `7baba567f896bdb1c24804a698c2d2dbc9e8edf8e072087f0f0300f76fb19603`; no rebuild.

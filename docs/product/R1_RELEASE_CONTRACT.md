@@ -308,3 +308,15 @@ changes, production and unrelated reset operations remain excluded. Historical
 bootstrap scopes/latches are not update grants and must not be repinned to
 permit an unrelated official update operation. Release-family controls remain
 unchanged. See the LOCKED GS-D034 section for exact scope and boundaries.
+
+## GS-D034 Engineering environment lifecycle — owner 2026-11-14
+
+A fixed Engineering controller/time/ingress process lifetime must not terminate
+monitoring or ordinary repeated testing. Explicitly enabled registered Engineering
+environments reuse existing standing authority and the fixed executor to rotate
+independently bounded network sessions automatically with fresh checks and audit.
+Each lease retains expiry, inactivity and independent cleanup. Explicit stop,
+revocation or controller loss ends access. No fake work timestamps, permanent
+public exposure, Production entitlement or new hardware authority is introduced.
+Product enrollment and 24/7 local monitoring remain independent of these leases.
+See the LOCKED GS-D034 continuous-environment clarification in DECISION_LOG.md.

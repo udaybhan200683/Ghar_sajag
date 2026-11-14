@@ -2006,3 +2006,33 @@ an Engineering update consent, browser, foreground phone or developer session.
 
 This is authorization/contract direction, not deployed firmware or qualification.
 Original141/1 recovery remains P0; no replacement event. C3 cold-start ON HOLD.
+
+### GS-D034 — continuously enabled Engineering environment (LOCKED, owner 2026-11-14)
+
+Owner explicitly requires 24/7 operation and removes the fixed one-hour process
+lifetime. This clarifies Engineering environment lifecycle, not product enrollment,
+firmware authenticity, Production access, or automatic FOTA acceptance.
+
+While explicitly enabled by the registered owner, the existing controller and
+owned ingress/time workers remain available until intentional stop or revocation.
+Use the existing GS179 fixed executor and standing network authority to rotate or
+recreate independently bounded network sessions automatically. Existing per-lease
+expiry/inactivity and SYSTEM cleanup remain effective for each individual session;
+they must not require another manual setup or be treated as product lifetime.
+A new session requires fresh identity, authority, Private-network, service and
+source checks, close-before-open/non-overlap, and actual audit. Record continuous
+environment session rotation honestly; never manufacture genuine-work timestamps
+or rewrite expired leases. There is no unlimited privileged token or public port.
+
+The owner-enabled controller may initiate the next bounded session as part of
+this continuous lifecycle without another chat/Jira approval. Controller loss,
+explicit stop or revocation prevents further sessions and triggers existing
+independent cleanup. Recover ordinary network/service unavailability with bounded
+retry rate/backoff, retain fresh PID/session readiness and exclude duplicate
+controllers. Identity, authentication, trust and protected-source faults fail
+closed. This adds no firmware write, destructive action or hardware campaign
+authority. Automatic firmware rollback and release qualification remain separate.
+
+Requirement approved; implementation/installed qualification must be reported
+independently. Current Airtel_Agrim absence is an environmental outage, not a
+reason to change the reserved endpoint, trust roots, Home or allowed network.
