@@ -208,3 +208,52 @@ verify live COM10 identity and storage-preservation prerequisites, deploy only
 the app image, verify actual running firmware and C3 rejoin, then trigger one
 fresh USB motion event and trace it through S3, CloudSync, PostgreSQL, caregiver
 API and APK. Keep cold-start correction ON HOLD.
+
+
+## 2026-11-14 continuous Engineering lifecycle checkpoint
+
+Supersedes the earlier disabled-writer blocker: the supported official IDF app-only
+procedure has now written and read-back verified Engineering image `7baba567…`
+into inactive ota_0, preserving bootloader, partition table, NVS, outbox, state and
+recovery application byte-for-byte. Actual boot of that application was observed.
+Configuration input then failed: the build selected UART0 although registered
+COM10 is native USB Serial/JTAG. The original ota_1 selector was restored through
+the supported procedure and its existing configuration exchange succeeded.
+No replacement motion event was generated.
+
+The canonical builder now selects the existing transport defaults from registered
+USB identity. Corrected native-USB application is built, NOT_DEPLOYED:
+`/home/udaybhan/projects/.ghar_sajag_s3_outbox_lifecycle_build/engineering/20261114T043227Z-117450-7OvbYD/build/gs_r1_s3_hub.bin`
+SHA-256 `8769f216c85e4b098098565d1066ef9aaed3c4c443936aae931b94e9749912b1`.
+
+Owner-directed hard one-hour controller shutdown is removed in the existing
+controller and signed-time/ingress workers. Existing launcher command:
+`code/tools/local/gs179-laptop-server.sh engineering-runtime`.
+The owner-enabled controller retains independent bounded network leases and
+rotates them automatically before expiry/idle deadlines, closes before opening,
+rechecks authority, prevents duplicate controllers, and retries temporary network
+outages with capped backoff. Explicit stop/revocation ends access. No hardware
+operation is performed by this controller. These are source-level changes;
+physical lease rollover and endurance are NOT_VERIFIED.
+
+Focused checks already executed before the owner's subsequent no-suite direction:
+8 lifecycle tests PASS, existing endpoint file 35 tests PASS (1.7 seconds), shell
+syntax and compilation PASS. No further suites are to be run unless requested.
+Earlier fixture build/update checks: 38 PASS; no full release claim.
+
+Current actual Windows network is Yogi / Public. Airtel_Agrim was absent from the
+scan. Continuous controller PID 125270 is alive in dependency-wait state; it does
+not expose ingress on the wrong network. Approved fixed address remains .6,
+caregiver origin and Home unchanged. Do not start a duplicate controller.
+No fresh EventKey, PostgreSQL/API/Android acceptance or endurance is established.
+Original 141/1 remains unresolved and is not a fresh-event prerequisite.
+
+Next exact action: when approved Private Airtel_Agrim/.6 is available, reuse this
+controller's fresh services and lease, perform the guarded app-only deployment of
+the corrected native-USB image, verify its actual boot/configuration acceptance,
+and run one fresh portal motion event, tracing the original key to PG/API first.
+C3 cold-start remains ON HOLD, GS-179 cleanup qualification remains PARTIAL.
+
+Git before this delivery: 935c29c7178267ebc790c6204e2f18d0e46736b9 local/remote.
+Other existing firmware/build/authorization/serial-helper WIP and unrelated
+untracked assets remain preserved. No destructive Git or protected-state erase.

@@ -26,6 +26,63 @@ from gs179_verified_endpoint import (
 )
 
 
+class ContinuousEngineeringLifecycleTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+        path=Path(__file__).resolve().parents[2]/'tools/local/engineering-session-controller.py'
+        spec=importlib.util.spec_from_file_location('continuous_controller_test',path)
+        cls.controller=importlib.util.module_from_spec(spec);spec.loader.exec_module(cls.controller)
+
+    def test_enabled_owner_has_no_one_hour_cycle_limit(self):
+        cycles=[]
+        self.controller.enabled_lifecycle(lambda:cycles.append(len(cycles)),lambda:len(cycles)==5000,lambda _:None)
+        self.assertEqual(len(cycles),5000)
+
+    def test_transient_failure_backoff_is_bounded(self):
+        waits=[]
+        def fail():raise self.controller.TemporaryUnavailable('offline')
+        with patch('builtins.print'):
+            self.controller.enabled_lifecycle(fail,lambda:len(waits)==10,waits.append)
+        self.assertEqual(waits[:3],[2,4,8]);self.assertEqual(max(waits),60)
+
+    def test_revocation_is_not_retried(self):
+        def revoked():raise ValueError('revoked')
+        with self.assertRaisesRegex(ValueError,'revoked'):
+            self.controller.enabled_lifecycle(revoked,lambda:False,lambda _:self.fail('retried'))
+
+    def test_rotation_precedes_earliest_independent_deadline(self):
+        now=datetime.now(timezone.utc)
+        authority=dict(lease_deadline=(now+timedelta(hours=1)).isoformat(),activity_deadline=(now+timedelta(seconds=59)).isoformat())
+        self.assertTrue(self.controller.rotation_due(authority,now))
+        authority['activity_deadline']=(now+timedelta(minutes=20)).isoformat()
+        self.assertFalse(self.controller.rotation_due(authority,now))
+
+    def test_expired_session_recreated_but_revocation_fails_closed(self):
+        def expired():raise ValueError('network_sublease_expired_or_idle')
+        self.assertTrue(self.controller.lease_needs_rotation(expired))
+        def revoked():raise ValueError('revoked')
+        with self.assertRaisesRegex(ValueError,'revoked'):self.controller.lease_needs_rotation(revoked)
+
+    def test_controller_lock_prevents_duplicate(self):
+        with tempfile.TemporaryDirectory() as temp:
+            first=self.controller.acquire_controller_lock(Path(temp))
+            try:self.assertIsNone(self.controller.acquire_controller_lock(Path(temp)))
+            finally:first.close()
+
+    def test_executor_rejects_arbitrary_operation_and_lease(self):
+        for operation,lease in [('Shell','a'*64),('Start','bad')]:
+            with self.assertRaisesRegex(ValueError,'fixed_engineering_operation_required'):
+                self.controller.invoke_executor(operation,Path('/unused'),lease)
+
+    def test_ready_receipt_must_match_live_process_and_time(self):
+        now=datetime.now(timezone.utc)
+        row=dict(at=now.isoformat(),pid=42,status=dict(profile='GS179_TEST_ONLY',listener_ready='YES',postgres_ready='YES',trusted_time_ready='YES'))
+        self.assertTrue(self.controller.service_status_current(row,42,now,now))
+        self.assertFalse(self.controller.service_status_current(row,43,now,now))
+        self.assertFalse(self.controller.service_status_current(row,42,now,now+timedelta(seconds=11)))
+
+
 class EngineeringSnapshotTest(unittest.TestCase):
     def test_controller_identity_and_release_isolation(self):
         """GS179-UNATTENDED-003: task environment cannot hide RC caller."""

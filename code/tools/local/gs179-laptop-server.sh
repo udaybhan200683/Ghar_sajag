@@ -700,6 +700,7 @@ case "${1:-}" in
             LD_LIBRARY_PATH="$PG_ROOT/usr/lib/x86_64-linux-gnu" "$PG_BIN/pg_ctl" -D "$PG_DATA" status || true
         fi
         ;;
+    engineering-runtime) load_config; exec python3 -u "$SCRIPT_DIR/engineering-session-controller.py" "${2:-$HOME/.local/state/ghar-sajag/gs117-tc001/renewal-integration-20261113}" ;;
     health) health_check ;;
     dev-start) dev_start ;;
     wait-local)
@@ -723,5 +724,5 @@ case "${1:-}" in
     record-proxy-target) record_proxy_target "${2:-}" ;;
     start-mdns-advertiser) load_config; start_mdns_advertiser ;;
     mdns-status) mdns_status ;;
-    *) printf 'Usage: %s {provision|install-unit|start|stop|restart|status|health|dev-start|wait-local|proxy-start|proxy-audit|proxy-watch-register|proxy-watch-unregister|network-refresh|network-refresh-config|record-proxy-target IP|start-mdns-advertiser|mdns-status|logs [N]|event|health-source|browser|change-login|grant-dev-home-admin|revoke-dev-home-admin}\n' "$0"; exit 2 ;;
+    *) printf 'Usage: %s {engineering-runtime|provision|install-unit|start|stop|restart|status|health|dev-start|wait-local|proxy-start|proxy-audit|proxy-watch-register|proxy-watch-unregister|network-refresh|network-refresh-config|record-proxy-target IP|start-mdns-advertiser|mdns-status|logs [N]|event|health-source|browser|change-login|grant-dev-home-admin|revoke-dev-home-admin}\n' "$0"; exit 2 ;;
 esac

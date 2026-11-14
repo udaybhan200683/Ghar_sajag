@@ -13187,3 +13187,16 @@ existing protected Engineering firmware path with its applicable exact-scope
 authorization and post-install identity evidence. Continuous 24-hour
 operation/recovery qualification remains NOT_RUN; GS-D034 ingress lease limits
 remain unchanged.
+
+
+### GS-179 continuous owner-enabled controller — 2026-11-14
+
+Hard one-hour process shutdown removed from the existing controller and owned
+workers; existing fixed executor sessions rotate automatically with fresh authority
+and explicit close-before-open. Duplicate controllers are rejected. Temporary
+network loss waits with bounded backoff; revocation remains fail-closed. The
+controller is currently waiting on Yogi/Public because approved Airtel_Agrim is
+absent. Physical rollover/endurance remain NOT_VERIFIED. Focused endpoint file
+35 PASS and lifecycle 8 PASS completed; owner subsequently directed no more
+validation suites. Next priority remains corrected native-USB S3 app-only deployment
+and fresh physical TC-001. See existing GS117_APP_UPDATE_PAUSE handoff.
