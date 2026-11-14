@@ -1,6 +1,6 @@
-# GS-117 physical TEST_ONLY fixture uses the board's CH343 UART0 as its
-# authenticated config-envelope control path. The canonical build-outbox.sh
-# Engineering default selects this file and replaces the native USB Serial/JTAG console.
+# Explicit CH343 UART0 TEST_ONLY control profile. The canonical builder adds
+# this override only when the registered fixture descriptor identifies that
+# UART bridge. Native USB COM10 must retain the existing USB receiver profile.
 CONFIG_ESP_TLS_USE_DS_PERIPHERAL=n
 CONFIG_ESP_CONSOLE_UART_DEFAULT=y
 CONFIG_ESP_CONSOLE_UART_NUM=0

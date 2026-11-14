@@ -6,7 +6,7 @@ repo_root="$(cd -- "$script_dir/../../../../../../" && pwd)"
 
 usage() {
     echo "Usage: $0 [engineering|release]" >&2
-    echo "Default profile: engineering (registered GS40 TEST_ONLY UART fixture)." >&2
+    echo "Default profile: engineering (registered GS40 TEST_ONLY serial fixture)." >&2
 }
 
 if (( $# > 1 )); then
@@ -51,6 +51,17 @@ profile, fixture_path, canonical_root_path, root_override, asset_override, state
 def fail(message):
     print(f"build-outbox: {message}", file=sys.stderr)
     raise SystemExit(2)
+
+def fixture_control_transport(fixture):
+    board = fixture.get("s3", {})
+    if board.get("port") != "COM10" or board.get("serial_number") != "E0:72:A1:D3:8D:34":
+        fail("registered S3 control endpoint identity is incompatible")
+    descriptor = str(board.get("usb_hwid", ""))
+    if descriptor.startswith("USB VID:PID=303A:1001 SER=E0:72:A1:D3:8D:34 "):
+        return "usb_serial_jtag"
+    if descriptor.startswith("USB VID:PID=1A86:55D3 "):
+        return "uart0"
+    fail("registered S3 USB descriptor has no supported GS40 control transport")
 
 def digest(path):
     h = hashlib.sha256()
@@ -110,6 +121,7 @@ if profile == "engineering":
     print(root)
     print(asset)
     print(expected_c3)
+    print(fixture_control_transport(fixture))
 else:
     if not asset_override:
         fail("release profile requires GS_NODE_FIRMWARE_ASSET for an existing production C3 pair")
@@ -140,16 +152,18 @@ else:
     print("NONE")
     print(asset)
     print(actual_sha)
+    print("release")
 PY
 )" || exit $?
 mapfile -t resolved <<< "$resolved_inputs"
-if (( ${#resolved[@]} != 3 )); then
+if (( ${#resolved[@]} != 4 )); then
     echo "Unable to resolve the S3 build inputs." >&2
     exit 2
 fi
 config_root="${resolved[0]}"
 node_asset="${resolved[1]}"
 node_asset_sha="${resolved[2]}"
+control_transport="${resolved[3]}"
 
 if [[ "$profile" == "engineering" ]]; then
     if ! openssl pkey -pubin -inform DER -in "$config_root" -noout >/dev/null 2>&1; then
@@ -208,8 +222,10 @@ cmake_args=(
 )
 
 if [[ "$profile" == "engineering" ]]; then
-    defaults+=("$script_dir/sdkconfig.gs40_test_only.defaults"
-               "$script_dir/sdkconfig.gs40_test_only_uart.defaults")
+    defaults+=("$script_dir/sdkconfig.gs40_test_only.defaults")
+    if [[ "$control_transport" == "uart0" ]]; then
+        defaults+=("$script_dir/sdkconfig.gs40_test_only_uart.defaults")
+    fi
     cmake_args+=(
         -D GS40_TEST_ONLY_CLOUDSYNC=ON
         -D "GS40_TEST_ONLY_CONFIG_ROOT_DER=$config_root"
@@ -238,6 +254,7 @@ fi
 cmake_args+=( -D "PROJECT_VER=$project_version" )
 
 echo "S3_BUILD_PROFILE=$profile"
+echo "S3_CONTROL_TRANSPORT=$control_transport"
 echo "S3_BUILD_ROOT=$build_root"
 echo "S3_CONFIG_ROOT_DER=${config_root/NONE/not-used}"
 echo "S3_PAIRED_C3_ASSET=$node_asset"
@@ -257,13 +274,13 @@ partition_csv="$script_dir/partitions.s3-outbox-candidate.csv"
 app_binary="$build_dir/gs_r1_s3_hub.bin"
 python3 - "$profile" "$sdkconfig" "$cmake_cache" "$partition_binary" \
     "$partition_csv" "$app_binary" "$build_dir" "$config_root" \
-    "$staged_node_asset" "$node_asset_sha" <<'PY'
+    "$staged_node_asset" "$node_asset_sha" "$control_transport" <<'PY'
 import hashlib
 import pathlib
 import re
 import sys
 
-profile, sdkconfig_path, cache_path, table_binary, table_csv, app_path, build_dir, root_path, node_path, expected_node_sha = sys.argv[1:]
+profile, sdkconfig_path, cache_path, table_binary, table_csv, app_path, build_dir, root_path, node_path, expected_node_sha, control_transport = sys.argv[1:]
 sdkconfig_path = pathlib.Path(sdkconfig_path)
 cache_path = pathlib.Path(cache_path)
 table_binary = pathlib.Path(table_binary)
@@ -358,14 +375,18 @@ shared_defaults = [str(table_csv.parent / "sdkconfig.defaults"),
                    str(table_csv.parent / "sdkconfig.defaults.outbox")]
 require(profile_defaults[:2] == shared_defaults, "generated SDK defaults do not begin with the shared outbox profile")
 if profile == "engineering":
-    require(profile_defaults == shared_defaults + [
-        str(table_csv.parent / "sdkconfig.gs40_test_only.defaults"),
-        str(table_csv.parent / "sdkconfig.gs40_test_only_uart.defaults")],
-        "Engineering profile did not use the canonical GS40 TEST_ONLY/UART defaults")
+    expected_defaults = shared_defaults + [str(table_csv.parent / "sdkconfig.gs40_test_only.defaults")]
+    if control_transport == "uart0":
+        expected_defaults.append(str(table_csv.parent / "sdkconfig.gs40_test_only_uart.defaults"))
+    require(profile_defaults == expected_defaults, "Engineering defaults do not match the registered control transport")
     require(cache.get("GS40_TEST_ONLY_CONFIG_ROOT_DER") == root_path, "GS40 root DER CMake input differs from fixture")
     require(config.get("CONFIG_ESP_TLS_USE_DS_PERIPHERAL") == "n", "Engineering TEST_ONLY software-key setting is absent")
-    require(config.get("CONFIG_ESP_CONSOLE_UART_DEFAULT") == "y" and config.get("CONFIG_ESP_CONSOLE_UART_NUM") == "0", "Engineering UART0 console profile is absent")
-    require(config.get("CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG") == "n", "Engineering UART profile unexpectedly selects USB Serial/JTAG console")
+    if control_transport == "uart0":
+        require(config.get("CONFIG_ESP_CONSOLE_UART_DEFAULT") == "y" and config.get("CONFIG_ESP_CONSOLE_UART_NUM") == "0", "registered UART0 control profile is absent")
+        require(config.get("CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG") == "n", "UART control selected a conflicting primary USB console")
+    else:
+        require(control_transport == "usb_serial_jtag", "unsupported Engineering control transport")
+        require(config.get("CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG") == "y" and config.get("CONFIG_ESP_CONSOLE_UART_NUM") == "-1", "registered native USB control profile is absent")
     require(config.get("CONFIG_ESP_MAIN_TASK_STACK_SIZE") == "8192", "Engineering GS40 task-stack setting is absent")
     embedded_root = build_dir / "esp-idf/main/gs40_test_config_root.der"
     require(embedded_root.is_file() and sha(embedded_root) == sha(pathlib.Path(root_path)), "embedded GS40 config-root DER differs from the canonical fixture input")

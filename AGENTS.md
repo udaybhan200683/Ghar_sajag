@@ -1,264 +1,543 @@
-# Ghar Sajag Repository Operating Contract
+# Ghar Sajag / Parivar Saathi — AGENTS.md
 
-This file is the always-on repository guidance for Codex. Keep it short. Longer requirements live in the canonical documents linked below.
+## 1. Primary Engineering Objective
 
-## Permanent engineering Definition of Done — GS-116 / GS-130
+**Deliver commercially usable Ghar Sajag / Parivar Saathi functionality with minimum necessary complexity, maximum reuse of validated components, and no compromise to essential product quality or safety.**
 
-Read the current GS-116 and GS-130 Jira policies and
-`docs/validation/MASTER_VALIDATION.md` for every substantive feature/fix. Before
-editing, record owning Jira, affected Node/Hub/application components and shared
-interfaces, existing prior-feature suites, new positive/negative/recovery tests,
-simulation/physical requirements and release impact. Follow the canonical source
-and context rules below; historical validation-worktree instructions do not apply.
+Ghar Sajag is a real commercial elder-care product under development, not a demonstration project.
 
-Permanently register new deterministic tests in the component registry. Run new
-tests plus all prior affected-component regressions and impacted Node–Hub/API/PWA
-contracts using `make validation-node`, `validation-hub`, `validation-contract`,
-`validation-backend` and `validation-pwa`. Do not substitute focused PASS for these
-suites. Node-only sleep changes require Node and relevant contract tests; GS-40
-liveness changes also require Hub/backend/PWA coverage. Full browser validation
-is required for affected browser behavior and every product release candidate,
-not unconditionally for every isolated firmware developer loop.
+Our immediate development priority is completing **TC-001: physical end-to-end event delivery**, from the existing Web Simulation Portal through the physical C3 and S3 devices to the installed Parivar Saathi Android application.
 
-Verify registration/execution and nonzero failure propagation. Run applicable
-target builds/sanitizers. `make validation-fast` is the project deterministic gate;
-every product release candidate must run actual `make release-gate-final`, which
-includes all fast/component suites plus release builds, browser and quality gates.
-Missing/zero tests, unexpected skips, stale artifacts, timeouts and incomplete
-mandatory stages are failures. Record remaining failures honestly; never weaken
-requirements or assertions to report PASS.
+Prioritize working product use cases and functional validation over infrastructure expansion, enterprise-scale frameworks, repetitive readiness audits or documentation-only progress.
 
-Software-delivered, physically qualified and release-approved are separate states.
-Simulation/compilation does not prove GPIO/RF/current/storage/OTA behavior. Keep
-required physical acceptance NOT_RUN/BLOCKED until real current-image evidence
-passes or an explicit approved scope decision removes it. Hardware authorization
-is still required. Record test commands/counts/exits/profile/source/evidence and
-remaining gaps in canonical Markdown/Jira; GS-130 owns exhaustive feature mapping.
-Commit validated changes, push normally, verify actual remote HEAD, preserve
-unrelated assets and provide a precise next-task pause/resume handoff.
+Implement commercially appropriate solutions that are reliable, maintainable, extensible and usable.
 
-Development acceptance and release qualification are distinct (GS-116 comment10405).
-For development, run affected Node/Hub suites, shared contracts, framework tests and
-applicable builds/sanitizers. Do not unconditionally run validation-fast, complete
-release-gate-final, unrelated backend or full browser suites. Verify release-stage
-composition with lightweight framework tests. Execute complete product gates for a
-genuine release candidate or explicit user request; otherwise record NOT_RUN,
-deferred. Structural verification never establishes release PASS.
+The system is intended for continuous 24/7 elder monitoring while powered. Ordinary configuration expiry, network interruptions or session renewal must not repeatedly interrupt legitimate monitoring or CloudSync operation.
 
-GS-130 keeps feature-level regressions and the portable C3/S3 board-stack E2E
-simulation separate. Maintain `docs/validation/MASTER_TRACEABILITY.csv`, the
-source inventory and physical catalogue when features change. Run affected
-component suites and `make validation-board-e2e` for shared runtime/security/
-durability/sleep changes; use verified receipts to avoid duplicate execution.
-Run `make feature-coverage-test` for mapping integrity. A resolved source anchor
-proves registration consistency, not exhaustive semantic coverage. Report feature
-coverage, board-stack simulation, physical qualification and release approval
-independently; keep explicit gaps and mandatory failing tests visible.
-GS-130 physical-track comment10413 requires reuse/inventory of existing HIL,
-not a second framework. Physical commands stay opt-in and outside software gates.
-Legacy `hil-smoke`/regression campaigns build and flash; never invoke them as
-non-destructive observation. Injected motion is not real AM312 optical evidence.
-GS-108/114 require separately authorized, identified fixtures and image evidence.
+Do not introduce temporary workarounds, placeholders, demo-only implementations or unnecessary architectural complexity.
 
-GS-130 also owns the P0 product vertical target `make validation-p0-e2e`, which
-joins the production C3/S3 host-stack event and CloudSync serializer to the real
-local API/service and caregiver PWA where those contracts exist. This target is
-registered through GS-116 for affected components and release composition; a
-scenario assertion PASS with `product_status=PARTIAL` is still a gate FAIL.
-The current local actor adapter is not OIDC and the unfinished GS-148 durable
-Hub-commit API must remain an explicit product gap. `make validation-board-hil`
-and `make validation-motion-hil` are separate opt-in physical commands. Their
-default invocation records NOT_RUN without opening a port. Before any `--observe`
-or `--run` use, obtain the user's explicit approval for the exact identified
-fixture and test plan in the current task; the runner's typed phrase is a second
-operator guard, not user approval. Do not treat a missing stimulus, image hash,
-running-image identity or reset-safe serial path as PASS. Preserve existing
-physical evidence and use unique evidence directories.
+For additional governing requirements, follow:
 
-For every feature or product fix, require actually executed production-code unit/
-component tests, deterministic production-code simulation, and focused trigger-
-to-outcome E2E across affected components. Add permanent IDs and requirement,
-source, gate and execution evidence to `MASTER_TRACEABILITY.csv`. Run the new
-tests and all prior affected-component/contract regressions. If target behavior
-requires hardware proof, classify it in `PHYSICAL_CLASS`, add/update its case in
-`PHYSICAL_HIL_CATALOGUE.csv` and keep physical status NOT_RUN/BLOCKED until a
-matched, authorized fixture run passes. Software gates never open ports or operate
-boards. Full release validation must execute the release-only physical evidence
-check; missing required evidence blocks release approval. Pure software features
-remain SOFTWARE_ONLY and do not receive artificial HIL tests.
+`docs/product/ENGINEERING_PRINCIPLES.md`
 
-## Mandatory document precedence
+---
 
-The active source tree is organized under `code/` by product responsibility;
-the former version-stamped source wrapper is historical and must not be used in
-new paths. See [`docs/architecture/GS152_STABLE_REPOSITORY_LAYOUT.md`](docs/architecture/GS152_STABLE_REPOSITORY_LAYOUT.md)
-for ownership boundaries and build-root conventions.
+## 2. Mandatory Execution Priority
 
-For a fresh target-build checkout, activate ESP-IDF 6.0.3 and follow the paired
-C3/S3 and GS-114 diagnostic build commands in `code/README.md`. Those commands
-use unique ignored build directories and never flash or access hardware.
+1. Finish the highest-priority approved Jira task before beginning another implementation.
+2. Reprioritize only with explicit owner approval or a verified critical blocker.
+3. Implement sequentially in the existing canonical worktree and branch.
+4. Maintain only one active Codex implementation unless explicitly authorized otherwise.
+5. Do not silently change approved requirements, scope, priority or acceptance criteria.
+6. Record significant new feature ideas in the backlog without interrupting active work.
+7. Include minor related improvements only when low-risk and non-disruptive.
 
-For substantive work, read these first:
+### Implementation continuity — critical
 
-1. `docs/product/GHAR_SAJAG_PROJECT_CONTEXT.md`
-2. `docs/product/R1_RELEASE_CONTRACT.md`
-3. `docs/product/R1_WORK_STATE.md`
-4. `docs/product/CANONICAL_REQUIREMENTS_INDEX.md`
+**An incomplete implementation, missing integration, failing test or ordinary software defect is engineering work to perform, not automatically a reason to stop.**
 
-Then read only the domain documents relevant to the task. Trivial edits do not require the full reading sequence. Treat other `.md` files as supporting or historical unless the index marks them authoritative.
+When encountering such a problem:
 
-For substantive Ghar Sajag implementation, bug fixes, architecture/storage changes, PWA/backend behavior changes, or release qualification, **context preflight must PASS first**. Run `tools/context/ghar_sajag_context_preflight.sh` from the worktree. If it reports `STALE`, `INCOMPLETE`, or is absent, do not implement; report the mismatch and safe options. Never automatically reset, rebase, merge, stash, clean, or otherwise synchronize the worktree. Exempt only clearly safe trivial non-semantic edits such as spelling/comments.
+1. Identify the precise failing component.
+2. Inspect existing implementation and prior attempts.
+3. Implement the smallest complete, maintainable correction.
+4. Run relevant affected tests.
+5. Continue the same approved task toward its acceptance criteria.
 
-When Ghar Sajag documents conflict, apply this exact authority order:
+Do not repeatedly report an already-known implementation gap without attempting the necessary code changes.
 
-1. LOCKED decisions in `docs/product/DECISION_LOG.md`.
-2. `docs/product/R1_RELEASE_CONTRACT.md`.
-3. Current CANONICAL domain requirement/design documents identified by `docs/product/CANONICAL_REQUIREMENTS_INDEX.md`.
-4. `docs/product/R1_WORK_STATE.md` for current implementation, qualification and blocker status.
-5. SUPPORTING and IMPLEMENTATION_DESIGN documents.
-6. TEST_PLAN and TEST_EVIDENCE, as validation/evidence rather than product-requirement authority.
-7. HISTORICAL and SUPERSEDED documents.
-8. Chat/session assumptions.
+Do not replace implementation with repeated analysis, documentation updates or Jira comments.
 
-A lower-authority source never overrides a higher-authority requirement. Historical or implementation-design text can accurately describe current/old code without defining the current product requirement. Keep those statements distinct. For example, “the Hub currently has a 128-entry journal” can be a valid implementation fact; “R1 requires a fixed 128-event lifetime” is superseded by GS-D005 and GS-D016.
+Do not stop merely because an implementation is incomplete, a recoverable software defect exists, or legitimate source-review fingerprints require updating after validated source changes.
 
-Supersede only the obsolete section/claim when the rest of a document remains useful. Record partial supersession in the canonical index with the valid uses, the no-longer-authoritative scope, replacement source and relevant decision IDs. Do not hide accurate implementation facts by classifying an entire design as obsolete.
+A genuine blocker must be supported by specific evidence, such as an unavailable essential resource, an unresolved authoritative requirement conflict, a hardware-safety concern, a failed technical authorization check or another condition that actually prevents safe execution.
 
-If two current documents conflict and no higher-authority LOCKED decision resolves the conflict, classify it as `REQUIREMENT_CONFLICT`. Do not choose by timestamp, reading order, or intuition; do not invent product behavior. Stop product-semantic implementation, report the exact statements and sources, and request a product/user decision. Read-only investigation may continue if useful.
+Never bypass a genuine safety or security failure to continue work.
 
-## R1 scope discipline
+---
 
-- R1 = commercially installable, stable fresh-install baseline.
-- Preserve quality by reducing scope, not correctness, durability, security, or fail-closed behavior.
-- Fix before R1 only for essential product failure, security/authentication failure, data loss/corruption, incorrect caregiver-visible behavior, inability to use fresh R1, or failure of a required release gate.
-- Defer nonessential compatibility, polish, legacy migration, convenience tooling, and speculative future features.
-- Never silently broaden R1.
+## 3. Permanent Single-Worktree Development Policy
 
-## Do not deviate from R1
+Ghar Sajag has one developer working sequentially.
 
-Before implementing any newly discovered issue outside the requested task:
+Canonical repository:
 
-Record this triage before implementation:
+`/home/udaybhan/projects/Ghar_sajag_r1`
 
-```text
-BUG_CLASSIFICATION=R1_BLOCKER / R1_FIX / DEFER_POST_R1 / INVESTIGATE_ONLY / TEST_INFRA_ONLY
-REQUIREMENT_SOURCE=<canonical path or REQUIREMENT_GAP>
-DECISION_IDS=<GS-Dxxx IDs or NONE>
-TASK_SCOPE=<requested and approved scope>
-OUT_OF_SCOPE=<adjacent work explicitly excluded>
+Active branch:
+
+`feature/r1-commercial-baseline`
+
+Rules:
+
+- Use only this canonical worktree and branch for R1 development.
+- Do not create another branch, worktree, clone or feature-development directory without explicit owner approval.
+- Do not switch worktrees or branches merely because Jira ownership changes.
+- Never assume another branch contains all prior work.
+- Preserve existing uncommitted modifications, untracked files, evidence and unrelated changes.
+- Before any proposed worktree or branch change, explain the necessity and obtain approval.
+
+### Documentation location
+
+Store task-specific execution plans, evidence, design notes, decisions and pause/resume handoffs under:
+
+`docs/exec-plans/evidence/`
+
+Maintain existing canonical product requirements, architecture and work-state documents in their established locations. Do not relocate existing canonical documents merely to satisfy the evidence directory convention.
+
+---
+
+## 4. Mandatory Context and Task Startup
+
+Before planning, designing, coding, reviewing or resuming substantial work:
+
+1. Verify the current repository, worktree and branch.
+2. Verify local HEAD, remote HEAD and working-tree status.
+3. Read this `AGENTS.md` and applicable nested repository instructions.
+4. Read relevant canonical requirements, architecture, decisions, release contracts and engineering principles.
+5. Read `docs/product/R1_WORK_STATE.md`.
+6. Read the owning Jira description, latest comments, dependencies and acceptance criteria.
+7. Read the latest feature pause/resume handoff.
+8. Inspect the actual relevant source code, Git history, tests and existing implementation evidence.
+9. Reconcile any contradictions between Jira, documentation, code and actual validation results.
+
+Prefer verified source and test evidence over outdated status statements.
+
+Run the repository's existing context preflight when applicable.
+
+**Keep context review focused on the active task. Do not repeatedly perform the same full investigation when existing evidence remains valid.**
+
+Do not restart from an old task prompt without reconciling the current project state.
+
+---
+
+## 5. Jira Workflow and Ownership
+
+Identify the owning Jira issue before beginning implementation.
+
+Search existing Jira issues before creating new ones. Avoid duplicates.
+
+New Jira issues must include:
+
+- Scope and objective
+- Requirements and design considerations
+- Priority
+- Dependencies
+- Acceptance criteria
+
+Use Jira statuses consistently:
+
+| Status | Meaning |
+|---|---|
+| To Do | Approved or planned but not started |
+| In Progress | Implementation has actually begun |
+| OnHold | Genuine pause or verified blocker |
+| Future_Features | Explicitly deferred future work |
+| Done | Full acceptance criteria verified |
+
+Move a ticket to **In Progress** when execution actually starts, not merely when a prompt is submitted.
+
+Do not move a ticket to OnHold merely because code remains unfinished or a recoverable defect requires correction.
+
+Do not move a ticket to Done until its complete Definition of Done is satisfied.
+
+Update Jira with meaningful verified progress, decisions, results and genuine blockers.
+
+Avoid repetitive comments that merely restate the same known implementation gap.
+
+Respect explicit instructions not to update Jira.
+
+---
+
+## 6. Mandatory Execution, Validation and Closure
+
+Follow this workflow:
+
+**Check priority → Read Jira/docs/Git/source → Reconcile → Design/document as necessary → Confirm start → Implement → Validate → Update documentation → Commit → Push/verify remote → Update Jira → Close if fully accepted → Report next priority.**
+
+### Implementation rules
+
+- Check what has already been assigned, attempted, implemented and tested.
+- Reuse existing validated components.
+- Do not duplicate or unnecessarily replace working functionality.
+- Prefer straightforward, durable solutions over temporary workarounds.
+- Avoid introducing frameworks, services or infrastructure unrelated to the active product requirement.
+- Preserve every approved requirement, security invariant, acceptance criterion and test obligation.
+- Implement the actual maintained execution path, not isolated helpers that remain disconnected from the product.
+- Do not change product behavior silently.
+
+### Milestone completion
+
+After each implementation milestone, check the relevant Definition of Done.
+
+A milestone is complete only when its functional requirements and relevant tests are verified.
+
+If the milestone is incomplete, identify the exact remaining executable work and continue unless a genuine blocker prevents it.
+
+Do not declare PASS based only on code inspection, mocks, simulations or historical evidence when actual integration or physical acceptance is required.
+
+---
+
+## 7. Validation Policy
+
+**Validate affected functionality, not the entire repository by default.**
+
+For code changes:
+
+1. Run relevant new tests.
+2. Run existing tests for directly affected components.
+3. Run relevant integration, regression, security, sanitizer or build checks where the change creates corresponding risk.
+4. Run broad release gates at release milestones or when explicitly required by the release contract.
+5. Execute physical hardware-in-the-loop tests when required for the active acceptance criteria.
+
+Do not rerun unrelated module tests without an identified dependency or impact.
+
+If no source or behavior change occurred, do not repeat previously verified tests unless environmental conditions, test validity or acceptance requirements justify it.
+
+Distinguish clearly between:
+
+- Source review
+- Unit and component tests
+- Simulation
+- Target firmware build
+- Integration testing
+- Physical hardware validation
+- Full product acceptance
+
+Never invent PASS, suppress failures or substitute one validation level for another.
+
+A failed test is a reason to diagnose and correct affected code, not automatically a reason to end the implementation session.
+
+---
+
+## 8. Engineering Authorization and Product Security
+
+Ghar Sajag is currently in the Engineering development phase, preparing for Release R1.
+
+### Standing Engineering authorization
+
+The owner has granted standing authorization for routine registered TEST_ONLY Engineering operations within the existing approved scope, including supported application-only firmware updates.
+
+Do not repeatedly request owner approval for routine authorized Engineering operations.
+
+However, standing approval does not override required operating-system permissions, device identity checks, protected-flash safeguards, authentication, hardware-safety conditions or established recovery contracts.
+
+Reuse the existing authorization mechanisms. Do not introduce additional authorization frameworks or recurring manual approval workflows without a verified requirement.
+
+### Security expectations
+
+Apply basic, appropriate commercial-product security—not unnecessary enterprise-scale security infrastructure.
+
+Preserve:
+
+- Authenticated device communications
+- Household/Home isolation
+- Device identity and registration
+- Credentials and sensitive configuration
+- Firmware and partition compatibility
+- Event durability and deduplication
+- Reliable recovery from interruption
+- Reasonable protection of caregiver and resident information
+
+Do not weaken authentic security controls merely to obtain a PASS or accelerate deployment.
+
+Do not treat normal Engineering development, source changes or legitimate configuration renewal as a reason to create recurring manual approval obstacles.
+
+### Continuous operation
+
+Registered devices should recover automatically from ordinary network interruptions and configuration renewal.
+
+A normal configuration timer must not permanently disable legitimate monitoring or CloudSync.
+
+Design authenticated renewal, retry and recovery behavior to support dependable 24/7 operation.
+
+Avoid introducing unnecessary recurring approvals, short-lived operational permissions or redundant safety frameworks.
+
+---
+
+## 9. S3 Firmware Build and Deployment Contract
+
+**Always use the canonical S3 outbox build procedure.**
+
+Canonical build script:
+
+`code/firmware/hub/target/esp32s3/idf/build-outbox.sh`
+
+When operating from its directory:
+
+```bash
+./build-outbox.sh
 ```
 
-If product semantics are missing, classify `REQUIREMENT_GAP`; do not invent them. If `DEFER_POST_R1`, record it and do not implement during R1 work. If `R1_BLOCKER` or `R1_FIX`, explain the applicable release rule. Do not broaden scope merely because related code is nearby. Do not spend deep-model effort on non-R1 convenience problems while an R1 product blocker exists.
+When operating from the repository root, invoke the script using its repository-relative path, ensuring the script's documented working-directory requirements are respected.
 
-## Current hardware baseline
+### Required partition contract
 
-- GS-D030 selects ESP32-S3 N16R8 (16 MiB flash, 8 MiB PSRAM) for new R1 Hub development.
-- Sensor Nodes remain ESP32-C3; preserve their protocol and BAT-C8 behavior.
-- All new R1 target work, including ESP32-S3 Hub work, uses `/home/udaybhan/projects/Ghar_sajag_r1` on `feature/r1-commercial-baseline`. Historical feature worktrees are provenance/evidence sources only; do not resume development there.
-- Preserve the classic ESP32 target and evidence as historical sources; do not resume 4 MiB capacity optimization.
-- Verify actual board flash, PSRAM and pinout before hardware bring-up; commercial partitions and capacity qualification remain open.
+The physical Hub uses:
 
-## Non-negotiable durability invariants
+- `gs_outbox`: 4 MiB
+- `gs_state`: 256 KiB
+- Two 4 MiB OTA application slots
 
-Do not weaken durable-before-ACK, authenticated ownership/domain checks, lost-ACK retry safety, duplicate suppression across reboot, Node retained-event retirement, current-format reboot recovery, fail-closed corruption handling, versioned storage/FOTA behavior, or bounded runtime behavior.
+Never build deployable S3 firmware using the default `gs_journal` partition layout.
 
-Do not erase/reset storage or use epoch reset to hide capacity defects.
+For Engineering Builds, include the established GS-40 TEST_ONLY and native-USB/UART configuration required for the registered physical Hub.
 
-## Data and cloud architecture
+Keep Engineering and Release build profiles distinct.
 
-See `docs/architecture/STORAGE_SYNC_ROUTINE_LEARNING.md`.
+Verify the generated partition table and application compatibility before declaring an image deployable.
 
-Key rule: when internet is available, the Hub synchronizes caregiver-relevant information to the backend continuously/near-real-time. It does not wait for local storage pressure and does not wait for the caregiver to open the PWA.
+### Firmware flashing
 
-Local storage is primarily correctness-critical durability, offline buffering, short-term cache/history, and learned-state persistence. Long-term caregiver history belongs in the backend.
+Use the existing validated official ESP-IDF application-only update procedure.
 
-## Working-tree/evidence safety
+Never substitute generic full-device flashing for an authorized app-only update.
 
-- No destructive git operations (`reset --hard`, blind `clean`, blind stash/rebase).
-- Preserve evidence.
-- Do not rerun factory initialization unless specifically required.
-- Do not fabricate hardware results.
-- Do not repeat proven qualification steps unless a change invalidates them.
+Preserve:
 
-## Documentation maintenance
+- Bootloader
+- Partition table
+- NVS
+- Outbox and state partitions
+- Device registration
+- Credentials
+- Existing OTA selector and recovery guarantees
 
-After substantial work that changes a requirement, design, architecture, release or validation status, blocker status, implementation scope, hardware decision, backend contract, or storage policy:
+Do not rewrite or erase protected regions.
 
-1. Update `docs/product/DECISION_LOG.md`.
+The firmware writer must verify the current authorized session and compatible target before initiating a write.
+
+A session ID alone must not be treated as proof of live lock ownership.
+
+Maintain the existing trusted hardware lock, audit and authorized update-session contracts.
+
+If updater integration is incomplete, implement and validate it rather than repeatedly documenting the same missing connection.
+
+---
+
+## 10. TC-001 — Immediate Product Priority
+
+The current highest-priority functional objective is a **fresh physical end-to-end motion event**, delivered from the existing portal to the installed caregiver application.
+
+Required real execution path:
+
+1. Existing Web Simulation Portal
+2. Select Motion Scenario → Run
+3. TEST_ONLY USB `INJECT_MOTION` to physical ESP32-C3
+4. Real C3 NodeRuntime creates a fresh original EventKey
+5. Authenticated ESP-NOW transport
+6. Physical ESP32-S3 HubRuntime
+7. Real rules, journal/outbox durability and ACK
+8. Real CloudSync
+9. PostgreSQL durable event commit
+10. Caregiver API retrieves the same original event
+11. Installed Parivar Saathi Android APK visibly displays that event
+
+### Acceptance expectations
+
+Verify original EventKey continuity across every component.
+
+Verify no duplicate durable event is created.
+
+Use actual physical C3 and S3 devices for hardware acceptance.
+
+Do not fabricate backend records or treat simulation as a substitute for real device operation.
+
+When the event fails:
+
+1. Trace fresh event-correlated evidence.
+2. Find the first failing boundary.
+3. Correct the underlying defect in the maintained product implementation.
+4. Run affected tests.
+5. Repeat the physical event.
+6. Confirm complete downstream delivery.
+
+Do not block functional testing on broad environment audits, repeated historical-log investigations or unrelated infrastructure checks.
+
+Perform only the minimum prerequisites necessary for safe, authorized execution.
+
+Preserve outstanding recovery obligations and original failure evidence.
+
+Do not expand an isolated functional defect into an unnecessary system redesign.
+
+---
+
+## 11. Commercial Engineering Design Principles
+
+Ghar Sajag is intended to become a commercially deployable elder-care product.
+
+Implementation decisions must consider:
+
+- Real resident and caregiver use cases
+- Continuous monitoring reliability
+- Useful, understandable user interactions
+- Maintainability
+- Appropriate security
+- Power and battery considerations
+- Recovery from normal operational interruptions
+- Compatibility and future extensibility
+- Commercially proven design practices
+
+Prioritize functional product value, not engineering sophistication for its own sake.
+
+Do not introduce enterprise-scale observability, operational frameworks, elaborate authorization systems, generalized test harnesses or unrelated infrastructure unless required for actual product acceptance.
+
+Future infrastructure improvements may be planned and recorded separately without interrupting the highest-priority task.
+
+No temporary solutions should be presented as finished commercial implementation.
+
+---
+
+## 12. Requirements Conflicts and Decision-Making
+
+Follow the canonical document precedence defined in the repository.
+
+Never invent missing product requirements or backend security contracts.
+
+Do not create competing master requirement documents.
+
+**Stop only when authoritative product requirements genuinely conflict and resolving the conflict would change approved product behavior.**
+
+Do not classify these as requirement conflicts:
+
+- An unfinished integration
+- Missing implementation code
+- A failing unit or integration test
+- A known software defect
+- Normal configuration expiry
+- Stale source-review evidence that can legitimately be refreshed
+- Routine implementation uncertainty resolvable through source inspection or testing
+
+Resolve ordinary engineering problems through implementation and validation.
+
+Record significant new requirements, architectural decisions, risks and limitations in dated Jira comments and canonical Markdown.
+
+Distinguish approved decisions from proposals.
+
+Seek owner approval when an actual product-scope, priority or acceptance-criteria change is required.
+
+---
+
+## 13. Git, Commit and Delivery Policy
+
+- Implement sequential Jira tasks in the canonical worktree and branch.
+- Preserve all existing uncommitted and unrelated work.
+- Review staged files before committing.
+- Commit validated task-owned code, tests and documentation.
+- Push to the correct remote branch.
+- Verify actual remote HEAD equals local HEAD.
+- Report commit hashes and push verification.
+- Never force-push, reset, rebase, discard changes or destructively clean files without explicit approval.
+- Never overwrite or remove historical evidence without authorization.
+- Do not claim remote delivery merely because a local commit succeeded.
+
+If Git or an external connector fails, preserve the work and report the precise blocker. Avoid repeated futile retries.
+
+Do not create extra branches or worktrees merely to handle an incomplete integration.
+
+---
+
+## 14. Mandatory Execution Continuity and Pause/Resume Handoff
+
+The highest-priority approved task remains active until it is accepted, explicitly reprioritized or genuinely blocked.
+
+**Do not treat incomplete software implementation as an automatic pause condition.**
+
+When an engineering issue is recoverable:
+
+- Diagnose it.
+- Implement the correction.
+- Run focused tests.
+- Continue toward the existing acceptance criteria.
+
+Do not repeatedly end sessions after reporting the same known issue without attempting the implementation.
+
+### When a genuine pause occurs
+
+If a task is actually paused, externally blocked, interrupted or reprioritized:
+
+1. Update the existing canonical feature handoff Markdown.
 2. Update `docs/product/R1_WORK_STATE.md`.
-3. Update the relevant canonical requirement document.
-4. Update `docs/product/CANONICAL_REQUIREMENTS_INDEX.md` if document authority changes.
-5. Update other affected canonical domain documents.
-6. For a newly approved LOCKED requirement/decision, increment `docs/product/CONTEXT_VERSION` and commit the canonical documentation before starting implementation that depends on it. Spelling-only and formatting-only changes do not increment the version.
+3. Record actual completed work, remaining work, genuine blockers, decisions and verified test results.
+4. Record current branch, local/remote HEAD and uncommitted changes.
+5. Identify the exact next executable action and required prerequisites.
+6. Add a dated comment to the owning Jira issue.
+7. Commit and push validated task-owned changes where possible.
+8. Preserve unrelated work and historical evidence.
 
-Do not create another competing master requirements document.
+Do not repeatedly create identical handoff updates when no meaningful progress or new blocker has occurred.
 
-## Canonical worktree source
+When resuming, always reconcile the latest handoff, code, requirements, Jira and current Git state.
 
-The designated canonical R1 source is `/home/udaybhan/projects/Ghar_sajag_r1` on `feature/r1-commercial-baseline`. The preflight script checks this source without modifying either worktree. If the canonical repository location or ref changes, update the script's two source constants and this paragraph; do not copy requirement text into worktree-specific configuration.
+---
 
-## Permanent single-worktree and pause/resume policy
+## 15. Documentation and Progress Reporting
 
-R1 is developed sequentially in this one approved worktree and branch. Do not create another branch, worktree, clone or feature directory without explicit user approval. Keep one authoritative requirements index and `R1_WORK_STATE.md`; link topic designs and dated evidence instead of creating competing master documents.
+Record significant requirements, approved designs, decisions, technical limitations, dependencies, corrections and risks in canonical Markdown and dated Jira comments.
 
-Before substantive work, verify canonical path/branch/HEAD/status and remote, read applicable agent instructions, canonical requirements, current work state, latest Jira comments and the relevant handoff, then require context preflight PASS. Never infer that a newer branch contains all approved work; inspect commit ancestry and file-level differences before integration.
+Synchronize meaningful progress, verified test evidence, commits, failures, blockers and next priorities.
 
-When work pauses, is interrupted or changes priority, update its existing canonical handoff and `R1_WORK_STATE.md`, and add a dated owning-Jira comment. Include current implementation/evidence, exact local and remote checkpoint, validation state, preserved uncommitted/untracked files, blockers, safety limits and the next exact action. Resume by reading the newest handoff and checking current source before continuing.
+Do not use documentation-only progress as a substitute for required implementation.
 
-After validation, commit and push to `feature/r1-commercial-baseline`, verify `git ls-remote` equals local HEAD, and confirm tracked cleanliness while preserving generated/untracked files. Do not perform destructive Git or hardware operations without explicit authorization. Stop on unresolved product, security, protocol or storage-format conflicts; do not invent requirements.
+Keep operational logs and reports concise.
 
-## Automatic operating-mode evidence — GS-D034
+Avoid repetitive advice and replacement prompts when an implementation task has already been assigned.
 
-Every startup context preflight also emits `GHAR_SAJAG_MODE_STATUS` JSON through
-existing GS-179 tooling. Read source, built, installed/running and deployment
-fields independently; never ask the owner to select an operating mode in chat.
-A source tree or matching local BIN is not proof of a running image. UNKNOWN /
-NOT_VERIFIED permits host-only development, but not privileged physical/network
-operations. Use standing routine Engineering authorization only when actual build,
-registered fixture, service/network security and operation guards pass. RC and
-Production retain strict release/security behavior; runtime flags cannot grant
-Engineering privileges. Routine registered Engineering functional USB tests do not require Scope A or
-24-hour ROM refresh (owner11958–11962). Report running-image UNKNOWN separately;
-retain actual runtime/fixture/authentication/safety guards. Image qualification
-and its freshness checks remain separate; never fabricate historical evidence.
+Every substantial task report must identify:
 
-Routine registered Engineering S3 runtime bootstrap is covered by GS-D034 standing
-scope: use BootstrapS3 and verified engineering bootstrap source-review receipt,
-COM10 only/no intentional reset/one exchange, existing shared locks and audit.
-Never revive historical grants or require repeated Jira consent for that scope.
-Source/test changes require a fresh source-bound review; no blind hardware retry.
+1. Verified implementation progress.
+2. Actual test results and limitations.
+3. Jira status and updates.
+4. Canonical documentation updates.
+5. Commit and push results.
+6. Remote HEAD verification.
+7. Genuine unresolved blockers.
+8. Next highest-priority approved work.
+9. Exact worktree, branch and HEAD.
 
-Owner11979 commercial-development policy: audit canonical Jira/source/history
-before design; reuse existing product implementations, avoid temporary functional
-shortcuts and unnecessary enterprise tooling, and prioritize real elder-care
-use cases. GS-117 is current P0. Run mandatory affected development gates; full
-release qualification remains separate. See docs/product/ENGINEERING_PRINCIPLES.md and GS-D034
-for standing Engineering versus strict release-family controls.
+Never claim unverified completion.
 
-GS-179 owner11986 permits one administrator installation of the existing
-launcher’s fixed Engineering ingress task. Subsequent non-elevated Start/Close
-requests use that task, not RunAs. Protected snapshots and task ACLs must match;
-source changes need reviewed administrator redeployment, never silent repinning.
-Locked-session Windows execution, independent cleanup and authenticated routing
-remain mandatory live qualification; mocks are not acceptance. This adds no
-hardware/reset authority. See the existing GS179_SESSION_INGRESS_RECOVERY handoff.
+---
 
-Existing-account DEV Home administration (GS-D034 owner12026): reuse the
-private `gs179-laptop-server.sh grant-dev-home-admin` maintenance operation for
-the authenticated saved account in registered `gs177-test-product`; use
-`revoke-dev-home-admin` for its audited reversal. Never create another account,
-change credentials, relax public authorization, or patch live roles directly.
-The operation retains registered Engineering operator/build, private current
-password, active Home/Hub/epoch/consent, verified-TLS database and audit guards.
-Raw motion admission/ACK/CloudSync does not require an activity policy; rule
-scenarios still require their genuine admitted policy. Keep live policy values
-unset rather than inventing household defaults.
+## 16. Codex Execution and Prompt Continuity
 
-Owner2026-11-13 standing Engineering app-update direction: ordinary app-only
-updates for registered S3 COM10 and C3 COM4/Home gs177-test-product do not need
-repeated chat/Jira flash approval. Reuse official ESP-IDF tools, existing locks
-and audit. Preserve exact-device/image/profile/partition/recovery checks and
-bootloader/table/NVS/keys/recovery/outbox/state. Necessary update-related ROM
-entry and boot are included; no full erase, enrollment/key/eFuse or production
-change. Historical GS40 bootstrap grants/latches remain unchanged and are not
-firmware-update authority. See GS-D034 for the superseding scoped decision.
+For new or resumed Codex sessions:
+
+- Read and reconcile the latest approved task scope, prior work and current repository state.
+- Continue existing partial implementation rather than restarting from scratch.
+- Preserve all original requirements, designs, safety invariants, relevant tests and acceptance criteria.
+- Do not silently narrow the task.
+- Do not create unnecessary duplicate prompts, code paths or infrastructure.
+- Prefer direct changes to the actual maintained execution path.
+
+### Avoid repeated no-progress loops
+
+If a task has already been analyzed and the missing implementation is known, proceed to source modification and focused validation.
+
+Do not repeatedly produce the same explanation as a substitute for implementation.
+
+If tools cannot edit files or execute commands, or if an external resource genuinely prevents progress, identify that precise restriction.
+
+Do not claim a generic blocker when no actual blocking condition has been established.
+
+### Prompt updates
+
+When revising a previously provided Codex/AI implementation prompt, provide the **entire updated standalone prompt**, retaining all existing approved scope, security requirements, tests and deliverables unless explicitly changed.
+
+Never require the owner to combine partial replacement prompts manually.
+
+---
+
+## 17. Governing Principle
+
+**Finish, validate and close the highest-priority approved task.**
+
+Reuse existing validated components.
+
+Preserve product reliability, reasonable security, hardware safety and approved requirements.
+
+Eliminate unnecessary approval loops and infrastructure expansion.
+
+Prioritize actual implementation and physical end-to-end acceptance over repeated analysis or status reporting.
+
+**The objective is a commercially reliable Ghar Sajag product that continuously monitors residents and delivers genuine events to caregivers—not a collection of disconnected helpers, readiness frameworks or documentation-only milestones.**

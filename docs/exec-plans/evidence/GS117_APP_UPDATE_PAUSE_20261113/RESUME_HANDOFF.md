@@ -257,3 +257,53 @@ C3 cold-start remains ON HOLD, GS-179 cleanup qualification remains PARTIAL.
 Git before this delivery: 935c29c7178267ebc790c6204e2f18d0e46736b9 local/remote.
 Other existing firmware/build/authorization/serial-helper WIP and unrelated
 untracked assets remain preserved. No destructive Git or protected-state erase.
+
+### 2026-11-14 artifact binding work in progress
+
+Airtel_Agrim is currently Private at 192.168.1.6; the existing controller and
+services remain running. The native-USB image remains NOT_DEPLOYED. Added
+`bind_s3_update_artifact` to the existing Windows serial helper, with explicit
+image/hash/session inputs, image snapshot, target/partition manifest and unique
+non-overwriting evidence directory. Two focused host tests passed (0.089s).
+This is partial: the official writer and standing-authorized parent do not yet
+consume the binding; no session-specific write plan or full recovery-flow test
+exists. The helper source changed, so prior bootstrap source reviews and private
+helper hash pins are stale until refreshed through the existing review mechanism.
+Do not flash using the historical hardcoded invocation or treat the new helper as
+an authorized updater. No serial access, reset, flash or new event this turn.
+Next: integrate binding into the existing official app-only invocation and parent
+locks/audit, retain the exact guard/recovery behavior, add focused tests, refresh
+bootstrap source review, then deploy and trace one fresh event. Work is uncommitted.
+
+2026-11-14 continuation: Added `verify_s3_update_binding` to the existing
+serial helper. It rechecks session, registered target, partition contract,
+snapshot length and digest and rejects symlinked evidence. Three focused
+binding tests PASS. The official writer and authorized parent still do not
+consume these functions; this is unfinished source work, not a deployable
+updater. Helper/bootstrap source review remains stale. No COM access, flash,
+fresh EventKey or physical E2E in this continuation. Next integrate both parent
+and existing writer, verify recovery and refresh the existing review before use.
+
+### 2026-11-14 session reconciliation (integration still incomplete)
+
+Canonical branch and local/remote HEAD `e8de38cbf2d2e862be2c654b2cbb36535359bec8` matched; context preflight `2026-11-14.001` PASS. Existing tracked and untracked work was present and preserved. This session made no updater code changes and ran no integration tests or hardware operations. Windows PowerShell 5.1.19041.6456 responded. `docs/product/ENGINEERING_PRINCIPLES.md`, referenced by the supplied instructions, was absent (`cat: No such file or directory`).
+
+The existing authorized application-flash session in `gs117_hil_authorization.py` holds STATE and DEV_STATE locks, but does not launch a writer or expose a live claim. The historical `s3_app_only_invocation.py` contains the official writer/readback/selector-recovery flow but uses fixed historical paths and no parent-ownership check. The existing readback controller and `claim_readback_receipt_role` demonstrate a WSL claim mechanism, but are bound to a different one-use receipt authorization; they cannot simply be reused as application-flash authority. No source-review fingerprints were refreshed. The corrected image remains NOT_DEPLOYED, and no fresh EventKey or downstream acceptance was obtained.
+
+Next: implement and test the maintained application-flash parent/writer connection with live ownership at write boundaries, duplicate exclusion, interruption and selector recovery; then reconcile source reviews and proceed with the already authorized update and one fresh TC-001 event. Do not use the historical writer directly. Existing WIP remains uncommitted; no commit or push was made in this session.
+
+### 2026-11-14 continuation: target baseline check
+
+The existing update guard now also requires the recorded baseline port to match the observed registered target; a baseline for COM4 is rejected even when the live observation is COM10. Focused test `python3 code/tests/python/test_s3_fixture_commissioning.py S3ApplicationUpdateGuard.test_installed_baseline_port_must_match_current_target` PASS (1 test). An initial module-style unittest command failed because Python resolved `code` as the standard library module; the direct test-file command passed. This is a small guard correction, not the required parent/writer integration. No writer, ownership handoff, source-review reconciliation, hardware operation or TC-001 event was completed. Existing WIP remains uncommitted. Branch/local/remote at startup: `feature/r1-commercial-baseline` / `e8de38cbf2d2e862be2c654b2cbb36535359bec8` / same; preflight PASS (`2026-11-14.001`). Next: implement the actual parent-to-writer lifecycle and recovery path and its focused non-writing integration tests before deployment.
+
+### 2026-11-14 selector interruption safety finding
+
+The pinned ESP-IDF 6.0.3 `otatool.py:210` switches by calling `ParttoolTarget.write_partition`; `parttool.py:153-155,161-175` erases the whole partition before writing. For the observed 0xF000/0x2000 otadata partition this erases both selector sectors at once. Interruption between erase and replacement therefore cannot rely on either previously valid selector copy; historical successful execution does not test that window. The maintained command guard now rejects that whole-selector erase, including when application verification has passed. This is a fail-closed safety correction, not a completed updater. The focused S3ApplicationUpdateGuard class passed 16 tests; `git diff --check` passed. No flash or device operation was attempted.
+
+Next implement a selector operation that retains a verified bootable selector throughout interruption, while retaining official IDF selector semantics, together with the authorized live parent/lock-to-writer binding and recovery tests. Do not enable the old whole-partition erase or use the historical writer. The corrected image is still NOT_DEPLOYED; no new EventKey exists. Canonical branch/local/remote at startup: `feature/r1-commercial-baseline`, `e8de38cbf2d2e862be2c654b2cbb36535359bec8`, remote equal; preflight PASS. The selector guard and all prior dirty work remain uncommitted.
+
+### VS Code WIP checkpoint — 2026-11-14
+
+Starting canonical branch `feature/r1-commercial-baseline` local and remote HEAD `e8de38cbf2d2e862be2c654b2cbb36535359bec8`; context preflight PASS. Focused validation: `python3 code/tests/python/test_s3_fixture_commissioning.py` 42 PASS; four update authorization tests PASS; three C3 readiness/injection host tests PASS; diagnostic collection 28 PASS; builder shell syntax, Python compilation and `git diff --check` PASS. No hardware access or integration test. The builder/native-USB transport changes, S3 binding/guard WIP, their focused tests and existing serial changes are checkpointed, not accepted as a complete updater. Bootstrap review fingerprints remain stale; the maintained parent/writer and interruption-safe selector are not implemented. The corrected S3 image remains NOT_DEPLOYED; no fresh EventKey exists.
+
+The separate mixed authorization/bootstrap-review work, console tests, signed-time service/tests, validation registry changes, and all untracked assets and historical evidence are retained in the worktree outside this checkpoint. Before deploying, reconcile these changes and source reviews; implement and test live lock ownership, artifact binding and interruption-safe official writer/selector behavior in the maintained path. Do not use the historical private invocation.

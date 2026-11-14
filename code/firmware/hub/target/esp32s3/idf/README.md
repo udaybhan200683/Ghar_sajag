@@ -13,7 +13,10 @@ Do not flash that product build as a replacement for storage/FOTA qualification.
 
 ## Board boundary
 
-Current adapter: CH343, VID:PID 1a86:55d3, UART console `/dev/ttyACM0`.
+The historical CH343 adapter (VID:PID 1a86:55d3) carries UART0. The registered
+GS-117 COM10 fixture instead exposes native USB Serial/JTAG (303a:1001, USB
+serial E0:72:A1:D3:8D:34). These are distinct control transports; choose the
+existing GS40 receiver profile from the registered fixture descriptor.
 Chip/flash/PSRAM package identification is not a PCB model/pinout identification.
 UART0 uses the ESP-IDF S3 default GPIO43/TX and GPIO44/RX, already reachable via
 the board's adapter. No camera, sensor, LED, button or other board GPIO is driven.
@@ -56,7 +59,9 @@ the Engineering fixture asset. Missing or ambiguous inputs fail before CMake.
 Each call creates a fresh, profile-specific SDK config and build directory
 outside the source tree. `GS_S3_OUTBOX_BUILD_ROOT` may select a parent directory;
 the script creates a unique child for the chosen profile and preserves earlier
-builds. This prevents an old Release/Engineering `sdkconfig` from contaminating
+builds. The registered descriptor also selects native USB Serial/JTAG or the
+existing UART0 override; an unknown descriptor fails instead of choosing a
+different receiver. This prevents an old Release/Engineering `sdkconfig` from contaminating
 the next invocation. Only `engineering` and `release` are accepted; selecting
 `gs_journal` as a profile is rejected.
 
@@ -66,8 +71,10 @@ match these exact entries: `ota_0` 0x20000/4 MiB, `ota_1` 0x420000/4 MiB,
 `gs_outbox` 0x820000/4 MiB LittleFS and `gs_state` 0xC20000/256 KiB NVS,
 including the NVS/OTA-data/PHY entries. It also verifies ESP32-S3 target and
 image header, the 4 MiB application-slot fit, C3 image target, and profile
-flags. Engineering must have GS40 TEST_ONLY CloudSync, UART0, and its existing
-software-key/stack configuration enabled. Release must have TEST_ONLY and HIL
+flags. Engineering must have GS40 TEST_ONLY CloudSync, the receiver matching
+the registered USB descriptor, and its existing software-key/stack configuration
+enabled. Secondary console output alone does not prove that the same interface
+accepts configuration input. Release must have TEST_ONLY and HIL
 features disabled. The command only builds; it never flashes, resets, formats
 or accesses a board. Do not add generated assets or binaries to Git.
 
@@ -98,10 +105,11 @@ the canonical GS-117 Engineering build enables GS40 TEST_ONLY CloudSync but
 keeps `GS_HIL_COMMISSIONING=OFF`. Build and deployment are separate actions.
 
 The GS-117 default Engineering invocation selects
-`sdkconfig.gs40_test_only.defaults` followed by
-`sdkconfig.gs40_test_only_uart.defaults`, because its identified board console
-is the CH343 UART0 bridge. The raw GS40 SDK defaults remain opt-in for other
-build paths; this wrapper's no-argument profile is explicitly Engineering.
+`sdkconfig.gs40_test_only.defaults`. For the registered native USB COM10 this
+activates the existing USB Serial/JTAG receiver. The builder adds
+`sdkconfig.gs40_test_only_uart.defaults` only for a registered CH343 UART bridge.
+The raw GS40 SDK defaults remain opt-in for other build paths; this script's
+no-argument profile is explicitly Engineering.
 
 The diagnostic verifies PSRAM startup/scratch, heap, Wi-Fi STA and ESP-NOW init
 with no association, peers, application transmissions, ownership enrollment or

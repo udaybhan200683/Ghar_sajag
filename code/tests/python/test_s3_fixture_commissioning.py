@@ -1,6 +1,8 @@
 """Focused parser/build-isolation tests for the S3-only commissioning fixture."""
 from pathlib import Path
 import hashlib
+import ast
+import json
 import os
 import subprocess
 import tempfile
@@ -23,6 +25,57 @@ from scripts.build_gs114_fixture_pair import (
 
 
 class S3FixtureCommissioning(unittest.TestCase):
+    def control_transport_resolver(self):
+        # Execute the production resolver from the canonical script's Python
+        # input stage; these tests never configure IDF or access a serial port.
+        source=OUTBOX_BUILDER.read_text().split("<<'PY'\n",1)[1].split('\nPY\n',1)[0]
+        tree=ast.parse(source)
+        node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='fixture_control_transport')
+        def fail(message):raise ValueError(message)
+        scope={'fail':fail}
+        exec(compile(ast.Module(body=[node],type_ignores=[]),str(OUTBOX_BUILDER),'exec'),scope)
+        return scope['fixture_control_transport']
+
+    def test_registered_native_usb_selects_existing_usb_receiver(self):
+        resolve=self.control_transport_resolver()
+        self.assertEqual(resolve({'s3':{'port':'COM10','serial_number':'E0:72:A1:D3:8D:34',
+            'usb_hwid':'USB VID:PID=303A:1001 SER=E0:72:A1:D3:8D:34 LOCATION=1-2:x.0'}}),'usb_serial_jtag')
+
+    def test_registered_uart_bridge_selects_existing_uart_profile(self):
+        resolve=self.control_transport_resolver()
+        self.assertEqual(resolve({'s3':{'port':'COM10','serial_number':'E0:72:A1:D3:8D:34',
+            'usb_hwid':'USB VID:PID=1A86:55D3 SER=E0:72:A1:D3:8D:34 LOCATION=1-2'}}),'uart0')
+
+    def test_unknown_or_mismatched_control_transport_rejects(self):
+        resolve=self.control_transport_resolver()
+        for board in ({},{'port':'COM4','serial_number':'E0:72:A1:D3:8D:34'},
+                {'port':'COM10','serial_number':'E0:72:A1:D3:8D:34','usb_hwid':'unknown'}):
+            with self.subTest(board=board),self.assertRaises(ValueError):resolve({'s3':board})
+
+    def test_missing_engineering_fixture_fails_before_toolchain(self):
+        with tempfile.TemporaryDirectory() as folder:
+            env={**os.environ,'XDG_CONFIG_HOME':folder,'IDF_PATH':'/missing-idf'}
+            result=subprocess.run(['bash',str(OUTBOX_BUILDER)],env=env,capture_output=True,text=True)
+            self.assertEqual(result.returncode,2)
+            self.assertIn('registered Engineering fixture is missing',result.stderr)
+
+    def test_ambiguous_fixture_asset_fails_without_fallback(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);config=root/'config/ghar-sajag/gs117-tc001';config.mkdir(parents=True)
+            state=root/'state/ghar-sajag/gs117-tc001';state.mkdir(parents=True)
+            image=b'unit-test-only-image'
+            fixture={'schema_version':1,'test_id':'TC-001','profile':'GS179_TEST_ONLY',
+                'qualification_profile':'GS117_DEV_TEST_ONLY','home_id':'gs177-test-product',
+                'hub_id':'hub-e072a1d38d34','physical_device_id':'c3-146393c5d158',
+                'c3':{'image_sha256':hashlib.sha256(image).hexdigest()}}
+            (config/'fixture.json').write_text(json.dumps(fixture));(config/'config-root-public.der').write_bytes(b'test-only')
+            for name in ('provenance-refresh-one','provenance-refresh-two'):
+                p=state/name/'trusted-artifacts';p.mkdir(parents=True);(p/'c3-current-app.bin').write_bytes(image)
+            env={**os.environ,'XDG_CONFIG_HOME':str(root/'config'),'XDG_STATE_HOME':str(root/'state'),'IDF_PATH':'/missing-idf'}
+            env.pop('GS_NODE_FIRMWARE_ASSET',None);env.pop('GS40_TEST_ONLY_CONFIG_ROOT_DER',None)
+            result=subprocess.run(['bash',str(OUTBOX_BUILDER)],env=env,capture_output=True,text=True)
+            self.assertEqual(result.returncode,2);self.assertIn('found 2',result.stderr)
+
     def test_outbox_builder_rejects_incompatible_gs_journal_profile(self):
         result = subprocess.run(["bash", str(OUTBOX_BUILDER), "gs_journal"],
                                 capture_output=True, text=True)
@@ -418,6 +471,179 @@ int main() {{
         self.assertIn('"GS_HIL_C8_ACK_DROP": "ON" if c8_ack_drop else "OFF"', builder)
         self.assertIn('if args.s3_rpf_diagnostic or args.s3_c8_p8_ack_drop or args.s3_c8_p9_ack_hold:', builder)
         self.assertIn('"c8_ack_drop_fixture_enabled": c8_ack_drop', builder)
+
+
+class S3ApplicationUpdateGuard(unittest.TestCase):
+    def setUp(self):
+        sys.path.insert(0, str(ROOT / 'tools/local'))
+        import gs117_tc001_serial_windows
+        self.guard = gs117_tc001_serial_windows.validate_s3_application_update
+        self.command_guard = gs117_tc001_serial_windows.validate_s3_update_tool_command
+        self.image = bytes([0xe9])+bytes(11)+bytes([9, 0])+bytes(18)+bytes.fromhex('3254cdab')+bytes(220)
+        self.sha = hashlib.sha256(self.image).hexdigest()
+        self.baseline = dict(device_id='hub-e072a1d38d34', port='COM10',
+            serial_number='E0:72:A1:D3:8D:34', home_id='gs177-test-product',
+            bootloader_sha256='a'*64, partition_table_sha256='b'*64,
+            ota_contract='EXISTING_ENGINEERING_SLOT_SELECTION', active_slot=1)
+        self.observed = dict(self.baseline)
+        self.layout = {k: v[2:] for k,v in
+                       parse_partitions_from_text(OUTBOX_PARTITIONS.read_text()).items()}
+
+    def plan(self, writes=None):
+        return self.guard(self.image,self.sha,self.baseline,self.observed,self.layout,writes)
+
+    def test_artifact_binding_snapshots_exact_image_and_never_reuses_session(self):
+        from gs117_tc001_serial_windows import bind_s3_update_artifact
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp); artifact=root/'candidate.bin'; artifact.write_bytes(self.image)
+            evidence,snapshot,manifest=bind_s3_update_artifact(artifact,self.sha,root,'a'*32)
+            self.assertEqual(snapshot.read_bytes(),self.image)
+            self.assertEqual(manifest['application_sha256'],self.sha)
+            self.assertEqual(manifest['target_device'],'hub-e072a1d38d34')
+            artifact.write_bytes(b'changed')
+            self.assertEqual(snapshot.read_bytes(),self.image)
+            with self.assertRaisesRegex(ValueError,'digest_mismatch'):
+                bind_s3_update_artifact(artifact,self.sha,root,'b'*32)
+            artifact.write_bytes(self.image)
+            with self.assertRaises(FileExistsError):
+                bind_s3_update_artifact(artifact,self.sha,root,'a'*32)
+            second,_,_=bind_s3_update_artifact(artifact,self.sha,root,'b'*32)
+            self.assertNotEqual(evidence,second)
+
+    def test_writer_binding_rejects_tampered_snapshot_or_session(self):
+        from gs117_tc001_serial_windows import bind_s3_update_artifact, verify_s3_update_binding
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp); artifact=root/'candidate.bin'; artifact.write_bytes(self.image)
+            evidence,snapshot,_=bind_s3_update_artifact(artifact,self.sha,root,'a'*32)
+            self.assertEqual(verify_s3_update_binding(evidence,'a'*32,self.sha)[1],self.image)
+            with self.assertRaisesRegex(ValueError,'binding_invalid'):
+                verify_s3_update_binding(evidence,'b'*32,self.sha)
+            snapshot.write_bytes(b'tampered')
+            with self.assertRaisesRegex(ValueError,'binding_mismatch'):
+                verify_s3_update_binding(evidence,'a'*32,self.sha)
+
+    def test_artifact_binding_rejects_missing_wrong_target_and_bad_session(self):
+        from gs117_tc001_serial_windows import bind_s3_update_artifact
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp); artifact=root/'candidate.bin'
+            with self.assertRaisesRegex(ValueError,'binding_invalid'):
+                bind_s3_update_artifact(artifact,self.sha,root,'a'*32)
+            artifact.write_bytes(bytes(256)); bad=hashlib.sha256(artifact.read_bytes()).hexdigest()
+            with self.assertRaisesRegex(ValueError,'image_incompatible'):
+                bind_s3_update_artifact(artifact,bad,root,'a'*32)
+            artifact.write_bytes(self.image)
+            with self.assertRaisesRegex(ValueError,'evidence_binding_invalid'):
+                bind_s3_update_artifact(artifact,self.sha,root,'../bad')
+
+    def test_inactive_application_and_supported_selector_only(self):
+        plan = self.plan([('application',0x20000,0x400000),('ota_selection',0xF000,0x2000)])
+        self.assertEqual(plan['target_slot'],0)
+        self.assertEqual(plan['application_offset'],0x20000)
+
+    def test_installed_baseline_port_must_match_current_target(self):
+        self.baseline['port'] = 'COM4'
+        with self.assertRaisesRegex(ValueError, 'installed_contract_requires_revalidation'):
+            self.plan()
+
+    def test_protected_and_active_regions_reject_before_writer(self):
+        for name,offset,size in [('bootloader',0,0x8000),('table',0x8000,0x1000),
+                ('nvs',0x9000,0x6000),('outbox',0x820000,0x400000),
+                ('state',0xC20000,0x40000),('application',0x420000,0x1000),
+                ('ota_data_initial',0xF000,0x2000),('whole_flash',0,0x1000000)]:
+            with self.subTest(region=name),self.assertRaisesRegex(ValueError,'protected_write'):
+                self.plan([(name,offset,size)])
+
+    def test_changed_installed_contract_requires_revalidation(self):
+        for field in ('bootloader_sha256','partition_table_sha256','ota_contract'):
+            with self.subTest(field=field):
+                self.observed=dict(self.baseline); self.observed[field]='c'*64
+                with self.assertRaisesRegex(ValueError,'requires_revalidation'): self.plan()
+
+    def test_generated_bootloader_does_not_invalidate_installed_baseline(self):
+        self.observed['generated_bootloader_sha256']='c'*64
+        self.assertTrue(self.plan()['baseline_reused'])
+
+    def test_wrong_device_and_home_rejected(self):
+        for field in ('device_id','serial_number','port','home_id'):
+            self.observed=dict(self.baseline);self.observed[field]='wrong'
+            with self.subTest(field=field),self.assertRaisesRegex(ValueError,'identity_mismatch'):self.plan()
+
+    def test_journal_layout_rejected(self):
+        self.layout['gs_journal']=self.layout.pop('gs_outbox')
+        with self.assertRaisesRegex(ValueError,'layout_incompatible'):self.plan()
+
+    def test_wrong_chip_or_corrupt_image_rejected(self):
+        self.image=self.image[:12]+bytes([5])+self.image[13:]
+        self.sha=hashlib.sha256(self.image).hexdigest()
+        with self.assertRaisesRegex(ValueError,'image_incompatible'):self.plan()
+
+    def test_slot_overflow_rejected(self):
+        self.image += bytes(0x400000)
+        self.sha=hashlib.sha256(self.image).hexdigest()
+        with self.assertRaisesRegex(ValueError,'exceeds_slot'):self.plan()
+
+    def test_official_tool_protected_commands_reject(self):
+        plan=self.plan()
+        for args in (['erase-flash','0','1'],['erase-region','0','0x8000'],
+                     ['erase-region','0x8000','0x1000'],
+                     ['erase-region','0x820000','0x400000'],
+                     ['write-flash','0','bootloader.bin'],
+                     ['write-flash','0x8000','partition-table.bin']):
+            with self.subTest(args=args),self.assertRaises(ValueError):
+                self.command_guard(args,plan,'app.bin',bytes(8192))
+        self.command_guard(['erase-region','0x20000','0x400000'],plan,'app.bin',bytes(8192))
+
+    def test_selector_requires_verified_app_and_preserves_active_copy(self):
+        import binascii
+        old=bytearray(b'\xff'*8192)
+        for copy,seq,state in ((0,29,2),(1,30,0xffffffff)):
+            at=copy*4096;old[at:at+4]=seq.to_bytes(4,'little')
+            old[at+24:at+28]=state.to_bytes(4,'little')
+            old[at+28:at+32]=(binascii.crc32(old[at:at+4],0xffffffff)&0xffffffff).to_bytes(4,'little')
+        with self.assertRaisesRegex(ValueError,'selector_erase_not_interruption_safe'):
+            self.command_guard(['erase-region','0xf000','0x2000'],self.plan(),
+                               'app.bin',bytes(old),application_verified=True)
+        new=bytearray(old);new[:4]=(31).to_bytes(4,'little')
+        new[28:32]=(binascii.crc32(new[:4],0xffffffff)&0xffffffff).to_bytes(4,'little')
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'selector.bin';path.write_bytes(new)
+            args=['write-flash','0xf000',str(path)]
+            with self.assertRaisesRegex(ValueError,'protected_write'):
+                self.command_guard(args,self.plan(),'app.bin',bytes(old))
+            self.command_guard(args,self.plan(),'app.bin',bytes(old),application_verified=True)
+            new[4096+24]=3;path.write_bytes(new)
+            with self.assertRaisesRegex(ValueError,'selector_change'):
+                self.command_guard(args,self.plan(),'app.bin',bytes(old),application_verified=True)
+
+    def test_official_application_write_binds_exact_path_and_bytes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'app.bin';path.write_bytes(self.image)
+            args=['write-flash','0x20000',str(path)]
+            self.command_guard(args,self.plan(),path,bytes(8192))
+            path.write_bytes(self.image+b'x')
+            with self.assertRaisesRegex(ValueError,'application_changed'):
+                self.command_guard(args,self.plan(),path,bytes(8192))
+
+    def test_idf_target_uses_keywords_despite_added_bootloader_parameters(self):
+        import gs117_tc001_serial_windows as helper
+        from types import SimpleNamespace
+        calls=[]
+        class Parttool:
+            def __init__(self,port=None,baud=None,partition_table_offset=0x8000,
+                         primary_bootloader_offset=None,recovery_bootloader_offset=None,
+                         partition_table_file=None,esptool_args=None):
+                calls.append((port,primary_bootloader_offset,recovery_bootloader_offset,
+                              partition_table_file,esptool_args))
+        class Ota:
+            def __init__(self,*args,**kwargs):
+                raise AssertionError('obsolete positional constructor must not run')
+        result=helper.s3_official_application_target(OUTBOX_PARTITIONS,bytes(8192),
+            parttool_module=SimpleNamespace(ParttoolTarget=Parttool),
+            otatool_module=SimpleNamespace(OtatoolTarget=Ota))
+        self.assertEqual(calls,[('COM10',None,None,str(OUTBOX_PARTITIONS),
+            ['chip=esp32s3','before=no-reset','after=no-reset'])])
+        self.assertEqual(result.otadata,bytes(8192))
+        self.assertEqual(result.spi_flash_sec_size,8192)
 
 
 if __name__ == "__main__":

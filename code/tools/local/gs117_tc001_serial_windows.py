@@ -37,6 +37,7 @@ MAX_CAPTURE_CHARS = 1024
 MAX_SERIAL_CHUNK = 4096
 MAX_PENDING_CHARS = 2048
 OBSERVATION_IO_MARGIN_SECONDS = 0.005
+GET_STATE_QUERY_INTERVAL_SECONDS = 10
 _DISCARD_PARTIAL = "\x00GS117_DISCARD_PARTIAL"
 
 
@@ -869,7 +870,7 @@ def observe_node(config: dict) -> dict:
                                'host_write_completed_monotonic':time.monotonic()})
                 if written != len(command):
                     raise ValueError('TC001_GET_STATE_HOST_WRITE_INCOMPLETE')
-                query=time.monotonic()+10
+                query=time.monotonic()+GET_STATE_QUERY_INTERVAL_SECONDS
             time.sleep(.02)
         capture['unterminated_tail_chars']=(0 if pending==_DISCARD_PARTIAL else len(pending))
         return {'c3':lines,'serial_capture':{'c3':capture},
@@ -1070,7 +1071,7 @@ def run(config: dict, *, monotonic=None) -> dict:
         c3_stream.open()
         readiness_started = clock()
         deadline = readiness_started + 30
-        next_query = readiness_started + 2
+        next_query = readiness_started + GET_STATE_QUERY_INTERVAL_SECONDS
         mode_line = ""
         ready = False
         get_state_ack_received = False
@@ -1120,7 +1121,43 @@ def run(config: dict, *, monotonic=None) -> dict:
                 raise failure
             get_state_commands_sent += 1
 
-        send_get_state(readiness_started)
+        # COM4 can expose a partial console frame immediately after open. Drain
+        # bounded startup output until the line has been quiet before sending
+        # the first command; never send motion while startup output is arriving.
+        preflight_started = clock()
+        quiet_since = preflight_started
+        preflight_limit = min(deadline, preflight_started + 2.0)
+        while clock() < preflight_limit:
+            bytes_before = readiness_capture["bytes_read"]
+            c3_tail = collect(
+                c3_stream, c3_tail, c3_lines,
+                capture=readiness_capture, deadline=deadline, clock=clock)
+            if readiness_capture["bytes_read"] > bytes_before:
+                quiet_since = clock()
+            elif clock() - quiet_since >= 0.25:
+                break
+            if any("HIL_OK command=INJECT_MOTION" in line or
+                   "PIR -> NodeRuntime" in line for line in c3_lines):
+                failure = ValueError("TC001_UNSOLICITED_C3_EVENT_BEFORE_INJECTION")
+                failure.captured_observation = c3_hil_readiness_evidence(
+                    c3_lines, get_state_commands_sent=get_state_commands_sent,
+                    observation_elapsed_ms=max(0, int((clock() - readiness_started) * 1000)),
+                    capture=readiness_capture, guard_ready=False,
+                    get_state_ack_received=False, host_write_receipts=host_write_receipts,
+                    host_write_status="UNSOLICITED_EVENT_BEFORE_READINESS")
+                raise failure
+            if clock() < preflight_limit:
+                time.sleep(min(0.02, preflight_limit - clock()))
+        if clock() - quiet_since < 0.25:
+            failure = ValueError("TC001_C3_SERIAL_STARTUP_NOT_QUIET")
+            failure.captured_observation = c3_hil_readiness_evidence(
+                c3_lines, get_state_commands_sent=get_state_commands_sent,
+                observation_elapsed_ms=max(0, int((clock() - readiness_started) * 1000)),
+                capture=readiness_capture, guard_ready=False,
+                get_state_ack_received=False, host_write_receipts=host_write_receipts,
+                host_write_status="SERIAL_STARTUP_NOT_QUIET")
+            raise failure
+        send_get_state(clock())
         while clock() < deadline:
             c3_tail = collect(c3_stream, c3_tail, c3_lines,
                               capture=readiness_capture, deadline=deadline, clock=clock)
@@ -1146,7 +1183,7 @@ def run(config: dict, *, monotonic=None) -> dict:
                 break
             if now >= next_query:
                 send_get_state(now)
-                next_query = clock() + 2
+                next_query = clock() + GET_STATE_QUERY_INTERVAL_SECONDS
         observation_elapsed_ms = max(0, int((clock() - readiness_started) * 1000))
         readiness_evidence = c3_hil_readiness_evidence(
             c3_lines, get_state_commands_sent=get_state_commands_sent,
@@ -1743,6 +1780,221 @@ def android_verify_event(config: dict, *, adb_locator=find_adb,
                 if decision_mode:
                     raise ValueError("TC001_EXACT_HUB_DECISION_NOT_VISIBLE_IN_ANDROID_REPORTS")
                 raise ValueError("TC001_EXACT_EVENT_KEY_NOT_VISIBLE_IN_ANDROID_EVENT_DETAILS")
+
+
+def bind_s3_update_artifact(artifact, expected_sha256, evidence_parent, session_id):
+    """Bind an explicit reviewed image to fresh, private session evidence.
+
+    This is preparation only: admission, live-device validation, and all write
+    guards remain the responsibility of the existing update operation.
+    """
+    artifact = Path(artifact)
+    parent = Path(evidence_parent)
+    if (not artifact.is_absolute() or artifact.is_symlink() or not artifact.is_file() or
+            not re.fullmatch(r"[0-9a-f]{64}", expected_sha256 or "")):
+        raise ValueError('s3_update_artifact_binding_invalid')
+    if (not parent.is_absolute() or parent.is_symlink() or not parent.is_dir() or
+            not re.fullmatch(r"[0-9a-f]{32}", session_id or "")):
+        raise ValueError('s3_update_evidence_binding_invalid')
+    image = artifact.read_bytes()
+    if hashlib.sha256(image).hexdigest() != expected_sha256:
+        raise ValueError('s3_update_artifact_digest_mismatch')
+    if (len(image) < 256 or len(image) > 0x400000 or image[0] != 0xe9 or
+            int.from_bytes(image[12:14], 'little') != 9 or
+            int.from_bytes(image[32:36], 'little') != 0xabcd5432):
+        raise ValueError('s3_update_application_image_incompatible')
+    evidence = parent / ('s3-app-update-' + session_id)
+    evidence.mkdir(mode=0o700, exist_ok=False)
+    # Snapshot the exact selected bytes so subsequent path replacement cannot
+    # change which image the session writes. Historical evidence is untouched.
+    snapshot = evidence / 'application.bin'
+    with snapshot.open('xb') as stream:
+        stream.write(image)
+    manifest = {'session_id': session_id, 'source_path': str(artifact.resolve()),
+                'application_sha256': expected_sha256, 'size': len(image),
+                'target_device': 'hub-e072a1d38d34', 'port': 'COM10',
+                'home_id': 'gs177-test-product',
+                'partition_contract': 'S3_R1_OUTBOX_4M_STATE_256K_OTA_4M'}
+    with (evidence / 'artifact-binding.json').open('x', encoding='utf-8') as stream:
+        json.dump(manifest, stream, sort_keys=True)
+    return evidence, snapshot, manifest
+
+
+def verify_s3_update_binding(evidence, session_id, expected_sha256):
+    """Revalidate the writer's session-bound snapshot before a hardware write."""
+    evidence = Path(evidence)
+    if (evidence.is_symlink() or not evidence.is_dir() or
+            not re.fullmatch(r'[0-9a-f]{32}', session_id or '') or
+            evidence.name != 's3-app-update-' + session_id):
+        raise ValueError('s3_update_evidence_binding_invalid')
+    manifest_path = evidence / 'artifact-binding.json'
+    snapshot = evidence / 'application.bin'
+    if manifest_path.is_symlink() or snapshot.is_symlink():
+        raise ValueError('s3_update_evidence_binding_invalid')
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+        image = snapshot.read_bytes()
+    except (OSError, ValueError) as error:
+        raise ValueError('s3_update_evidence_binding_invalid') from error
+    expected = {'session_id': session_id, 'application_sha256': expected_sha256,
+                'target_device': 'hub-e072a1d38d34', 'port': 'COM10',
+                'home_id': 'gs177-test-product',
+                'partition_contract': 'S3_R1_OUTBOX_4M_STATE_256K_OTA_4M'}
+    if (any(manifest.get(k) != v for k, v in expected.items()) or
+            not re.fullmatch(r'[0-9a-f]{64}', expected_sha256 or '') or
+            manifest.get('size') != len(image) or
+            hashlib.sha256(image).hexdigest() != expected_sha256):
+        raise ValueError('s3_update_evidence_binding_mismatch')
+    return snapshot, image, manifest
+
+
+def validate_s3_application_update(image, expected_sha256, baseline, observed,
+                                    partitions, write_ranges=None):
+    """Technical guard for the existing official S3 app-only tool invocation.
+
+    Baseline/observed are installed-device evidence, never generated bootloader
+    artifacts. This does not grant hardware access or qualify automatic FOTA.
+    The existing development_session still owns admission, locks and audit.
+    """
+    expected_layout = {
+        'nvs': (0x9000, 0x6000), 'otadata': (0xF000, 0x2000),
+        'phy_init': (0x11000, 0x1000), 'ota_0': (0x20000, 0x400000),
+        'ota_1': (0x420000, 0x400000), 'gs_outbox': (0x820000, 0x400000),
+        'gs_state': (0xC20000, 0x40000),
+    }
+    if any(observed.get(k) != v for k, v in
+           {'device_id': 'hub-e072a1d38d34', 'port': 'COM10',
+            'serial_number': 'E0:72:A1:D3:8D:34',
+            'home_id': 'gs177-test-product'}.items()):
+        raise ValueError('s3_update_device_identity_mismatch')
+    for field in ('device_id', 'port', 'serial_number', 'home_id', 'bootloader_sha256',
+                  'partition_table_sha256', 'ota_contract'):
+        if not baseline.get(field) or baseline[field] != observed.get(field):
+            raise ValueError('s3_update_installed_contract_requires_revalidation')
+    for field in ('bootloader_sha256', 'partition_table_sha256'):
+        if not re.fullmatch('[0-9a-f]{64}', baseline[field]):
+            raise ValueError('s3_update_baseline_digest_invalid')
+    if {k: tuple(v) for k, v in partitions.items()} != expected_layout:
+        raise ValueError('s3_update_partition_layout_incompatible')
+    if (not isinstance(image, bytes) or len(image) < 256 or image[0] != 0xe9 or
+            int.from_bytes(image[12:14], 'little') != 9 or
+            int.from_bytes(image[32:36], 'little') != 0xabcd5432 or
+            not re.fullmatch('[0-9a-f]{64}', expected_sha256 or '') or
+            hashlib.sha256(image).hexdigest() != expected_sha256):
+        raise ValueError('s3_update_application_image_incompatible')
+    active = observed.get('active_slot')
+    if type(active) is not int or active not in (0, 1):
+        raise ValueError('s3_update_active_slot_unverified')
+    target = 1-active
+    offset, capacity = expected_layout['ota_'+str(target)]
+    erase_size = (len(image)+0xfff) & ~0xfff
+    if erase_size > capacity:
+        raise ValueError('s3_update_application_exceeds_slot')
+    # IDF ParttoolTarget erases the complete inactive application partition.
+    # This region contains no selected recovery image or protected data.
+    erase_size = capacity
+    allowed = [('application', offset, erase_size)]
+    if write_ranges is not None:
+        requested = [tuple(row) for row in write_ranges]
+        # OTA selection is a distinct supported operation, never ota_data_initial.
+        permitted = allowed + [('ota_selection', 0xF000, 0x2000)]
+        if not requested or len(requested) != len(set(requested)) or any(
+                row not in permitted for row in requested):
+            raise ValueError('s3_update_protected_write_rejected')
+    return {'target_slot': target, 'application_offset': offset,
+            'application_size': len(image), 'application_erase_size': erase_size,
+            'application_sha256': expected_sha256, 'baseline_reused': True,
+            'automatic_fota_qualification': 'NOT_ESTABLISHED_BY_THIS_GUARD'}
+
+
+def validate_s3_update_tool_command(arguments, plan, application_path,
+                                   original_otadata, *, application_verified=False):
+    """Constrain commands emitted by the existing IDF ParttoolTarget instance."""
+    import binascii
+    args = list(arguments)
+    if not args or len(args) != (4 if args[0] == 'read-flash' else 3):
+        raise ValueError('s3_update_tool_command_rejected')
+    action = args[0]
+    try:
+        offset = int(str(args[1]), 0)
+    except ValueError as error:
+        raise ValueError('s3_update_tool_offset_invalid') from error
+    app_range = (plan['application_offset'], plan['application_erase_size'])
+    if action == 'read-flash':
+        size = int(str(args[2]), 0)
+        if offset < 0 or size <= 0 or offset+size > 0x1000000:
+            raise ValueError('s3_update_read_out_of_bounds')
+        return
+    if action == 'erase-region':
+        region = (offset, int(str(args[2]), 0))
+        if region == app_range:
+            return
+        # Parttool's whole-otadata erase destroys both selector copies before
+        # its subsequent write. A reset or interrupted parent in that window
+        # would leave no valid selector for the retained recovery image.
+        if region == (0xF000, 0x2000):
+            raise ValueError('s3_update_selector_erase_not_interruption_safe')
+        raise ValueError('s3_update_protected_write_rejected')
+    if action != 'write-flash':
+        raise ValueError('s3_update_tool_command_rejected')
+    path = Path(args[2])
+    if path.is_symlink() or not path.is_file():
+        raise ValueError('s3_update_write_input_invalid')
+    data = path.read_bytes()
+    if offset == app_range[0]:
+        if (path.resolve() != Path(application_path).resolve() or
+                len(data) != plan['application_size'] or
+                hashlib.sha256(data).hexdigest() != plan['application_sha256']):
+            raise ValueError('s3_update_application_changed')
+        return
+    if offset != 0xF000 or not application_verified or len(data) != 0x2000 or len(original_otadata) != 0x2000:
+        raise ValueError('s3_update_protected_write_rejected')
+    if data == original_otadata:
+        return  # Exact saved-selector recovery through the same official tool.
+    def record(raw, copy):
+        at = copy*0x1000
+        seq = int.from_bytes(raw[at:at+4], 'little')
+        state = int.from_bytes(raw[at+24:at+28], 'little')
+        crc = int.from_bytes(raw[at+28:at+32], 'little')
+        valid = seq != 0xffffffff and state in (2, 0xffffffff) and crc == (binascii.crc32(raw[at:at+4],0xffffffff)&0xffffffff)
+        return seq, valid
+    old = [record(original_otadata,i) for i in range(2)]
+    valid = [i for i in range(2) if old[i][1]]
+    if not valid:
+        raise ValueError('s3_update_selector_unverified')
+    active = max(valid,key=lambda i:old[i][0]); other = 1-active
+    if len(valid)==2 and old[0][0]==old[1][0]:
+        raise ValueError('s3_update_selector_ambiguous')
+    new_seq, new_valid = record(data,other)
+    allowed = set(range(other*0x1000,other*0x1000+4)) | set(range(other*0x1000+28,other*0x1000+32))
+    if (not new_valid or new_seq <= old[active][0] or
+            (new_seq-1)%2 != plan['target_slot'] or
+            any(a!=b and i not in allowed for i,(a,b) in enumerate(zip(data,original_otadata)))):
+        raise ValueError('s3_update_selector_change_rejected')
+
+
+def s3_official_application_target(table_path, live_otadata, *,
+                                   parttool_module=None, otatool_module=None):
+    """Compose the pinned IDF APIs without their obsolete positional constructor.
+
+    IDF6.0.3 ParttoolTarget gained primary/recovery bootloader offsets before
+    partition_table_file. OtatoolTarget still passes its inputs positionally.
+    Preserve official methods and initialize their three documented fields from
+    the already verified live snapshot; never launch an implicit serial query.
+    """
+    if len(live_otadata) != 0x2000 or not Path(table_path).is_file():
+        raise ValueError('s3_update_live_partition_inputs_required')
+    if parttool_module is None:
+        import parttool as parttool_module
+    if otatool_module is None:
+        import otatool as otatool_module
+    target = object.__new__(otatool_module.OtatoolTarget)
+    target.target = parttool_module.ParttoolTarget(
+        port='COM10', baud=460800, partition_table_file=str(table_path),
+        esptool_args=['chip=esp32s3', 'before=no-reset', 'after=no-reset'])
+    target.spi_flash_sec_size = 0x2000
+    target.otadata = bytes(live_otadata)
+    return target
 
 
 if __name__ == "__main__":

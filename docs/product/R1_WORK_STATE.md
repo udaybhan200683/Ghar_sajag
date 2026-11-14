@@ -13200,3 +13200,25 @@ absent. Physical rollover/endurance remain NOT_VERIFIED. Focused endpoint file
 35 PASS and lifecycle 8 PASS completed; owner subsequently directed no more
 validation suites. Next priority remains corrected native-USB S3 app-only deployment
 and fresh physical TC-001. See existing GS117_APP_UPDATE_PAUSE handoff.
+
+Artifact-binding work in progress, 2026-11-14: the existing Windows helper now
+has a focused-tested explicit artifact snapshot and unique evidence binding, but
+it is not yet connected to the authorized official app-only writer. Helper source
+pins/bootstrap review are consequently stale. No flash or new TC-001 event was
+performed in this continuation; physical qualification remains BLOCKED until
+integration and fresh review are complete. See GS117_APP_UPDATE_PAUSE handoff.
+
+GS-117 updater binding continuation: snapshot/session/identity revalidation
+added and three focused tests PASS. The official writer and authorized parent
+are not integrated; prior bootstrap source-review pins are stale. No physical
+update or new event. Existing work remains uncommitted.
+
+## GS-117 session reconciliation — 2026-11-14
+
+Context preflight `2026-11-14.001` PASS; branch `feature/r1-commercial-baseline`, local and remote HEAD `e8de38cbf2d2e862be2c654b2cbb36535359bec8` at startup. Existing WIP preserved. The authorized application-flash session, artifact binding, and historical official writer remain disconnected; this session made no updater code changes, ran no integration tests, and performed no physical operation. Source-review pins remain stale, corrected S3 image NOT_DEPLOYED, and no fresh TC-001 event exists. See `docs/exec-plans/evidence/GS117_APP_UPDATE_PAUSE_20261113/RESUME_HANDOFF.md` for the exact next action.
+
+GS-117 continuation 2026-11-14: the existing S3 update guard now checks that the installed baseline port matches the observed registered target. One focused test passed; the actual authorized parent/writer integration remains incomplete. No physical operation, source-review refresh or fresh event occurred. Changes remain uncommitted; see the GS-117 handoff.
+
+GS-117 selector safety, 2026-11-14: pinned IDF `OtatoolTarget.switch_ota_partition` delegates to `ParttoolTarget.write_partition`, which erases the entire 0x2000 otadata partition before writing, leaving an interruption window without either previous selector. The existing command guard now rejects that erase; 16 focused guard tests and diff check passed. The parent/writer integration and interruption-safe selector operation remain incomplete, so no S3 update or fresh event was performed. See the GS-117 handoff for source locations and next action.
+
+GS-117 VS Code WIP checkpoint, 2026-11-14: S3 fixture 42 tests, selected update authorization 4, C3 readiness/injection 3 and diagnostic collection 28 passed; builder shell syntax, Python compilation and diff check passed. Source changes include the native-USB builder and partial artifact/selector guards; parent-to-writer ownership and interruption-safe selector integration are incomplete and source-review fingerprints remain stale. Corrected S3 image remains NOT_DEPLOYED; no fresh TC-001 event. Mixed authorization, signed-time and registry changes and untracked evidence remain outside this checkpoint. See GS117_APP_UPDATE_PAUSE handoff.
