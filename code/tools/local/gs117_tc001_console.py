@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import select
 import stat
 import subprocess
 import sys
@@ -519,6 +520,204 @@ def powershell(action: str, fixture: dict | None = None) -> object:
     if result.returncode:
         raise ValueError("TC001_WINDOWS_HELPER_PROCESS_FAILED_EXIT_" + str(result.returncode))
     return value
+
+
+def _windows_path(path: Path) -> str:
+    value = subprocess.check_output(["wslpath", "-w", str(path)], text=True, timeout=5).strip()
+    if not value:
+        raise ValueError("s3_update_windows_path_unavailable")
+    return value
+
+
+def _terminate_windows_process_tree(process_id: int) -> None:
+    if type(process_id) is not int or process_id <= 0:
+        raise ValueError("s3_update_writer_process_id_invalid")
+    result = subprocess.run(
+        ["taskkill.exe", "/PID", str(process_id), "/T", "/F"],
+        capture_output=True, text=True, timeout=10, check=False)
+    if result.returncode:
+        check = subprocess.run(
+            [str(READBACK_POWERSHELL), "-NoProfile", "-NonInteractive", "-Command",
+             "if (Get-Process -Id " + str(process_id) +
+             " -ErrorAction SilentlyContinue) { exit 1 }"],
+            capture_output=True, text=True, timeout=10, check=False)
+        if check.returncode:
+            raise RuntimeError("s3_update_writer_process_tree_cleanup_failed")
+
+
+def _run_s3_update_windows(config: dict, authorize_request) -> dict:
+    script = _windows_path(SERIAL)
+    if not READBACK_POWERSHELL.is_file():
+        raise ValueError("s3_update_powershell_unavailable")
+    encoded = base64.b64encode(json.dumps(config, sort_keys=True).encode()).decode()
+    command = ("[Console]::Out.WriteLine('{\"kind\":\"s3_update_process_started\",\"pid\":' + "
+               "$PID + '}'); & py -3 " + _powershell_quote(script) + " " +
+               _powershell_quote(encoded))
+    process = subprocess.Popen(
+        [str(READBACK_POWERSHELL), "-NoProfile", "-NonInteractive", "-Command", command],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
+    deadline = time.monotonic() + 1200
+    writer_process_id = None
+    writer_succeeded = False
+    try:
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("s3_update_writer_timeout")
+            ready, _, _ = select.select([process.stdout], [], [], min(1.0, remaining))
+            if ready:
+                line = process.stdout.readline()
+                if not line:
+                    break
+                try:
+                    request = json.loads(line)
+                except json.JSONDecodeError as error:
+                    raise ValueError("s3_update_writer_protocol_invalid") from error
+                if writer_process_id is None:
+                    if (set(request) != {"kind", "pid"} or
+                            request.get("kind") != "s3_update_process_started" or
+                            type(request.get("pid")) is not int or request["pid"] <= 0):
+                        raise ValueError("s3_update_writer_startup_protocol_invalid")
+                    writer_process_id = request["pid"]
+                    continue
+                response = authorize_request(request)
+                process.stdin.write(json.dumps(response, sort_keys=True) + "\n")
+                process.stdin.flush()
+            elif process.poll() is not None:
+                continue
+        return_code = process.wait(timeout=max(1, deadline - time.monotonic()))
+        if return_code:
+            raise ValueError("s3_update_windows_writer_failed_exit_" + str(return_code))
+        report_path = Path(config["evidence_dir_wsl"]) / "update-result.json"
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        if (report.get("session_id") != config["session_id"] or
+                report.get("application_sha256") != config["expected_sha256"] or
+                report.get("target") != config["target"] or
+                report.get("status") != "WRITTEN_READBACK_VERIFIED_SELECTED"):
+            raise ValueError("s3_update_writer_result_binding_invalid")
+        writer_succeeded = True
+        return report
+    finally:
+        cleanup_error = None
+        try:
+            if writer_process_id is not None and not writer_succeeded:
+                _terminate_windows_process_tree(writer_process_id)
+        except (OSError, subprocess.SubprocessError, RuntimeError) as error:
+            cleanup_error = error
+        try:
+            if process.poll() is None:
+                process.kill()
+                process.wait()
+        finally:
+            if process.stdin is not None:
+                process.stdin.close()
+            if process.stdout is not None:
+                process.stdout.close()
+        if cleanup_error is not None:
+            raise RuntimeError("s3_update_writer_process_tree_cleanup_failed") from cleanup_error
+
+
+def s3_application_update_once(artifact: Path, expected_sha256: str) -> dict:
+    """Run the registered S3 app-only writer under the live Engineering session."""
+    import gs117_hil_authorization as auth
+    import gs117_tc001_serial_windows as serial_helper
+    import gs179_verified_endpoint as endpoint
+
+    artifact = Path(artifact)
+    if (not artifact.is_absolute() or artifact.is_symlink() or not artifact.is_file() or
+            not re.fullmatch(r"[0-9a-f]{64}", expected_sha256 or "")):
+        raise ValueError("s3_update_current_artifact_invalid")
+    target = {
+        **auth.IDENTITY["s3"], "home_id": auth.IDENTITY["home_id"],
+        "usb_vid": 0x303A, "usb_pid": 0x1001,
+    }
+    if target != serial_helper.S3_UPDATE_TARGET:
+        raise ValueError("s3_update_registered_target_mismatch")
+    idf_root = Path(os.environ.get(
+        "IDF_PATH", Path.home() / ".espressif/v6.0.3/esp-idf")).resolve()
+    idf_components = idf_root / "components"
+    if (idf_root.is_symlink() or not (idf_components / "app_update" / "otatool.py").is_file() or
+            not (idf_components / "partition_table" / "parttool.py").is_file()):
+        raise ValueError("s3_update_official_idf_components_unavailable")
+
+    with auth.development_session("application_flash") as (_policy, run):
+        state = Path(auth.DEV_STATE)
+        if state.is_symlink() or not state.is_dir():
+            raise ValueError("s3_update_authorization_state_unavailable")
+        evidence_parent = state / "s3-app-updates"
+        evidence_parent.mkdir(mode=0o700, exist_ok=True)
+        info = evidence_parent.stat()
+        if (evidence_parent.is_symlink() or info.st_uid != os.getuid() or
+                stat.S_IMODE(info.st_mode) != 0o700):
+            raise ValueError("s3_update_evidence_parent_not_private")
+        evidence, _snapshot, manifest = serial_helper.bind_s3_update_artifact(
+            artifact, expected_sha256, evidence_parent, run["session_id"], target,
+            serial_helper.S3_UPDATE_PARTITION_CONTRACT)
+        binding_path = evidence / "artifact-binding.json"
+        binding_sha256 = sha256(binding_path)
+        run.update(writer_started=False, ownership_active=True,
+                   update_binding_sha256=binding_sha256, update_image_sha256=expected_sha256)
+        writer_sequence = 0
+        writer_plan_sha256 = None
+
+        def authorize_request(request):
+            nonlocal writer_sequence, writer_plan_sha256
+            allowed_keys = {"kind", "sequence", "session_id", "binding_sha256",
+                            "application_sha256", "boundary", "plan_sha256"}
+            if (not run["ownership_active"] or run["writer_started"] is not True or
+                    set(request) != allowed_keys or
+                    request.get("kind") != "s3_update_write_authorization" or
+                    type(request.get("sequence")) is not int or
+                    request["sequence"] != writer_sequence + 1 or
+                    request.get("session_id") != run["session_id"] or
+                    request.get("binding_sha256") != binding_sha256 or
+                    request.get("application_sha256") != expected_sha256 or
+                    request.get("boundary") not in serial_helper.S3_UPDATE_WRITE_BOUNDARIES or
+                    not re.fullmatch(r"[0-9a-f]{64}", str(request.get("plan_sha256", "")))):
+                raise ValueError("s3_update_live_parent_ownership_or_binding_invalid")
+            if writer_plan_sha256 is None:
+                writer_plan_sha256 = request["plan_sha256"]
+            elif writer_plan_sha256 != request["plan_sha256"]:
+                raise ValueError("s3_update_write_plan_changed_during_session")
+            # Reopen the locks to prove the WSL parent still owns both hardware scopes.
+            auth._readback_receipt_active_lock(auth.STATE)
+            auth._readback_receipt_active_lock(auth.DEV_STATE)
+            endpoint._network_event(
+                "gs117_s3_update_write_boundary_authorized",
+                session_id=run["session_id"], binding_sha256=binding_sha256,
+                application_sha256=expected_sha256, boundary=request["boundary"],
+                plan_sha256=request["plan_sha256"], target_device=target["device_id"])
+            writer_sequence = request["sequence"]
+            return {"kind": "s3_update_write_authorization",
+                    "sequence": writer_sequence, "session_id": run["session_id"],
+                    "allowed": True}
+
+        windows_evidence = _windows_path(evidence)
+        config = {
+            "action": "S3ApplicationUpdate",
+            "session_id": run["session_id"],
+            "expected_sha256": expected_sha256,
+            "binding_sha256": binding_sha256,
+            "binding_dir": windows_evidence,
+            "evidence_dir": windows_evidence,
+            "evidence_dir_wsl": str(evidence),
+            "idf_components": _windows_path(idf_components),
+            "target": manifest["target"],
+            "writer_sha256": sha256(SERIAL),
+        }
+        run["writer_started"] = True
+        try:
+            report = _run_s3_update_windows(config, authorize_request)
+            run["functional_outcome"] = "PASS"
+            run["evidence"] = {"directory": str(evidence),
+                               "application_sha256": expected_sha256,
+                               "binding_sha256": binding_sha256}
+            return report
+        except Exception:
+            run["functional_outcome"] = "FAIL"
+            raise
+        finally:
+            run["ownership_active"] = False
 
 
 def backend(request: dict) -> dict:
@@ -2437,6 +2636,15 @@ def standing_readiness(development=False):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) == 4 and sys.argv[1] == "--s3-app-update":
+        try:
+            result = s3_application_update_once(Path(sys.argv[2]), sys.argv[3])
+            print(json.dumps(result, sort_keys=True))
+            raise SystemExit(0)
+        except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+            reason = str(error) if isinstance(error, ValueError) else type(error).__name__
+            print(json.dumps({"status": "BLOCKED", "reason": reason}, sort_keys=True))
+            raise SystemExit(2)
     if sys.argv[1:] == ["--readback-receipts-once"]:
         try:
             print(json.dumps(readback_receipts_once(), sort_keys=True))

@@ -499,7 +499,9 @@ class S3ApplicationUpdateGuard(unittest.TestCase):
             evidence,snapshot,manifest=bind_s3_update_artifact(artifact,self.sha,root,'a'*32)
             self.assertEqual(snapshot.read_bytes(),self.image)
             self.assertEqual(manifest['application_sha256'],self.sha)
-            self.assertEqual(manifest['target_device'],'hub-e072a1d38d34')
+            self.assertEqual(manifest['target']['device_id'],'hub-e072a1d38d34')
+            self.assertEqual(manifest['partition_contract'],
+                             'S3_R1_OUTBOX_4M_STATE_256K_OTA_4M')
             artifact.write_bytes(b'changed')
             self.assertEqual(snapshot.read_bytes(),self.image)
             with self.assertRaisesRegex(ValueError,'digest_mismatch'):
@@ -603,7 +605,7 @@ class S3ApplicationUpdateGuard(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'selector_erase_not_interruption_safe'):
             self.command_guard(['erase-region','0xf000','0x2000'],self.plan(),
                                'app.bin',bytes(old),application_verified=True)
-        new=bytearray(old);new[:4]=(31).to_bytes(4,'little')
+        new=bytearray(old[:4096]);new[:4]=(31).to_bytes(4,'little')
         new[28:32]=(binascii.crc32(new[:4],0xffffffff)&0xffffffff).to_bytes(4,'little')
         with tempfile.TemporaryDirectory() as folder:
             path=Path(folder)/'selector.bin';path.write_bytes(new)
@@ -611,9 +613,14 @@ class S3ApplicationUpdateGuard(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'protected_write'):
                 self.command_guard(args,self.plan(),'app.bin',bytes(old))
             self.command_guard(args,self.plan(),'app.bin',bytes(old),application_verified=True)
-            new[4096+24]=3;path.write_bytes(new)
+            new[24]=3;path.write_bytes(new)
             with self.assertRaisesRegex(ValueError,'selector_change'):
                 self.command_guard(args,self.plan(),'app.bin',bytes(old),application_verified=True)
+            path.write_bytes(bytes(old[:4096]))
+            with self.assertRaisesRegex(ValueError,'active_copy_write_rejected'):
+                self.command_guard(['write-flash','0x10000',str(path)],self.plan(),
+                                   'app.bin',bytes(old),application_verified=True)
+            self.command_guard(args,self.plan(),'app.bin',bytes(old),application_verified=True)
 
     def test_official_application_write_binds_exact_path_and_bytes(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -638,6 +645,7 @@ class S3ApplicationUpdateGuard(unittest.TestCase):
             def __init__(self,*args,**kwargs):
                 raise AssertionError('obsolete positional constructor must not run')
         result=helper.s3_official_application_target(OUTBOX_PARTITIONS,bytes(8192),
+            port='COM10',
             parttool_module=SimpleNamespace(ParttoolTarget=Parttool),
             otatool_module=SimpleNamespace(OtatoolTarget=Ota))
         self.assertEqual(calls,[('COM10',None,None,str(OUTBOX_PARTITIONS),

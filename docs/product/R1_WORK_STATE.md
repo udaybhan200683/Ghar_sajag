@@ -1,3 +1,38 @@
+## GS-117 updater integration and physical application update — 2026-11-14 continuation
+
+The maintained WSL parent now launches the existing Windows ESP-IDF app-only
+writer with a session-specific image snapshot, SHA-256, registered COM10 target,
+partition contract and private evidence directory. Each application erase/write
+and selector update/recovery is authorized against the live parent session and
+both hardware locks. Windows tool output is separated from the authorization
+pipe, and failed/abandoned writers are terminated as a process tree.
+
+Focused validation: `test_gs117_tc001_console.py` 221/221 PASS;
+`test_s3_fixture_commissioning.py` 42/42 PASS; Python compilation and
+`git diff --check` PASS. Tests cover stale/mismatched authorization, duplicate
+invocation, parent interruption, bound image and target, protected writes,
+selector recovery, native-tool stdout isolation, and Windows process-tree
+cleanup.
+
+Physical update report for session `4b3269d66a231ac1e740ef7eac485655` records
+`WRITTEN_READBACK_VERIFIED_SELECTED`: image and app readback both match
+`8769f216c85e4b098098565d1066ef9aaed3c4c443936aae931b94e9749912b1`; OTA0
+selector copy 0 sequence 31 is valid; bootloader, partition table, NVS,
+`gs_outbox`, `gs_state`, and retained OTA1 recovery application all match their
+pre-write hashes; USB identity re-enumerated after reset. The CLI returned 2
+because `SystemExit(0)` was caught by its old broad exception handler. That
+report/audit contradiction was diagnosed and the handler corrected; affected
+tests pass after the correction. No fresh motion event or downstream delivery
+is claimed.
+
+The next required action is to update the existing development source-pin
+review through its committed-source procedure without disturbing unrelated
+worktree changes, then restore and validate the existing TC-001 portal/backend
+services. At the last readiness check, the portal and ingress listener ports
+were not listening; the physical event, CloudSync, PostgreSQL, caregiver API
+and Android APK checks remain outstanding. Do not bypass the stale source-pin
+authorization or treat USB re-enumeration as runtime/application acceptance.
+
 ## GS179 continuous environment requirement — 2026-11-14
 
 Owner requires removing the fixed one-hour runtime shutdown. GS-D034 clarified

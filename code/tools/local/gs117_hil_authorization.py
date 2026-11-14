@@ -2723,14 +2723,16 @@ def dispose_reviewed_preoperation_pin_failure(path=None):
                 'source_review_record_sha256': reviews[-1]['record_sha256']}
 
 
-ENGINEERING_S3_BOOTSTRAP_SHA256 = "5ef1c45d1e4b3d0ac8921c4250d6641022033160fce5a91ccab3ab3889d5a659"
+ENGINEERING_S3_BOOTSTRAP_SHA256 = "af0d70cda43e93012c04880d24a1d59ffd1f0b995ba96f66545d0fce40916982"
 ENGINEERING_S3_REBOOT_SHA256 = "51ed9527a777afb598d259f559c9a8bca1c1617f9925d58906debf1e4aeeb8ad"
 
 
 def _engineering_bootstrap_files(operation="s3_runtime_bootstrap"):
+    if operation not in ('s3_runtime_bootstrap', 's3_runtime_bootstrap_reboot_11983'):
+        raise ValueError('engineering_bootstrap_operation_not_authorized')
     reboot = operation == "s3_runtime_bootstrap_reboot_11983"
     root = Path(__file__).resolve().parents[3]
-    script = Path.home()/'.local/state/ghar-sajag/gs117-tc001/standing-readiness-prepared'/('gs117-protected-bootstrap-development-v24.py' if reboot else 'gs117-protected-bootstrap-development-v23.py')
+    script = Path.home()/'.local/state/ghar-sajag/gs117-tc001/standing-readiness-prepared'/('gs117-protected-bootstrap-development-v24.py' if reboot else 'gs117-protected-bootstrap-development-v28.py')
     if script.is_symlink() or digest(script) != (ENGINEERING_S3_REBOOT_SHA256 if reboot else ENGINEERING_S3_BOOTSTRAP_SHA256):
         raise ValueError('engineering_bootstrap_reviewed_script_changed')
     return [script, Path(__file__), root/'code/tools/local/gs117_tc001_serial_windows.py',
@@ -2794,7 +2796,8 @@ def verify_engineering_bootstrap_review(sha, operation="s3_runtime_bootstrap"):
 @contextmanager
 def engineering_functional_session(procedure, *, bootstrap_review=None):
     """One routine real-board input with existing global locks and audit."""
-    if procedure not in ('motion_event_once','s3_runtime_bootstrap','s3_runtime_bootstrap_reboot_11983'):
+    if procedure not in ('motion_event_once','s3_runtime_bootstrap','s3_runtime_bootstrap_reboot_11983',
+                         'application_flash'):
         raise ValueError('engineering_functional_operation_not_allowed')
     if procedure in ('s3_runtime_bootstrap','s3_runtime_bootstrap_reboot_11983'):
         verify_engineering_bootstrap_review(bootstrap_review,procedure)
@@ -2818,6 +2821,8 @@ def engineering_functional_session(procedure, *, bootstrap_review=None):
                     identity=admission['identity'])
         if procedure == 's3_runtime_bootstrap_reboot_11983':
             policy['owner_approval_ref'] = 'GS-117#11983'
+        elif procedure == 'application_flash':
+            policy['owner_approval_ref'] = 'GS-D034:standing-registered-app-only-updates'
         try:
             yield policy,run
         finally:
@@ -2826,6 +2831,10 @@ def engineering_functional_session(procedure, *, bootstrap_review=None):
 
 
 def development_session(procedure, path=None, state=None):
+    if procedure == 'application_flash' and path is None and state is None:
+        # Standing owner app-update scope uses existing fixture locks/audit,
+        # never an unrelated consumed bootstrap manifest or its source pins.
+        return engineering_functional_session(procedure)
     if procedure == 'motion_event_once' and path is None:
         return motion_event_once_session()
     if path is None:
@@ -2863,15 +2872,41 @@ def motion_event_once_session():
             yield result
 
 
-def development_status(path=None):
-    """Read current mode state and cumulative DEV ledger without reserving a session."""
+def development_status(path=None, *, procedure=None):
+    """Read a scope's state; never reserve a session or grant an operation.
+
+    Check the requested operation before interpreting source drift in another
+    operation's historical record. Execution still uses strict source checks.
+    """
+    if procedure == 'application_flash' and path is None:
+        import gs179_verified_endpoint as endpoint
+        admission = endpoint.engineering_functional_admission()
+        return dict(status='READY_FOR_TECHNICAL_PREFLIGHT', procedure=procedure,
+                    owner_approval_ref='GS-D034:standing-registered-app-only-updates',
+                    identity=admission['identity'], running_images=admission['running_images'],
+                    deployment_verified=False)
     path = Path(path or DEV_POLICY)
-    policy = load_development(path)
+    if procedure is not None and procedure not in DEV_OPERATIONS:
+        raise ValueError('development_status_unknown_procedure')
+    policy = load_development(path, verify_procedure_pins=procedure is None)
+    if procedure is not None and procedure in policy['procedures']:
+        policy = load_development(path)
     scope_id = _development_scope_id(policy)
     state = (MOTION_EVENT_ONCE_STATE if path.resolve() == MOTION_EVENT_ONCE_POLICY.resolve() else
              DEV_STATE if path.resolve() == DEV_POLICY.resolve() else
              path.parent / 'development-authorization')
     history = _development_history(state, policy, scope_id)
+    if procedure is not None and procedure not in policy['procedures']:
+        return {
+            'status': 'NOT_AUTHORIZED',
+            'reason': 'procedure_not_in_recorded_scope',
+            'procedure': procedure,
+            'procedures': policy['procedures'],
+            'blocked': history['blocked'],
+            'sessions': history['sessions'],
+            'owner_approval_ref': policy['owner_approval_ref'],
+            'authorization_scope_id': scope_id,
+        }
     session_limit = policy.get('max_sessions')
     exhausted = session_limit is not None and history['sessions'] >= session_limit
     return {

@@ -307,3 +307,41 @@ Next implement a selector operation that retains a verified bootable selector th
 Starting canonical branch `feature/r1-commercial-baseline` local and remote HEAD `e8de38cbf2d2e862be2c654b2cbb36535359bec8`; context preflight PASS. Focused validation: `python3 code/tests/python/test_s3_fixture_commissioning.py` 42 PASS; four update authorization tests PASS; three C3 readiness/injection host tests PASS; diagnostic collection 28 PASS; builder shell syntax, Python compilation and `git diff --check` PASS. No hardware access or integration test. The builder/native-USB transport changes, S3 binding/guard WIP, their focused tests and existing serial changes are checkpointed, not accepted as a complete updater. Bootstrap review fingerprints remain stale; the maintained parent/writer and interruption-safe selector are not implemented. The corrected S3 image remains NOT_DEPLOYED; no fresh EventKey exists.
 
 The separate mixed authorization/bootstrap-review work, console tests, signed-time service/tests, validation registry changes, and all untracked assets and historical evidence are retained in the worktree outside this checkpoint. Before deploying, reconcile these changes and source reviews; implement and test live lock ownership, artifact binding and interruption-safe official writer/selector behavior in the maintained path. Do not use the historical private invocation.
+
+### 2026-11-14 continuation — maintained writer and physical app update
+
+Implemented the WSL parent → Windows ESP-IDF app-only writer lifecycle in the
+maintained console and serial helper. The parent binds an explicit candidate to
+a fresh private session directory and authorizes each destructive boundary only
+while the session owns both hardware locks. The writer validates the binding,
+target USB serial/MAC, exact partition layout, official IDF source/version,
+inactive app slot and protected regions. Selector writes update only the
+inactive 4 KiB copy; recovery restores the original selector copy. Windows
+stdout is isolated for protocol frames, and failure cleanup terminates the
+exact writer process tree.
+
+Focused results: `python3 code/tests/python/test_gs117_tc001_console.py` 221
+tests PASS; `python3 code/tests/python/test_s3_fixture_commissioning.py` 42
+tests PASS; compilation and `git diff --check` PASS. Added coverage for parent
+lock checks, invalid ownership/session, duplicate invocation, interruption,
+selector recovery, ESP-IDF `PartitionType(data, ota)`, protected-region guards,
+stdout isolation, process-tree cleanup and CLI success reporting.
+
+The physical writer report and audit for session
+`4b3269d66a231ac1e740ef7eac485655` record the requested image SHA
+`8769f216c85e4b098098565d1066ef9aaed3c4c443936aae931b94e9749912b1` written
+and read back from OTA0, selector sequence 31 valid, all protected-region and
+retained OTA1 recovery hashes unchanged, and registered USB identity
+re-enumerated after reset. The CLI initially returned exit 2 despite this
+successful report because it caught `SystemExit(0)`; that source defect is
+corrected and its focused tests now pass. No fresh event was injected.
+
+Remaining: commit the task-owned validated source/docs while preserving the
+unrelated existing dirty files, refresh the existing development source-pin
+review under its committed-source procedure, and revalidate the existing
+TC-001 services/portal. The last local readiness check found no listener on
+18791, 8445 or 443. Then trigger one fresh portal motion and trace the same
+EventKey through physical C3/S3, CloudSync, PostgreSQL, caregiver API and the
+installed APK. GS-117 remains In Progress; physical end-to-end event acceptance
+is not verified. Do not use stale source pins or treat the app update as TC-001
+completion.

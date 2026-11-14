@@ -8,6 +8,7 @@ import hashlib
 import io
 from http.server import ThreadingHTTPServer
 import os
+import re
 import ssl
 from pathlib import Path
 import subprocess
@@ -223,6 +224,46 @@ class StandingAuthorizationTest(unittest.TestCase):
         status = hil_auth.development_status(path)
         self.assertEqual(status['status'], 'SESSION_LIMIT_REACHED')
         self.assertEqual(status['sessions_remaining'], 0)
+
+    def test_update_status_distinguishes_bootstrap_scope_from_source_drift(self):
+        # GS117-UPDATE-SCOPE-01: a bootstrap record is not a firmware grant.
+        path, policy = self.development_policy(
+            procedures=['protected_gs40_bootstrap'], max_sessions=1)
+        state = path.parent / 'development-authorization'
+        with self.assertRaisesRegex(RuntimeError, 'unit failure'):
+            with hil_auth.session('protected_gs40_bootstrap', path, state,
+                                  _development=True):
+                raise RuntimeError('unit failure; no hardware')
+        Path(policy['serial_helper']['path']).write_text('changed helper')
+        before_policy = path.read_bytes()
+        before_audit = (state / 'audit.jsonl').read_bytes()
+        result = hil_auth.development_status(path, procedure='application_flash')
+        self.assertEqual(result['status'], 'NOT_AUTHORIZED')
+        self.assertEqual(result['reason'], 'procedure_not_in_recorded_scope')
+        self.assertEqual(result['procedures'], ['protected_gs40_bootstrap'])
+        self.assertTrue(result['blocked'])
+        with self.assertRaisesRegex(ValueError, 'reviewed_procedure_changed'):
+            hil_auth.development_status(path, procedure='protected_gs40_bootstrap')
+        with self.assertRaisesRegex(ValueError, 'reviewed_procedure_changed'):
+            with hil_auth.session('protected_gs40_bootstrap', path, state,
+                                  _development=True):
+                self.fail('diagnostic must not bypass source integrity')
+        self.assertEqual(path.read_bytes(), before_policy)
+        self.assertEqual((state / 'audit.jsonl').read_bytes(), before_audit)
+
+    def test_update_status_preserves_authorization_and_revocation_checks(self):
+        path, policy = self.development_policy()
+        self.assertEqual(hil_auth.development_status(
+            path, procedure='application_flash')['status'], 'ACTIVE')
+        Path(policy['serial_helper']['path']).write_text('changed approved executor')
+        with self.assertRaisesRegex(ValueError, 'reviewed_procedure_changed'):
+            hil_auth.development_status(path, procedure='application_flash')
+        with self.assertRaisesRegex(ValueError, 'unknown_procedure'):
+            hil_auth.development_status(path, procedure='arbitrary_command')
+        policy['revoked'] = True
+        path.write_text(json.dumps(policy))
+        with self.assertRaisesRegex(ValueError, 'scope_mismatch'):
+            hil_auth.development_status(path, procedure='application_flash')
 
     def test_motion_event_once_authority_is_an_isolated_one_use_operation(self):
         path, policy = self.development_policy(
@@ -4261,21 +4302,71 @@ class S3OnlyBootstrapTest(unittest.TestCase):
 
 
 class EngineeringBootstrapReviewTest(unittest.TestCase):
-    def test_reboot_bootstrap_pin_matches_current_serial_helper_and_registered_scope(self):
-        files = hil_auth._engineering_bootstrap_files(
-            "s3_runtime_bootstrap_reboot_11983")
-        script = next(path for path in files if path.name.endswith("development-v24.py"))
+    def test_standing_app_update_repeats_without_consuming_bootstrap_authority(self):
+        # GS117-UPDATE-STANDING-01: reuse actual admission, locks and audit API.
+        import gs179_verified_endpoint as endpoint
+        admission={'identity':hil_auth.IDENTITY,'owner_approval_ref':'standing',
+                   'running_images':'UNKNOWN'}
+        with (patch.object(endpoint,'engineering_functional_admission',return_value=admission),
+              patch.object(endpoint,'_network_event') as audit,
+              patch.object(endpoint,'_network_write_once') as reserve,
+              patch.object(hil_auth,'_readback_receipt_hold_exclusive_lock') as locks,
+              patch.object(hil_auth,'load_development',side_effect=ValueError('historical latch'))):
+            for _ in range(2):
+                with hil_auth.development_session('application_flash') as (policy,run):
+                    self.assertEqual(policy['owner_approval_ref'],
+                                     'GS-D034:standing-registered-app-only-updates')
+                    run['functional_outcome']='PASS'
+            self.assertEqual(locks.call_count,4)
+            self.assertEqual(audit.call_count,4)
+            reserve.assert_not_called()
+            status=hil_auth.development_status(procedure='application_flash')
+            self.assertEqual(status['status'],'READY_FOR_TECHNICAL_PREFLIGHT')
+            self.assertFalse(status['deployment_verified'])
+
+    def test_standing_app_update_retains_fixture_and_release_denials(self):
+        import gs179_verified_endpoint as endpoint
+        for reason in ('engineering_network_release_environment',
+                       'engineering_functional_fixture_mismatch'):
+            with (patch.object(endpoint,'engineering_functional_admission',
+                               side_effect=ValueError(reason)),
+                  patch.object(endpoint,'_network_event') as audit):
+                with self.assertRaisesRegex(ValueError,reason):
+                    with hil_auth.development_session('application_flash'):
+                        self.fail('invalid fixture admitted')
+                audit.assert_not_called()
+
+    def test_old_bootstrap_pin_fails_closed_after_serial_helper_change(self):
+        files = hil_auth._engineering_bootstrap_files("s3_runtime_bootstrap")
+        script = next(path for path in files if path.name.endswith("development-v28.py"))
         text = script.read_text()
         helper_hash = hil_auth.digest(hil_auth.Path(hil_auth.__file__).parent /
                                       "gs117_tc001_serial_windows.py")
-        self.assertIn("hexdigest() != '" + helper_hash + "'", text)
-        self.assertIn("'action': 'BootstrapS3Reboot11983'", text)
+        pinned_helper_hash = re.search(
+            r"serial_windows\.py'\)\.read_bytes\(\)\)\.hexdigest\(\) != '([0-9a-f]{64})'",
+            text)
+        self.assertIsNotNone(pinned_helper_hash)
+        self.assertNotEqual(pinned_helper_hash.group(1), helper_hash)
+        self.assertLess(text.index("REVIEWED_SERIAL_HELPER_CHANGED"),
+                        text.index("'action': 'BootstrapS3'"))
+        self.assertEqual(hil_auth.digest(script), hil_auth.ENGINEERING_S3_BOOTSTRAP_SHA256)
+        self.assertIn("'action': 'BootstrapS3'", text)
+        self.assertNotIn("BootstrapS3Reboot11983", text)
         self.assertIn("next(p for p in ports if p['port'] == 'COM10')", text)
         self.assertNotIn("COM4", text)
         self.assertIn("'s3_boot_reset': False", text)
         self.assertIn("'c3_boot_reset': False", text)
         self.assertIn("observation_seconds': 90", text)
+        self.assertEqual(hil_auth.digest(script), hil_auth.ENGINEERING_S3_BOOTSTRAP_SHA256)
+
+    def test_consumed_reboot_version_remains_immutable_and_separate(self):
+        files = hil_auth._engineering_bootstrap_files("s3_runtime_bootstrap_reboot_11983")
+        script = files[0]
+        self.assertEqual(script.name, "gs117-protected-bootstrap-development-v24.py")
         self.assertEqual(hil_auth.digest(script), hil_auth.ENGINEERING_S3_REBOOT_SHA256)
+        self.assertIn("'action': 'BootstrapS3Reboot11983'", script.read_text())
+        with self.assertRaisesRegex(ValueError, 'operation_not_authorized'):
+            hil_auth._engineering_bootstrap_files('application_flash')
 
     def test_missing_review_and_modified_candidate_fail_closed(self):
         with self.assertRaises(ValueError):hil_auth.verify_engineering_bootstrap_review(None)
@@ -4321,6 +4412,437 @@ class EngineeringBootstrapReviewTest(unittest.TestCase):
         with patch.object(hil_auth,'verify_engineering_bootstrap_review',side_effect=ValueError('missing')):
             with self.assertRaisesRegex(ValueError,'missing'):
                 with hil_auth.engineering_functional_session('s3_runtime_bootstrap'):self.fail('executed')
+
+
+class S3ApplicationUpdateIntegrationTest(unittest.TestCase):
+    class Driver:
+        def __init__(self, owner, *, interrupt_after_erase=False, fail_selector=False):
+            self.owner = owner
+            self.interrupt_after_erase = interrupt_after_erase
+            self.fail_selector = fail_selector
+            self.writes = []
+            self.recovered = False
+            self.restored = False
+
+        def inspect(self, target):
+            import binascii
+            raw = bytearray(b"\xff" * 0x2000)
+            for copy, seq, state in ((0, 29, 2), (1, 30, 0xffffffff)):
+                at = copy * 0x1000
+                raw[at:at + 4] = seq.to_bytes(4, "little")
+                raw[at + 24:at + 28] = state.to_bytes(4, "little")
+                crc = binascii.crc32(raw[at:at + 4], 0xffffffff) & 0xffffffff
+                raw[at + 28:at + 32] = crc.to_bytes(4, "little")
+            active, copies = tc_serial._selected_ota_copy(bytes(raw))
+            baseline = {
+                "device_id": target["device_id"], "port": target["port"],
+                "serial_number": target["serial_number"], "home_id": target["home_id"],
+                "bootloader_sha256": "a" * 64, "partition_table_sha256": "b" * 64,
+                "ota_contract": "IDF6.0.3_ENGINEERING_APP_ONLY",
+            }
+            return {"baseline": baseline, "observed": dict(baseline, active_slot=active["slot"]),
+                    "partitions": dict(tc_serial.S3_UPDATE_LAYOUT),
+                    "active_selector": active, "selector_copies": copies,
+                    "otadata": bytes(raw)}
+
+        def write_application(self, plan, snapshot, plan_sha256, original_otadata):
+            self.owner.authorize("application_erase", plan_sha256)
+            self.writes.append("application_erase")
+            if self.interrupt_after_erase:
+                raise tc_serial.S3UpdateAuthorizationLost("s3_update_parent_interrupted")
+            self.owner.authorize("application_write", plan_sha256)
+            self.writes.append("application_write")
+
+        def verify_application(self, plan, image):
+            return hashlib.sha256(image).hexdigest()
+
+        def verify_protected(self):
+            return None
+
+        def select(self, target_slot, plan_sha256):
+            self.owner.authorize("selector_update", plan_sha256)
+            self.writes.append("selector_update")
+            if self.fail_selector:
+                raise ValueError("simulated_selector_verification_failure")
+            return {"slot": target_slot, "seq": 31, "valid": True}
+
+        def recover_selector(self, plan_sha256):
+            self.owner.authorize("selector_recovery", plan_sha256)
+            self.writes.append("selector_recovery")
+            self.recovered = True
+
+        def restore_application(self):
+            self.restored = True
+
+        def close(self):
+            return None
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.state = self.root / "state"
+        self.dev_state = self.root / "development-authorization"
+        self.state.mkdir(mode=0o700)
+        self.dev_state.mkdir(mode=0o700)
+        self.idf = self.root / "esp-idf"
+        for path in (self.idf / "components/app_update/otatool.py",
+                     self.idf / "components/partition_table/parttool.py"):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("# test stand-in for an available IDF tree\n")
+        self.artifact = self.root / "s3.bin"
+        self.image = (bytes([0xe9]) + bytes(11) + bytes([9, 0]) +
+                      bytes(18) + bytes.fromhex("3254cdab") + bytes(220))
+        self.artifact.write_bytes(self.image)
+        self.image_sha = hashlib.sha256(self.image).hexdigest()
+        self.driver = self.Driver(self)
+        self.sequence = 0
+        self.events = []
+        self.last_config = None
+        self.duplicate_rejected = False
+        self.bad_session = False
+        self.session_id = None
+
+    def authorize(self, boundary, plan_sha256):
+        self.sequence += 1
+        request = {
+            "kind": "s3_update_write_authorization", "sequence": self.sequence,
+            "session_id": ("b" * 32 if self.bad_session else self.session_id),
+            "binding_sha256": self.last_config["binding_sha256"],
+            "application_sha256": self.image_sha, "boundary": boundary,
+            "plan_sha256": plan_sha256,
+        }
+        response = self.authorize_request(request)
+        if response.get("allowed") is not True:
+            raise tc_serial.S3UpdateAuthorizationLost("s3_update_parent_ownership_invalid")
+
+    def runner(self, config, authorize_request):
+        self.last_config = config
+        self.session_id = config["session_id"]
+        self.authorize_request = authorize_request
+        if self.duplicate_rejected is False:
+            try:
+                tc.s3_application_update_once(self.artifact, self.image_sha)
+            except ValueError as error:
+                self.duplicate_rejected = (
+                    "engineering_hardware_operation_already_active" in str(error))
+        return tc_serial.run_s3_application_update(
+            config, self.authorize, driver=self.driver)
+
+    def invoke(self, *, interrupt_after_erase=False, fail_selector=False, bad_session=False):
+        self.driver = self.Driver(self, interrupt_after_erase=interrupt_after_erase,
+                                  fail_selector=fail_selector)
+        self.bad_session = bad_session
+        import gs179_verified_endpoint as endpoint
+        with (patch.object(hil_auth, "STATE", self.state),
+              patch.object(hil_auth, "DEV_STATE", self.dev_state),
+              patch.object(endpoint, "engineering_functional_admission",
+                           return_value={"identity": hil_auth.IDENTITY,
+                                         "owner_approval_ref": "GS-D034"}),
+              patch.object(endpoint, "_network_event",
+                           side_effect=lambda *args, **kwargs: self.events.append(args[0])),
+              patch.object(tc, "_windows_path", side_effect=lambda path: str(path)),
+              patch.object(tc, "_run_s3_update_windows", side_effect=self.runner),
+              patch.dict(os.environ, {"IDF_PATH": str(self.idf)})):
+            original_lock_check = hil_auth._readback_receipt_active_lock
+            with patch.object(hil_auth, "_readback_receipt_active_lock",
+                              wraps=original_lock_check) as lock_check:
+                try:
+                    report = tc.s3_application_update_once(self.artifact, self.image_sha)
+                except Exception:
+                    return None, lock_check.call_count
+                return report, lock_check.call_count
+
+    def test_parent_invokes_bound_writer_under_both_live_locks(self):
+        report, lock_checks = self.invoke()
+        self.assertEqual(report["status"], "WRITTEN_READBACK_VERIFIED_SELECTED")
+        self.assertEqual(report["session_id"], self.session_id)
+        self.assertEqual(self.driver.writes, [
+            "application_erase", "application_write", "selector_update"])
+        self.assertTrue(self.duplicate_rejected)
+        self.assertEqual(lock_checks, 6)
+        self.assertEqual(self.last_config["action"], "S3ApplicationUpdate")
+        self.assertEqual(self.last_config["expected_sha256"], self.image_sha)
+        self.assertEqual(self.last_config["target"], tc_serial.S3_UPDATE_TARGET)
+        self.assertEqual(self.last_config["binding_sha256"],
+                         hashlib.sha256((Path(self.last_config["binding_dir"]) /
+                                         "artifact-binding.json").read_bytes()).hexdigest())
+        self.assertEqual(self.events.count("gs117_s3_update_write_boundary_authorized"), 3)
+
+    def test_invalid_parent_session_rejects_before_any_writer_operation(self):
+        report, _ = self.invoke(bad_session=True)
+        self.assertIsNone(report)
+        self.assertEqual(self.driver.writes, [])
+        self.assertEqual(self.events.count("gs117_s3_update_write_boundary_authorized"), 0)
+
+    def test_parent_interruption_stops_after_inactive_slot_erase(self):
+        report, _ = self.invoke(interrupt_after_erase=True)
+        self.assertIsNone(report)
+        self.assertEqual(self.driver.writes, ["application_erase"])
+        self.assertNotIn("selector_update", self.driver.writes)
+        self.assertEqual(self.last_config["target"], tc_serial.S3_UPDATE_TARGET)
+
+    def test_selector_failure_uses_live_authorized_original_copy_recovery(self):
+        report, _ = self.invoke(fail_selector=True)
+        self.assertIsNone(report)
+        self.assertEqual(self.driver.writes[-2:], ["selector_update", "selector_recovery"])
+        self.assertTrue(self.driver.recovered)
+        self.assertTrue(self.driver.restored)
+        receipt = json.loads((Path(self.last_config["evidence_dir"]) /
+                              "update-result.json").read_text())
+        self.assertEqual(receipt["selector_recovery"], "VERIFIED_ORIGINAL_RESTORED")
+        self.assertEqual(receipt["normal_boot_restoration"], "USB_IDENTITY_REENUMERATED")
+
+    def test_official_otadata_partition_type_uses_single_inactive_selector_sector(self):
+        import binascii
+        raw = bytearray(b"\xff" * 0x2000)
+        for copy, seq, state in ((0, 29, 2), (1, 30, 0xffffffff)):
+            at = copy * 0x1000
+            raw[at:at + 4] = seq.to_bytes(4, "little")
+            raw[at + 24:at + 28] = state.to_bytes(4, "little")
+            crc = binascii.crc32(raw[at:at + 4], 0xffffffff) & 0xffffffff
+            raw[at + 28:at + 32] = crc.to_bytes(4, "little")
+        candidate = bytearray(raw)
+        candidate[:4] = (31).to_bytes(4, "little")
+        candidate[28:32] = (
+            binascii.crc32(candidate[:4], 0xffffffff) & 0xffffffff).to_bytes(4, "little")
+
+        class PartitionType:
+            def __init__(self, p_type, subtype):
+                self.type = p_type
+                self.subtype = subtype
+                self.name = None
+
+        class Target:
+            def __init__(self):
+                self.otadata = bytes(raw)
+
+            def write_partition(self, *_args, **_kwargs):
+                raise AssertionError("official whole-partition erase/write must not run")
+
+            def read_partition(self, _partition_id, output):
+                Path(output).write_bytes(self.otadata)
+
+        class Otatool:
+            OTADATA_PARTITION = PartitionType("data", "ota")
+
+        target = Target()
+        tool = SimpleNamespace(target=target)
+        tool.switch_ota_partition = lambda _slot: (
+            target.write_partition(
+                PartitionType("data", "ota"), self.input_path),
+            setattr(target, "otadata", bytes(candidate)))
+        driver = object.__new__(tc_serial._S3IDFUpdateDriver)
+        driver.original_otadata = bytes(raw)
+        driver.tool = tool
+        driver.otatool = SimpleNamespace(OtatoolTarget=Otatool)
+        driver.evidence = self.root
+        driver.plan = {}
+        driver.snapshot = self.artifact
+        driver.application_verified = True
+        self.input_path = self.root / "otadata-candidate.bin"
+        self.input_path.write_bytes(candidate)
+        writes = []
+        driver._write_selector_sector = (
+            lambda sector, boundary, _plan_sha: writes.append((sector, boundary)))
+
+        selected = driver.select(0, "d" * 64)
+        self.assertEqual(selected["slot"], 0)
+        self.assertEqual(writes, [(bytes(candidate[:0x1000]), "selector_update")])
+
+    def test_writer_stops_when_parent_pipe_is_interrupted(self):
+        from unittest.mock import patch as mock_patch
+        config = {"session_id": "a" * 32, "binding_sha256": "b" * 64,
+                  "expected_sha256": "c" * 64}
+        authorizer = tc_serial._s3_update_stdio_authorizer(config)
+        with mock_patch.object(sys, "__stdin__", io.StringIO("")), \
+             mock_patch.object(sys, "__stdout__", io.StringIO()):
+            with self.assertRaisesRegex(tc_serial.S3UpdateAuthorizationLost,
+                                        "s3_update_parent_interrupted"):
+                authorizer("application_write", "d" * 64)
+
+    def test_s3_update_cli_runner_emits_success_report_to_stderr(self):
+        protocol = io.StringIO()
+        report = {"status": "WRITTEN_READBACK_VERIFIED_SELECTED"}
+        stderr = io.StringIO()
+        with patch.object(tc_serial, "_s3_update_dedicated_protocol_stream",
+                          return_value=protocol), \
+                patch.object(tc_serial, "_s3_update_stdio_authorizer",
+                             return_value=lambda *_args: None) as authorizer, \
+                patch.object(tc_serial, "run_s3_application_update",
+                             return_value=report) as writer, \
+                patch.object(sys, "stderr", stderr):
+            tc_serial._run_s3_application_update_cli({"session_id": "a" * 32})
+        writer.assert_called_once()
+        authorizer.assert_called_once()
+        self.assertTrue(protocol.closed)
+        self.assertEqual(json.loads(stderr.getvalue()), report)
+
+    def test_writer_protocol_isolated_from_native_tool_stdout(self):
+        config = {"session_id": "a" * 32, "binding_sha256": "b" * 64,
+                  "expected_sha256": "c" * 64}
+        script = (
+            "import json,sys\n"
+            "import gs117_tc001_serial_windows as w\n"
+            f"config=json.loads({json.dumps(json.dumps(config))})\n"
+            "stream=w._s3_update_dedicated_protocol_stream()\n"
+            "print('native-tool-output')\n"
+            "w._s3_update_stdio_authorizer(config,stream)('application_write','d'*64)\n"
+        )
+        environment = dict(
+            os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[2] / "tools/local"))
+        process = subprocess.Popen(
+            [sys.executable, "-c", script], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, text=True, env=environment)
+        request = json.loads(process.stdout.readline())
+        process.stdin.write(json.dumps({
+            "kind": request["kind"], "sequence": request["sequence"],
+            "session_id": request["session_id"], "allowed": True,
+        }) + "\n")
+        process.stdin.flush()
+        _stdout, stderr = process.communicate(timeout=10)
+        self.assertEqual(process.returncode, 0)
+        self.assertEqual(request["boundary"], "application_write")
+        self.assertIn("native-tool-output", stderr)
+        self.assertEqual(_stdout, "")
+
+    def test_windows_launcher_services_write_request_and_checks_result_binding(self):
+        evidence = self.root / "writer-evidence"
+        evidence.mkdir()
+        target = dict(tc_serial.S3_UPDATE_TARGET)
+        config = {
+            "session_id": "a" * 32, "expected_sha256": "b" * 64,
+            "target": target, "evidence_dir_wsl": str(evidence),
+        }
+        request = {
+            "kind": "s3_update_write_authorization", "sequence": 1,
+            "session_id": config["session_id"], "binding_sha256": "c" * 64,
+            "application_sha256": config["expected_sha256"],
+            "boundary": "application_erase", "plan_sha256": "d" * 64,
+        }
+        (evidence / "update-result.json").write_text(json.dumps({
+            "session_id": config["session_id"],
+            "application_sha256": config["expected_sha256"],
+            "target": target, "status": "WRITTEN_READBACK_VERIFIED_SELECTED",
+        }))
+
+        class Pipe:
+            def __init__(self):
+                self.lines = io.StringIO(json.dumps(request) + "\n")
+                self.writes = []
+
+            def readline(self):
+                return self.lines.readline()
+
+            def write(self, value):
+                self.writes.append(value)
+
+            def flush(self):
+                return None
+
+            def close(self):
+                return None
+
+        class Process:
+            def __init__(self):
+                self.stdout = Pipe()
+                self.stdout.lines = io.StringIO(
+                    json.dumps({"kind": "s3_update_process_started", "pid": 4321}) + "\n" +
+                    json.dumps(request) + "\n")
+                self.stdin = Pipe()
+                self.returncode = None
+
+            def poll(self):
+                return self.returncode
+
+            def wait(self, timeout=None):
+                self.returncode = 0
+                return self.returncode
+
+            def kill(self):
+                raise AssertionError("successful writer was killed")
+
+        process = Process()
+        authorized = []
+        with tempfile.NamedTemporaryFile() as powershell, \
+                patch.object(tc, "_windows_path", return_value="C:\\tools\\writer.py"), \
+                patch.object(tc, "READBACK_POWERSHELL", Path(powershell.name)), \
+                patch.object(tc.subprocess, "Popen", return_value=process) as popen, \
+                patch.object(tc.select, "select",
+                             side_effect=lambda *args: ([process.stdout], [], [])):
+            report = tc._run_s3_update_windows(
+                config, lambda item: authorized.append(item) or {
+                    "kind": item["kind"], "sequence": item["sequence"],
+                    "session_id": item["session_id"], "allowed": True,
+                })
+        self.assertEqual(report["status"], "WRITTEN_READBACK_VERIFIED_SELECTED")
+        self.assertEqual(authorized, [request])
+        self.assertEqual(json.loads(process.stdin.writes[0])["allowed"], True)
+        self.assertIn("py -3", popen.call_args.args[0][-1])
+        self.assertIn("s3_update_process_started", popen.call_args.args[0][-1])
+
+    def test_writer_failure_terminates_the_windows_process_tree(self):
+        evidence = self.root / "writer-failure-evidence"
+        evidence.mkdir()
+        config = {
+            "session_id": "a" * 32, "expected_sha256": "b" * 64,
+            "target": dict(tc_serial.S3_UPDATE_TARGET),
+            "evidence_dir_wsl": str(evidence),
+        }
+        (evidence / "update-result.json").write_text(json.dumps({
+            "session_id": config["session_id"],
+            "application_sha256": config["expected_sha256"],
+            "target": config["target"], "status": "FAIL",
+        }))
+
+        class Pipe:
+            def __init__(self):
+                self.lines = io.StringIO(json.dumps({
+                    "kind": "s3_update_process_started", "pid": 4321,
+                }) + "\n")
+
+            def readline(self):
+                return self.lines.readline()
+
+            def write(self, _value):
+                return None
+
+            def flush(self):
+                return None
+
+            def close(self):
+                return None
+
+        class Process:
+            def __init__(self):
+                self.stdout = Pipe()
+                self.stdin = Pipe()
+                self.returncode = None
+
+            def poll(self):
+                return self.returncode
+
+            def wait(self, timeout=None):
+                self.returncode = 0
+                return self.returncode
+
+            def kill(self):
+                raise AssertionError("completed PowerShell process was killed")
+
+        process = Process()
+        with tempfile.NamedTemporaryFile() as powershell, \
+                patch.object(tc, "_windows_path", return_value="C:\\tools\\writer.py"), \
+                patch.object(tc, "READBACK_POWERSHELL", Path(powershell.name)), \
+                patch.object(tc.subprocess, "Popen", return_value=process), \
+                patch.object(tc.subprocess, "run",
+                             return_value=SimpleNamespace(returncode=0, stdout="", stderr="")) as run, \
+                patch.object(tc.select, "select",
+                             side_effect=lambda *args: ([process.stdout], [], [])):
+            with self.assertRaisesRegex(ValueError, "s3_update_writer_result_binding_invalid"):
+                tc._run_s3_update_windows(config, lambda _request: {})
+        self.assertEqual(run.call_args.args[0],
+                         ["taskkill.exe", "/PID", "4321", "/T", "/F"])
+
 
 if __name__ == "__main__":
     unittest.main()

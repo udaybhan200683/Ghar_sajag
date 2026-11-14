@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import base64
+import binascii
+import contextlib
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -24,6 +26,31 @@ from serial.tools import list_ports
 ANDROID_REPORTS_MAX_SCROLLS = 55
 ANDROID_REPORTS_END_NO_PROGRESS = 2
 ANDROID_REPORTS_SCROLL_POLL_ATTEMPTS = 2
+
+S3_UPDATE_TARGET = {
+    "device_id": "hub-e072a1d38d34",
+    "port": "COM10",
+    "serial_number": "E0:72:A1:D3:8D:34",
+    "home_id": "gs177-test-product",
+    "usb_vid": 0x303A,
+    "usb_pid": 0x1001,
+}
+S3_UPDATE_PARTITION_CONTRACT = "S3_R1_OUTBOX_4M_STATE_256K_OTA_4M"
+S3_UPDATE_LAYOUT = {
+    "nvs": (0x9000, 0x6000), "otadata": (0xF000, 0x2000),
+    "phy_init": (0x11000, 0x1000), "ota_0": (0x20000, 0x400000),
+    "ota_1": (0x420000, 0x400000), "gs_outbox": (0x820000, 0x400000),
+    "gs_state": (0xC20000, 0x40000),
+}
+S3_UPDATE_WRITE_BOUNDARIES = frozenset({
+    "application_erase", "application_write", "selector_update", "selector_recovery",
+})
+S3_UPDATE_IDF_SOURCE_HASHES = {
+    "app_update/otatool.py":
+        "da713515caf674b4169c764ffb1e4dd068637bab8db26e6f48b7f09ceebdcb85",
+    "partition_table/parttool.py":
+        "a2e3eb680b44807cdcb19c8ef784d32251530caa8453d37ab3f218eb4dee7af3",
+}
 
 
 def ports() -> list[dict[str, str]]:
@@ -1782,7 +1809,8 @@ def android_verify_event(config: dict, *, adb_locator=find_adb,
                 raise ValueError("TC001_EXACT_EVENT_KEY_NOT_VISIBLE_IN_ANDROID_EVENT_DETAILS")
 
 
-def bind_s3_update_artifact(artifact, expected_sha256, evidence_parent, session_id):
+def bind_s3_update_artifact(artifact, expected_sha256, evidence_parent, session_id,
+                           target=None, partition_contract=None):
     """Bind an explicit reviewed image to fresh, private session evidence.
 
     This is preparation only: admission, live-device validation, and all write
@@ -1796,6 +1824,10 @@ def bind_s3_update_artifact(artifact, expected_sha256, evidence_parent, session_
     if (not parent.is_absolute() or parent.is_symlink() or not parent.is_dir() or
             not re.fullmatch(r"[0-9a-f]{32}", session_id or "")):
         raise ValueError('s3_update_evidence_binding_invalid')
+    target = dict(S3_UPDATE_TARGET if target is None else target)
+    if (target != S3_UPDATE_TARGET or
+            partition_contract not in (None, S3_UPDATE_PARTITION_CONTRACT)):
+        raise ValueError('s3_update_registered_target_or_partition_contract_invalid')
     image = artifact.read_bytes()
     if hashlib.sha256(image).hexdigest() != expected_sha256:
         raise ValueError('s3_update_artifact_digest_mismatch')
@@ -1812,15 +1844,14 @@ def bind_s3_update_artifact(artifact, expected_sha256, evidence_parent, session_
         stream.write(image)
     manifest = {'session_id': session_id, 'source_path': str(artifact.resolve()),
                 'application_sha256': expected_sha256, 'size': len(image),
-                'target_device': 'hub-e072a1d38d34', 'port': 'COM10',
-                'home_id': 'gs177-test-product',
-                'partition_contract': 'S3_R1_OUTBOX_4M_STATE_256K_OTA_4M'}
+                'target': target, 'partition_contract': S3_UPDATE_PARTITION_CONTRACT}
     with (evidence / 'artifact-binding.json').open('x', encoding='utf-8') as stream:
         json.dump(manifest, stream, sort_keys=True)
     return evidence, snapshot, manifest
 
 
-def verify_s3_update_binding(evidence, session_id, expected_sha256):
+def verify_s3_update_binding(evidence, session_id, expected_sha256, target=None,
+                             partition_contract=None):
     """Revalidate the writer's session-bound snapshot before a hardware write."""
     evidence = Path(evidence)
     if (evidence.is_symlink() or not evidence.is_dir() or
@@ -1836,11 +1867,13 @@ def verify_s3_update_binding(evidence, session_id, expected_sha256):
         image = snapshot.read_bytes()
     except (OSError, ValueError) as error:
         raise ValueError('s3_update_evidence_binding_invalid') from error
+    expected_target = dict(S3_UPDATE_TARGET if target is None else target)
+    expected_contract = partition_contract or S3_UPDATE_PARTITION_CONTRACT
     expected = {'session_id': session_id, 'application_sha256': expected_sha256,
-                'target_device': 'hub-e072a1d38d34', 'port': 'COM10',
-                'home_id': 'gs177-test-product',
-                'partition_contract': 'S3_R1_OUTBOX_4M_STATE_256K_OTA_4M'}
+                'target': expected_target, 'partition_contract': expected_contract}
     if (any(manifest.get(k) != v for k, v in expected.items()) or
+            expected_target != S3_UPDATE_TARGET or
+            expected_contract != S3_UPDATE_PARTITION_CONTRACT or
             not re.fullmatch(r'[0-9a-f]{64}', expected_sha256 or '') or
             manifest.get('size') != len(image) or
             hashlib.sha256(image).hexdigest() != expected_sha256):
@@ -1856,12 +1889,7 @@ def validate_s3_application_update(image, expected_sha256, baseline, observed,
     artifacts. This does not grant hardware access or qualify automatic FOTA.
     The existing development_session still owns admission, locks and audit.
     """
-    expected_layout = {
-        'nvs': (0x9000, 0x6000), 'otadata': (0xF000, 0x2000),
-        'phy_init': (0x11000, 0x1000), 'ota_0': (0x20000, 0x400000),
-        'ota_1': (0x420000, 0x400000), 'gs_outbox': (0x820000, 0x400000),
-        'gs_state': (0xC20000, 0x40000),
-    }
+    expected_layout = S3_UPDATE_LAYOUT
     if any(observed.get(k) != v for k, v in
            {'device_id': 'hub-e072a1d38d34', 'port': 'COM10',
             'serial_number': 'E0:72:A1:D3:8D:34',
@@ -1947,10 +1975,10 @@ def validate_s3_update_tool_command(arguments, plan, application_path,
                 hashlib.sha256(data).hexdigest() != plan['application_sha256']):
             raise ValueError('s3_update_application_changed')
         return
-    if offset != 0xF000 or not application_verified or len(data) != 0x2000 or len(original_otadata) != 0x2000:
+    if (not application_verified or len(original_otadata) != 0x2000 or
+            len(data) != 0x1000 or offset not in (0xF000, 0x10000)):
         raise ValueError('s3_update_protected_write_rejected')
-    if data == original_otadata:
-        return  # Exact saved-selector recovery through the same official tool.
+
     def record(raw, copy):
         at = copy*0x1000
         seq = int.from_bytes(raw[at:at+4], 'little')
@@ -1965,16 +1993,21 @@ def validate_s3_update_tool_command(arguments, plan, application_path,
     active = max(valid,key=lambda i:old[i][0]); other = 1-active
     if len(valid)==2 and old[0][0]==old[1][0]:
         raise ValueError('s3_update_selector_ambiguous')
-    new_seq, new_valid = record(data,other)
-    allowed = set(range(other*0x1000,other*0x1000+4)) | set(range(other*0x1000+28,other*0x1000+32))
+    if offset != 0xF000 + other*0x1000:
+        raise ValueError('s3_update_selector_active_copy_write_rejected')
+    original_sector = original_otadata[other*0x1000:(other+1)*0x1000]
+    if data == original_sector:
+        return  # Restore only the inactive selector copy; the active copy remains valid.
+    new_seq, new_valid = record(data,0)
+    allowed = set(range(4)) | set(range(28,32))
     if (not new_valid or new_seq <= old[active][0] or
             (new_seq-1)%2 != plan['target_slot'] or
-            any(a!=b and i not in allowed for i,(a,b) in enumerate(zip(data,original_otadata)))):
+            any(a!=b and i not in allowed for i,(a,b) in enumerate(zip(data,original_sector)))):
         raise ValueError('s3_update_selector_change_rejected')
 
 
 def s3_official_application_target(table_path, live_otadata, *,
-                                   parttool_module=None, otatool_module=None):
+                                   port, parttool_module=None, otatool_module=None):
     """Compose the pinned IDF APIs without their obsolete positional constructor.
 
     IDF6.0.3 ParttoolTarget gained primary/recovery bootloader offsets before
@@ -1984,24 +2017,466 @@ def s3_official_application_target(table_path, live_otadata, *,
     """
     if len(live_otadata) != 0x2000 or not Path(table_path).is_file():
         raise ValueError('s3_update_live_partition_inputs_required')
+    if port != S3_UPDATE_TARGET["port"]:
+        raise ValueError('s3_update_registered_target_mismatch')
     if parttool_module is None:
         import parttool as parttool_module
     if otatool_module is None:
         import otatool as otatool_module
     target = object.__new__(otatool_module.OtatoolTarget)
     target.target = parttool_module.ParttoolTarget(
-        port='COM10', baud=460800, partition_table_file=str(table_path),
+        port=port, baud=460800, partition_table_file=str(table_path),
         esptool_args=['chip=esp32s3', 'before=no-reset', 'after=no-reset'])
     target.spi_flash_sec_size = 0x2000
     target.otadata = bytes(live_otadata)
     return target
 
 
+class S3UpdateAuthorizationLost(ValueError):
+    pass
+
+
+def _selector_copy(raw, copy):
+    at = copy * 0x1000
+    seq = int.from_bytes(raw[at:at + 4], "little")
+    state = int.from_bytes(raw[at + 24:at + 28], "little")
+    crc = int.from_bytes(raw[at + 28:at + 32], "little")
+    valid = (seq != 0xffffffff and state in (2, 0xffffffff) and
+             crc == (binascii.crc32(raw[at:at + 4], 0xffffffff) & 0xffffffff))
+    return {"copy": copy, "seq": seq, "valid": valid,
+            "slot": (seq - 1) % 2 if valid else None}
+
+
+def _selected_ota_copy(raw):
+    if len(raw) != 0x2000:
+        raise ValueError("s3_update_selector_size_invalid")
+    copies = [_selector_copy(raw, i) for i in range(2)]
+    valid = [copy for copy in copies if copy["valid"]]
+    if not valid:
+        raise ValueError("s3_update_selector_unverified")
+    if len(valid) == 2 and valid[0]["seq"] == valid[1]["seq"]:
+        raise ValueError("s3_update_selector_ambiguous")
+    return max(valid, key=lambda copy: copy["seq"]), copies
+
+
+class _S3IDFUpdateDriver:
+    def __init__(self, config, authorize):
+        self.config = config
+        self.authorize = authorize
+        self.evidence = Path(config["evidence_dir"])
+        components = Path(config["idf_components"])
+        if (components.is_symlink() or not components.is_dir() or
+                not (components / "app_update" / "otatool.py").is_file() or
+                not (components / "partition_table" / "parttool.py").is_file()):
+            raise ValueError("s3_update_idf_components_unavailable")
+        if any(hashlib.sha256((components / relative).read_bytes()).hexdigest() != digest
+               for relative, digest in S3_UPDATE_IDF_SOURCE_HASHES.items()):
+            raise ValueError("s3_update_official_idf_source_changed")
+        sys.path[:0] = [str(components / "partition_table"), str(components / "app_update")]
+        import esptool
+        import esptool.cmds
+        import gen_esp32part
+        import otatool
+        import parttool
+        from esptool.targets.esp32s3 import ESP32S3ROM
+        if esptool.__version__ != "5.4.0":
+            raise ValueError("s3_update_esptool_version_mismatch")
+        self.esptool = esptool
+        self.esptool_cmds = esptool.cmds
+        self.gen_esp32part = gen_esp32part
+        self.otatool = otatool
+        self.parttool = parttool
+        self.ESP32S3ROM = ESP32S3ROM
+        self.esp = None
+        self.tool = None
+        self.log = None
+        self.original_otadata = None
+        self.plan = None
+        self.snapshot = None
+        self.application_verified = False
+        self.protected = {}
+
+    def _save(self, name, data):
+        path = self.evidence / name
+        with path.open("xb") as stream:
+            stream.write(data)
+        return path
+
+    def _read_flash(self, name, offset, size):
+        data = self.esp.read_flash(offset, size)
+        if not isinstance(data, bytes) or len(data) != size:
+            raise ValueError("s3_update_flash_read_incomplete_" + name)
+        return data
+
+    def inspect(self, target):
+        discovered = list(list_ports.comports())
+        matches = [item for item in discovered
+                   if item.serial_number == target["serial_number"] and
+                   item.vid == target["usb_vid"] and item.pid == target["usb_pid"]]
+        same_port = [item for item in discovered if item.device == target["port"]]
+        if (len(matches) != 1 or matches[0].device != target["port"] or
+                len(same_port) != 1):
+            raise ValueError("s3_update_registered_usb_target_not_unique")
+        item = matches[0]
+        if not (item.hwid or "").startswith(
+                "USB VID:PID=303A:1001 SER=" + target["serial_number"]):
+            raise ValueError("s3_update_registered_usb_hwid_mismatch")
+
+        self.esp = self.ESP32S3ROM(target["port"], baud=115200)
+        self.esp.connect(mode="default-reset", attempts=1)
+        if bytes(self.esp.read_mac()).hex() != target["serial_number"].replace(":", "").lower():
+            raise ValueError("s3_update_physical_mac_mismatch")
+        security = self.esp.get_security_info(cache=True)
+        flags = security.get("parsed_flags", {})
+        if (flags.get("SECURE_BOOT_EN") or security.get("flash_crypt_cnt") or
+                flags.get("SECURE_DOWNLOAD_ENABLE")):
+            raise ValueError("s3_update_unexpected_flash_security_state")
+        self.esp = self.esptool_cmds.run_stub(self.esp)
+        self.esp.change_baud(460800)
+
+        boot = self._read_flash("bootloader", 0, 0x8000)
+        table = self._read_flash("partition-table", 0x8000, 0x1000)
+        otadata = self._read_flash("otadata-before", 0xF000, 0x2000)
+        self._save("partition-table.bin", table)
+        entries = self.gen_esp32part.PartitionTable.from_binary(table)
+        partitions = {partition.name: (partition.offset, partition.size)
+                      for partition in entries}
+        if len(entries) != len(S3_UPDATE_LAYOUT) or partitions != S3_UPDATE_LAYOUT:
+            raise ValueError("s3_update_partition_layout_incompatible")
+        active, copies = _selected_ota_copy(otadata)
+        active_offset, active_size = partitions["ota_" + str(active["slot"])]
+        recovery = self._read_flash("recovery-application", active_offset, active_size)
+        if (len(recovery) < 256 or recovery[0] != 0xe9 or
+                int.from_bytes(recovery[12:14], "little") != 9 or
+                int.from_bytes(recovery[32:36], "little") != 0xabcd5432):
+            raise ValueError("s3_update_active_recovery_application_invalid")
+
+        protected = {"bootloader": boot, "partition_table": table}
+        for name in ("nvs", "gs_outbox", "gs_state"):
+            offset, size = partitions[name]
+            protected[name] = self._read_flash(name, offset, size)
+        observed = {
+            "device_id": target["device_id"], "port": target["port"],
+            "serial_number": target["serial_number"], "home_id": target["home_id"],
+            "bootloader_sha256": hashlib.sha256(boot).hexdigest(),
+            "partition_table_sha256": hashlib.sha256(table).hexdigest(),
+            "ota_contract": "IDF6.0.3_ENGINEERING_APP_ONLY",
+            "active_slot": active["slot"],
+        }
+        self.original_otadata = otadata
+        self.protected = protected
+        self.active_recovery = recovery
+        self.active_selector = active
+        self.partitions = partitions
+        self.device = {"port": target["port"], "usb_serial": target["serial_number"],
+                       "usb_vid": target["usb_vid"], "usb_pid": target["usb_pid"],
+                       "usb_hwid": item.hwid or "", "flash_size": "16MB"}
+        return {"baseline": dict(observed), "observed": observed,
+                "partitions": partitions, "active_selector": active,
+                "otadata": otadata,
+                "selector_copies": copies}
+
+    def write_application(self, plan, snapshot, plan_sha256, original_otadata):
+        self.plan = plan
+        self.snapshot = Path(snapshot)
+        self.log = (self.evidence / "official-tool.log").open("x", encoding="utf-8")
+        if self.esp._port.is_open:
+            self.esp._port.close()
+        self.tool = s3_official_application_target(
+            self.evidence / "partition-table.bin", original_otadata,
+            port=self.config["target"]["port"], parttool_module=self.parttool,
+            otatool_module=self.otatool)
+        original_call = self.tool.target._call_esptool
+
+        def checked_call(args, out=None):
+            args = list(args)
+            if args and args[0] in ("erase-region", "write-flash"):
+                validate_s3_update_tool_command(
+                    args, plan, snapshot, original_otadata,
+                    application_verified=self.application_verified)
+                offset = int(str(args[1]), 0)
+                if offset == plan["application_offset"]:
+                    boundary = ("application_erase" if args[0] == "erase-region"
+                                else "application_write")
+                elif offset in (0xF000, 0x10000):
+                    boundary = self.selector_boundary
+                    if boundary not in ("selector_update", "selector_recovery"):
+                        raise ValueError("s3_update_selector_boundary_missing")
+                else:
+                    raise ValueError("s3_update_protected_write_rejected")
+                self.authorize(boundary, plan_sha256)
+            if args and args[0] in ("erase-region", "write-flash"):
+                return original_call(args, out=self.log)
+            return original_call(args, out=out)
+
+        self.selector_boundary = None
+        self.tool.target._call_esptool = checked_call
+        self.tool.write_ota_partition(plan["target_slot"], str(snapshot))
+
+    def verify_application(self, plan, image):
+        path = self.evidence / "application-readback.bin"
+        self.tool.read_ota_partition(plan["target_slot"], str(path))
+        raw = path.read_bytes()
+        if raw[:len(image)] != image or any(value != 0xff for value in raw[len(image):]):
+            raise ValueError("s3_update_application_readback_mismatch")
+        self.application_verified = True
+        return hashlib.sha256(raw[:len(image)]).hexdigest()
+
+    def verify_protected(self):
+        hashes = {}
+        for name, expected in self.protected.items():
+            path = self.evidence / (name + "-after.bin")
+            if name in ("bootloader", "partition_table"):
+                offset, size = ((0, 0x8000) if name == "bootloader" else (0x8000, 0x1000))
+            try:
+                if name in ("bootloader", "partition_table"):
+                    self.tool.target._call_esptool(
+                        ["read-flash", str(offset), str(size), str(path)], out=self.log)
+                else:
+                    self.tool.target.read_partition(
+                        self.parttool.PartitionName(name), str(path))
+                actual = path.read_bytes()
+                if actual != expected:
+                    raise ValueError("s3_update_protected_region_changed_" + name)
+                hashes[name] = hashlib.sha256(actual).hexdigest()
+            finally:
+                path.unlink(missing_ok=True)
+        path = self.evidence / "recovery-application-after.bin"
+        try:
+            self.tool.read_ota_partition(self.active_selector["slot"], str(path))
+            actual = path.read_bytes()
+            if actual != self.active_recovery:
+                raise ValueError("s3_update_recovery_application_changed")
+            hashes["recovery_application"] = hashlib.sha256(actual).hexdigest()
+        finally:
+            path.unlink(missing_ok=True)
+        return hashes
+
+    def _write_selector_sector(self, sector, boundary, plan_sha256):
+        active, _ = _selected_ota_copy(self.original_otadata)
+        other = 1 - active["copy"]
+        offset = 0xF000 + other * 0x1000
+        path = self.evidence / ("selector-" + boundary + ".bin")
+        with path.open("xb") as stream:
+            stream.write(sector)
+        args = ["write-flash", hex(offset), str(path)]
+        validate_s3_update_tool_command(
+            args, self.plan, self.snapshot, self.original_otadata,
+            application_verified=self.application_verified)
+        self.selector_boundary = boundary
+        try:
+            self.tool.target._call_esptool(args, out=self.log)
+        finally:
+            self.selector_boundary = None
+
+    def select(self, target_slot, plan_sha256):
+        original_write = self.tool.target.write_partition
+
+        def interruption_safe_partition_write(partition_id, input_path, ignore_readonly=False):
+            is_otadata = (getattr(partition_id, "name", None) == "otadata" or
+                          (getattr(partition_id, "type", None) == "data" and
+                           getattr(partition_id, "subtype", None) == "ota"))
+            if not is_otadata:
+                return original_write(partition_id, input_path, ignore_readonly)
+            candidate = Path(input_path).read_bytes()
+            if len(candidate) != 0x2000:
+                raise ValueError("s3_update_selector_size_invalid")
+            active, _ = _selected_ota_copy(self.original_otadata)
+            other = 1 - active["copy"]
+            sector = candidate[other * 0x1000:(other + 1) * 0x1000]
+            self._write_selector_sector(sector, "selector_update", plan_sha256)
+
+        self.tool.target.write_partition = interruption_safe_partition_write
+        self.tool.switch_ota_partition(target_slot)
+        selected_path = self.evidence / "otadata-after.bin"
+        self.tool.target.read_partition(self.otatool.OtatoolTarget.OTADATA_PARTITION,
+                                        str(selected_path))
+        selected, _ = _selected_ota_copy(selected_path.read_bytes())
+        if selected["slot"] != target_slot:
+            raise ValueError("s3_update_selected_slot_mismatch")
+        return selected
+
+    def recover_selector(self, plan_sha256):
+        active, _ = _selected_ota_copy(self.original_otadata)
+        other = 1 - active["copy"]
+        sector = self.original_otadata[other * 0x1000:(other + 1) * 0x1000]
+        self._write_selector_sector(sector, "selector_recovery", plan_sha256)
+        path = self.evidence / "selector-recovery-readback.bin"
+        self.tool.target.read_partition(self.otatool.OtatoolTarget.OTADATA_PARTITION,
+                                        str(path))
+        if path.read_bytes() != self.original_otadata:
+            raise ValueError("s3_update_selector_recovery_readback_mismatch")
+
+    def restore_application(self):
+        if self.esp is None:
+            return
+        from gs117_tc001_readback import restore_application_once
+        restore_application_once(self.esp, self.device)
+
+    def close(self):
+        if self.log is not None:
+            self.log.close()
+        if self.esp is not None and self.esp._port.is_open:
+            self.esp._port.close()
+
+
+def run_s3_application_update(config, authorize, driver=None):
+    """Run the maintained IDF app-only writer using a live parent authorization callback."""
+    required = ("session_id", "expected_sha256", "binding_dir", "binding_sha256",
+                "evidence_dir", "idf_components", "target", "writer_sha256")
+    if any(key not in config for key in required):
+        raise ValueError("s3_update_writer_configuration_invalid")
+    session_id = config["session_id"]
+    expected_sha256 = config["expected_sha256"]
+    if (not re.fullmatch(r"[0-9a-f]{32}", str(session_id)) or
+            not re.fullmatch(r"[0-9a-f]{64}", str(expected_sha256)) or
+            not re.fullmatch(r"[0-9a-f]{64}", str(config["binding_sha256"])) or
+            not re.fullmatch(r"[0-9a-f]{64}", str(config["writer_sha256"])) or
+            hashlib.sha256(Path(__file__).read_bytes()).hexdigest() != config["writer_sha256"]):
+        raise ValueError("s3_update_writer_configuration_invalid")
+    snapshot, image, manifest = verify_s3_update_binding(
+        config["binding_dir"], session_id, expected_sha256, config["target"],
+        S3_UPDATE_PARTITION_CONTRACT)
+    binding_path = Path(config["binding_dir"]) / "artifact-binding.json"
+    if hashlib.sha256(binding_path.read_bytes()).hexdigest() != config["binding_sha256"]:
+        raise ValueError("s3_update_binding_manifest_changed")
+    evidence = Path(config["evidence_dir"])
+    if evidence != Path(config["binding_dir"]) or evidence.is_symlink():
+        raise ValueError("s3_update_evidence_binding_invalid")
+    lock_path = evidence / "writer.lock"
+    try:
+        descriptor = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    except FileExistsError as error:
+        raise ValueError("s3_update_duplicate_writer_rejected") from error
+    os.close(descriptor)
+
+    driver = driver
+    plan = None
+    selector_write_started = False
+    result = {"status": "STARTED", "session_id": session_id,
+              "application_sha256": expected_sha256, "target": manifest["target"],
+              "partition_contract": manifest["partition_contract"],
+              "protected_regions_unchanged": False,
+              "selector_recovery": "NOT_REQUIRED"}
+    try:
+        if driver is None:
+            driver = _S3IDFUpdateDriver(config, authorize)
+        inspection = driver.inspect(manifest["target"])
+        plan = validate_s3_application_update(
+            image, expected_sha256, inspection["baseline"], inspection["observed"],
+            inspection["partitions"])
+        plan_data = {"plan": plan, "active_selector": inspection["active_selector"],
+                     "baseline": inspection["baseline"], "target": manifest["target"]}
+        plan_sha256 = hashlib.sha256(json.dumps(
+            plan_data, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        driver.write_application(plan, snapshot, plan_sha256, inspection["otadata"])
+        result["application_readback_sha256"] = driver.verify_application(plan, image)
+        result["protected_region_sha256"] = driver.verify_protected()
+        result["protected_regions_unchanged"] = True
+        selector_write_started = True
+        result["selector_after"] = driver.select(plan["target_slot"], plan_sha256)
+        result["selector_recovery"] = "NOT_REQUIRED"
+        result["status"] = "WRITTEN_READBACK_VERIFIED_SELECTED"
+        driver.restore_application()
+        result["normal_boot_restoration"] = "USB_IDENTITY_REENUMERATED"
+        return result
+    except S3UpdateAuthorizationLost as error:
+        result.update(status="FAIL", failure=str(error)[:240])
+        raise
+    except Exception as error:
+        result.update(status="FAIL", failure=str(error)[:240])
+        if selector_write_started and plan is not None:
+            try:
+                driver.recover_selector(plan_sha256)
+                result["selector_recovery"] = "VERIFIED_ORIGINAL_RESTORED"
+            except S3UpdateAuthorizationLost:
+                result["selector_recovery"] = "NOT_ATTEMPTED_PARENT_OWNERSHIP_LOST"
+            except Exception as recovery_error:
+                result["selector_recovery"] = "FAIL:" + str(recovery_error)[:180]
+                raise RuntimeError("s3_update_selector_recovery_failed") from recovery_error
+        if driver is not None and not isinstance(error, S3UpdateAuthorizationLost):
+            try:
+                driver.restore_application()
+                result["normal_boot_restoration"] = "USB_IDENTITY_REENUMERATED"
+            except Exception as restore_error:
+                result["normal_boot_restoration"] = "FAIL:" + str(restore_error)[:180]
+                raise RuntimeError("s3_update_normal_boot_restoration_failed") from restore_error
+        raise
+    finally:
+        try:
+            if driver is not None:
+                driver.close()
+        except Exception as close_error:
+            result["cleanup_error"] = str(close_error)[:180]
+        report_path = evidence / "update-result.json"
+        with report_path.open("x", encoding="utf-8") as stream:
+            json.dump(result, stream, sort_keys=True)
+            stream.flush()
+            os.fsync(stream.fileno())
+
+
+def _s3_update_dedicated_protocol_stream():
+    sys.stdout.flush()
+    protocol = os.fdopen(os.dup(sys.stdout.fileno()), "w", buffering=1, encoding="utf-8")
+    try:
+        os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
+    except OSError:
+        protocol.close()
+        raise
+    return protocol
+
+
+def _s3_update_stdio_authorizer(config, protocol_stream=None):
+    sequence = 0
+
+    def authorize(boundary, plan_sha256):
+        nonlocal sequence
+        if boundary not in S3_UPDATE_WRITE_BOUNDARIES or not re.fullmatch(
+                r"[0-9a-f]{64}", str(plan_sha256)):
+            raise S3UpdateAuthorizationLost("s3_update_parent_ownership_invalid")
+        sequence += 1
+        request = {"kind": "s3_update_write_authorization", "sequence": sequence,
+                   "session_id": config["session_id"],
+                   "binding_sha256": config["binding_sha256"],
+                   "application_sha256": config["expected_sha256"],
+                   "boundary": boundary, "plan_sha256": plan_sha256}
+        stream = protocol_stream if protocol_stream is not None else sys.__stdout__
+        stream.write(json.dumps(request, sort_keys=True) + "\n")
+        stream.flush()
+        response_line = sys.__stdin__.readline()
+        if not response_line:
+            raise S3UpdateAuthorizationLost("s3_update_parent_interrupted")
+        try:
+            response = json.loads(response_line)
+        except json.JSONDecodeError as error:
+            raise S3UpdateAuthorizationLost("s3_update_parent_response_invalid") from error
+        if (response.get("kind") != "s3_update_write_authorization" or
+                response.get("sequence") != sequence or
+                response.get("session_id") != config["session_id"] or
+                response.get("allowed") is not True):
+            raise S3UpdateAuthorizationLost("s3_update_parent_ownership_invalid")
+    return authorize
+
+
+def _run_s3_application_update_cli(config):
+    protocol_stream = _s3_update_dedicated_protocol_stream()
+    try:
+        with contextlib.redirect_stdout(sys.stderr):
+            result = run_s3_application_update(
+                config, _s3_update_stdio_authorizer(config, protocol_stream))
+        print(json.dumps(result, sort_keys=True), file=sys.stderr)
+    finally:
+        protocol_stream.close()
+
+
 if __name__ == "__main__":
     try:
         config = json.loads(base64.b64decode(sys.argv[1], validate=True))
         action = config.get("action")
-        if action == "List":
+        if action == "S3ApplicationUpdate":
+            _run_s3_application_update_cli(config)
+            raise SystemExit(0)
+        elif action == "List":
             value = ports()
         elif action == "ObserveNode":
             value = observe_node(config)
@@ -2041,11 +2516,14 @@ if __name__ == "__main__":
         else:
             raise ValueError("TC001_SERIAL_ACTION_NOT_ALLOWED")
         print(json.dumps(value))
-    except BaseException as error:
+    except Exception as error:
         failure = {"error": str(error) if isinstance(error, ValueError) else type(error).__name__}
         if hasattr(error, "captured_observation"):
             failure["observation"] = error.captured_observation
         if hasattr(error, "bootstrap_timeline"):
             failure["bootstrap_timeline"] = error.bootstrap_timeline
-        print(json.dumps(failure))
+        if locals().get("action") == "S3ApplicationUpdate":
+            print(json.dumps(failure), file=sys.stderr)
+        else:
+            print(json.dumps(failure))
         raise SystemExit(2)
